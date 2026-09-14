@@ -65,10 +65,17 @@ vi.mock("@/api/hooks", () => ({
     error: null,
     refetch: vi.fn(),
   }),
+  useNotes: () => ({
+    data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } },
+    isPending: false,
+  }),
   useMe: () => ({ data: { id: "user-1" }, isPending: false }),
   useCreateProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateConference: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useTrackEvent: () => vi.fn(),
   useUserSearch: () => ({ data: [], isPending: false, isError: false }),
 }));

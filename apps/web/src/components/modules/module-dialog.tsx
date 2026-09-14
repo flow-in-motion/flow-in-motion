@@ -3,11 +3,19 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import {
   useEnumValues,
   useModulePipelineStagePool,
+  useNotes,
+  useTasks,
+  useUpdateNote,
+  useUpdateTask,
   type ApiModule,
   type ApiProject,
   type Membership,
 } from "@/api/hooks";
 import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
+import {
+  LinkExistingField,
+  type LinkExistingOption,
+} from "@/components/shared/link-existing-field";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
@@ -55,7 +63,8 @@ interface ModuleDialogProps {
   module?: ApiModule | null;
   /** Pre-links a new module to this project when the dialog is opened for creation. */
   initialProjectId?: string;
-  onSave: (input: ModuleFormInput) => Promise<void> | void;
+  /** Returns the saved module so newly-created papers can link existing tasks/notes to it. */
+  onSave: (input: ModuleFormInput) => Promise<ApiModule | void>;
 }
 
 const INITIAL_FORM: ModuleFormInput = {
@@ -104,7 +113,25 @@ export function ModuleDialog({
   const [isIndependent, setIsIndependent] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [linkedTasks, setLinkedTasks] = useState<LinkExistingOption[]>([]);
+  const [linkedNotes, setLinkedNotes] = useState<LinkExistingOption[]>([]);
   const isEditing = Boolean(module);
+
+  const tasksQuery = useTasks(tenantId, undefined, 1, open && !isEditing);
+  const notesQuery = useNotes(tenantId, undefined, 1, open && !isEditing);
+  const updateTask = useUpdateTask(tenantId);
+  const updateNote = useUpdateNote(tenantId);
+
+  const taskOptions = (tasksQuery.data?.data ?? []).map((task) => ({
+    id: task.id,
+    label: task.title,
+    sublabel: task.moduleId ? "Linked to another paper" : "Unlinked",
+  }));
+  const noteOptions = (notesQuery.data?.data ?? []).map((note) => ({
+    id: note.id,
+    label: note.title,
+    sublabel: note.moduleId ? "Linked to another paper" : "Unlinked",
+  }));
 
   const visibleStages = useMemo(
     () =>
@@ -117,6 +144,8 @@ export function ModuleDialog({
   useEffect(() => {
     if (!open) return;
     setSaveError(null);
+    setLinkedTasks([]);
+    setLinkedNotes([]);
     if (module) {
       setForm({
         shortTitle: module.shortTitle ?? "",
@@ -151,7 +180,7 @@ export function ModuleDialog({
     setIsSaving(true);
     setSaveError(null);
     try {
-      await onSave({
+      const savedModule = await onSave({
         ...form,
         shortTitle: form.shortTitle.trim(),
         title: form.title.trim(),
@@ -159,6 +188,22 @@ export function ModuleDialog({
         abstract: form.abstract.trim(),
         projectId: isIndependent ? null : form.projectId,
       });
+      if (!isEditing && savedModule) {
+        await Promise.all([
+          ...linkedTasks.map((task) =>
+            updateTask.mutateAsync({
+              taskId: task.id,
+              input: { moduleId: savedModule.id },
+            }),
+          ),
+          ...linkedNotes.map((note) =>
+            updateNote.mutateAsync({
+              noteId: note.id,
+              input: { moduleId: savedModule.id },
+            }),
+          ),
+        ]);
+      }
       onOpenChange(false);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "The module could not be saved.");
@@ -361,6 +406,38 @@ export function ModuleDialog({
                 This paper was shared with you from another workspace. Only members of that
                 workspace can manage who has access.
               </p>
+            </div>
+          ) : null}
+
+          {!isEditing ? (
+            <div className="grid gap-4 rounded-lg border p-4">
+              <p className="text-sm font-medium">Link existing work (optional)</p>
+              <FormField label="Tasks" htmlFor="new-module-link-tasks">
+                <LinkExistingField
+                  id="new-module-link-tasks"
+                  placeholder="Search tasks by title"
+                  options={taskOptions}
+                  selected={linkedTasks}
+                  onAdd={(option) => setLinkedTasks((current) => [...current, option])}
+                  onRemove={(id) =>
+                    setLinkedTasks((current) => current.filter((item) => item.id !== id))
+                  }
+                  emptyMessage={tasksQuery.isPending ? "Loading tasks…" : "No matching tasks."}
+                />
+              </FormField>
+              <FormField label="Notes" htmlFor="new-module-link-notes">
+                <LinkExistingField
+                  id="new-module-link-notes"
+                  placeholder="Search notes by title"
+                  options={noteOptions}
+                  selected={linkedNotes}
+                  onAdd={(option) => setLinkedNotes((current) => [...current, option])}
+                  onRemove={(id) =>
+                    setLinkedNotes((current) => current.filter((item) => item.id !== id))
+                  }
+                  emptyMessage={notesQuery.isPending ? "Loading notes…" : "No matching notes."}
+                />
+              </FormField>
             </div>
           ) : null}
 

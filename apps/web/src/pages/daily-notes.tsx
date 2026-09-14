@@ -797,14 +797,24 @@ export default function DailyNotesPage() {
                     </Button>
                   ) : null}
                 </div>
-                {selectedNote.projectId ? (
+                {selectedNote.moduleId ? (
+                  <div className="mt-3 flex max-w-md flex-col gap-2">
+                    <Link to={`/modules/${selectedNote.moduleId}`} className="block rounded-lg border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
+                      <span className="mt-1 block font-semibold text-primary">{linkTargetLabel(selectedNote)}</span>
+                    </Link>
+                    {selectedNote.projectId ? (
+                      <Link to={`/projects/${selectedNote.projectId}`} className="block rounded-lg border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parent project</span>
+                        <span className="mt-1 block font-semibold text-primary">
+                          {projectById.get(selectedNote.projectId) ?? "Unknown project"}
+                        </span>
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : selectedNote.projectId ? (
                   <Link to={`/projects/${selectedNote.projectId}`} className="mt-3 block max-w-md rounded-lg border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project</span>
-                    <span className="mt-1 block font-semibold text-primary">{linkTargetLabel(selectedNote)}</span>
-                  </Link>
-                ) : selectedNote.moduleId ? (
-                  <Link to={`/modules/${selectedNote.moduleId}`} className="mt-3 block max-w-md rounded-lg border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
                     <span className="mt-1 block font-semibold text-primary">{linkTargetLabel(selectedNote)}</span>
                   </Link>
                 ) : (

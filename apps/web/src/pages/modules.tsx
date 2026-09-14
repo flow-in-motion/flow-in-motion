@@ -219,7 +219,7 @@ export default function ModulesPage() {
   const hasActiveFilters = search !== "" || status !== "All";
 
   async function handleCreateModule(input: ModuleFormInput) {
-    await createModule.mutateAsync({
+    const module = await createModule.mutateAsync({
       shortTitle: input.shortTitle,
       title: input.title || undefined,
       description: input.description || undefined,
@@ -232,6 +232,7 @@ export default function ModulesPage() {
       assignedToUserId: input.assignedToUserId ?? undefined,
     });
     trackEvent({ name: "module_created" });
+    return module;
   }
 
   async function archive(module: ApiModule) {

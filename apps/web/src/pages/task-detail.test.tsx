@@ -39,10 +39,15 @@ vi.mock("@/api/hooks", () => ({
   useProjects: () => ({
     data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } },
   }),
-  useModules: () => ({ data: fixtures.modules }),
+  useModules: () => ({
+    data: { data: fixtures.modules, meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 } },
+  }),
   useUpdateMyTask: () => ({ mutateAsync: fixtures.updateTask, isPending: false }),
   useTrackEvent: () => vi.fn(),
-  useProject: () => ({ data: undefined, isError: false }),
+  useProject: (_tenantId: string, projectId?: string) => ({
+    data: projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
+    isError: false,
+  }),
 }));
 
 describe("TaskDetailPage", () => {
@@ -107,6 +112,32 @@ describe("TaskDetailPage", () => {
         input: { projectId: null, moduleId: null },
       }),
     );
+  });
+
+  it("shows the paper (not the project) when linked to a project-linked paper, alongside its parent project", () => {
+    // The backend denormalizes a module-linked task's projectId to the
+    // module's parent project, so a task linked to a paper still has both
+    // moduleId and projectId set — the UI must not mistake that for a
+    // direct project link.
+    fixtures.task.moduleId = "module-1";
+    fixtures.task.projectId = "project-1";
+    render(
+      <MemoryRouter initialEntries={["/tasks/task-1"]}>
+        <Routes>
+          <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Paper")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Paper Assay optimization/ }),
+    ).toHaveAttribute("href", "/modules/module-1");
+
+    expect(screen.getByText("Parent project")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Parent project Genome Sequencing Study/ }),
+    ).toHaveAttribute("href", "/projects/project-1");
   });
 
   it("blocks saving a new link until a project is actually picked", () => {

@@ -362,7 +362,7 @@ export default function PipelinePage() {
   const unassignedRows = filteredRows.filter((row) => row.stageIndex === undefined);
 
   async function handleCreateModule(input: ModuleFormInput) {
-    await createModule.mutateAsync({
+    const module = await createModule.mutateAsync({
       shortTitle: input.shortTitle,
       title: input.title || undefined,
       description: input.description || undefined,
@@ -375,6 +375,7 @@ export default function PipelinePage() {
       assignedToUserId: input.assignedToUserId ?? undefined,
     });
     trackEvent({ name: "module_created" });
+    return module;
   }
 
   function moveItem(id: string, stageIndex: number) {

@@ -19,6 +19,15 @@ const fixtures = vi.hoisted(() => ({
       priority: "Medium",
       dueDate: null,
     },
+    {
+      id: "task-2",
+      displayId: "TSK-002",
+      moduleId: null as string | null,
+      title: "Independent task",
+      status: "To do",
+      priority: "Medium",
+      dueDate: null,
+    },
   ],
   notes: [
     {
@@ -26,6 +35,12 @@ const fixtures = vi.hoisted(() => ({
       moduleId: "module-1",
       title: "Meeting notes",
       content: "Discussed scope",
+    },
+    {
+      id: "note-2",
+      moduleId: null as string | null,
+      title: "Independent note",
+      content: "Unrelated",
     },
   ],
   module: {
@@ -359,6 +374,42 @@ describe("ModuleDetailPage", () => {
       expect(fixtures.updateNote).toHaveBeenCalledWith({
         noteId: "note-1",
         input: { moduleId: null },
+      }),
+    );
+  });
+
+  it("links an existing task to this paper", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[0]);
+
+    const searchInput = await screen.findByPlaceholderText("Search tasks by title");
+    fireEvent.focus(searchInput);
+    fireEvent.click(await screen.findByText("Independent task"));
+    fireEvent.click(screen.getByRole("button", { name: "Link tasks" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateTask).toHaveBeenCalledWith({
+        taskId: "task-2",
+        input: { moduleId: "module-1" },
+      }),
+    );
+  });
+
+  it("links an existing note to this paper", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[1]);
+
+    const searchInput = await screen.findByPlaceholderText("Search notes by title");
+    fireEvent.focus(searchInput);
+    fireEvent.click(await screen.findByText("Independent note"));
+    fireEvent.click(screen.getByRole("button", { name: "Link notes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateNote).toHaveBeenCalledWith({
+        noteId: "note-2",
+        input: { moduleId: "module-1" },
       }),
     );
   });

@@ -373,7 +373,7 @@ export default function DashboardPage() {
   }
 
   async function handleCreateProject(input: NewProjectInput) {
-    await createProject.mutateAsync({
+    const project = await createProject.mutateAsync({
       title: input.title,
       description: input.description || undefined,
       researchArea: input.researchArea || undefined,
@@ -385,6 +385,7 @@ export default function DashboardPage() {
       targetJournals: input.targetJournals || undefined,
     });
     trackEvent({ name: "project_created" });
+    return project;
   }
 
   async function handleCreateTask(input: TaskFormInput) {
@@ -476,6 +477,7 @@ export default function DashboardPage() {
       <NewProjectDialog
         open={isNewProjectOpen}
         onOpenChange={setIsNewProjectOpen}
+        tenantId={tenantId}
         onCreate={handleCreateProject}
       />
       <TaskDialog
