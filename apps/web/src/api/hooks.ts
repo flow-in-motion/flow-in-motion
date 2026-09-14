@@ -292,6 +292,8 @@ export const apiKeys = {
     ] as const,
   projects: (tenantId: string) =>
     ["api", "tenant", tenantId, "projects"] as const,
+  projectsPage: (tenantId: string, page = 1) =>
+    ["api", "tenant", tenantId, "projects", page] as const,
   project: (tenantId: string, projectId: string) =>
     ["api", "tenant", tenantId, "projects", projectId] as const,
   projectCollaborators: (tenantId: string, projectId: string) =>
@@ -688,14 +690,21 @@ export interface CreateProjectInput {
 }
 export type UpdateProjectInput = Partial<CreateProjectInput>;
 
-export function useProjects(tenantId: string, enabled = true) {
+export function useProjects(
+  tenantId: string,
+  page = 1,
+  enabled = true,
+) {
   return useQuery({
-    queryKey: apiKeys.projects(tenantId),
+    queryKey: apiKeys.projectsPage(tenantId, page),
     enabled: Boolean(tenantId) && enabled,
     queryFn: async () =>
       responseData<PaginatedResponse<ApiProject>>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/projects", {
-          params: { path: { tenantId } },
+          params: {
+            path: { tenantId },
+            query: { page } as never,
+          },
         }),
       ),
   });
@@ -1097,12 +1106,8 @@ export function useArchiveModule(tenantId: string) {
         }),
       ),
     async onSuccess(_result, moduleId) {
-      // The tenant-scoped list is paginated (`{ data, meta }`), so just
-      // invalidate and let it refetch. The "my modules" list is a plain
-      // array, so it can be patched directly.
-      queryClient.setQueryData<ApiModule[]>(myModulesKey, (current) =>
-        current?.filter((module) => module.id !== moduleId),
-      );
+      // Both tenant-scoped and cross-workspace module lists are paginated,
+      // so invalidate them and let React Query refetch the affected pages.
       queryClient.removeQueries({
         queryKey: apiKeys.module(tenantId, moduleId),
       });
@@ -1174,6 +1179,10 @@ export function useRemoveModuleCollaborator(
 }
 
 const myModulesKey = ["api", "me", "modules"] as const;
+
+const myModulesPageKey = (page = 1) =>
+  [...myModulesKey, page] as const;
+
 const myModuleKey = (moduleId: string) =>
   ["api", "me", "modules", moduleId] as const;
 
@@ -1181,12 +1190,18 @@ const myModuleKey = (moduleId: string) =>
  * Tenant-agnostic: every module the caller can access, regardless of which
  * workspace it lives in — see MyModulesController on the backend.
  */
-export function useMyModules(enabled = true) {
+export function useMyModules(page = 1, enabled = true) {
   return useQuery({
-    queryKey: myModulesKey,
+    queryKey: myModulesPageKey(page),
     enabled,
     queryFn: async () =>
-      responseData<ApiModule[]>(await apiClient.GET("/api/v1/me/modules")),
+      responseData<PaginatedResponse<ApiModule>>(
+        await apiClient.GET("/api/v1/me/modules", {
+          params: {
+            query: { page } as never,
+          },
+        }),
+      ),
   });
 }
 

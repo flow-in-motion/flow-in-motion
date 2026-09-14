@@ -45,6 +45,13 @@ const store = vi.hoisted(() => {
     },
   };
 });
+const hookMocks = vi.hoisted(() => ({
+  useModules: vi.fn(),
+  pagination: {
+    totalItems: 1,
+    totalPages: 1,
+  },
+}));
 
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
@@ -102,7 +109,13 @@ vi.mock("@/api/hooks", async () => {
     }),
     useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useModules: () => {
+    useModules: (
+      tenantId: string,
+      projectId?: string,
+      page = 1,
+    ) => {
+      hookMocks.useModules(tenantId, projectId, page);
+
       const moduleRows = useStore(
         store.subscribe,
         store.getModules,
@@ -112,16 +125,14 @@ vi.mock("@/api/hooks", async () => {
         data: {
           data: moduleRows,
           meta: {
-            page: 1,
+            page,
             pageSize: 20,
-            totalItems: moduleRows.length,
-            totalPages: Math.max(
-              1,
-              Math.ceil(moduleRows.length / 20),
-            ),
+            totalItems: hookMocks.pagination.totalItems,
+            totalPages: hookMocks.pagination.totalPages,
           },
         },
         isPending: false,
+        isFetching: false,
         isError: false,
         error: undefined,
         refetch: vi.fn(),
@@ -219,8 +230,37 @@ describe("ModulesPage", () => {
       },
     ]);
     fixtures.projects = [];
+    hookMocks.useModules.mockClear();
+    hookMocks.pagination.totalItems = 1;
+    hookMocks.pagination.totalPages = 1;
   });
-
+  it("requests the next modules page when Next is clicked", () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+  
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+  
+    expect(hookMocks.useModules).toHaveBeenCalledWith(
+      fixtures.tenantId,
+      undefined,
+      1,
+    );
+  
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  
+    expect(hookMocks.useModules).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      undefined,
+      2,
+    );
+  
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
+  
   it("creates an independent module and shows it in the table", async () => {
     render(
       <MemoryRouter>

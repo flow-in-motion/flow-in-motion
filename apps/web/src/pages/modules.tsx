@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, ArrowDown, ArrowUp, ArrowUpDown, FileStack, Pencil, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/select";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { cn } from "@/lib/utils";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const STATUS_FILTERS = ["All", "Active", "Review", "Stalled", "Complete"] as const;
 const MODULE_COLUMNS = [
@@ -106,9 +107,11 @@ function SortableHeader({ label, column, sortColumn, sortDirection, onSort }: So
 export default function ModulesPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
+  const [page, setPage] = useState(1);
 
-  const modulesQuery = useModules(tenantId);
+  const modulesQuery = useModules(tenantId, undefined, page);
   const modules = modulesQuery.data?.data ?? [];
+  const paginationMeta = modulesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
   const [isNewModuleOpen, setIsNewModuleOpen] = useState(false);
@@ -128,6 +131,15 @@ export default function ModulesPage() {
   const [status, setStatus] = useState<StatusFilter>("All");
   const [sortColumn, setSortColumn] = useState<SortColumn>("module");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  useEffect(() => {
+    setPage(1);
+  }, [
+    tenantId,
+    search,
+    status,
+    sortColumn,
+    sortDirection,
+  ]);
   const columns = useColumnVisibility(MODULE_COLUMNS.map((column) => column.id), "modules");
   const gridTemplate = MODULE_COLUMNS.filter((column) =>
     columns.visibleColumns.has(column.id),
@@ -462,6 +474,16 @@ export default function ModulesPage() {
               ))
             )}
           </div>
+          {paginationMeta ? (
+            <PaginationControls
+              page={paginationMeta.page}
+              pageSize={paginationMeta.pageSize}
+              totalItems={paginationMeta.totalItems}
+              totalPages={paginationMeta.totalPages}
+              isPending={modulesQuery.isFetching}
+              onPageChange={setPage}
+            />
+          ) : null}
         </div>
       </div>
     </div>

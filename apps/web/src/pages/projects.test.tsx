@@ -73,6 +73,13 @@ const fixtures = vi.hoisted(() => ({
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
 }));
+const hookMocks = vi.hoisted(() => ({
+  useProjects: vi.fn(),
+  pagination: {
+    totalItems: 1,
+    totalPages: 1,
+  },
+}));
 
 vi.mock("@/api/client", () => ({
   apiClient: {
@@ -99,7 +106,29 @@ vi.mock("@/api/hooks", () => ({
     },
   }),
   useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
-  useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
+  useProjects: (
+    tenantId: string,
+    page = 1,
+  ) => {
+    hookMocks.useProjects(tenantId, page);
+  
+    return {
+      data: {
+        data: fixtures.projects,
+        meta: {
+          page,
+          pageSize: 20,
+          totalItems: hookMocks.pagination.totalItems,
+          totalPages: hookMocks.pagination.totalPages,
+        },
+      },
+      isPending: false,
+      isFetching: false,
+      isError: false,
+      error: undefined,
+      refetch: vi.fn(),
+    };
+  },
   useMembers: () => ({
     data: {
       data: [],
@@ -176,8 +205,30 @@ describe("ProjectsPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
     fixtures.projects = [fixtures.project];
+    hookMocks.useProjects.mockClear();
+    hookMocks.pagination.totalItems = 1;
+    hookMocks.pagination.totalPages = 1;    
   });
-
+  it("requests the next projects page when Next is clicked", () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+  
+    renderPage();
+  
+    expect(hookMocks.useProjects).toHaveBeenCalledWith(
+      fixtures.tenantId,
+      1,
+    );
+  
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  
+    expect(hookMocks.useProjects).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      2,
+    );
+  
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
   it("provides a direct edit action for each project row", () => {
     renderPage();
 

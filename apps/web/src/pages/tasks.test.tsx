@@ -3,6 +3,13 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import TasksPage from "@/pages/tasks";
+const hookMocks = vi.hoisted(() => ({
+  useTasks: vi.fn(),
+  pagination: {
+    totalItems: 1,
+    totalPages: 1,
+  },
+}));
 
 type TaskFixture = {
   id: string;
@@ -108,7 +115,13 @@ vi.mock("@/api/hooks", async () => {
         : [],
       isPending: false,
     }),
-    useTasks: () => {
+    useTasks: (
+      tenantId: string,
+      projectId?: string,
+      page = 1,
+    ) => {
+      hookMocks.useTasks(tenantId, projectId, page);
+    
       const tasks = useSyncExternalStore(
         store.subscribe,
         store.getTasks,
@@ -118,13 +131,14 @@ vi.mock("@/api/hooks", async () => {
         data: {
           data: tasks,
           meta: {
-            page: 1,
+            page,
             pageSize: 20,
-            totalItems: tasks.length,
-            totalPages: 1,
+            totalItems: hookMocks.pagination.totalItems,
+            totalPages: hookMocks.pagination.totalPages,
           },
         },
         isPending: false,
+        isFetching: false,
         isError: false,
         error: undefined,
         refetch: vi.fn(),
@@ -202,8 +216,67 @@ describe("TasksPage", () => {
     ]);
     fixtures.projects = [];
     fixtures.modules = [];
+    hookMocks.useTasks.mockClear();
+    hookMocks.pagination.totalItems = 1;
+    hookMocks.pagination.totalPages = 1;
   });
-
+  it("returns to page 1 when the search changes", async () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+  
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+  
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  
+    expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      undefined,
+      2,
+    );
+  
+    fireEvent.change(screen.getByPlaceholderText("Search tasks…"), {
+      target: { value: "safety" },
+    });
+  
+    await waitFor(() => {
+      expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
+        fixtures.tenantId,
+        undefined,
+        1,
+      );
+    });
+  });
+  
+  it("requests the next page when Next is clicked", () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+  
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+  
+    expect(hookMocks.useTasks).toHaveBeenCalledWith(
+      fixtures.tenantId,
+      undefined,
+      1,
+    );
+  
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  
+    expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      undefined,
+      2,
+    );
+  
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
   it("shows the due date in the table and new-task form", () => {
     render(
       <MemoryRouter>
