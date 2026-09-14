@@ -359,7 +359,7 @@ export default function ModuleDetailPage() {
   // workspace — a module shared from another tenant can't list that
   // tenant's projects without full membership there (same boundary as the
   // collaborators section below).
-  const projectsQuery = useProjects(tenantId, sameTenant);
+  const projectsQuery = useProjects(tenantId, 1, sameTenant);
   const availableProjects = projectsQuery.data?.data ?? [];
   const stagesQuery = useModulePipelineStagePool(module?.tenantId ?? tenantId, Boolean(module));
   const [form, setForm] = useState<EditableModule | null>(null);

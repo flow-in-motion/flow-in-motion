@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, ListTodo, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -31,6 +31,7 @@ import {
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const STATUS_FILTERS = ["All", "To do", "Underway", "Waiting", "Complete"] as const;
 const PRIORITY_FILTERS = ["All", "Low", "Medium", "High", "Critical"] as const;
@@ -122,8 +123,11 @@ export default function TasksPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
 
-  const tasksQuery = useTasks(tenantId);
+  const [page, setPage] = useState(1);
+
+  const tasksQuery = useTasks(tenantId, undefined, page);
   const tasks = tasksQuery.data?.data ?? [];
+  const paginationMeta = tasksQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
   const modulesQuery = useModules(tenantId);
@@ -140,6 +144,16 @@ export default function TasksPage() {
   const [priority, setPriority] = useState<PriorityFilter>("All");
   const [sortColumn, setSortColumn] = useState<SortColumn>("due");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  useEffect(() => {
+    setPage(1);
+  }, [
+    tenantId,
+    search,
+    status,
+    priority,
+    sortColumn,
+    sortDirection,
+  ]);
   const columns = useColumnVisibility(TASK_COLUMNS.map((column) => column.id), "tasks");
   const gridTemplate = TASK_COLUMNS.filter((column) =>
     columns.visibleColumns.has(column.id),
@@ -455,6 +469,16 @@ export default function TasksPage() {
               ))
             )}
           </div>
+          {paginationMeta ? (
+            <PaginationControls
+              page={paginationMeta.page}
+              pageSize={paginationMeta.pageSize}
+              totalItems={paginationMeta.totalItems}
+              totalPages={paginationMeta.totalPages}
+              isPending={tasksQuery.isFetching}
+              onPageChange={setPage}
+            />
+          ) : null}
         </div>
       </div>
     </div>

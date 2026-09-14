@@ -35,6 +35,13 @@ const store = vi.hoisted(() => {
     },
   };
 });
+const hookMocks = vi.hoisted(() => ({
+  useNotes: vi.fn(),
+  pagination: {
+    totalItems: 1,
+    totalPages: 1,
+  },
+}));
 
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
@@ -111,7 +118,13 @@ vi.mock("@/api/hooks", async () => {
         : [],
       isPending: false,
     }),
-    useNotes: () => {
+    useNotes: (
+      tenantId: string,
+      projectId?: string,
+      page = 1,
+    ) => {
+      hookMocks.useNotes(tenantId, projectId, page);
+    
       const notes = useSyncExternalStore(
         store.subscribe,
         store.getNotes,
@@ -121,13 +134,14 @@ vi.mock("@/api/hooks", async () => {
         data: {
           data: notes,
           meta: {
-            page: 1,
+            page,
             pageSize: 20,
-            totalItems: notes.length,
-            totalPages: Math.max(1, Math.ceil(notes.length / 20)),
+            totalItems: hookMocks.pagination.totalItems,
+            totalPages: hookMocks.pagination.totalPages,
           },
         },
         isPending: false,
+        isFetching: false,
         isError: false,
         error: undefined,
         refetch: vi.fn(),
@@ -192,6 +206,9 @@ describe("DailyNotesPage", () => {
   beforeEach(() => {
     sharingMutations.addNoteMember.mockClear();
     updateNoteMock.mockClear();
+    hookMocks.useNotes.mockClear();
+    hookMocks.pagination.totalItems = 1;
+    hookMocks.pagination.totalPages = 1;
     store.setNotes([
       {
         id: "note-1",
@@ -208,7 +225,33 @@ describe("DailyNotesPage", () => {
       },
     ]);
   });
-
+  it("requests the next notes page when Next is clicked", () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+  
+    render(
+      <MemoryRouter>
+        <DailyNotesPage />
+      </MemoryRouter>,
+    );
+  
+    expect(hookMocks.useNotes).toHaveBeenCalledWith(
+      fixtures.tenantId,
+      undefined,
+      1,
+    );
+  
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  
+    expect(hookMocks.useNotes).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      undefined,
+      2,
+    );
+  
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
+  
   it("creates a general note", async () => {
     render(
       <MemoryRouter>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, FolderKanban, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const STATUS_FILTERS = ["All", "Active", "Review", "Stalled", "Complete"] as const;
 const ROLE_FILTERS = ["All roles", "owner", "collaborator", "supervisor", "lead"] as const;
@@ -211,8 +212,10 @@ function SortableHeader({ label, column, sortColumn, sortDirection, onSort }: So
 export default function ProjectsPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
+  const [page, setPage] = useState(1);
 
-  const projectsQuery = useProjects(tenantId);
+  const projectsQuery = useProjects(tenantId, page);
+  const paginationMeta = projectsQuery.data?.meta;
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
   const tasksQuery = useTasks(tenantId);
@@ -238,6 +241,16 @@ export default function ProjectsPage() {
   const [role, setRole] = useState<RoleFilter>("All roles");
   const [sortColumn, setSortColumn] = useState<SortColumn>("due");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  useEffect(() => {
+    setPage(1);
+  }, [
+    tenantId,
+    search,
+    status,
+    role,
+    sortColumn,
+    sortDirection,
+  ]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const columns = useColumnVisibility(
     PROJECT_COLUMNS.map((column) => column.id),
@@ -696,6 +709,16 @@ export default function ProjectsPage() {
               })
             )}
           </div>
+          {paginationMeta ? (
+            <PaginationControls
+              page={paginationMeta.page}
+              pageSize={paginationMeta.pageSize}
+              totalItems={paginationMeta.totalItems}
+              totalPages={paginationMeta.totalPages}
+              isPending={projectsQuery.isFetching}
+              onPageChange={setPage}
+            />
+          ) : null}
         </div>
       </div>
     </div>
