@@ -20,7 +20,7 @@ export default function SiteMapPage() {
 
       <div className="mx-auto mt-7 grid w-full max-w-5xl gap-6 md:grid-cols-2">
         {navGroups.map((group) => {
-          const isFuture = group.label === "Roadmap";
+          const isFuture = group.label === "Future features";
           return (
             <Card key={group.label || "main"}>
               <CardHeader>

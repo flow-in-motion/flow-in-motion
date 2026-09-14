@@ -533,14 +533,13 @@ export default function DashboardPage() {
         onSave={handleCreateConference}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {summary.map((item, index) => {
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summary.map((item) => {
           const tone = summaryToneStyles[item.tone] ?? summaryToneStyles.blue;
-          const isPrimaryMetric = index === 0;
           const card = (
             <Card className="group relative h-full overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary/25 hover:shadow-[var(--shadow-md)]">
               <span className={cn("absolute inset-x-0 top-0 h-1", tone.rail)} aria-hidden="true" />
-              <CardHeader className={cn("gap-4 p-5 pt-6", isPrimaryMetric && "sm:min-h-[11.25rem] sm:justify-between sm:p-6 sm:pt-7")}>
+              <CardHeader className="min-h-[11.25rem] justify-between gap-4 p-5 pt-6">
                 <div className="flex items-start justify-between gap-3">
                   <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border", tone.icon)}>
                     <item.icon className="h-[1.125rem] w-[1.125rem]" />
@@ -553,8 +552,8 @@ export default function DashboardPage() {
                   <CardDescription className="font-medium text-foreground/80">
                     {item.label}
                   </CardDescription>
-                  <CardTitle className={cn("mt-1.5 font-semibold tabular-nums tracking-[-0.04em] text-foreground", isPrimaryMetric ? "text-[2.25rem]" : "text-[1.875rem]")}>
-                  {item.value}
+                  <CardTitle className="mt-1.5 text-[1.875rem] font-semibold tabular-nums tracking-[-0.04em] text-foreground">
+                    {item.value}
                   </CardTitle>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     {item.description}
@@ -568,10 +567,7 @@ export default function DashboardPage() {
             <Link
               key={item.label}
               to={item.to}
-              className={cn(
-                "block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
-                isPrimaryMetric ? "sm:col-span-2 xl:col-span-2" : "xl:col-span-1",
-              )}
+              className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
             >
               {card}
             </Link>

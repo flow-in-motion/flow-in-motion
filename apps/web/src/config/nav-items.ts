@@ -70,7 +70,7 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Roadmap",
+    label: "Future features",
     collapsible: true,
     items: [
       {

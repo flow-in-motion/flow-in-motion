@@ -15,7 +15,7 @@ describe("NavTree", () => {
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
   });
 
-  it("keeps roadmap links available behind a compact disclosure", () => {
+  it("keeps future feature links available behind a compact disclosure", () => {
     render(
       <MemoryRouter>
         <NavTree />
@@ -23,7 +23,7 @@ describe("NavTree", () => {
     );
 
     expect(screen.queryByRole("link", { name: /Account Audit/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Roadmap" }));
+    fireEvent.click(screen.getByRole("button", { name: "Future features" }));
     expect(screen.getByRole("link", { name: /Account Audit/ })).toHaveAttribute(
       "href",
       "/settings/account-audit",
