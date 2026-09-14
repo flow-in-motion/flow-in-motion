@@ -972,6 +972,39 @@ export function useRemoveProjectCollaborator(
 }
 
 // ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+export interface ApiFeedback {
+  id: string;
+  tenantId: string;
+  userId: string;
+  message: string;
+  rating: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateFeedbackInput {
+  message: string;
+  rating?: number;
+}
+
+export function useCreateFeedback(tenantId: string) {
+  return useMutation({
+    mutationFn: async (input: CreateFeedbackInput) =>
+      responseData<ApiFeedback>(
+        await apiClient.POST("/api/v1/tenant/{tenantId}/feedback", {
+          params: {
+            path: { tenantId },
+          },
+          body: input,
+        }),
+      ),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Modules
 // ---------------------------------------------------------------------------
 
