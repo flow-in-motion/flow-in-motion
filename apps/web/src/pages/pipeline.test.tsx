@@ -95,6 +95,14 @@ vi.mock("@/api/hooks", async () => {
         meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 },
       },
     }),
+    useNotes: () => ({
+      data: {
+        data: [],
+        meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 },
+      },
+    }),
+    useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useMembers: () => ({
       data: {
         data: [],

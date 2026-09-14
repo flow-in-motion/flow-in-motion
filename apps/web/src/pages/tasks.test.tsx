@@ -221,6 +221,45 @@ describe("TasksPage", () => {
     expect(screen.getByRole("button", { name: "Choose due date" })).toBeInTheDocument();
   });
 
+  it("links a task attached to a project-linked paper to the paper, not its parent project", () => {
+    // The backend denormalizes a module-linked task's projectId to the
+    // module's parent project, so both fields are set here — the "Linked
+    // to" cell must still route to the paper, matching its own label.
+    fixtures.projects = [{ id: "project-1", title: "Genome Sequencing Study" }];
+    fixtures.modules = [{ id: "module-1", title: "Assay optimization" }];
+    store.setTasks([
+      ...store.getTasks(),
+      {
+        id: "task-2",
+        displayId: "TSK-0442",
+        tenantId: fixtures.tenantId,
+        projectId: "project-1",
+        moduleId: "module-1",
+        createdBy: "user-owner",
+        title: "Run inhibition assay",
+        description: null,
+        status: "To do",
+        priority: "Medium",
+        visibility: "Private",
+        workingWith: null,
+        estimatedHours: null,
+        dueDate: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Assay optimization" }),
+    ).toHaveAttribute("href", "/modules/module-1");
+  });
+
   it("searches all platform users, not just workspace members, when sharing a new task", () => {
     render(
       <MemoryRouter>

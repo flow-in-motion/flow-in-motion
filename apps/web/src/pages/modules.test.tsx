@@ -92,6 +92,16 @@ vi.mock("@/api/hooks", async () => {
       isPending: false,
     }),
     useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
+    useTasks: () => ({
+      data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } },
+      isPending: false,
+    }),
+    useNotes: () => ({
+      data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } },
+      isPending: false,
+    }),
+    useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useModules: () => {
       const moduleRows = useStore(
         store.subscribe,

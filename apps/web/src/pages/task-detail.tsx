@@ -232,17 +232,27 @@ function LinkedWorkCard({
               </Button>
             </div>
           </div>
+        ) : task.moduleId ? (
+          <div className="flex flex-col gap-2">
+            <Link to={`/modules/${task.moduleId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
+              <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? "Loading…"}</span>
+            </Link>
+            {task.projectId ? (
+              <Link to={`/projects/${task.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parent project</span>
+                <span className="mt-1 block font-semibold text-primary">
+                  {linkedProjectTitle ?? (linkedProjectError ? "Unknown project" : "Loading…")}
+                </span>
+              </Link>
+            ) : null}
+          </div>
         ) : task.projectId ? (
           <Link to={`/projects/${task.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project</span>
             <span className="mt-1 block font-semibold text-primary">
               {linkedProjectTitle ?? (linkedProjectError ? "Unknown project" : "Loading…")}
             </span>
-          </Link>
-        ) : task.moduleId ? (
-          <Link to={`/modules/${task.moduleId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
-            <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? "Loading…"}</span>
           </Link>
         ) : (
           <p className="text-sm text-muted-foreground">This is a general task with no linked project or paper.</p>

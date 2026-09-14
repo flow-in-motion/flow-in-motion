@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   FolderKanban,
+  Link2,
   Pencil,
   Plus,
   Save,
@@ -48,6 +49,7 @@ import {
 } from "@/api/hooks";
 import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { LinkExistingDialog } from "@/components/shared/link-existing-dialog";
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
 import { BackButton } from "@/components/shared/back-button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -151,10 +153,12 @@ function FormField({
 function ProjectModulesDetails({
   modules,
   onAddModule,
+  onLinkExisting,
   onUnlinkModule,
 }: {
   modules: ApiModule[];
   onAddModule: () => void;
+  onLinkExisting: () => void;
   onUnlinkModule: (module: ApiModule) => void;
 }) {
   return (
@@ -162,6 +166,10 @@ function ProjectModulesDetails({
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>Papers ({modules.length})</CardTitle>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={onLinkExisting}>
+            <Link2 />
+            Link existing
+          </Button>
           <Button variant="outline" size="sm" onClick={onAddModule}>
             <Plus />
             Add paper
@@ -222,10 +230,12 @@ function ProjectModulesDetails({
 function ProjectTasksDetails({
   tasks,
   onAddTask,
+  onLinkExisting,
   onUnlinkTask,
 }: {
   tasks: ApiTask[];
   onAddTask: () => void;
+  onLinkExisting: () => void;
   onUnlinkTask: (task: ApiTask) => void;
 }) {
   return (
@@ -233,6 +243,10 @@ function ProjectTasksDetails({
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>Tasks ({tasks.length})</CardTitle>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={onLinkExisting}>
+            <Link2 />
+            Link existing
+          </Button>
           <Button variant="outline" size="sm" onClick={onAddTask}>
             <Plus />
             Add task
@@ -299,10 +313,12 @@ function ProjectTasksDetails({
 function ProjectNotesDetails({
   notes,
   projectId,
+  onLinkExisting,
   onUnlinkNote,
 }: {
   notes: ApiNote[];
   projectId: string;
+  onLinkExisting: () => void;
   onUnlinkNote: (note: ApiNote) => void;
 }) {
   return (
@@ -310,6 +326,10 @@ function ProjectNotesDetails({
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>Notes ({notes.length})</CardTitle>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={onLinkExisting}>
+            <Link2 />
+            Link existing
+          </Button>
           <Button asChild variant="outline" size="sm">
             <Link to={`/daily-notes?projectId=${projectId}&new=true`}>
               <Plus />
@@ -394,6 +414,15 @@ export default function ProjectDetailPage() {
   const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [isAddModuleOpen, setIsAddModuleOpen] = useState(false);
+  const [isLinkModulesOpen, setIsLinkModulesOpen] = useState(false);
+  const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
+  const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
+
+  // Unfiltered lists are only fetched once their "link existing" dialog is
+  // open, since they're just candidate pools for that picker.
+  const allModulesQuery = useModules(tenantId, undefined, 1, isLinkModulesOpen);
+  const allTasksQuery = useTasks(tenantId, undefined, 1, isLinkTasksOpen);
+  const allNotesQuery = useNotes(tenantId, undefined, 1, isLinkNotesOpen);
 
   const project = projectQuery.data;
   const sameTenant = Boolean(
@@ -520,7 +549,7 @@ export default function ProjectDetailPage() {
   }
 
   async function handleCreateModule(input: ModuleFormInput) {
-    await createModule.mutateAsync({
+    const module = await createModule.mutateAsync({
       shortTitle: input.shortTitle,
       title: input.title || undefined,
       description: input.description || undefined,
@@ -533,6 +562,7 @@ export default function ProjectDetailPage() {
       assignedToUserId: input.assignedToUserId ?? undefined,
     });
     trackEvent({ name: "module_created" });
+    return module;
   }
 
   async function handleUnlinkModule(module: ApiModule) {
@@ -565,6 +595,62 @@ export default function ProjectDetailPage() {
     });
   }
 
+  async function handleLinkModules(moduleIds: string[]) {
+    await Promise.all(
+      moduleIds.map((moduleId) =>
+        updateModule.mutateAsync({ moduleId, input: { projectId: project!.id } }),
+      ),
+    );
+  }
+
+  async function handleLinkTasks(taskIds: string[]) {
+    await Promise.all(
+      taskIds.map((taskId) =>
+        updateTask.mutateAsync({ taskId, input: { projectId: project!.id } }),
+      ),
+    );
+  }
+
+  async function handleLinkNotes(noteIds: string[]) {
+    await Promise.all(
+      noteIds.map((noteId) =>
+        updateNote.mutateAsync({ noteId, input: { projectId: project!.id } }),
+      ),
+    );
+  }
+
+  const linkableModuleOptions = (allModulesQuery.data?.data ?? [])
+    .filter((module) => module.projectId !== project.id)
+    .map((module) => ({
+      id: module.id,
+      label: paperDisplayTitle(module),
+      sublabel: module.projectId ? "Linked to another project" : "Unlinked",
+    }));
+
+  const linkableTaskOptions = (allTasksQuery.data?.data ?? [])
+    .filter((task) => task.projectId !== project.id)
+    .map((task) => ({
+      id: task.id,
+      label: task.title,
+      sublabel: task.moduleId
+        ? "Linked to a paper"
+        : task.projectId
+          ? "Linked to another project"
+          : "Unlinked",
+    }));
+
+  const linkableNoteOptions = (allNotesQuery.data?.data ?? [])
+    .filter((note) => note.projectId !== project.id)
+    .map((note) => ({
+      id: note.id,
+      label: note.title,
+      sublabel: note.moduleId
+        ? "Linked to a paper"
+        : note.projectId
+          ? "Linked to another project"
+          : "Unlinked",
+    }));
+
   const myRole =
     project.userId === me.data?.id ? "Owner" : (project.role ?? "—");
 
@@ -590,6 +676,51 @@ export default function ProjectDetailPage() {
         members={members}
         initialProjectId={project.id}
         onSave={handleCreateModule}
+      />
+
+      <LinkExistingDialog
+        open={isLinkModulesOpen}
+        onOpenChange={setIsLinkModulesOpen}
+        title="Link existing papers"
+        description="Search for papers that already exist and link them to this project."
+        fieldId="link-existing-papers"
+        placeholder="Search papers by title"
+        options={linkableModuleOptions}
+        emptyMessage={
+          allModulesQuery.isPending ? "Loading papers…" : "No matching papers."
+        }
+        confirmLabel="Link papers"
+        onConfirm={handleLinkModules}
+      />
+
+      <LinkExistingDialog
+        open={isLinkTasksOpen}
+        onOpenChange={setIsLinkTasksOpen}
+        title="Link existing tasks"
+        description="Search for tasks that already exist and link them to this project."
+        fieldId="link-existing-tasks"
+        placeholder="Search tasks by title"
+        options={linkableTaskOptions}
+        emptyMessage={
+          allTasksQuery.isPending ? "Loading tasks…" : "No matching tasks."
+        }
+        confirmLabel="Link tasks"
+        onConfirm={handleLinkTasks}
+      />
+
+      <LinkExistingDialog
+        open={isLinkNotesOpen}
+        onOpenChange={setIsLinkNotesOpen}
+        title="Link existing notes"
+        description="Search for notes that already exist and link them to this project."
+        fieldId="link-existing-notes"
+        placeholder="Search notes by title"
+        options={linkableNoteOptions}
+        emptyMessage={
+          allNotesQuery.isPending ? "Loading notes…" : "No matching notes."
+        }
+        confirmLabel="Link notes"
+        onConfirm={handleLinkNotes}
       />
 
       <PageHeading
@@ -892,16 +1023,19 @@ export default function ProjectDetailPage() {
             <ProjectModulesDetails
               modules={modules}
               onAddModule={() => setIsAddModuleOpen(true)}
+              onLinkExisting={() => setIsLinkModulesOpen(true)}
               onUnlinkModule={(module) => void handleUnlinkModule(module)}
             />
             <ProjectTasksDetails
               tasks={tasks}
               onAddTask={() => setIsAddTaskOpen(true)}
+              onLinkExisting={() => setIsLinkTasksOpen(true)}
               onUnlinkTask={(task) => void handleUnlinkTask(task)}
             />
             <ProjectNotesDetails
               notes={notes}
               projectId={project.id}
+              onLinkExisting={() => setIsLinkNotesOpen(true)}
               onUnlinkNote={(note) => void handleUnlinkNote(note)}
             />
           </section>

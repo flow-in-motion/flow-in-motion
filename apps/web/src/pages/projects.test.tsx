@@ -148,6 +148,9 @@ vi.mock("@/api/hooks", () => ({
       },
     },
   }),
+  useUpdateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 vi.mock("@/components/projects/project-collaborators", () => ({

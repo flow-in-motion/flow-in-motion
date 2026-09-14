@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, FileStack, Pencil, Plus, Save, Unlink, X } from "lucide-react";
+import { ChevronDown, ChevronUp, FileStack, Link2, Pencil, Plus, Save, Unlink, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { apiClient } from "@/api/client";
@@ -28,6 +28,7 @@ import { EntityDetailPipeline } from "@/components/pipeline/entity-detail-pipeli
 import { BackButton } from "@/components/shared/back-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
+import { LinkExistingDialog } from "@/components/shared/link-existing-dialog";
 import { LoadingState } from "@/components/shared/loading-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { paperDisplayTitle } from "@/lib/paper-title";
@@ -90,10 +91,12 @@ function FormField({ label, htmlFor, children, className = "" }: { label: string
 function ModuleTasksDetails({
   tasks,
   onAddTask,
+  onLinkExisting,
   onUnlinkTask,
 }: {
   tasks: ApiTask[];
   onAddTask?: () => void;
+  onLinkExisting?: () => void;
   onUnlinkTask?: (task: ApiTask) => void;
 }) {
   return (
@@ -101,6 +104,12 @@ function ModuleTasksDetails({
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>Tasks ({tasks.length})</CardTitle>
         <div className="flex items-center gap-2">
+          {onLinkExisting ? (
+            <Button variant="outline" size="sm" onClick={onLinkExisting}>
+              <Link2 />
+              Link existing
+            </Button>
+          ) : null}
           {onAddTask ? (
             <Button variant="outline" size="sm" onClick={onAddTask}>
               <Plus />
@@ -157,10 +166,12 @@ function ModuleTasksDetails({
 function ModuleNotesDetails({
   notes,
   addNoteHref,
+  onLinkExisting,
   onUnlinkNote,
 }: {
   notes: ApiNote[];
   addNoteHref?: string;
+  onLinkExisting?: () => void;
   onUnlinkNote?: (note: ApiNote) => void;
 }) {
   return (
@@ -168,6 +179,12 @@ function ModuleNotesDetails({
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>Notes ({notes.length})</CardTitle>
         <div className="flex items-center gap-2">
+          {onLinkExisting ? (
+            <Button variant="outline" size="sm" onClick={onLinkExisting}>
+              <Link2 />
+              Link existing
+            </Button>
+          ) : null}
           {addNoteHref ? (
             <Button asChild variant="outline" size="sm">
               <Link to={addNoteHref}>
@@ -366,6 +383,8 @@ export default function ModuleDetailPage() {
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
+  const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
 
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && module) {
@@ -449,6 +468,22 @@ export default function ModuleDetailPage() {
     });
   }
 
+  async function handleLinkTasks(taskIds: string[]) {
+    await Promise.all(
+      taskIds.map((taskId) =>
+        updateTask.mutateAsync({ taskId, input: { moduleId: module!.id } }),
+      ),
+    );
+  }
+
+  async function handleLinkNotes(noteIds: string[]) {
+    await Promise.all(
+      noteIds.map((noteId) =>
+        updateNote.mutateAsync({ noteId, input: { moduleId: module!.id } }),
+      ),
+    );
+  }
+
   function cancelEditing() {
     setForm(null);
     if (searchParams.get("edit") === "true") {
@@ -499,6 +534,22 @@ export default function ModuleDetailPage() {
       (task) => task.moduleId === module.id,
     );
   const moduleNotes = (notes).filter((note) => note.moduleId === module.id);
+
+  const linkableTaskOptions = tasks
+    .filter((task) => task.moduleId !== module.id)
+    .map((task) => ({
+      id: task.id,
+      label: task.title,
+      sublabel: task.moduleId ? "Linked to another paper" : "Unlinked",
+    }));
+
+  const linkableNoteOptions = notes
+    .filter((note) => note.moduleId !== module.id)
+    .map((note) => ({
+      id: note.id,
+      label: note.title,
+      sublabel: note.moduleId ? "Linked to another paper" : "Unlinked",
+    }));
 
   return (
     <div className="page-stack">
@@ -618,11 +669,13 @@ export default function ModuleDetailPage() {
           <ModuleTasksDetails
             tasks={moduleTasks}
             onAddTask={sameTenant ? () => setIsAddTaskOpen(true) : undefined}
+            onLinkExisting={sameTenant ? () => setIsLinkTasksOpen(true) : undefined}
             onUnlinkTask={sameTenant ? (task) => void handleUnlinkTask(task) : undefined}
           />
           <ModuleNotesDetails
             notes={moduleNotes}
             addNoteHref={sameTenant ? `/daily-notes?moduleId=${module.id}&new=true` : undefined}
+            onLinkExisting={sameTenant ? () => setIsLinkNotesOpen(true) : undefined}
             onUnlinkNote={sameTenant ? (note) => void handleUnlinkNote(note) : undefined}
           />
         </section>
@@ -635,6 +688,32 @@ export default function ModuleDetailPage() {
           modules={[module]}
           initialModuleId={module.id}
           onSave={handleCreateTask}
+        />
+
+        <LinkExistingDialog
+          open={isLinkTasksOpen}
+          onOpenChange={setIsLinkTasksOpen}
+          title="Link existing tasks"
+          description="Search for tasks that already exist and link them to this paper."
+          fieldId="link-existing-module-tasks"
+          placeholder="Search tasks by title"
+          options={linkableTaskOptions}
+          emptyMessage={tasksQuery.isPending ? "Loading tasks…" : "No matching tasks."}
+          confirmLabel="Link tasks"
+          onConfirm={handleLinkTasks}
+        />
+
+        <LinkExistingDialog
+          open={isLinkNotesOpen}
+          onOpenChange={setIsLinkNotesOpen}
+          title="Link existing notes"
+          description="Search for notes that already exist and link them to this paper."
+          fieldId="link-existing-module-notes"
+          placeholder="Search notes by title"
+          options={linkableNoteOptions}
+          emptyMessage={notesQuery.isPending ? "Loading notes…" : "No matching notes."}
+          confirmLabel="Link notes"
+          onConfirm={handleLinkNotes}
         />
 
         <EntityDetailPipeline

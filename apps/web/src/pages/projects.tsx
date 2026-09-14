@@ -356,7 +356,7 @@ export default function ProjectsPage() {
   }
 
   async function handleCreateProject(input: NewProjectInput) {
-    await createProject.mutateAsync({
+    const project = await createProject.mutateAsync({
       title: input.title,
       description: input.description || undefined,
       researchArea: input.researchArea || undefined,
@@ -368,6 +368,7 @@ export default function ProjectsPage() {
       targetJournals: input.targetJournals || undefined,
     });
     trackEvent({ name: "project_created" });
+    return project;
   }
 
   async function handleDeleteProject(project: ApiProject) {
@@ -409,6 +410,7 @@ export default function ProjectsPage() {
       <NewProjectDialog
         open={isNewProjectOpen}
         onOpenChange={setIsNewProjectOpen}
+        tenantId={tenantId}
         onCreate={handleCreateProject}
       />
       <Dialog

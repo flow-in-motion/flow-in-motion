@@ -1,5 +1,19 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
+import {
+  useModules,
+  useNotes,
+  useTasks,
+  useUpdateModule,
+  useUpdateNote,
+  useUpdateTask,
+  type ApiProject,
+} from "@/api/hooks";
+import {
+  LinkExistingField,
+  type LinkExistingOption,
+} from "@/components/shared/link-existing-field";
+import { paperDisplayTitle } from "@/lib/paper-title";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
@@ -39,7 +53,8 @@ export interface NewProjectInput {
 interface NewProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (project: NewProjectInput) => Promise<void> | void;
+  tenantId: string;
+  onCreate: (project: NewProjectInput) => Promise<ApiProject>;
 }
 
 const INITIAL_FORM: NewProjectInput = {
@@ -74,15 +89,60 @@ function FormField({ label, htmlFor, required, children }: {
 export function NewProjectDialog({
   open,
   onOpenChange,
+  tenantId,
   onCreate,
 }: NewProjectDialogProps) {
   const [form, setForm] = useState<NewProjectInput>(INITIAL_FORM);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [linkedModules, setLinkedModules] = useState<LinkExistingOption[]>([]);
+  const [linkedTasks, setLinkedTasks] = useState<LinkExistingOption[]>([]);
+  const [linkedNotes, setLinkedNotes] = useState<LinkExistingOption[]>([]);
+
+  const modulesQuery = useModules(tenantId, undefined, 1, open);
+  const tasksQuery = useTasks(tenantId, undefined, 1, open);
+  const notesQuery = useNotes(tenantId, undefined, 1, open);
+  const updateModule = useUpdateModule(tenantId);
+  const updateTask = useUpdateTask(tenantId);
+  const updateNote = useUpdateNote(tenantId);
+
+  useEffect(() => {
+    if (!open) return;
+    setLinkedModules([]);
+    setLinkedTasks([]);
+    setLinkedNotes([]);
+  }, [open]);
+
+  const moduleOptions = (modulesQuery.data?.data ?? []).map((module) => ({
+    id: module.id,
+    label: paperDisplayTitle(module),
+    sublabel: module.projectId ? "Linked to another project" : "Unlinked",
+  }));
+  const taskOptions = (tasksQuery.data?.data ?? []).map((task) => ({
+    id: task.id,
+    label: task.title,
+    sublabel: task.moduleId
+      ? "Linked to a paper"
+      : task.projectId
+        ? "Linked to another project"
+        : "Unlinked",
+  }));
+  const noteOptions = (notesQuery.data?.data ?? []).map((note) => ({
+    id: note.id,
+    label: note.title,
+    sublabel: note.moduleId
+      ? "Linked to a paper"
+      : note.projectId
+        ? "Linked to another project"
+        : "Unlinked",
+  }));
 
   function resetForm() {
     setForm(INITIAL_FORM);
     setSaveError(null);
+    setLinkedModules([]);
+    setLinkedTasks([]);
+    setLinkedNotes([]);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -95,13 +155,33 @@ export function NewProjectDialog({
     setIsSaving(true);
     setSaveError(null);
     try {
-      await onCreate({
+      const project = await onCreate({
         ...form,
         title: form.title.trim(),
         description: form.description.trim(),
         researchArea: form.researchArea.trim(),
         targetJournals: form.targetJournals.trim(),
       });
+      await Promise.all([
+        ...linkedModules.map((module) =>
+          updateModule.mutateAsync({
+            moduleId: module.id,
+            input: { projectId: project.id },
+          }),
+        ),
+        ...linkedTasks.map((task) =>
+          updateTask.mutateAsync({
+            taskId: task.id,
+            input: { projectId: project.id },
+          }),
+        ),
+        ...linkedNotes.map((note) =>
+          updateNote.mutateAsync({
+            noteId: note.id,
+            input: { projectId: project.id },
+          }),
+        ),
+      ]);
       resetForm();
       onOpenChange(false);
     } catch (error) {
@@ -234,6 +314,49 @@ export function NewProjectDialog({
                 />
               </FormField>
             </div>
+          </div>
+
+          <div className="grid gap-4 rounded-lg border p-4">
+            <p className="text-sm font-medium">Link existing work (optional)</p>
+            <FormField label="Papers" htmlFor="new-project-link-papers">
+              <LinkExistingField
+                id="new-project-link-papers"
+                placeholder="Search papers by title"
+                options={moduleOptions}
+                selected={linkedModules}
+                onAdd={(option) => setLinkedModules((current) => [...current, option])}
+                onRemove={(id) =>
+                  setLinkedModules((current) => current.filter((item) => item.id !== id))
+                }
+                emptyMessage={modulesQuery.isPending ? "Loading papers…" : "No matching papers."}
+              />
+            </FormField>
+            <FormField label="Tasks" htmlFor="new-project-link-tasks">
+              <LinkExistingField
+                id="new-project-link-tasks"
+                placeholder="Search tasks by title"
+                options={taskOptions}
+                selected={linkedTasks}
+                onAdd={(option) => setLinkedTasks((current) => [...current, option])}
+                onRemove={(id) =>
+                  setLinkedTasks((current) => current.filter((item) => item.id !== id))
+                }
+                emptyMessage={tasksQuery.isPending ? "Loading tasks…" : "No matching tasks."}
+              />
+            </FormField>
+            <FormField label="Notes" htmlFor="new-project-link-notes">
+              <LinkExistingField
+                id="new-project-link-notes"
+                placeholder="Search notes by title"
+                options={noteOptions}
+                selected={linkedNotes}
+                onAdd={(option) => setLinkedNotes((current) => [...current, option])}
+                onRemove={(id) =>
+                  setLinkedNotes((current) => current.filter((item) => item.id !== id))
+                }
+                emptyMessage={notesQuery.isPending ? "Loading notes…" : "No matching notes."}
+              />
+            </FormField>
           </div>
 
           <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">

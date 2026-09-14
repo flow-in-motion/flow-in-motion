@@ -65,12 +65,10 @@ describe('TasksController', () => {
 
       tasksService.list.mockResolvedValue(tasks);
 
-      const result = await controller.list(
-        'tenant-1',
-        req,
-        { page: 2 },
-        'project-1',
-      );
+      const result = await controller.list('tenant-1', req, {
+        page: 2,
+        projectId: 'project-1',
+      });
 
       expect(configService.get).toHaveBeenCalledWith('PAGE_SIZE', 20);
 
@@ -100,7 +98,7 @@ describe('TasksController', () => {
         },
       });
 
-      await controller.list('tenant-1', req, {}, undefined);
+      await controller.list('tenant-1', req, {});
 
       expect(tasksService.list).toHaveBeenCalledWith(
         'tenant-1',

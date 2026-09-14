@@ -420,7 +420,7 @@ export default function TasksPage() {
                   {columns.isColumnVisible("project") ? (
                   task.projectId || task.moduleId ? (
                     <Link
-                      to={task.projectId ? `/projects/${task.projectId}` : `/modules/${task.moduleId}`}
+                      to={task.moduleId ? `/modules/${task.moduleId}` : `/projects/${task.projectId}`}
                       className="text-sm font-medium text-primary hover:underline"
                     >
                       {linkTargetLabel(task)}

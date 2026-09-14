@@ -10,13 +10,16 @@ const fixtures = vi.hoisted(() => ({
   updateTask: vi.fn(),
   updateNote: vi.fn(),
   modules: [
-    { id: "module-1", displayId: "MOD-001", title: "Assay optimization", status: "Active" },
+    { id: "module-1", displayId: "MOD-001", title: "Assay optimization", status: "Active", projectId: "PRJ-101" },
+    { id: "module-2", displayId: "MOD-002", title: "Independent paper", status: "Active", projectId: null },
   ],
   tasks: [
-    { id: "task-1", displayId: "TSK-001", title: "Run inhibition assay", status: "To do", priority: "Medium", dueDate: null },
+    { id: "task-1", displayId: "TSK-001", title: "Run inhibition assay", status: "To do", priority: "Medium", dueDate: null, projectId: "PRJ-101" },
+    { id: "task-2", displayId: "TSK-002", title: "Independent task", status: "To do", priority: "Medium", dueDate: null, projectId: null },
   ],
   notes: [
-    { id: "note-1", title: "Kickoff notes", content: "Discussed scope" },
+    { id: "note-1", title: "Kickoff notes", content: "Discussed scope", projectId: "PRJ-101" },
+    { id: "note-2", title: "Independent note", content: "Unrelated", projectId: null },
   ],
   project: {
     id: "PRJ-101",
@@ -91,9 +94,11 @@ vi.mock("@/api/hooks", () => ({
   useTrackEvent: () => vi.fn(),
   useEnumValues: () => ({ data: [], isPending: false }),
   useModulePipelineStagePool: () => ({ data: [], isPending: false, isError: false }),
-  useModules: () => ({
+  useModules: (_tenantId: string, projectId?: string) => ({
     data: {
-      data: fixtures.modules,
+      data: projectId
+        ? fixtures.modules.filter((module) => module.projectId === projectId)
+        : fixtures.modules,
       meta: {
         page: 1,
         pageSize: 20,
@@ -102,9 +107,11 @@ vi.mock("@/api/hooks", () => ({
       },
     },
   }),
-  useTasks: () => ({
+  useTasks: (_tenantId: string, projectId?: string) => ({
     data: {
-      data: fixtures.tasks,
+      data: projectId
+        ? fixtures.tasks.filter((task) => task.projectId === projectId)
+        : fixtures.tasks,
       meta: {
         page: 1,
         pageSize: 20,
@@ -113,9 +120,11 @@ vi.mock("@/api/hooks", () => ({
       },
     },
   }),
-  useNotes: () => ({
+  useNotes: (_tenantId: string, projectId?: string) => ({
     data: {
-      data: fixtures.notes,
+      data: projectId
+        ? fixtures.notes.filter((note) => note.projectId === projectId)
+        : fixtures.notes,
       meta: {
         page: 1,
         pageSize: 20,
@@ -345,6 +354,78 @@ describe("ProjectDetailPage", () => {
       expect(fixtures.updateNote).toHaveBeenCalledWith({
         noteId: "note-1",
         input: { projectId: null },
+      }),
+    );
+  });
+
+  it("links an existing paper to this project", async () => {
+    render(
+      <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
+        <Routes>
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[0]);
+
+    const searchInput = await screen.findByPlaceholderText("Search papers by title");
+    fireEvent.focus(searchInput);
+    fireEvent.click(await screen.findByText("Independent paper"));
+    fireEvent.click(screen.getByRole("button", { name: "Link papers" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-2",
+        input: { projectId: "PRJ-101" },
+      }),
+    );
+  });
+
+  it("links an existing task to this project", async () => {
+    render(
+      <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
+        <Routes>
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[1]);
+
+    const searchInput = await screen.findByPlaceholderText("Search tasks by title");
+    fireEvent.focus(searchInput);
+    fireEvent.click(await screen.findByText("Independent task"));
+    fireEvent.click(screen.getByRole("button", { name: "Link tasks" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateTask).toHaveBeenCalledWith({
+        taskId: "task-2",
+        input: { projectId: "PRJ-101" },
+      }),
+    );
+  });
+
+  it("links an existing note to this project", async () => {
+    render(
+      <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
+        <Routes>
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[2]);
+
+    const searchInput = await screen.findByPlaceholderText("Search notes by title");
+    fireEvent.focus(searchInput);
+    fireEvent.click(await screen.findByText("Independent note"));
+    fireEvent.click(screen.getByRole("button", { name: "Link notes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateNote).toHaveBeenCalledWith({
+        noteId: "note-2",
+        input: { projectId: "PRJ-101" },
       }),
     );
   });

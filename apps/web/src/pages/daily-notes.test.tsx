@@ -39,6 +39,7 @@ const store = vi.hoisted(() => {
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
   projects: [{ id: "project-1", title: "Genome Project" }],
+  modules: [{ id: "module-1", title: "Assay optimization" }],
   members: [
     {
       id: "membership-owner",
@@ -94,11 +95,11 @@ vi.mock("@/api/hooks", async () => {
     useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
     useModules: () => ({
       data: {
-        data: [],
+        data: fixtures.modules,
         meta: {
           page: 1,
           pageSize: 20,
-          totalItems: 0,
+          totalItems: fixtures.modules.length,
           totalPages: 1,
         },
       },
@@ -405,6 +406,42 @@ describe("DailyNotesPage", () => {
         screen.getByText("This is a general note with no linked project or paper."),
       ).toBeInTheDocument(),
     );
+  });
+
+  it("shows the paper (not the project) when linked to a project-linked paper, alongside its parent project", () => {
+    // The backend denormalizes a module-linked note's projectId to the
+    // module's parent project, so both fields are set here — the "Linked
+    // work" section must not mistake that for a direct project link.
+    store.setNotes([
+      {
+        id: "note-1",
+        displayId: "NTE-001",
+        tenantId: fixtures.tenantId,
+        projectId: "project-1",
+        moduleId: "module-1",
+        createdBy: "user-owner",
+        title: "Assay results",
+        content: null,
+        visibility: "Private",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    render(
+      <MemoryRouter>
+        <DailyNotesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Paper")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Paper Assay optimization/ }),
+    ).toHaveAttribute("href", "/modules/module-1");
+
+    expect(screen.getByText("Parent project")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /Parent project Genome Project/ }),
+    ).toHaveAttribute("href", "/projects/project-1");
   });
 
   it("sends null (not empty string) to clear a note's module link when switching to General", async () => {

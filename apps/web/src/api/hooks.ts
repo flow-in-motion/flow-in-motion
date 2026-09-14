@@ -1078,9 +1078,11 @@ export function useUpdateModule(tenantId: string) {
       ),
     async onSuccess(module) {
       queryClient.setQueryData(apiKeys.module(tenantId, module.id), module);
-      await queryClient.invalidateQueries({
-        queryKey: ["api", "tenant", tenantId, "modules"],
-      });
+      // A module can be reached both via this tenant-scoped cache and via
+      // the tenant-agnostic "my modules" cache (module-detail.tsx uses
+      // useMyModule) — invalidate both, or the module's own detail page
+      // keeps showing its pre-link state until a hard refresh.
+      await invalidateResourceEverywhere(queryClient, "modules");
     },
   });
 }
@@ -1348,9 +1350,11 @@ export function useUpdateTask(tenantId: string) {
       ),
     async onSuccess(task) {
       queryClient.setQueryData(apiKeys.task(tenantId, task.id), task);
-      await queryClient.invalidateQueries({
-        queryKey: ["api", "tenant", tenantId, "tasks"],
-      });
+      // A task can be reached both via this tenant-scoped cache and via the
+      // tenant-agnostic "my tasks" cache (task-detail.tsx uses useMyTask) —
+      // invalidate both, or the task's own detail page keeps showing its
+      // pre-link state until a hard refresh.
+      await invalidateResourceEverywhere(queryClient, "tasks");
     },
   });
 }
@@ -1607,9 +1611,11 @@ export function useUpdateNote(tenantId: string) {
       ),
     async onSuccess(note) {
       queryClient.setQueryData(apiKeys.note(tenantId, note.id), note);
-      await queryClient.invalidateQueries({
-        queryKey: ["api", "tenant", tenantId, "notes"],
-      });
+      // A note can be reached both via this tenant-scoped cache and via the
+      // tenant-agnostic "my notes" cache — invalidate both, or a stale
+      // "my notes" read keeps showing its pre-link state until a hard
+      // refresh.
+      await invalidateResourceEverywhere(queryClient, "notes");
     },
   });
 }

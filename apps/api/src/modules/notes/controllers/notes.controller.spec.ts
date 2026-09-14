@@ -61,12 +61,10 @@ describe('NotesController', () => {
 
       notesService.list.mockResolvedValue(response);
 
-      const result = await controller.list(
-        'tenant-1',
-        req,
-        { page: 2 },
-        'project-1',
-      );
+      const result = await controller.list('tenant-1', req, {
+        page: 2,
+        projectId: 'project-1',
+      });
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
         'cognito-sub-1',
