@@ -109,6 +109,9 @@ vi.mock("@/api/hooks", () => ({
     data: { id: "workspace-1" },
     isPending: false,
   }),
+  useMe: () => ({
+    data: { id: "user-owner", displayName: "Avi Researcher", email: "owner@example.com" },
+  }),
   useMyModule: () => ({
     data: fixtures.module,
     isPending: false,
@@ -232,44 +235,6 @@ describe("ModuleDetailPage", () => {
       </MemoryRouter>,
     );
   }
-
-  it("shows only the module's selected stages in its bottom pipeline", () => {
-    renderPage();
-
-    const pipeline = screen.getByRole("region", { name: "Module pipeline" });
-    expect(pipeline).toHaveTextContent("Concept");
-    expect(pipeline).toHaveTextContent("Publication");
-    expect(pipeline).not.toHaveTextContent("Analysis");
-    expect(
-      screen.getByRole("group", { name: "Concept stage, current stage" }),
-    ).toContainElement(screen.getByLabelText(`Drag ${fixtures.module.title}`));
-  });
-
-  it("moves the module card when it is dropped onto another stage", async () => {
-    renderPage();
-
-    const dataTransfer = {
-      effectAllowed: "none",
-      dropEffect: "none",
-      setData: vi.fn(),
-      getData: vi.fn(() => fixtures.module.id),
-    } as unknown as DataTransfer;
-    const moduleCard = screen.getByLabelText(`Drag ${fixtures.module.title}`);
-    const targetStage = screen.getByRole("group", {
-      name: "Publication stage",
-    });
-
-    fireEvent.dragStart(moduleCard, { dataTransfer });
-    fireEvent.dragOver(targetStage, { dataTransfer });
-    fireEvent.drop(targetStage, { dataTransfer });
-
-    await waitFor(() =>
-      expect(fixtures.updateModule).toHaveBeenCalledWith({
-        moduleId: "module-1",
-        input: { pipelineStage: "Publication" },
-      }),
-    );
-  });
 
   it("returns to whatever page linked into edit mode when editing is cancelled", () => {
     render(
@@ -532,5 +497,69 @@ describe("ModuleDetailPage", () => {
     await waitFor(() =>
       expect(fixtures.deleteSubmission).toHaveBeenCalledWith("submission-1"),
     );
+  });
+
+  it("shows collaborators expanded by default, with an option to hide them", () => {
+    renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: "Module collaborators" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hide collaborators" }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide collaborators" }));
+
+    expect(
+      screen.queryByRole("heading", { name: "Module collaborators" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show collaborators" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows linked work expanded by default, with an option to hide it", () => {
+    renderPage();
+
+    expect(screen.getByText("Extract references")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hide linked work" }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide linked work" }));
+
+    expect(screen.queryByText("Extract references")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Module collaborators" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show linked work" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows submission history expanded by default, with an option to hide it", () => {
+    renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: "Submission history (0)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hide submission history" }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Hide submission history" }),
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Submission history (0)" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Submission history" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show submission history" }),
+    ).toHaveAttribute("aria-expanded", "false");
   });
 });

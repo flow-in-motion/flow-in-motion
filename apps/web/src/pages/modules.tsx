@@ -10,6 +10,7 @@ import {
   useModulePipelineStagePool,
   useModules,
   useProjects,
+  useTasks,
   useTrackEvent,
   type ApiModule,
 } from "@/api/hooks";
@@ -46,6 +47,7 @@ const MODULE_COLUMNS = [
   { id: "module", label: "Paper", width: "minmax(280px,2fr)" },
   { id: "project", label: "Project", width: "180px" },
   { id: "status", label: "Status", width: "110px" },
+  { id: "progress", label: "Progress", width: "130px" },
   { id: "stage", label: "Stage", width: "170px" },
   { id: "type", label: "Type", width: "140px" },
   { id: "due", label: "Due Date", width: "110px" },
@@ -70,6 +72,18 @@ function statusPillClass(status: string | null) {
     default:
       return "border-border text-muted-foreground";
   }
+}
+
+function ProgressCell({ completed, total }: { completed: number; total: number }) {
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+      </div>
+      <span className="text-xs text-muted-foreground">{percent}%</span>
+    </div>
+  );
 }
 
 function formatDate(iso: string | null) {
@@ -115,6 +129,8 @@ export default function ModulesPage() {
   const paginationMeta = modulesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
+  const tasksQuery = useTasks(tenantId);
+  const tasks = tasksQuery.data?.data ?? [];
   const stagesQuery = useModulePipelineStagePool(tenantId);
   const visibleStages = useMemo(
     () =>
@@ -170,6 +186,18 @@ export default function ModulesPage() {
     return map;
   }, [members]);
 
+  const taskCountByModule = useMemo(() => {
+    const counts = new Map<string, { completed: number; total: number }>();
+    for (const task of tasks) {
+      if (!task.moduleId) continue;
+      const entry = counts.get(task.moduleId) ?? { completed: 0, total: 0 };
+      entry.total += 1;
+      if (task.status === "Complete") entry.completed += 1;
+      counts.set(task.moduleId, entry);
+    }
+    return counts;
+  }, [tasks]);
+
   const projectName = useCallback((projectId: string | null) => {
     if (!projectId) return "Independent paper";
     return projectById.get(projectId) ?? "Unknown project";
@@ -197,6 +225,13 @@ export default function ModulesPage() {
         return projectName(a.projectId).localeCompare(projectName(b.projectId));
       case "status":
         return (MODULE_STATUS_ORDER[a.status ?? ""] ?? 99) - (MODULE_STATUS_ORDER[b.status ?? ""] ?? 99);
+      case "progress": {
+        const aCounts = taskCountByModule.get(a.id) ?? { completed: 0, total: 0 };
+        const bCounts = taskCountByModule.get(b.id) ?? { completed: 0, total: 0 };
+        const aPercent = aCounts.total > 0 ? aCounts.completed / aCounts.total : 0;
+        const bPercent = bCounts.total > 0 ? bCounts.completed / bCounts.total : 0;
+        return aPercent - bPercent;
+      }
       case "stage":
         return (a.pipelineStage ?? "").localeCompare(b.pipelineStage ?? "");
       case "type":
@@ -226,7 +261,7 @@ export default function ModulesPage() {
       (a, b) => compareModules(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modules, search, status, stage, projectName, assigneeName, sortColumn, sortDirection]);
+  }, [modules, search, status, stage, projectName, assigneeName, taskCountByModule, sortColumn, sortDirection]);
 
   const hasActiveFilters = search !== "" || status !== "All" || stage !== "All";
 
@@ -475,6 +510,12 @@ export default function ModulesPage() {
                     <Badge variant="outline" className={statusPillClass(module.status)}>
                       {module.status ?? "—"}
                     </Badge>
+                  ) : null}
+                  {columns.isColumnVisible("progress") ? (
+                    <ProgressCell
+                      completed={taskCountByModule.get(module.id)?.completed ?? 0}
+                      total={taskCountByModule.get(module.id)?.total ?? 0}
+                    />
                   ) : null}
                   {columns.isColumnVisible("stage") ? (
                     <span className="text-sm text-muted-foreground">

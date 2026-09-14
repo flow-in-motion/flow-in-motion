@@ -56,6 +56,7 @@ const hookMocks = vi.hoisted(() => ({
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
   projects: [] as Array<{ id: string; title: string }>,
+  tasks: [] as Array<{ id: string; moduleId: string | null; status: string | null }>,
   members: [
     {
       id: "membership-owner",
@@ -102,7 +103,10 @@ vi.mock("@/api/hooks", async () => {
     }),
     useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
     useTasks: () => ({
-      data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } },
+      data: {
+        data: fixtures.tasks,
+        meta: { page: 1, pageSize: 20, totalItems: fixtures.tasks.length, totalPages: 1 },
+      },
       isPending: false,
     }),
     useNotes: () => ({
@@ -233,6 +237,7 @@ describe("ModulesPage", () => {
       },
     ]);
     fixtures.projects = [];
+    fixtures.tasks = [];
     hookMocks.useModules.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
@@ -331,7 +336,7 @@ describe("ModulesPage", () => {
     );
   });
 
-  it("allows a module to be linked to a project", () => {
+  it("allows a module to be linked to a project", async () => {
     fixtures.projects = [{ id: "project-1", title: "Genome Project" }];
     render(
       <MemoryRouter>
@@ -340,9 +345,18 @@ describe("ModulesPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Independent paper/ }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "Linked paper" },
+    });
 
-    expect(screen.getByRole("combobox", { name: /Project/ })).toBeInTheDocument();
+    const projectSearch = screen.getByPlaceholderText("Search projects by title");
+    fireEvent.focus(projectSearch);
+    fireEvent.click(await screen.findByText("Genome Project"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+
+    await waitFor(() => expect(screen.getByText("Linked paper")).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Genome Project" })).toBeInTheDocument();
   });
 
   it("opens collaborator management directly from the modules table", () => {
@@ -395,6 +409,23 @@ describe("ModulesPage", () => {
 
     expect(screen.queryByText("Literature synthesis")).not.toBeInTheDocument();
     expect(screen.getByText("Review-stage paper")).toBeInTheDocument();
+  });
+
+  it("shows a Progress column based on the paper's linked task completion", () => {
+    fixtures.tasks = [
+      { id: "task-1", moduleId: "module-1", status: "Complete" },
+      { id: "task-2", moduleId: "module-1", status: "To do" },
+      { id: "task-3", moduleId: "module-1", status: "Complete" },
+      { id: "task-4", moduleId: "module-1", status: "Complete" },
+    ];
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: "Sort by Progress" })).toBeInTheDocument();
+    expect(screen.getByText("75%")).toBeInTheDocument();
   });
 
   it("sorts by column, toggling direction on repeated clicks", () => {

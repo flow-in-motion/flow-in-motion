@@ -283,6 +283,8 @@ export default function TaskDetailPage() {
   const [form, setForm] = useState<TaskFormInput | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isOverviewVisible, setIsOverviewVisible] = useState(true);
+  const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
+  const [isTaskMembersVisible, setIsTaskMembersVisible] = useState(true);
 
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && task) {
@@ -436,64 +438,88 @@ export default function TaskDetailPage() {
               {isOverviewVisible ? "Hide overview" : "Show overview"}
             </Button>
           </div>
-          {isOverviewVisible ? <div id="task-overview-content" className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Task overview</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5 text-sm sm:grid-cols-2">
-            <DetailItem label="Estimated hours">
-              {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
-            </DetailItem>
-            <DetailItem label="Due date">{formatDueDate(task.dueDate)}</DetailItem>
-            <DetailItem label="Visibility">{task.visibility ?? "Private"}</DetailItem>
-            {task.workingWith ? (
-              <DetailItem label="Working with">{task.workingWith}</DetailItem>
-            ) : null}
-            <DetailItem label="Description" className="sm:col-span-2">
-              <span className="font-normal text-muted-foreground">
-                {task.description || "No description provided."}
-              </span>
-            </DetailItem>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Task members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {task.visibility === "Shared" && sameTenant ? (
-              <TaskMembersManager
-                tenantId={tenantId}
-                taskId={task.id}
-              />
-            ) : task.visibility === "Shared" ? (
-              <p className="text-sm text-muted-foreground">
-                This task was shared with you from another workspace. Only members of that
-                workspace can manage who has access.
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                This task is private — only you can see it. Switch its visibility to Shared to
-                add members.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-          </div> : null}
+          {isOverviewVisible ? (
+            <Card id="task-overview-content">
+              <CardHeader>
+                <CardTitle>Task overview</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-5 text-sm sm:grid-cols-2">
+                <DetailItem label="Estimated hours">
+                  {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
+                </DetailItem>
+                <DetailItem label="Due date">{formatDueDate(task.dueDate)}</DetailItem>
+                <DetailItem label="Visibility">{task.visibility ?? "Private"}</DetailItem>
+                {task.workingWith ? (
+                  <DetailItem label="Working with">{task.workingWith}</DetailItem>
+                ) : null}
+                <DetailItem label="Description" className="sm:col-span-2">
+                  <span className="font-normal text-muted-foreground">
+                    {task.description || "No description provided."}
+                  </span>
+                </DetailItem>
+              </CardContent>
+            </Card>
+          ) : null}
         </section>
 
-        <LinkedWorkCard
-          task={task}
-          projects={projects}
-          modules={modules}
-          linkedProjectTitle={linkedProjectQuery.data?.title}
-          linkedProjectError={linkedProjectQuery.isError}
-          linkedModuleTitle={linkedModule ? paperDisplayTitle(linkedModule) : undefined}
-          isSaving={updateTask.isPending}
-          onChangeLink={handleChangeLink}
-        />
+        <section aria-labelledby="task-linked-work-heading">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="task-linked-work-heading" className="text-lg font-semibold">Linked work</h2>
+            <Button variant="outline" size="sm" aria-expanded={isLinkedWorkVisible} aria-controls="task-linked-work-content" onClick={() => setIsLinkedWorkVisible((visible) => !visible)}>
+              {isLinkedWorkVisible ? <ChevronUp /> : <ChevronDown />}
+              {isLinkedWorkVisible ? "Hide linked work" : "Show linked work"}
+            </Button>
+          </div>
+          {isLinkedWorkVisible ? (
+            <div id="task-linked-work-content">
+              <LinkedWorkCard
+                task={task}
+                projects={projects}
+                modules={modules}
+                linkedProjectTitle={linkedProjectQuery.data?.title}
+                linkedProjectError={linkedProjectQuery.isError}
+                linkedModuleTitle={linkedModule ? paperDisplayTitle(linkedModule) : undefined}
+                isSaving={updateTask.isPending}
+                onChangeLink={handleChangeLink}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        <section aria-labelledby="task-members-heading">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="task-members-heading" className="text-lg font-semibold">Task members</h2>
+            <Button variant="outline" size="sm" aria-expanded={isTaskMembersVisible} aria-controls="task-members-content" onClick={() => setIsTaskMembersVisible((visible) => !visible)}>
+              {isTaskMembersVisible ? <ChevronUp /> : <ChevronDown />}
+              {isTaskMembersVisible ? "Hide task members" : "Show task members"}
+            </Button>
+          </div>
+          {isTaskMembersVisible ? (
+            <Card id="task-members-content">
+              <CardHeader>
+                <CardTitle>Manage task members</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {task.visibility === "Shared" && sameTenant ? (
+                  <TaskMembersManager
+                    tenantId={tenantId}
+                    taskId={task.id}
+                  />
+                ) : task.visibility === "Shared" ? (
+                  <p className="text-sm text-muted-foreground">
+                    This task was shared with you from another workspace. Only members of that
+                    workspace can manage who has access.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This task is private — only you can see it. Switch its visibility to Shared to
+                    add members.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+        </section>
       </div>
     </div>
   );

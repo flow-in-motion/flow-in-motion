@@ -56,7 +56,7 @@ const PROJECT_COLUMNS = [
   { id: "role", label: "My Role", width: "110px" },
   { id: "importance", label: "Importance", width: "110px" },
   { id: "status", label: "Status", width: "110px" },
-  { id: "progress", label: "Progress", width: "130px" },
+  { id: "papers", label: "Papers", width: "70px" },
   { id: "notes", label: "Notes", width: "70px" },
   { id: "scheduled", label: "Scheduled For", width: "110px" },
   { id: "due", label: "Due Date", width: "110px" },
@@ -123,18 +123,6 @@ function formatCurrency(value: string | null) {
     currency: "AUD",
     maximumFractionDigits: 0,
   }).format(amount);
-}
-
-function ProgressCell({ completed, total }: { completed: number; total: number }) {
-  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
-      </div>
-      <span className="text-xs text-muted-foreground">{percent}%</span>
-    </div>
-  );
 }
 
 function ProjectOverviewDetails({
@@ -314,13 +302,8 @@ export default function ProjectsPage() {
         );
       case "status":
         return (PROJECT_STATUS_ORDER[a.status ?? ""] ?? 99) - (PROJECT_STATUS_ORDER[b.status ?? ""] ?? 99);
-      case "progress": {
-        const aCounts = taskCountByProject.get(a.id) ?? { completed: 0, total: 0 };
-        const bCounts = taskCountByProject.get(b.id) ?? { completed: 0, total: 0 };
-        const aPercent = aCounts.total > 0 ? aCounts.completed / aCounts.total : 0;
-        const bPercent = bCounts.total > 0 ? bCounts.completed / bCounts.total : 0;
-        return aPercent - bPercent;
-      }
+      case "papers":
+        return (moduleCountByProject.get(a.id) ?? 0) - (moduleCountByProject.get(b.id) ?? 0);
       case "notes":
         return (noteCountByProject.get(a.id) ?? 0) - (noteCountByProject.get(b.id) ?? 0);
       case "scheduled":
@@ -356,7 +339,7 @@ export default function ProjectsPage() {
     role,
     sortColumn,
     sortDirection,
-    taskCountByProject,
+    moduleCountByProject,
     noteCountByProject,
   ]);
 
@@ -652,12 +635,11 @@ export default function ProjectsPage() {
                       </div>
                       ) : null}
 
-                      {columns.isColumnVisible("progress") ? (
-                      <div className="shrink-0" style={{ width: "130px" }}>
-                        <ProgressCell
-                          completed={taskCounts.completed}
-                          total={taskCounts.total}
-                        />
+                      {columns.isColumnVisible("papers") ? (
+                      <div className="shrink-0" style={{ width: "70px" }}>
+                        <span className="text-sm text-muted-foreground">
+                          {moduleCountByProject.get(project.id) ?? 0}
+                        </span>
                       </div>
                       ) : null}
 

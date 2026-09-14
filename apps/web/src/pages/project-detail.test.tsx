@@ -260,7 +260,7 @@ describe("ProjectDetailPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows collaborators only when expanded, without hiding linked work", () => {
+  it("shows collaborators expanded by default, with an option to hide them", () => {
     render(
       <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
         <Routes>
@@ -268,18 +268,6 @@ describe("ProjectDetailPage", () => {
         </Routes>
       </MemoryRouter>,
     );
-
-    expect(
-      screen.queryByRole("heading", { name: "Project collaborators" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Papers (1)" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Show collaborators" }),
-    ).toHaveAttribute("aria-expanded", "false");
-
-    fireEvent.click(screen.getByRole("button", { name: "Show collaborators" }));
 
     expect(
       screen.getByRole("heading", { name: "Project collaborators" }),
@@ -290,6 +278,47 @@ describe("ProjectDetailPage", () => {
     expect(
       screen.getByRole("button", { name: "Hide collaborators" }),
     ).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide collaborators" }));
+
+    expect(
+      screen.queryByRole("heading", { name: "Project collaborators" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Papers (1)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show collaborators" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows linked work expanded by default, with an option to hide it", () => {
+    render(
+      <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
+        <Routes>
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Papers (1)" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hide linked work" }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide linked work" }));
+
+    expect(
+      screen.queryByRole("heading", { name: "Papers (1)" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Project collaborators" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show linked work" }),
+    ).toHaveAttribute("aria-expanded", "false");
   });
 
   it("unlinks a module from this project", async () => {
