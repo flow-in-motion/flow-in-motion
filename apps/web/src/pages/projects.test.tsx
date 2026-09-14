@@ -8,6 +8,7 @@ import ProjectsPage from "@/pages/projects";
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
   projects: [] as Record<string, unknown>[],
+  modules: [] as Record<string, unknown>[],
   project: {
     id: "PRJ-101",
     displayId: "PRJ-101",
@@ -146,11 +147,11 @@ vi.mock("@/api/hooks", () => ({
   useTrackEvent: () => vi.fn(),
   useModules: () => ({
     data: {
-      data: [fixtures.module],
+      data: fixtures.modules,
       meta: {
         page: 1,
         pageSize: 20,
-        totalItems: 1,
+        totalItems: fixtures.modules.length,
         totalPages: 1,
       },
     },
@@ -205,6 +206,7 @@ describe("ProjectsPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
     fixtures.projects = [fixtures.project];
+    fixtures.modules = [fixtures.module];
     hookMocks.useProjects.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;    
@@ -302,6 +304,23 @@ describe("ProjectsPage", () => {
       "href",
       "/projects/PRJ-101",
     );
+  });
+
+  it("shows a Papers column with the linked paper count, and no Progress column", () => {
+    fixtures.modules = [
+      fixtures.module,
+      { ...fixtures.module, id: "module-2", displayId: "MOD-2", title: "Second paper" },
+    ];
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "Sort by Papers" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sort by Progress" })).not.toBeInTheDocument();
+
+    const projectLink = screen.getByRole("link", {
+      name: "Enzyme Kinetics Inhibition Study Across Temperature Gradients",
+    });
+    const projectRow = projectLink.closest('[role="button"]') as HTMLElement;
+    expect(within(projectRow).getByText("2")).toBeInTheDocument();
   });
 
   it("sorts by column, toggling direction on repeated clicks", () => {

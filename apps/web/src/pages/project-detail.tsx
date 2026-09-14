@@ -411,7 +411,8 @@ export default function ProjectDetailPage() {
   const updateTask = useUpdateTask(tenantId);
   const updateNote = useUpdateNote(tenantId);
   const trackEvent = useTrackEvent(tenantId);
-  const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(false);
+  const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
+  const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [isAddModuleOpen, setIsAddModuleOpen] = useState(false);
   const [isLinkModulesOpen, setIsLinkModulesOpen] = useState(false);
@@ -966,6 +967,52 @@ export default function ProjectDetailPage() {
         </Card>
       ) : (
         <div className="flex flex-col gap-6">
+          <section aria-labelledby="project-linked-work-heading">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2
+                id="project-linked-work-heading"
+                className="text-lg font-semibold"
+              >
+                Linked work
+              </h2>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-expanded={isLinkedWorkVisible}
+                aria-controls="project-linked-work-content"
+                onClick={() => setIsLinkedWorkVisible((visible) => !visible)}
+              >
+                {isLinkedWorkVisible ? <ChevronUp /> : <ChevronDown />}
+                {isLinkedWorkVisible ? "Hide linked work" : "Show linked work"}
+              </Button>
+            </div>
+            {isLinkedWorkVisible ? (
+              <div
+                id="project-linked-work-content"
+                className="grid gap-6 lg:grid-cols-3"
+              >
+                <ProjectModulesDetails
+                  modules={modules}
+                  onAddModule={() => setIsAddModuleOpen(true)}
+                  onLinkExisting={() => setIsLinkModulesOpen(true)}
+                  onUnlinkModule={(module) => void handleUnlinkModule(module)}
+                />
+                <ProjectTasksDetails
+                  tasks={tasks}
+                  onAddTask={() => setIsAddTaskOpen(true)}
+                  onLinkExisting={() => setIsLinkTasksOpen(true)}
+                  onUnlinkTask={(task) => void handleUnlinkTask(task)}
+                />
+                <ProjectNotesDetails
+                  notes={notes}
+                  projectId={project.id}
+                  onLinkExisting={() => setIsLinkNotesOpen(true)}
+                  onUnlinkNote={(note) => void handleUnlinkNote(note)}
+                />
+              </div>
+            ) : null}
+          </section>
+
           <section aria-labelledby="project-collaborators-heading">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2
@@ -1018,30 +1065,6 @@ export default function ProjectDetailPage() {
                 </CardContent>
               </Card>
             ) : null}
-          </section>
-
-          <section
-            className="grid gap-6 lg:grid-cols-3"
-            aria-label="Linked work"
-          >
-            <ProjectModulesDetails
-              modules={modules}
-              onAddModule={() => setIsAddModuleOpen(true)}
-              onLinkExisting={() => setIsLinkModulesOpen(true)}
-              onUnlinkModule={(module) => void handleUnlinkModule(module)}
-            />
-            <ProjectTasksDetails
-              tasks={tasks}
-              onAddTask={() => setIsAddTaskOpen(true)}
-              onLinkExisting={() => setIsLinkTasksOpen(true)}
-              onUnlinkTask={(task) => void handleUnlinkTask(task)}
-            />
-            <ProjectNotesDetails
-              notes={notes}
-              projectId={project.id}
-              onLinkExisting={() => setIsLinkNotesOpen(true)}
-              onUnlinkNote={(note) => void handleUnlinkNote(note)}
-            />
           </section>
         </div>
       )}

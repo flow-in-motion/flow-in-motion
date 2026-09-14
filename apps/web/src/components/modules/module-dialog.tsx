@@ -123,7 +123,7 @@ export function ModuleDialog({
   const tagValuesQuery = useEnumValues("module_type", open);
   const stagesQuery = useModulePipelineStagePool(tenantId, open);
   const [form, setForm] = useState<ModuleFormInput>(INITIAL_FORM);
-  const [isIndependent, setIsIndependent] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<LinkExistingOption | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [linkedTasks, setLinkedTasks] = useState<LinkExistingOption[]>([]);
@@ -147,6 +147,10 @@ export function ModuleDialog({
     id: note.id,
     label: note.title,
     sublabel: note.moduleId ? "Linked to another paper" : "Unlinked",
+  }));
+  const projectOptions = projects.map((project) => ({
+    id: project.id,
+    label: project.title,
   }));
 
   const visibleStages = useMemo(
@@ -182,14 +186,26 @@ export function ModuleDialog({
         dueDate: module.dueDate ?? "",
         assignedToUserId: module.assignedToUserId,
       });
-      setIsIndependent(module.projectId === null);
+      setSelectedProject(
+        module.projectId
+          ? (projects.find((project) => project.id === module.projectId)
+            ? { id: module.projectId, label: projects.find((project) => project.id === module.projectId)!.title }
+            : { id: module.projectId, label: "Unknown project" })
+          : null,
+      );
     } else if (initialProjectId) {
       setForm({ ...INITIAL_FORM, projectId: initialProjectId });
-      setIsIndependent(false);
+      const initialProject = projects.find((project) => project.id === initialProjectId);
+      setSelectedProject(
+        initialProject
+          ? { id: initialProject.id, label: initialProject.title }
+          : { id: initialProjectId, label: "Unknown project" },
+      );
     } else {
       setForm(INITIAL_FORM);
-      setIsIndependent(true);
+      setSelectedProject(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, module, initialProjectId]);
 
   useEffect(() => {
@@ -199,7 +215,6 @@ export function ModuleDialog({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!isIndependent && !form.projectId) return;
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -213,7 +228,7 @@ export function ModuleDialog({
         backupJournal: form.backupJournal.trim(),
         targetConference: form.targetConference.trim(),
         backupConference: form.backupConference.trim(),
-        projectId: isIndependent ? null : form.projectId,
+        projectId: selectedProject ? selectedProject.id : null,
       });
       if (!isEditing && savedModule) {
         await Promise.all([
@@ -366,44 +381,6 @@ export function ModuleDialog({
             </FormField>
           </div>
 
-          <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
-            <input
-              type="checkbox"
-              checked={isIndependent}
-              onChange={(event) => {
-                setIsIndependent(event.target.checked);
-                if (event.target.checked) {
-                  setForm((current) => ({ ...current, projectId: null }));
-                }
-              }}
-              className="mt-0.5 h-4 w-4 accent-primary"
-            />
-            <span>
-              <span className="block text-sm font-medium">Independent paper</span>
-              <span className="block text-xs text-muted-foreground">
-                Only explicitly added collaborators can see an independent paper. Project-linked
-                papers are visible to anyone who can see the project.
-              </span>
-            </span>
-          </label>
-
-          {!isIndependent ? (
-            <FormField label="Project" htmlFor="module-project" required>
-              <Select
-                value={form.projectId ?? ""}
-                onValueChange={(value) => setForm((current) => ({ ...current, projectId: value }))}
-                required
-              >
-                <SelectTrigger id="module-project"><SelectValue placeholder="Select a project" /></SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-          ) : null}
-
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Status" htmlFor="module-status">
               <Select
@@ -511,6 +488,22 @@ export function ModuleDialog({
           {!isEditing ? (
             <div className="grid gap-4 rounded-lg border p-4">
               <p className="text-sm font-medium">Link existing work (optional)</p>
+              <FormField label="Project" htmlFor="module-project">
+                <LinkExistingField
+                  id="module-project"
+                  placeholder="Search projects by title"
+                  options={projectOptions}
+                  selected={selectedProject ? [selectedProject] : []}
+                  onAdd={(option) => setSelectedProject(option)}
+                  onRemove={() => setSelectedProject(null)}
+                  emptyMessage="No matching projects."
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave unset to keep this an independent paper — only explicitly added
+                  collaborators can see it. Project-linked papers are visible to anyone who can
+                  see the project.
+                </p>
+              </FormField>
               <FormField label="Tasks" htmlFor="new-module-link-tasks">
                 <LinkExistingField
                   id="new-module-link-tasks"

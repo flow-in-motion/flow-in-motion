@@ -33,7 +33,6 @@ import {
   SubmissionDialog,
   type SubmissionFormInput,
 } from "@/components/modules/submission-dialog";
-import { EntityDetailPipeline } from "@/components/pipeline/entity-detail-pipeline";
 import { BackButton } from "@/components/shared/back-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
@@ -493,7 +492,9 @@ export default function ModuleDetailPage() {
   const deleteSubmission = useDeleteModuleSubmission(tenantId, module?.id ?? "");
   const [form, setForm] = useState<EditableModule | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
-  const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(false);
+  const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
+  const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
+  const [isSubmissionHistoryVisible, setIsSubmissionHistoryVisible] = useState(true);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
   const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
@@ -653,13 +654,6 @@ export default function ModuleDetailPage() {
     }
   }
 
-  function changePipelineStage(stage: string) {
-    void updateModule.mutateAsync({
-      moduleId,
-      input: { pipelineStage: stage },
-    });
-  }
-
   async function handleCreateTask(input: TaskFormInput) {
     const task = await createTask.mutateAsync({
       title: input.title,
@@ -813,6 +807,63 @@ export default function ModuleDetailPage() {
       ) : null}
 
       <div className="flex flex-col gap-6">
+        <section aria-labelledby="module-linked-work-heading">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="module-linked-work-heading" className="text-lg font-semibold">Linked work</h2>
+            <Button variant="outline" size="sm" aria-expanded={isLinkedWorkVisible} aria-controls="module-linked-work-content" onClick={() => setIsLinkedWorkVisible((visible) => !visible)}>
+              {isLinkedWorkVisible ? <ChevronUp /> : <ChevronDown />}
+              {isLinkedWorkVisible ? "Hide linked work" : "Show linked work"}
+            </Button>
+          </div>
+          {isLinkedWorkVisible ? (
+            <div id="module-linked-work-content" className="grid gap-6 lg:grid-cols-3">
+              <LinkedProjectCard
+                module={module}
+                canChangeProject={sameTenant}
+                availableProjects={availableProjects}
+                linkedProject={{ title: linkedProjectQuery.data?.title, isError: linkedProjectQuery.isError }}
+                isSaving={updateModule.isPending}
+                onChangeProject={handleChangeProject}
+              />
+              <ModuleTasksDetails
+                tasks={moduleTasks}
+                onAddTask={sameTenant ? () => setIsAddTaskOpen(true) : undefined}
+                onLinkExisting={sameTenant ? () => setIsLinkTasksOpen(true) : undefined}
+                onUnlinkTask={sameTenant ? (task) => void handleUnlinkTask(task) : undefined}
+              />
+              <ModuleNotesDetails
+                notes={moduleNotes}
+                addNoteHref={sameTenant ? `/daily-notes?moduleId=${module.id}&new=true` : undefined}
+                onLinkExisting={sameTenant ? () => setIsLinkNotesOpen(true) : undefined}
+                onUnlinkNote={sameTenant ? (note) => void handleUnlinkNote(note) : undefined}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        {sameTenant ? (
+          <section aria-labelledby="module-submission-history-heading">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 id="module-submission-history-heading" className="text-lg font-semibold">Submission history</h2>
+              <Button variant="outline" size="sm" aria-expanded={isSubmissionHistoryVisible} aria-controls="module-submission-history-content" onClick={() => setIsSubmissionHistoryVisible((visible) => !visible)}>
+                {isSubmissionHistoryVisible ? <ChevronUp /> : <ChevronDown />}
+                {isSubmissionHistoryVisible ? "Hide submission history" : "Show submission history"}
+              </Button>
+            </div>
+            {isSubmissionHistoryVisible ? (
+              <div id="module-submission-history-content">
+                <SubmissionHistoryCard
+                  submissions={submissions}
+                  canManage={sameTenant}
+                  onAdd={openAddSubmission}
+                  onEdit={openEditSubmission}
+                  onDelete={(submission) => void handleDeleteSubmission(submission)}
+                />
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
         <section aria-labelledby="module-collaborators-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="module-collaborators-heading" className="text-lg font-semibold">Collaborators</h2>
@@ -851,39 +902,6 @@ export default function ModuleDetailPage() {
             </Card>
           ) : null}
         </section>
-
-        <section className="grid gap-6 lg:grid-cols-3" aria-label="Linked work">
-          <LinkedProjectCard
-            module={module}
-            canChangeProject={sameTenant}
-            availableProjects={availableProjects}
-            linkedProject={{ title: linkedProjectQuery.data?.title, isError: linkedProjectQuery.isError }}
-            isSaving={updateModule.isPending}
-            onChangeProject={handleChangeProject}
-          />
-          <ModuleTasksDetails
-            tasks={moduleTasks}
-            onAddTask={sameTenant ? () => setIsAddTaskOpen(true) : undefined}
-            onLinkExisting={sameTenant ? () => setIsLinkTasksOpen(true) : undefined}
-            onUnlinkTask={sameTenant ? (task) => void handleUnlinkTask(task) : undefined}
-          />
-          <ModuleNotesDetails
-            notes={moduleNotes}
-            addNoteHref={sameTenant ? `/daily-notes?moduleId=${module.id}&new=true` : undefined}
-            onLinkExisting={sameTenant ? () => setIsLinkNotesOpen(true) : undefined}
-            onUnlinkNote={sameTenant ? (note) => void handleUnlinkNote(note) : undefined}
-          />
-        </section>
-
-        {sameTenant ? (
-          <SubmissionHistoryCard
-            submissions={submissions}
-            canManage={sameTenant}
-            onAdd={openAddSubmission}
-            onEdit={openEditSubmission}
-            onDelete={(submission) => void handleDeleteSubmission(submission)}
-          />
-        ) : null}
 
         <SubmissionDialog
           open={isSubmissionDialogOpen}
@@ -926,17 +944,6 @@ export default function ModuleDetailPage() {
           emptyMessage={notesQuery.isPending ? "Loading notes…" : "No matching notes."}
           confirmLabel="Link notes"
           onConfirm={handleLinkNotes}
-        />
-
-        <EntityDetailPipeline
-          entityLabel="module"
-          entity={{ ...module, title: paperDisplayTitle(module), secondaryStatus: module.tag }}
-          stages={(stagesQuery.data ?? []).filter((stage) => !stage.hidden)}
-          isPending={stagesQuery.isPending}
-          isError={stagesQuery.isError}
-          isUpdating={updateModule.isPending}
-          updateError={updateModule.isError ? updateModule.error.message : null}
-          onStageChange={changePipelineStage}
         />
       </div>
     </div>
