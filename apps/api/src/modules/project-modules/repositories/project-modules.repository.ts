@@ -166,6 +166,10 @@ export class ProjectModulesRepository {
     title?: string;
     description?: string;
     abstract?: string;
+    targetJournal?: string;
+    backupJournal?: string;
+    targetConference?: string;
+    backupConference?: string;
     tagId?: string;
     statusId?: string;
     pipelineStageId?: string;
@@ -205,6 +209,10 @@ export class ProjectModulesRepository {
       title: string;
       description: string;
       abstract: string;
+      targetJournal: string;
+      backupJournal: string;
+      targetConference: string;
+      backupConference: string;
       projectId: string | null;
       tagId: string;
       statusId: string;

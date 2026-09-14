@@ -7,6 +7,7 @@ import {
   useCreateModule,
   useCurrentWorkspace,
   useMembers,
+  useModulePipelineStagePool,
   useModules,
   useProjects,
   useTrackEvent,
@@ -114,6 +115,14 @@ export default function ModulesPage() {
   const paginationMeta = modulesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
+  const stagesQuery = useModulePipelineStagePool(tenantId);
+  const visibleStages = useMemo(
+    () =>
+      [...(stagesQuery.data ?? [])]
+        .filter((stageValue) => !stageValue.hidden)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [stagesQuery.data],
+  );
   const [isNewModuleOpen, setIsNewModuleOpen] = useState(false);
   const [sharingModule, setSharingModule] = useState<ApiModule | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -129,6 +138,7 @@ export default function ModulesPage() {
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("All");
+  const [stage, setStage] = useState<string>("All");
   const [sortColumn, setSortColumn] = useState<SortColumn>("module");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   useEffect(() => {
@@ -137,6 +147,7 @@ export default function ModulesPage() {
     tenantId,
     search,
     status,
+    stage,
     sortColumn,
     sortDirection,
   ]);
@@ -201,6 +212,7 @@ export default function ModulesPage() {
     const query = search.trim().toLowerCase();
     const filtered = modules.filter((module) => {
       if (status !== "All" && module.status !== status) return false;
+      if (stage !== "All" && module.pipelineStage !== stage) return false;
       const linkedProject = projectName(module.projectId);
       return (
         !query ||
@@ -214,9 +226,9 @@ export default function ModulesPage() {
       (a, b) => compareModules(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modules, search, status, projectName, assigneeName, sortColumn, sortDirection]);
+  }, [modules, search, status, stage, projectName, assigneeName, sortColumn, sortDirection]);
 
-  const hasActiveFilters = search !== "" || status !== "All";
+  const hasActiveFilters = search !== "" || status !== "All" || stage !== "All";
 
   async function handleCreateModule(input: ModuleFormInput) {
     const module = await createModule.mutateAsync({
@@ -224,6 +236,10 @@ export default function ModulesPage() {
       title: input.title || undefined,
       description: input.description || undefined,
       abstract: input.abstract || undefined,
+      targetJournal: input.targetJournal || undefined,
+      backupJournal: input.backupJournal || undefined,
+      targetConference: input.targetConference || undefined,
+      backupConference: input.backupConference || undefined,
       projectId: input.projectId ?? undefined,
       status: input.status,
       pipelineStage: input.pipelineStage,
@@ -334,6 +350,17 @@ export default function ModulesPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={stage} onValueChange={setStage}>
+          <SelectTrigger className="sm:w-48" aria-label="Stage"><SelectValue placeholder="Stage" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">All stages</SelectItem>
+            {visibleStages.map((stageValue) => (
+              <SelectItem key={stageValue.id} value={stageValue.value}>
+                {stageValue.value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <ColumnVisibilityMenu
           columns={MODULE_COLUMNS}
           visibleColumns={columns.visibleColumns}
@@ -345,6 +372,7 @@ export default function ModulesPage() {
             onClick={() => {
               setSearch("");
               setStatus("All");
+              setStage("All");
             }}
             className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >

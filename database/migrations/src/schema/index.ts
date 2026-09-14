@@ -21,3 +21,4 @@ export * from './feedback';
 export * from './user-preferences';
 export * from './analytics-events';
 export * from './calendar-events';
+export * from './module-submissions';

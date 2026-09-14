@@ -870,6 +870,42 @@ export interface paths {
         patch: operations["CalendarEventsController_update"];
         trace?: never;
     };
+    "/api/v1/tenant/{tenantId}/modules/{moduleId}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a paper's submission history */
+        get: operations["ModuleSubmissionsController_list"];
+        put?: never;
+        /** Log a submission for a paper */
+        post: operations["ModuleSubmissionsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tenant/{tenantId}/modules/{moduleId}/submissions/{submissionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a submission entry */
+        delete: operations["ModuleSubmissionsController_remove"];
+        options?: never;
+        head?: never;
+        /** Update a submission entry */
+        patch: operations["ModuleSubmissionsController_update"];
+        trace?: never;
+    };
     "/api/v1/tenant/{tenantId}/feedback": {
         parameters: {
             query?: never;
@@ -1074,6 +1110,26 @@ export interface components {
             description?: string;
             /** @description The paper's academic abstract. */
             abstract?: string;
+            /**
+             * @description The primary journal this paper is being targeted for.
+             * @example Nature Communications
+             */
+            targetJournal?: string;
+            /**
+             * @description A fallback journal if the target journal does not work out.
+             * @example Scientific Reports
+             */
+            backupJournal?: string;
+            /**
+             * @description The primary conference this paper is being targeted for.
+             * @example ICML
+             */
+            targetConference?: string;
+            /**
+             * @description A fallback conference if the target conference does not work out.
+             * @example NeurIPS Workshop
+             */
+            backupConference?: string;
             projectId?: string;
             /** @example Research Paper */
             tag?: string;
@@ -1102,6 +1158,26 @@ export interface components {
             description?: string;
             /** @description The paper's academic abstract. */
             abstract?: string;
+            /**
+             * @description The primary journal this paper is being targeted for.
+             * @example Nature Communications
+             */
+            targetJournal?: string;
+            /**
+             * @description A fallback journal if the target journal does not work out.
+             * @example Scientific Reports
+             */
+            backupJournal?: string;
+            /**
+             * @description The primary conference this paper is being targeted for.
+             * @example ICML
+             */
+            targetConference?: string;
+            /**
+             * @description A fallback conference if the target conference does not work out.
+             * @example NeurIPS Workshop
+             */
+            backupConference?: string;
             projectId?: string;
             /** @example Research Paper */
             tag?: string;
@@ -1235,6 +1311,32 @@ export interface components {
             title?: string;
             /** @example 2026-09-15 */
             eventDate?: string;
+        };
+        CreateSubmissionDto: {
+            /** @example 2026-03-01 */
+            submittedDate: string;
+            /** @example Nature Communications */
+            journalName: string;
+            /** @example Submitted */
+            status: string;
+            /** @example 2 */
+            revisionRounds?: number;
+            /** @example 2026-06-15 */
+            decisionDate?: string;
+            notes?: string;
+        };
+        UpdateSubmissionDto: {
+            /** @example 2026-03-01 */
+            submittedDate?: string;
+            /** @example Nature Communications */
+            journalName?: string;
+            /** @example Submitted */
+            status?: string;
+            /** @example 2 */
+            revisionRounds?: number;
+            /** @example 2026-06-15 */
+            decisionDate?: string;
+            notes?: string;
         };
         CreateFeedbackDto: {
             /** @example The project dashboard is easy to use, but loading is sometimes slow. */
@@ -3342,6 +3444,96 @@ export interface operations {
             };
             /** @description Only the event creator may update the event */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ModuleSubmissionsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenantId: string;
+                moduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ModuleSubmissionsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenantId: string;
+                moduleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubmissionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ModuleSubmissionsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenantId: string;
+                moduleId: string;
+                submissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ModuleSubmissionsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenantId: string;
+                moduleId: string;
+                submissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSubmissionDto"];
+            };
+        };
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

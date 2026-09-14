@@ -24,6 +24,7 @@ import { ModulePipelineStagesPoolModule } from './modules/module-pipeline-stages
 import { ProjectInvitationsModule } from './modules/project-invitations/project-invitations.module';
 import { ConferencesModule } from './modules/conferences/conferences.module';
 import { CalendarEventsModule } from './modules/calendar-events/calendar-events.module';
+import { ModuleSubmissionsModule } from './modules/module-submissions/module-submissions.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
@@ -90,6 +91,7 @@ import { ArchiveCleanupModule } from './modules/archive-cleanup/archive-cleanup.
     ProjectInvitationsModule,
     ConferencesModule,
     CalendarEventsModule,
+    ModuleSubmissionsModule,
     FeedbackModule,
     PreferencesModule,
     ArchiveCleanupModule,

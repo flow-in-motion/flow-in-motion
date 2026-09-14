@@ -41,6 +41,43 @@ export class CreateModuleDto {
   @IsString()
   abstract?: string;
 
+  @ApiProperty({
+    required: false,
+    example: 'Nature Communications',
+    description: 'The primary journal this paper is being targeted for.',
+  })
+  @IsOptional()
+  @IsString()
+  targetJournal?: string;
+
+  @ApiProperty({
+    required: false,
+    example: 'Scientific Reports',
+    description: 'A fallback journal if the target journal does not work out.',
+  })
+  @IsOptional()
+  @IsString()
+  backupJournal?: string;
+
+  @ApiProperty({
+    required: false,
+    example: 'ICML',
+    description: 'The primary conference this paper is being targeted for.',
+  })
+  @IsOptional()
+  @IsString()
+  targetConference?: string;
+
+  @ApiProperty({
+    required: false,
+    example: 'NeurIPS Workshop',
+    description:
+      'A fallback conference if the target conference does not work out.',
+  })
+  @IsOptional()
+  @IsString()
+  backupConference?: string;
+
   @ApiProperty({ required: false })
   @IsOptional()
   @IsUUID()

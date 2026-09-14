@@ -332,6 +332,37 @@ describe('ProjectModulesService', () => {
       );
     });
 
+    it('passes through the target/backup journal and conference fields', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          category === 'project_role' && value === 'Owner'
+            ? Promise.resolve({ id: 'owner-role-id' })
+            : Promise.resolve(undefined),
+      );
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        tagId: null,
+        statusId: null,
+      });
+
+      await service.create('tenant-1', 'user-1', {
+        shortTitle: 'New Module',
+        targetJournal: 'Nature Communications',
+        backupJournal: 'Scientific Reports',
+        targetConference: 'ICML',
+        backupConference: 'NeurIPS Workshop',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetJournal: 'Nature Communications',
+          backupJournal: 'Scientific Reports',
+          targetConference: 'ICML',
+          backupConference: 'NeurIPS Workshop',
+        }),
+      );
+    });
+
     it("resolves the pipeline stage against the tenant's shared stage list", async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
@@ -432,6 +463,41 @@ describe('ProjectModulesService', () => {
   });
 
   describe('update', () => {
+    it('passes through the target/backup journal and conference fields', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        tagId: null,
+        statusId: null,
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'role-1',
+      });
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        tagId: null,
+        statusId: null,
+      });
+
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        targetJournal: 'Nature Communications',
+        backupJournal: 'Scientific Reports',
+        targetConference: 'ICML',
+        backupConference: 'NeurIPS Workshop',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({
+          targetJournal: 'Nature Communications',
+          backupJournal: 'Scientific Reports',
+          targetConference: 'ICML',
+          backupConference: 'NeurIPS Workshop',
+        }),
+      );
+    });
+
     it('links an independent module to a project', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
