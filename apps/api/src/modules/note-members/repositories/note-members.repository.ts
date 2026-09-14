@@ -17,6 +17,7 @@ export class NoteMembersRepository {
         userId: noteMembers.userId,
         displayName: users.displayName,
         email: users.email,
+        affiliation: users.institution,
         createdAt: noteMembers.createdAt,
       })
       .from(noteMembers)

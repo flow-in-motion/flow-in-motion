@@ -44,6 +44,7 @@ export class UsersService {
         id: users.id,
         displayName: users.displayName,
         email: users.email,
+        affiliation: users.institution,
       })
       .from(users)
       .where(
@@ -65,6 +66,7 @@ export class UsersService {
         id: users.id,
         displayName: users.displayName,
         email: users.email,
+        affiliation: users.institution,
       })
       .from(users)
       .where(inArray(users.id, uniqueIds));

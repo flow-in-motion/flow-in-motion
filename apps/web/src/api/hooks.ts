@@ -95,6 +95,7 @@ export interface Membership {
   joinedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  affiliation?: string | null;
 }
 
 // See apps/api/src/modules/{projects,project-modules,tasks,notes} for the source of truth.
@@ -127,6 +128,7 @@ export interface ApiCollaborator {
   role: string | null;
   displayName?: string | null;
   email?: string | null;
+  affiliation?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -247,6 +249,7 @@ export interface ApiMember {
   userId: string;
   displayName?: string | null;
   email?: string | null;
+  affiliation?: string | null;
   createdAt: string;
 }
 
@@ -2151,6 +2154,7 @@ export interface ApiUserSearchResult {
   id: string;
   displayName: string;
   email: string;
+  affiliation?: string | null;
 }
 
 /** Searches all users on the platform by name/email — used to find collaborators to invite, regardless of workspace. */

@@ -33,4 +33,7 @@ export class MembershipResponseDto {
 
   @ApiProperty()
   updatedAt!: Date;
+
+  @ApiProperty({ nullable: true })
+  affiliation!: string | null;
 }

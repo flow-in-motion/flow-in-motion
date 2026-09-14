@@ -55,9 +55,17 @@ export function ModuleCollaboratorsManager({
   const query = search.trim().toLowerCase();
   const filteredCollaborators = collaborators.filter((collaborator) => {
     if (!query) return true;
+  
     const member = memberByUserId.get(collaborator.userId);
-    const displayName = collaborator.displayName ?? member?.displayName ?? "";
-    return displayName.toLowerCase().includes(query);
+    const displayName =
+      collaborator.displayName ?? member?.displayName ?? "";
+    const email = collaborator.email ?? member?.email ?? "";
+    const affiliation =
+      collaborator.affiliation ?? member?.affiliation ?? "";
+  
+    return [displayName, email, affiliation].some((value) =>
+      value.toLowerCase().includes(query),
+    );
   });
 
   return (
@@ -66,8 +74,8 @@ export function ModuleCollaboratorsManager({
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search collaborators by name…"
-          aria-label="Search collaborators by name"
+          placeholder="Search by name, email, or affiliation…"
+          aria-label="Search collaborators by name, email, or affiliation"
           className="sm:max-w-xs"
         />
       ) : null}
@@ -77,6 +85,7 @@ export function ModuleCollaboratorsManager({
           const displayName =
             collaborator.displayName ?? member?.displayName ?? "Unknown collaborator";
           const collaboratorEmail = collaborator.email ?? member?.email;
+          const collaboratorAffiliation = collaborator.affiliation ?? member?.affiliation;
           return (
             <div
               key={collaborator.id}
@@ -89,6 +98,11 @@ export function ModuleCollaboratorsManager({
                 {collaboratorEmail ? (
                   <span className="block truncate text-xs text-muted-foreground">
                     {collaboratorEmail}
+                  </span>
+                ) : null}
+                {collaboratorAffiliation ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {collaboratorAffiliation}
                   </span>
                 ) : null}
               </span>

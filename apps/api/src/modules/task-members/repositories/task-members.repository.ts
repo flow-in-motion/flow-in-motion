@@ -17,6 +17,7 @@ export class TaskMembersRepository {
         userId: taskMembers.userId,
         displayName: users.displayName,
         email: users.email,
+        affiliation: users.institution,
         createdAt: taskMembers.createdAt,
       })
       .from(taskMembers)

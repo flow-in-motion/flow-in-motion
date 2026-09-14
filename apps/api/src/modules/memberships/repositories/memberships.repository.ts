@@ -25,6 +25,7 @@ export class MembershipsRepository {
           userId: tenantMemberships.userId,
           email: users.email,
           displayName: users.displayName,
+          affiliation: users.institution,
           role: tenantMemberships.role,
           status: tenantMemberships.status,
           invitedAt: tenantMemberships.invitedAt,

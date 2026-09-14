@@ -59,6 +59,11 @@ export function TaskMembersManager({
                     {member.email}
                   </span>
                 ) : null}
+                {member.affiliation ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {member.affiliation}
+                  </span>
+                ) : null}
               </span>
               <button
                 type="button"
@@ -120,8 +125,17 @@ export function TaskMembersManager({
                   }}
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{member.displayName}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{member.email}</span>
+                    <span className="block truncate text-sm font-medium">
+                      {member.displayName}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {member.email}
+                    </span>
+                    {member.affiliation ? (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {member.affiliation}
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               ))
