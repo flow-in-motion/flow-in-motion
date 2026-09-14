@@ -57,7 +57,7 @@ export default function WorkspaceOnboardingPage() {
       </header>
 
       <main className="mx-auto grid min-h-[calc(100vh-65px)] max-w-6xl gap-10 px-5 py-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center lg:px-8">
-        <aside className="hidden rounded-2xl border bg-card/70 p-8 shadow-sm backdrop-blur-sm lg:block">
+        <aside className="hidden rounded-xl border bg-card p-8 lg:block">
           <span className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
             Welcome aboard
           </span>
@@ -94,8 +94,7 @@ export default function WorkspaceOnboardingPage() {
           </ol>
         </aside>
 
-        <section className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-2xl border bg-card/95 p-6 shadow-lg backdrop-blur-sm sm:p-8">
-          <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/20 via-primary to-primary/20" />
+        <section className="mx-auto w-full max-w-2xl rounded-xl border bg-card p-6 shadow-sm sm:p-8">
           {createWorkspace.data ? (
             <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">

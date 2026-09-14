@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GraduationCap, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 
 import { NavTree } from "@/components/layout/nav-tree";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -13,28 +13,24 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-/** Mobile-only top bar (hidden from md up, where the Sidebar takes over). */
+/** Tablet/mobile top bar (hidden from lg up, where the Sidebar takes over). */
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 isolate z-40 flex h-16 shrink-0 items-center justify-between overflow-hidden border-b border-blue-300/70 bg-gradient-to-r from-blue-100/95 via-card/95 to-violet-100/95 px-4 shadow-sm backdrop-blur-xl md:hidden dark:border-blue-900/50 dark:from-blue-950/80 dark:via-card/90 dark:to-violet-950/70">
-      <GraduationCap
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 -top-10 h-24 w-24 -translate-x-1/2 rotate-6 text-primary/[0.08]"
-      />
-      <div className="relative z-10">
+    <header className="app-topbar sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b px-4 backdrop-blur-xl lg:hidden">
+      <div>
         <Wordmark />
       </div>
-      <div className="relative z-10">
+      <div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Open menu">
               <Menu />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="flex w-3/4 flex-col overflow-y-auto sm:max-w-xs">
-            <SheetHeader>
+          <SheetContent side="left" className="app-sidebar flex w-3/4 flex-col overflow-y-auto border-r sm:max-w-xs">
+            <SheetHeader className="border-b pb-5">
               <SheetTitle>Research in Motion</SheetTitle>
             </SheetHeader>
             <div className="mt-6 flex flex-col gap-6">

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -15,13 +15,15 @@ describe("NavTree", () => {
     expect(screen.queryByRole("link", { name: /Settings/ })).not.toBeInTheDocument();
   });
 
-  it("lists Account Audit under Potential Future Features", () => {
+  it("keeps roadmap links available behind a compact disclosure", () => {
     render(
       <MemoryRouter>
         <NavTree />
       </MemoryRouter>,
     );
 
+    expect(screen.queryByRole("link", { name: /Account Audit/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Roadmap" }));
     expect(screen.getByRole("link", { name: /Account Audit/ })).toHaveAttribute(
       "href",
       "/settings/account-audit",

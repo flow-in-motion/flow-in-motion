@@ -148,8 +148,8 @@ function PipelineItemRow({
     row.outstanding === 0
       ? "text-muted-foreground"
       : "text-orange-600 dark:text-orange-400";
-  const cardTone = "border-violet-200/70 bg-gradient-to-br from-violet-50/70 to-card dark:border-violet-900/50 dark:from-violet-950/20";
-  const cardToneRow = "border-violet-200/70 bg-gradient-to-r from-violet-50/70 to-card dark:border-violet-900/50 dark:from-violet-950/20";
+  const cardTone = "border-border bg-card";
+  const cardToneRow = "border-border bg-card";
 
   if (compact) {
     return (
@@ -158,7 +158,7 @@ function PipelineItemRow({
         onDragStart={(event) => onDragStart(event, row)}
         onDragEnd={onDragEnd}
         className={cn(
-          "flex cursor-grab flex-col gap-1.5 rounded-xl border px-3 py-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing",
+          "flex cursor-grab flex-col gap-1.5 rounded-lg border px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-muted/25 active:cursor-grabbing",
           cardTone,
           isDragging && "opacity-45",
         )}
@@ -198,7 +198,7 @@ function PipelineItemRow({
       onDragStart={(event) => onDragStart(event, row)}
       onDragEnd={onDragEnd}
       className={cn(
-        "flex cursor-grab flex-wrap items-center gap-3 rounded-xl border px-4 py-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing",
+        "flex cursor-grab flex-wrap items-center gap-3 rounded-lg border px-4 py-2.5 transition-colors hover:border-primary/30 hover:bg-muted/25 active:cursor-grabbing",
         cardToneRow,
         isDragging && "opacity-45",
       )}
@@ -446,7 +446,7 @@ export default function PipelinePage() {
         onSave={handleCreateModule}
       />
 
-      <div className="surface-toolbar flex flex-col gap-4 border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-900/50 dark:bg-emerald-950/10">
+      <div className="surface-toolbar flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             View
@@ -567,7 +567,7 @@ export default function PipelinePage() {
                   onDragOver={(event) => handleDragOver(event, index)}
                   onDrop={(event) => handleDrop(event, index)}
                   className={cn(
-                    "min-h-24 flex-1 rounded-xl border border-transparent bg-card/35 p-3 transition-all",
+                    "min-h-24 flex-1 rounded-lg border border-transparent bg-card/35 p-3 transition-colors",
                     !isLast && "mb-6",
                     draggedId && "border border-dashed border-primary/30",
                     dragOverStageIndex === index && "border-primary bg-primary/5 ring-2 ring-primary/30",
@@ -613,7 +613,7 @@ export default function PipelinePage() {
             style={{ minWidth: `${(stages.length + (unassignedRows.length ? 1 : 0)) * 260}px` }}
           >
             {unassignedRows.length > 0 ? (
-              <div className="flex min-h-48 w-64 shrink-0 flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/45 p-3 shadow-sm dark:border-amber-900/50 dark:bg-amber-950/15">
+              <div className="flex min-h-48 w-64 shrink-0 flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/30 p-3 dark:border-amber-900/50 dark:bg-amber-950/15">
                 <div className="flex items-center gap-2">
                   <h3 className={STAGE_TITLE_CLASS}>Unassigned</h3>
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
@@ -648,7 +648,7 @@ export default function PipelinePage() {
                   onDragOver={(event) => handleDragOver(event, index)}
                   onDrop={(event) => handleDrop(event, index)}
                   className={cn(
-                    "flex min-h-48 w-64 shrink-0 flex-col gap-3 rounded-xl border border-emerald-200/60 bg-emerald-50/30 p-3 shadow-sm transition-colors dark:border-emerald-900/40 dark:bg-emerald-950/10",
+                    "flex min-h-48 w-64 shrink-0 flex-col gap-3 rounded-lg border bg-card p-3 transition-colors",
                     draggedId && "border-dashed border-primary/30",
                     dragOverStageIndex === index && "border-primary bg-primary/5 ring-2 ring-primary/30",
                   )}

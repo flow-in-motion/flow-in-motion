@@ -39,8 +39,7 @@ export function AuthStateFrame({
       </header>
 
       <main className="flex min-h-[calc(100vh-65px)] items-center justify-center px-4 py-8 sm:py-12">
-        <section className="relative w-full max-w-xl overflow-hidden rounded-2xl border bg-card/95 p-6 shadow-lg backdrop-blur-sm sm:p-9">
-          <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/20 via-primary to-primary/20" />
+        <section className="w-full max-w-xl rounded-xl border bg-card p-6 shadow-sm sm:p-9">
           <div className="flex flex-col items-center text-center">
             <span
               className={cn(

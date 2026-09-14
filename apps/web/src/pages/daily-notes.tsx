@@ -380,9 +380,9 @@ export default function DailyNotesPage() {
         }
       />
 
-      <div className="rounded-2xl border border-violet-200/60 bg-gradient-to-br from-violet-50/70 via-muted/25 to-blue-50/40 p-3 shadow-sm sm:p-4 md:p-6 dark:border-violet-900/50 dark:from-violet-950/20 dark:to-blue-950/10">
+      <div className="rounded-lg border bg-muted/25 p-3 sm:p-4 md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-        <aside className="flex w-full flex-col gap-4 rounded-xl border border-violet-200/60 bg-card/95 p-4 shadow-sm lg:w-80 lg:shrink-0 dark:border-violet-900/50">
+        <aside className="flex w-full flex-col gap-4 rounded-lg border bg-card p-4 lg:w-80 lg:shrink-0">
           <Heading level="h3">Daily Notes</Heading>
 
           <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as SortOrder)}>
@@ -426,8 +426,8 @@ export default function DailyNotesPage() {
                     type="button"
                     onClick={() => selectNote(note.id)}
                     className={cn(
-                      "flex flex-col gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-all",
-                      isSelected ? "border-primary/20 bg-primary/10 shadow-sm" : "border-transparent hover:bg-muted",
+                      "flex flex-col gap-0.5 rounded-md border px-3 py-2.5 text-left transition-colors",
+                      isSelected ? "border-primary/20 bg-accent" : "border-transparent hover:bg-muted",
                     )}
                   >
                     <span className="text-sm font-semibold leading-snug">{note.title}</span>
@@ -455,7 +455,7 @@ export default function DailyNotesPage() {
           ) : null}
         </aside>
 
-        <section className="min-h-[620px] flex-1 rounded-xl border bg-card p-4 shadow-sm sm:p-6">
+        <section className="min-h-[620px] flex-1 rounded-lg border bg-card p-4 sm:p-6">
           <div className="mb-8 flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

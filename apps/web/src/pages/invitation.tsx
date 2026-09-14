@@ -50,11 +50,11 @@ export default function InvitationPage() {
 
   return (
     <AuthScreenBackground className="flex items-center justify-center px-4 py-8">
-      <Card className="w-full max-w-xl overflow-hidden border-primary/20 bg-card/95 shadow-xl backdrop-blur">
-        <div className="h-1 bg-gradient-to-r from-primary/30 via-primary to-primary/30" />
+      <Card className="w-full max-w-xl overflow-hidden shadow-sm">
+        <div className="h-1 bg-primary" />
         <CardHeader className="items-center gap-4 text-center">
           <Wordmark />
-          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
+          <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted text-primary ring-1 ring-border">
             <Mail className="h-6 w-6" />
           </span>
           <div>

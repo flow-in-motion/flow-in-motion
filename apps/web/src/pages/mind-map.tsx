@@ -68,7 +68,7 @@ function ItemNode({ item, kind }: { item: LinkedItem; kind: "task" | "note" }) {
     <Link
       to={href}
       className={cn(
-        "group flex min-w-48 items-start gap-2 rounded-xl border bg-card px-3 py-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group flex min-w-48 items-start gap-2 rounded-lg border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/30 hover:bg-muted/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         kind === "task"
           ? "border-amber-200 dark:border-amber-900"
           : "border-emerald-200 dark:border-emerald-900",
@@ -271,7 +271,7 @@ function BubbleRelationshipMap({
         <Button type="button" variant="outline" size="sm" onClick={expandAll}>Expand all</Button>
         <Button type="button" variant="outline" size="sm" onClick={collapseAll}>Collapse all</Button>
       </div>
-      <div className="overflow-x-auto rounded-2xl border bg-muted/10 shadow-inner">
+      <div className="overflow-x-auto rounded-lg border bg-muted/10">
         <svg role="group" aria-label="Bubble relationship map" viewBox={`0 0 1100 ${height}`} className="min-w-[1100px]" style={{ height }}>
         <title>Bubble relationship map for {workspaceName}</title>
         {edges.map((edge) => {
@@ -365,7 +365,7 @@ function ModuleBranch({
 }) {
   return (
     <Branch>
-      <div className="rounded-2xl border border-violet-200 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20">
+      <div className="rounded-lg border bg-muted/30 p-3">
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -386,7 +386,7 @@ function ModuleBranch({
             </span>
           </Link>
         </div>
-        {isExpanded ? <div className="mt-3 border-t border-violet-200/70 pt-3 dark:border-violet-900/70"><LeafCollection tasks={tasks} notes={notes} /></div> : null}
+          {isExpanded ? <div className="mt-3 border-t pt-3"><LeafCollection tasks={tasks} notes={notes} /></div> : null}
       </div>
     </Branch>
   );
@@ -424,7 +424,7 @@ function ProjectTree({
   });
 
   return (
-    <section className="rounded-2xl border border-blue-200/80 bg-card p-4 shadow-sm dark:border-blue-900/70">
+    <section className="rounded-lg border bg-card p-4">
       <div className="flex items-center gap-2">
         <Button
           type="button"
@@ -451,7 +451,7 @@ function ProjectTree({
         <div className="mt-3 space-y-3">
           {(directTasks.length > 0 || directNotes.length > 0) ? (
             <Branch>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="rounded-lg border bg-muted/30 p-3">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Directly linked to project</p>
                 <LeafCollection tasks={directTasks} notes={directNotes} />
               </div>
@@ -558,7 +558,7 @@ export default function MindMapPage() {
         description="Explore how projects, papers, tasks, and notes connect. Select any node to open its details."
       />
 
-      <div className="surface-toolbar flex flex-col gap-4 border-violet-200/70 bg-violet-50/40 dark:border-violet-900/50 dark:bg-violet-950/10">
+      <div className="surface-toolbar flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             View
@@ -619,8 +619,8 @@ export default function MindMapPage() {
           projectFilter={projectFilter}
           search={normalizedSearch}
         />
-      ) : <div className="relative space-y-4 rounded-2xl border bg-muted/10 p-4 sm:p-6">
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-violet-300 bg-violet-50 p-4 shadow-sm dark:border-violet-800 dark:bg-violet-950/30">
+      ) : <div className="relative space-y-4 rounded-lg border bg-muted/10 p-4 sm:p-6">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-4">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-white"><Network className="h-5 w-5" /></span>
           <span><span className="block font-semibold">{workspace.data?.name ?? "Workspace"}</span><span className="block text-xs text-muted-foreground">Research workspace</span></span>
           <div className="ml-auto flex items-center gap-2">
@@ -658,7 +658,7 @@ export default function MindMapPage() {
 
           {showStandalone && (unassignedTasks.length > 0 || unassignedNotes.length > 0) ? (
             <Branch className="ml-0">
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
+              <div className="rounded-lg border bg-card p-4">
                 <p className="mb-3 font-semibold">Unassigned items</p>
                 <LeafCollection tasks={unassignedTasks} notes={unassignedNotes} />
               </div>
@@ -666,7 +666,7 @@ export default function MindMapPage() {
           ) : null}
 
           {projects.length === 0 && (!showStandalone || (independentModules.length === 0 && unassignedTasks.length === 0 && unassignedNotes.length === 0)) ? (
-            <div className="rounded-2xl border border-dashed bg-card p-10 text-center text-sm text-muted-foreground">No connections match the current filters.</div>
+            <div className="rounded-lg border border-dashed bg-card p-10 text-center text-sm text-muted-foreground">No connections match the current filters.</div>
           ) : null}
         </div>
       </div>}

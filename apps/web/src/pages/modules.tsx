@@ -368,7 +368,7 @@ export default function ModulesPage() {
         </div>
       ) : null}
 
-      <div className="surface-toolbar flex flex-wrap items-center gap-3 border-violet-200/70 bg-violet-50/40 dark:border-violet-900/50 dark:bg-violet-950/10">
+      <div className="surface-toolbar flex flex-wrap items-center gap-3">
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -416,10 +416,10 @@ export default function ModulesPage() {
         ) : null}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/70 bg-muted/20 p-3 shadow-sm sm:p-4">
+      <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
         <div className="min-w-[970px]">
           <div
-            className="mb-3 grid gap-4 rounded-lg border border-violet-200/70 bg-violet-100/65 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-violet-950 dark:border-violet-900/50 dark:bg-violet-950/35 dark:text-violet-200"
+            className="mb-1 grid gap-4 rounded-md bg-muted/65 px-4 py-3 text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground"
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {MODULE_COLUMNS.filter((column) =>
@@ -436,7 +436,7 @@ export default function ModulesPage() {
             ))}
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
             {visibleModules.length === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                 No papers match the current filters.
@@ -445,7 +445,7 @@ export default function ModulesPage() {
               visibleModules.map((module) => (
                 <div
                   key={module.id}
-                  className="grid items-center gap-4 rounded-xl border border-violet-200/70 bg-gradient-to-r from-violet-50/55 via-card to-card px-4 py-4 shadow-sm transition-all hover:border-violet-300 hover:shadow-md dark:border-violet-900/50 dark:from-violet-950/15"
+                  className="grid items-center gap-4 rounded-md border border-transparent bg-card px-4 py-3.5 transition-colors hover:bg-muted/45"
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
                   {columns.isColumnVisible("module") ? (
@@ -467,7 +467,7 @@ export default function ModulesPage() {
                               aria-label={`Manage collaborators for ${paperDisplayTitle(module)}`}
                               title="Manage collaborators"
                               onClick={() => setSharingModule(module)}
-                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                               <UserPlus className="h-3.5 w-3.5" />
                             </button>
@@ -476,7 +476,7 @@ export default function ModulesPage() {
                             to={`/modules/${module.id}?edit=true`}
                             aria-label={`Edit ${paperDisplayTitle(module)}`}
                             title="Edit paper"
-                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Link>
@@ -486,7 +486,7 @@ export default function ModulesPage() {
                             title="Archive paper"
                             onClick={() => void archive(module)}
                             disabled={archiveModule.isPending}
-                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <Archive className="h-3.5 w-3.5" />
                           </button>

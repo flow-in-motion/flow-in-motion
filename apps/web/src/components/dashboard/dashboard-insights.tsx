@@ -83,12 +83,8 @@ export function StalledPapersCard() {
     .slice(0, STALLED_PAPER_LIMIT);
 
   return (
-    <Card className="relative isolate overflow-hidden">
-      <Hourglass
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -right-8 h-40 w-40 rotate-12 text-primary/[0.05]"
-      />
-      <CardHeader className="relative z-10 border-b border-border/70 bg-muted/50 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle className="flex items-center gap-2">
             <Hourglass className="h-4 w-4 text-rose-600" />
@@ -100,7 +96,7 @@ export function StalledPapersCard() {
           <Link to="/pipeline">View pipeline</Link>
         </Button>
       </CardHeader>
-      <CardContent className="relative z-10 pt-6">
+      <CardContent className="pt-6">
         {stalled.length === 0 ? (
           <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/40 px-6 text-center">
             <Hourglass className="mb-3 h-7 w-7 text-muted-foreground/60" />
@@ -175,12 +171,8 @@ export function TaskHealthCard() {
   ];
 
   return (
-    <Card className="relative isolate overflow-hidden">
-      <CheckCircle2
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -left-8 h-36 w-36 -rotate-12 text-primary/[0.05]"
-      />
-      <CardHeader className="relative z-10 border-b border-border/70 bg-muted/50 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -192,7 +184,7 @@ export function TaskHealthCard() {
           <Link to="/tasks">View tasks</Link>
         </Button>
       </CardHeader>
-      <CardContent className="relative z-10 grid gap-6 pt-6 sm:grid-cols-[auto_1fr] sm:items-center xl:grid-cols-1 2xl:grid-cols-[auto_1fr]">
+      <CardContent className="grid gap-6 pt-6 sm:grid-cols-[auto_1fr] sm:items-center xl:grid-cols-1 2xl:grid-cols-[auto_1fr]">
         <div
           className="relative mx-auto h-40 w-40 shrink-0 rounded-full shadow-inner"
           style={{ background: chartBackground }}
@@ -238,12 +230,8 @@ export function PriorityWorkloadCard() {
   const largestPriority = Math.max(1, ...priorityCounts.map((priority) => priority.count));
 
   return (
-    <Card className="relative isolate overflow-hidden">
-      <BarChart3
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -right-8 h-36 w-36 rotate-12 text-primary/[0.05]"
-      />
-      <CardHeader className="relative z-10 border-b border-border/70 bg-muted/50 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-amber-600" />
@@ -255,7 +243,7 @@ export function PriorityWorkloadCard() {
           <Link to="/tasks">View tasks</Link>
         </Button>
       </CardHeader>
-      <CardContent className="relative z-10 pt-6">
+      <CardContent className="pt-6">
         {activeTasks.length === 0 ? (
           <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/40 text-center">
             <CheckCircle2 className="mb-3 h-7 w-7 text-emerald-500" />
@@ -312,12 +300,8 @@ export function ProjectProgressCard() {
     .slice(0, 5);
 
   return (
-    <Card className="relative isolate overflow-hidden">
-      <TrendingUp
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -right-8 h-40 w-40 rotate-12 text-primary/[0.05]"
-      />
-      <CardHeader className="relative z-10 border-b border-border/70 bg-muted/50 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-emerald-600" />
@@ -327,7 +311,7 @@ export function ProjectProgressCard() {
         </div>
         <Badge variant="outline" className="mt-3 w-fit bg-background sm:mt-0">Top 5 projects</Badge>
       </CardHeader>
-      <CardContent className="relative z-10 p-0">
+      <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>

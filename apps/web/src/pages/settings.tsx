@@ -406,8 +406,8 @@ export default function SettingsPage() {
                 Design theme
               </CardTitle>
               <CardDescription>
-                Pick the overall look and feel — layout, navigation, colors, and typography all
-                change together.
+                Pick the layout, navigation pattern, spacing, and typographic character. Your
+                selected colour theme is applied across each design.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-2">
@@ -485,8 +485,8 @@ export default function SettingsPage() {
                 Color theme
               </CardTitle>
               <CardDescription>
-                Choose the accent color used throughout your workspace, independent of the design
-                theme above.
+                Choose the colour wash used across navigation, the workspace canvas, active states,
+                and pipeline accents.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
@@ -563,8 +563,8 @@ export default function SettingsPage() {
                         key={option.id}
                         className={
                           isCurrent
-                            ? "border-primary/40 bg-primary/[0.025] shadow-md"
-                            : "transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md"
+                            ? "border-primary/40 bg-accent/35"
+                            : "transition-colors hover:border-primary/20 hover:bg-muted/35"
                         }
                       >
                         <CardHeader>

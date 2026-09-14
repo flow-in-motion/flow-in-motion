@@ -1,11 +1,13 @@
 import { useAuth } from "react-oidc-context";
 import { Link, useLocation } from "react-router-dom";
 import {
-  BookOpen,
+  ArrowRight,
+  CheckCircle2,
+  FileText,
   FlaskConical,
-  GraduationCap,
+  FolderKanban,
+  MessagesSquare,
   ShieldCheck,
-  Sparkles,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -19,48 +21,70 @@ const HIGHLIGHTS = [
   { icon: TrendingUp, text: "See your pipeline, tasks and deadlines at a glance" },
 ];
 
+const RESEARCH_FLOW = [
+  { icon: FolderKanban, label: "Project" },
+  { icon: FileText, label: "Paper" },
+  { icon: MessagesSquare, label: "Review" },
+  { icon: CheckCircle2, label: "Published" },
+];
+
 export default function SignInPage() {
   const auth = useAuth();
   const location = useLocation();
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? "/";
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      {/* Brand panel — hidden below lg, where the sign-in card takes the full screen */}
-      <div className="relative isolate hidden overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/80 lg:flex lg:flex-col lg:p-12 lg:py-16">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-white/10 blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 [background-image:radial-gradient(white_1px,transparent_1px)] [background-size:28px_28px] opacity-[0.08]"
-        />
-        <BookOpen
-          aria-hidden="true"
-          className="pointer-events-none absolute right-10 top-24 h-40 w-40 -rotate-12 text-white/10"
-        />
+    <div className="app-canvas grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(26rem,0.92fr)]">
+      <div className="hidden border-r border-primary/15 bg-[hsl(var(--nav-background))] lg:flex lg:flex-col lg:px-12 lg:py-10 xl:px-16">
+        <Wordmark />
 
-        <div className="relative z-10 my-auto max-w-md">
-          <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl">
+        <div className="my-auto max-w-xl py-10">
+          <p className="mb-4 flex items-center gap-3 text-[0.6875rem] font-bold uppercase tracking-[0.16em] text-primary">
+            <span className="h-px w-8 bg-primary/45" aria-hidden="true" />
+            Research operations, organised
+          </p>
+          <h1 className="max-w-lg font-heading text-4xl font-semibold leading-[1.08] tracking-[-0.045em] text-foreground xl:text-5xl">
             Where your research momentum lives
           </h1>
-          <p className="mt-4 text-base leading-7 text-white/80 text-balance">
+          <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground text-balance">
             One place to plan projects, assign tasks, organise notes, and
             follow your pipeline from first idea to acceptance.
           </p>
-          <ul className="mt-8 flex flex-col gap-4">
+
+          <div className="mt-8 rounded-2xl border border-primary/15 bg-card/75 p-5 shadow-[var(--shadow-md)] ring-1 ring-white/60 dark:ring-white/[0.03]">
+            <div className="mb-4 flex items-center justify-between gap-4">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary/70">
+                One connected workflow
+              </p>
+              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[0.625rem] font-semibold text-primary">
+                Live workspace
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              {RESEARCH_FLOW.map(({ icon: Icon, label }, index) => (
+                <div key={label} className="contents">
+                  <div className="flex min-w-0 flex-1 flex-col items-center gap-2 rounded-xl border border-primary/10 bg-white/55 px-2 py-3 text-center dark:bg-white/[0.04]">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-[0.6875rem] font-semibold text-foreground">{label}</span>
+                  </div>
+                  {index < RESEARCH_FLOW.length - 1 ? (
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary/40" aria-hidden="true" />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <ul className="mt-6 grid gap-3 sm:grid-cols-3">
             {HIGHLIGHTS.map(({ icon: Icon, text }) => (
               <li
                 key={text}
-                className="flex items-center gap-3 text-sm font-medium text-white"
+                className="flex items-start gap-2.5 rounded-xl border border-primary/10 bg-white/35 p-3 text-xs font-medium leading-5 text-foreground/80 dark:bg-white/[0.03]"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 ring-1 ring-white/25">
-                  <Icon className="h-4 w-4" />
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Icon className="h-3.5 w-3.5" />
                 </span>
                 {text}
               </li>
@@ -68,45 +92,31 @@ export default function SignInPage() {
           </ul>
         </div>
 
-        <div className="relative z-10 flex items-center gap-2 text-xs font-medium text-white/70">
+        <div className="flex items-center gap-2 border-t border-primary/15 pt-5 text-xs font-medium text-muted-foreground">
           <ShieldCheck className="h-4 w-4" />
-          Secured sign-in
+          Secure access · Your session stays private
         </div>
       </div>
 
-      {/* Sign-in card */}
-      <div className="relative isolate flex flex-col items-center justify-center overflow-hidden bg-accent px-4 py-12">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-primary/20 blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-28 -left-20 h-96 w-96 rounded-full bg-accent blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 [background-image:radial-gradient(hsl(var(--foreground)/0.08)_1px,transparent_1px)] [background-size:20px_20px]"
-        />
-        <GraduationCap
-          aria-hidden="true"
-          className="pointer-events-none absolute left-10 top-16 h-24 w-24 -rotate-6 text-primary/10 lg:h-28 lg:w-28"
-        />
-        <Sparkles
-          aria-hidden="true"
-          className="pointer-events-none absolute bottom-20 right-12 h-16 w-16 rotate-12 text-primary/15"
-        />
-
-        <div className="relative z-10 flex w-full max-w-md flex-col items-center gap-7 overflow-hidden rounded-2xl border bg-card/95 p-8 text-center shadow-lg ring-1 ring-primary/10 backdrop-blur sm:p-10">
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/20 via-primary to-primary/20"
-          />
+      <div className="flex flex-col items-center justify-center px-4 py-10 sm:px-8">
+        <div className="mb-8 lg:hidden">
+          <Wordmark />
+        </div>
+        <div className="relative flex w-full max-w-[27rem] flex-col items-center gap-7 overflow-hidden rounded-2xl border border-primary/15 bg-card/95 p-8 text-center shadow-[var(--shadow-md)] before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-primary sm:p-10">
           <div className="flex flex-col items-center gap-3">
-            <Wordmark />
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-[0.6875rem] font-bold uppercase tracking-[0.14em] text-primary/70">
+                Secure workspace access
+              </p>
+              <h2 className="mt-2 font-heading text-2xl font-semibold tracking-[-0.035em] text-foreground">
+                Welcome back
+              </h2>
+            </div>
             <p className="max-w-xs text-sm leading-6 text-muted-foreground">
-              Sign in to continue managing your research projects, tasks,
-              pipeline and notes.
+              Continue to your projects, papers, tasks, pipeline, and notes.
             </p>
           </div>
           <Button

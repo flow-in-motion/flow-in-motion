@@ -339,8 +339,8 @@ export default function CalendarPage() {
         onDelete={handleDeleteEvent}
       />
 
-      <section className="overflow-hidden rounded-2xl border border-cyan-200/70 bg-card shadow-sm dark:border-cyan-900/50">
-        <div className="flex flex-col gap-4 border-b border-border bg-cyan-50/40 p-4 sm:flex-row sm:items-center sm:justify-between dark:bg-cyan-950/10">
+      <section className="overflow-hidden rounded-lg border bg-card">
+        <div className="flex flex-col gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={goToToday}>Today</Button>
             <Button variant="outline" size="icon" onClick={() => changeMonth(-1)} aria-label="Previous month">
@@ -437,7 +437,7 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="hidden grid-cols-7 border-b border-border bg-muted/30 md:grid">
+        <div className="hidden grid-cols-7 border-b border-primary/10 bg-accent/45 md:grid">
           {WEEKDAYS.map((day) => (
             <div key={day} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {day.slice(0, 3)}

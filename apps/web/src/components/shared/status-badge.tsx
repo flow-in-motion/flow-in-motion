@@ -42,7 +42,11 @@ export function StatusBadge({ status, tone, className }: StatusBadgeProps) {
   return (
     <Badge
       variant="outline"
-      className={cn("whitespace-nowrap font-medium", toneClasses[resolvedTone], className)}
+      className={cn(
+        "whitespace-nowrap before:mr-1.5 before:h-1.5 before:w-1.5 before:rounded-full before:bg-current before:opacity-70",
+        toneClasses[resolvedTone],
+        className,
+      )}
     >
       {status}
     </Badge>

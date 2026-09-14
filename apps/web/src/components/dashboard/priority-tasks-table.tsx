@@ -131,12 +131,8 @@ export function PriorityTasksTable() {
   }
 
   return (
-    <Card className="relative isolate overflow-hidden">
-      <ListTodo
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -right-8 h-40 w-40 rotate-12 text-primary/[0.05]"
-      />
-      <CardHeader className="relative z-10 gap-4">
+    <Card className="overflow-hidden">
+      <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card">
         <div>
           <CardTitle className="flex items-center gap-2">
             <ListTodo className="h-4 w-4 text-blue-600" />
@@ -184,7 +180,7 @@ export function PriorityTasksTable() {
           ) : null}
         </div>
       </CardHeader>
-      <CardContent className="relative z-10">
+      <CardContent className="pt-[var(--card-padding)]">
         <Table>
           <TableHeader>
             <TableRow>

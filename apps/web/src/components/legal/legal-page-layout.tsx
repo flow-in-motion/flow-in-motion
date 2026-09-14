@@ -23,7 +23,7 @@ export function LegalPageLayout({ title, lastUpdated, children }: LegalPageLayou
       <main className="mx-auto max-w-3xl px-4 py-10 sm:px-8 sm:py-14">
         <BackButton fallback="/sign-in" label="Back" className="w-fit" />
 
-        <div className="mt-6 overflow-hidden rounded-2xl border bg-card/95 p-6 shadow-lg backdrop-blur-sm sm:p-10">
+        <div className="mt-6 overflow-hidden rounded-xl border bg-card p-6 shadow-sm sm:p-10">
           <p role="alert" className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
             Draft for review — this page has not been reviewed by a lawyer and should not be treated as final or binding.
           </p>

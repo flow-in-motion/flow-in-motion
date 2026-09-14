@@ -305,7 +305,7 @@ export default function TasksPage() {
         onSave={handleCreateTask}
       />
 
-      <div className="surface-toolbar flex flex-wrap items-center gap-3 border-amber-200/70 bg-amber-50/40 dark:border-amber-900/50 dark:bg-amber-950/10">
+      <div className="surface-toolbar flex flex-wrap items-center gap-3">
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -352,10 +352,10 @@ export default function TasksPage() {
         ) : null}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/70 bg-muted/20 p-3 shadow-sm sm:p-4">
+      <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
         <div className="min-w-[720px]">
           <div
-            className="mb-3 grid gap-4 rounded-lg border border-amber-200/70 bg-amber-100/65 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/35 dark:text-amber-200"
+            className="mb-1 grid gap-4 rounded-md bg-muted/65 px-4 py-3 text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground"
             style={{ gridTemplateColumns: gridTemplate }}
           >
             {TASK_COLUMNS.filter((column) =>
@@ -372,7 +372,7 @@ export default function TasksPage() {
             ))}
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
             {visibleTasks.length === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                 No tasks match the current filters.
@@ -381,7 +381,7 @@ export default function TasksPage() {
               visibleTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="grid items-center gap-4 rounded-xl border border-amber-200/70 bg-gradient-to-r from-amber-50/55 via-card to-card px-4 py-4 shadow-sm transition-all hover:border-amber-300 hover:shadow-md dark:border-amber-900/50 dark:from-amber-950/15"
+                  className="grid items-center gap-4 rounded-md border border-transparent bg-card px-4 py-3.5 transition-colors hover:bg-muted/45"
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
                   {columns.isColumnVisible("code") ? (
@@ -403,7 +403,7 @@ export default function TasksPage() {
                         to={`/tasks/${task.id}?edit=true`}
                         aria-label={`Edit ${task.title}`}
                         title="Edit task"
-                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
@@ -412,7 +412,7 @@ export default function TasksPage() {
                         onClick={() => void handleDeleteTask(task)}
                         aria-label={`Delete ${task.title}`}
                         title="Delete task"
-                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

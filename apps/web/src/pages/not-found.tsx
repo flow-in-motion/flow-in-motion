@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export default function NotFoundPage() {
   return (
-    <div className="mx-auto flex max-w-xl flex-col items-center gap-4 rounded-2xl border border-blue-200/70 bg-gradient-to-br from-blue-50 via-card to-violet-50 px-6 py-16 text-center shadow-sm sm:my-12 sm:py-20 dark:border-blue-900/50 dark:from-blue-950/25 dark:to-violet-950/20">
+    <div className="mx-auto flex max-w-xl flex-col items-center gap-4 rounded-xl border bg-card px-6 py-16 text-center shadow-sm sm:my-12 sm:py-20">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
         <Compass className="h-6 w-6" />
       </div>

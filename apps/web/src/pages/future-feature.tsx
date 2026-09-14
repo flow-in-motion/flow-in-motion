@@ -28,8 +28,7 @@ export default function FutureFeaturePage({ feature: featureOverride }: FutureFe
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center">
-      <section className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50 via-card to-blue-50 px-6 py-12 text-center shadow-md sm:px-10 sm:py-16 dark:border-violet-900/50 dark:from-violet-950/25 dark:to-blue-950/20">
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/20 via-primary to-primary/20" />
+      <section className="w-full max-w-xl rounded-xl border bg-card px-6 py-12 text-center shadow-sm sm:px-10 sm:py-16">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
           <Clock3 className="h-6 w-6" />
         </div>

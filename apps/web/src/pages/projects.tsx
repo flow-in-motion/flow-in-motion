@@ -435,7 +435,7 @@ export default function ProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="surface-toolbar flex flex-col gap-4 border-blue-200/60 bg-blue-50/40 lg:flex-row lg:items-start lg:justify-between dark:border-blue-900/50 dark:bg-blue-950/10">
+      <div className="surface-toolbar flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           <Input
             value={search}
@@ -484,9 +484,9 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border/70 bg-muted/20 p-3 shadow-sm sm:p-4">
+      <div className="rounded-lg border bg-card p-2 sm:p-3">
         <div>
-          <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-blue-200/60 bg-blue-100/60 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-blue-900 dark:border-blue-900/50 dark:bg-blue-950/35 dark:text-blue-200">
+          <div className="mb-1 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md bg-muted/65 px-4 py-3 text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground">
             {columns.isColumnVisible("project") ? (
               <div className="min-w-[160px] flex-1">
                 <SortableHeader
@@ -513,7 +513,7 @@ export default function ProjectsPage() {
               ))}
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
             {visibleProjects.length === 0 ? (
               <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
                 No projects match the current filters.
@@ -540,8 +540,8 @@ export default function ProjectsPage() {
                         }
                       }}
                       className={cn(
-                        "flex cursor-pointer flex-wrap items-center gap-x-6 gap-y-3 border border-blue-200/70 bg-gradient-to-r from-blue-50/55 via-card to-card px-4 py-4 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/75 hover:shadow-md dark:border-blue-900/50 dark:from-blue-950/15",
-                        isExpanded ? "rounded-t-xl border-b-0" : "rounded-xl",
+                        "flex cursor-pointer flex-wrap items-center gap-x-6 gap-y-3 border border-transparent bg-card px-4 py-3.5 transition-colors hover:bg-muted/45",
+                        isExpanded ? "rounded-t-md border-border border-b-0 bg-muted/35" : "rounded-md",
                       )}
                     >
                       {columns.isColumnVisible("project") ? (
@@ -580,7 +580,7 @@ export default function ProjectsPage() {
                                 }}
                                 aria-label={`Manage collaborators for ${project.title}`}
                                 title="Manage collaborators"
-                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               >
                                 <UserPlus className="h-3.5 w-3.5" />
                               </button>
@@ -590,7 +590,7 @@ export default function ProjectsPage() {
                               onClick={(event) => event.stopPropagation()}
                               aria-label={`Edit ${project.title}`}
                               title="Edit project"
-                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Link>
@@ -602,7 +602,7 @@ export default function ProjectsPage() {
                               }}
                               aria-label={`Delete ${project.title}`}
                               title="Delete project"
-                              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -676,7 +676,7 @@ export default function ProjectsPage() {
                     </div>
 
                     {isExpanded ? (
-                      <div className="flex flex-col gap-5 rounded-b-xl border border-t-0 border-border bg-card/70 px-5 py-5 shadow-sm">
+                      <div className="flex flex-col gap-5 rounded-b-md border border-t-0 bg-muted/25 px-5 py-5">
                         <ProjectOverviewDetails
                           project={project}
                           moduleCount={moduleCountByProject.get(project.id) ?? 0}

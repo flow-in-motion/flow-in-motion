@@ -178,12 +178,8 @@ export function ConferenceSubmissionsTable({
   const isLoading = workspace.isPending || conferencesQuery.isPending || projectsQuery.isPending || meQuery.isPending;
 
   return (
-    <Card className="relative isolate overflow-hidden">
-      <Presentation
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -right-8 h-40 w-40 rotate-12 text-primary/[0.05]"
-      />
-      <CardHeader className="relative z-10 gap-4">
+    <Card className="overflow-hidden">
+      <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">

@@ -13,8 +13,7 @@ export default function AuthCallbackPage() {
 
   return (
     <AuthScreenBackground className="flex items-center justify-center px-4 py-8">
-      <div className="relative flex w-full max-w-md flex-col items-center gap-3 overflow-hidden rounded-2xl border bg-card/95 p-8 text-center shadow-lg backdrop-blur-sm sm:p-10">
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/20 via-primary to-primary/20" />
+      <div className="flex w-full max-w-md flex-col items-center gap-3 rounded-xl border bg-card p-8 text-center shadow-sm sm:p-10">
         {auth.error ? (
           <>
             <span className="mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive ring-1 ring-destructive/20">

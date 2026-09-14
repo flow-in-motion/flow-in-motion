@@ -89,7 +89,7 @@ export default function AccountAuditPage() {
         </div>}
       />
 
-      <div className="surface-toolbar flex flex-col gap-3 border-rose-200/60 bg-rose-50/35 sm:flex-row sm:items-center dark:border-rose-900/50 dark:bg-rose-950/10">
+      <div className="surface-toolbar flex flex-col gap-3 sm:flex-row sm:items-center">
         <Select value={eventType} onValueChange={setEventType}>
           <SelectTrigger className="w-full bg-card sm:w-52" aria-label="Filter by event type">
             <SelectValue />

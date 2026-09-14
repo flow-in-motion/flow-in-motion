@@ -10,19 +10,19 @@ export const DESIGN_THEMES = [
   {
     value: "modern",
     label: "Modern",
-    description: "The default look — sidebar navigation, soft shadows, comfortable spacing.",
+    description: "A calm, focused workspace with full sidebar navigation.",
     layout: "sidebar",
   },
   {
     value: "minimal",
     label: "Minimal",
-    description: "A compact icon-only navigation rail — flat, sharp-cornered, monochrome.",
+    description: "A compact focused workspace with a theme-tinted icon rail.",
     layout: "sidebar-compact",
   },
   {
     value: "executive",
     label: "Executive",
-    description: "A top navigation bar and a warmer, traditional dashboard feel with serif headings.",
+    description: "An editorial workspace with light top navigation and serif headings.",
     layout: "topnav",
   },
 ] as const;

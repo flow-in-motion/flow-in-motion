@@ -24,7 +24,7 @@ export function TableShell({
 }: TableShellProps) {
   return (
     <Card className={cn("overflow-hidden", className)}>
-      <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-primary/[0.075] via-primary/[0.035] to-violet-500/[0.035]">
+      <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle>{title}</CardTitle>

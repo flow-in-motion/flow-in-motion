@@ -1,4 +1,4 @@
-import { BookOpen, GraduationCap, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 
 import { navGroups } from "@/config/nav-items";
@@ -25,20 +25,12 @@ const [primaryGroup, ...moreGroups] = navGroups;
  */
 export function CompactSidebar() {
   return (
-    <aside className="sticky top-0 isolate hidden h-screen w-16 shrink-0 flex-col items-center gap-4 overflow-hidden border-r border-blue-300/70 bg-gradient-to-b from-blue-100 via-card to-violet-100 py-3 shadow-sm md:flex dark:border-blue-900/50 dark:from-blue-950/30 dark:via-card dark:to-violet-950/20">
-      <GraduationCap
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-8 -right-8 h-32 w-32 rotate-12 text-primary/[0.08]"
-      />
-      <BookOpen
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-4 top-20 h-20 w-20 -rotate-12 text-violet-600/[0.08]"
-      />
-      <div className="relative z-10">
+    <aside className="app-sidebar sticky top-0 hidden h-screen w-[4.5rem] shrink-0 flex-col items-center gap-5 overflow-hidden border-r py-4 lg:flex">
+      <div>
         <Wordmark compact />
       </div>
 
-      <nav className="relative z-10 flex flex-1 flex-col items-center gap-1">
+      <nav className="flex flex-1 flex-col items-center gap-1">
         {primaryGroup.items.map((item) => (
           <NavLink
             key={item.to}
@@ -48,8 +40,8 @@ export function CompactSidebar() {
             aria-label={item.label}
             className={({ isActive }) =>
               cn(
-                "flex h-10 w-10 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-                isActive && "bg-accent text-primary",
+                "relative flex h-10 w-10 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-all hover:border-primary/10 hover:bg-white/55 hover:text-foreground dark:hover:bg-white/[0.06]",
+                isActive && "border-primary/15 bg-white/80 text-primary shadow-[var(--shadow-sm)] after:absolute after:-left-2.5 after:h-5 after:w-1 after:rounded-r-full after:bg-primary dark:bg-white/[0.08]",
               )
             }
           >
@@ -63,7 +55,7 @@ export function CompactSidebar() {
               type="button"
               aria-label="More navigation options"
               title="More"
-              className="flex h-10 w-10 items-center justify-center rounded-[var(--radius)] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-primary/10 hover:bg-white/55 hover:text-foreground dark:hover:bg-white/[0.06]"
             >
               <MoreHorizontal className="h-5 w-5" />
             </button>
@@ -87,7 +79,7 @@ export function CompactSidebar() {
         </DropdownMenu>
       </nav>
 
-      <div className="relative z-10">
+      <div>
         <UserMenu compact />
       </div>
     </aside>

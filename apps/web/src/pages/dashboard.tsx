@@ -1,6 +1,8 @@
 // import { ActivityOverviewChart } from "@/components/dashboard/activity-overview-chart";
 import {
+  ArrowUpRight,
   Boxes,
+  ChevronDown,
   FilePenLine,
   FolderKanban,
   LayoutDashboard,
@@ -44,8 +46,8 @@ import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
 import { Button } from "@/components/ui/button";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
-import { cn } from "@/lib/utils";
 import { usePreferences } from "@/preferences/preferences-context";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -53,6 +55,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function buildSummary(counts: {
   activeProjects: number;
@@ -98,6 +106,25 @@ function buildSummary(counts: {
     },
   ];
 }
+
+const summaryToneStyles: Record<string, { rail: string; icon: string }> = {
+  blue: {
+    rail: "bg-primary",
+    icon: "border-primary/15 bg-primary/10 text-primary",
+  },
+  amber: {
+    rail: "bg-amber-500",
+    icon: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-300",
+  },
+  violet: {
+    rail: "bg-violet-500",
+    icon: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/35 dark:text-violet-300",
+  },
+  emerald: {
+    rail: "bg-emerald-500",
+    icon: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-300",
+  },
+};
 
 type DashboardWidgetId =
   | "stalled-papers"
@@ -453,20 +480,30 @@ export default function DashboardPage() {
         title="Dashboard"
         description="A snapshot of research activity across projects, tasks, daily notes, and project files."
         actions={
-          <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" onClick={() => setIsNewProjectOpen(true)}>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setIsNewProjectOpen(true)}>
               <Plus />
               Add Project
             </Button>
-            <Button variant="outline" onClick={() => setIsNewTaskOpen(true)}>
-              <Plus />
-              Add Task
-            </Button>
-            <Button variant="outline" onClick={() => setIsNewConferenceOpen(true)}>
-              <Plus />
-              Add Conference
-            </Button>
-            <Button variant="outline" onClick={() => setIsCustomizeOpen(true)}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  Create
+                  <ChevronDown />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onSelect={() => setIsNewTaskOpen(true)}>
+                  <ListTodo />
+                  Add Task
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setIsNewConferenceOpen(true)}>
+                  <FilePenLine />
+                  Add Conference
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="ghost" onClick={() => setIsCustomizeOpen(true)}>
               <SlidersHorizontal />
               Customise dashboard
             </Button>
@@ -496,46 +533,33 @@ export default function DashboardPage() {
         onSave={handleCreateConference}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summary.map((item) => {
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {summary.map((item, index) => {
+          const tone = summaryToneStyles[item.tone] ?? summaryToneStyles.blue;
+          const isPrimaryMetric = index === 0;
           const card = (
-            <Card
-              className={cn(
-                "group relative overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md",
-                item.tone === "blue" && "border-blue-200/70 bg-gradient-to-br from-blue-50/80 to-card dark:border-blue-900/50 dark:from-blue-950/20",
-                item.tone === "amber" && "border-amber-200/70 bg-gradient-to-br from-amber-50/80 to-card dark:border-amber-900/50 dark:from-amber-950/20",
-                item.tone === "violet" && "border-violet-200/70 bg-gradient-to-br from-violet-50/80 to-card dark:border-violet-900/50 dark:from-violet-950/20",
-                item.tone === "emerald" && "border-emerald-200/70 bg-gradient-to-br from-emerald-50/80 to-card dark:border-emerald-900/50 dark:from-emerald-950/20",
-              )}
-            >
-              <div className={cn(
-                "absolute inset-x-0 top-0 h-0.5 opacity-80",
-                item.tone === "blue" && "bg-blue-500",
-                item.tone === "amber" && "bg-amber-500",
-                item.tone === "violet" && "bg-violet-500",
-                item.tone === "emerald" && "bg-emerald-500",
-              )} />
-              <CardHeader className="gap-3 p-5 sm:p-6">
+            <Card className="group relative h-full overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary/25 hover:shadow-[var(--shadow-md)]">
+              <span className={cn("absolute inset-x-0 top-0 h-1", tone.rail)} aria-hidden="true" />
+              <CardHeader className={cn("gap-4 p-5 pt-6", isPrimaryMetric && "sm:min-h-[11.25rem] sm:justify-between sm:p-6 sm:pt-7")}>
                 <div className="flex items-start justify-between gap-3">
-                  <CardDescription className="font-medium">
-                    {item.label}
-                  </CardDescription>
-                  <span className={cn(
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 transition-transform group-hover:scale-105",
-                    item.tone === "blue" && "bg-blue-100 text-blue-700 ring-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:ring-blue-900",
-                    item.tone === "amber" && "bg-amber-100 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900",
-                    item.tone === "violet" && "bg-violet-100 text-violet-700 ring-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:ring-violet-900",
-                    item.tone === "emerald" && "bg-emerald-100 text-emerald-700 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900",
-                  )}>
-                    <item.icon className="h-4 w-4" />
+                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border", tone.icon)}>
+                    <item.icon className="h-[1.125rem] w-[1.125rem]" />
+                  </span>
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/70 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
                   </span>
                 </div>
-                <CardTitle className="text-4xl text-foreground">
+                <div>
+                  <CardDescription className="font-medium text-foreground/80">
+                    {item.label}
+                  </CardDescription>
+                  <CardTitle className={cn("mt-1.5 font-semibold tabular-nums tracking-[-0.04em] text-foreground", isPrimaryMetric ? "text-[2.25rem]" : "text-[1.875rem]")}>
                   {item.value}
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {item.description}
-                </p>
+                  </CardTitle>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {item.description}
+                  </p>
+                </div>
               </CardHeader>
             </Card>
           );
@@ -544,7 +568,10 @@ export default function DashboardPage() {
             <Link
               key={item.label}
               to={item.to}
-              className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className={cn(
+                "block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2",
+                isPrimaryMetric ? "sm:col-span-2 xl:col-span-2" : "xl:col-span-1",
+              )}
             >
               {card}
             </Link>

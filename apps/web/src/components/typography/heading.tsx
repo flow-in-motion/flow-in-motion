@@ -4,19 +4,12 @@ import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-/**
- * The heading standard: every page and section heading in the app renders
- * through this component so weight/color stay consistent. Ink-colored and
- * moderately weighted rather than oversized brand-color text — `text-primary`
- * is reserved for interactive elements (links, active states), not headings.
- * `as` controls the semantic tag independently of the visual `level`.
- */
 const headingVariants = cva("font-heading font-semibold tracking-[var(--heading-tracking)] text-foreground", {
   variants: {
     level: {
-      h1: "text-[1.65rem] leading-tight sm:text-[2rem]",
-      h2: "text-xl sm:text-2xl",
-      h3: "text-lg sm:text-xl",
+      h1: "text-[1.875rem] leading-[1.12] sm:text-[2.25rem]",
+      h2: "text-xl leading-tight sm:text-[1.625rem]",
+      h3: "text-lg leading-snug sm:text-xl",
       h4: "text-base sm:text-lg",
     },
   },
@@ -55,82 +48,49 @@ export interface PageHeadingProps extends React.HTMLAttributes<HTMLDivElement> {
   children?: React.ReactNode;
 }
 
-const pageHeadingTones = {
-  blue: {
-    surface: "border-blue-200/70 bg-gradient-to-br from-blue-50 via-card to-card dark:border-blue-900/60 dark:from-blue-950/30",
-    icon: "bg-blue-600 text-white ring-blue-500/15",
-    glow: "from-blue-400/20",
-  },
-  violet: {
-    surface: "border-violet-200/70 bg-gradient-to-br from-violet-50 via-card to-card dark:border-violet-900/60 dark:from-violet-950/30",
-    icon: "bg-violet-600 text-white ring-violet-500/15",
-    glow: "from-violet-400/20",
-  },
-  emerald: {
-    surface: "border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-card to-card dark:border-emerald-900/60 dark:from-emerald-950/30",
-    icon: "bg-emerald-600 text-white ring-emerald-500/15",
-    glow: "from-emerald-400/20",
-  },
-  amber: {
-    surface: "border-amber-200/80 bg-gradient-to-br from-amber-50 via-card to-card dark:border-amber-900/60 dark:from-amber-950/30",
-    icon: "bg-amber-500 text-white ring-amber-500/15",
-    glow: "from-amber-400/20",
-  },
-  rose: {
-    surface: "border-rose-200/70 bg-gradient-to-br from-rose-50 via-card to-card dark:border-rose-900/60 dark:from-rose-950/30",
-    icon: "bg-rose-600 text-white ring-rose-500/15",
-    glow: "from-rose-400/20",
-  },
-  cyan: {
-    surface: "border-cyan-200/70 bg-gradient-to-br from-cyan-50 via-card to-card dark:border-cyan-900/60 dark:from-cyan-950/30",
-    icon: "bg-cyan-600 text-white ring-cyan-500/15",
-    glow: "from-cyan-400/20",
-  },
-};
-
-/** Standard top-of-page header: icon badge, eyebrow, bold title, description, actions. */
+/**
+ * Branded workspace header shared by every route. Theme colour provides a
+ * consistent folio-like surface while feature tones remain API-compatible.
+ */
 const PageHeading = React.forwardRef<HTMLDivElement, PageHeadingProps>(
   ({ className, title, description, eyebrow, icon: Icon, actions, tone = "blue", children, ...props }, ref) => (
     <div
       ref={ref}
+      data-tone={tone}
       className={cn(
-        "relative overflow-hidden rounded-2xl border px-5 py-5 shadow-sm backdrop-blur-sm sm:px-6 sm:py-6",
-        pageHeadingTones[tone].surface,
+        "relative isolate overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-accent/55 px-5 py-5 shadow-[var(--shadow-sm)] before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary sm:px-6 sm:py-6",
         className,
       )}
       {...props}
     >
-      <div aria-hidden="true" className={cn("pointer-events-none absolute inset-y-0 right-0 w-2/5 bg-gradient-to-l to-transparent", pageHeadingTones[tone].glow)} />
-      {Icon ? (
-        <Icon
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 rotate-12 text-foreground/[0.05] sm:h-36 sm:w-36"
-        />
-      ) : null}
-      <div className="relative sm:flex sm:items-center sm:justify-between">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-1 items-start gap-4">
           {Icon ? (
-            <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm ring-4", pageHeadingTones[tone].icon)}>
-              <Icon className="h-5 w-5" />
+            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+              <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
             </span>
           ) : null}
-          <div className="flex flex-col gap-1.5">
+          <div className="min-w-0">
             {eyebrow ? (
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="mb-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-primary/75">
                 {eyebrow}
-              </span>
+              </div>
             ) : null}
             <Heading level="h1">{title}</Heading>
             {description ? (
-              <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-[0.9375rem]">
                 {description}
               </p>
             ) : null}
           </div>
         </div>
-        {actions ? <div className="mt-4 flex shrink-0 flex-wrap items-center gap-2 sm:mt-0 sm:justify-end">{actions}</div> : null}
+        {actions ? (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+            {actions}
+          </div>
+        ) : null}
       </div>
-      {children ? <div className="relative mt-4 border-t border-border/60 pt-4">{children}</div> : null}
+      {children ? <div className="mt-5 border-t border-primary/10 pt-4">{children}</div> : null}
     </div>
   ),
 );

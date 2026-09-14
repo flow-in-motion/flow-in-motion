@@ -37,6 +37,7 @@ export interface NavEntry extends NavLeaf {
 export interface NavGroup {
   label: string;
   items: NavEntry[];
+  collapsible?: boolean;
 }
 
 /**
@@ -44,17 +45,22 @@ export interface NavGroup {
  */
 export const navGroups: NavGroup[] = [
   {
-    label: "",
+    label: "Workspace",
     items: [
       { label: "Dashboard", to: "/", icon: LayoutDashboard, end: true },
       { label: "Major Projects", to: "/projects", icon: FolderKanban },
       { label: "Papers", to: "/modules", icon: FileStack },
-      { label: "Tasks and to do", to: "/tasks", icon: ClipboardList },
-      { label: "Calendar", to: "/calendar", icon: Calendar },
-      { label: "Mind map", to: "/mind-map", icon: Network },
-      { label: "Conferences", to: "/conferences", icon: Presentation },
+      { label: "Tasks", to: "/tasks", icon: ClipboardList },
       { label: "Daily Notes", to: "/daily-notes", icon: NotebookPen },
+    ],
+  },
+  {
+    label: "Plan & review",
+    items: [
       { label: "Pipeline", to: "/pipeline", icon: Workflow },
+      { label: "Calendar", to: "/calendar", icon: Calendar },
+      { label: "Conferences", to: "/conferences", icon: Presentation },
+      { label: "Mind Map", to: "/mind-map", icon: Network },
     ],
   },
   {
@@ -64,7 +70,8 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Potential Future Features",
+    label: "Roadmap",
+    collapsible: true,
     items: [
       {
         label: "Account Audit",
