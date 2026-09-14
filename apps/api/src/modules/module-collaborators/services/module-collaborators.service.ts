@@ -197,6 +197,7 @@ export class ModuleCollaboratorsService {
       role: valuesById.get(roleId) ?? null,
       displayName: usersById.get(rest.userId)?.displayName ?? null,
       email: usersById.get(rest.userId)?.email ?? null,
+      affiliation: usersById.get(rest.userId)?.affiliation ?? null,
     }));
   }
 }

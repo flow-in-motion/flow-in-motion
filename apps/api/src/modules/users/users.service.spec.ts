@@ -11,6 +11,7 @@ describe('UsersService', () => {
           id: 'user-1',
           displayName: 'Ann Example',
           email: 'ann@example.com',
+          affiliation: 'Research University',
         },
       ]);
       const orderByMock = jest.fn().mockReturnValue({ limit: limitMock });
@@ -30,9 +31,19 @@ describe('UsersService', () => {
       const result = await service.search('ann');
 
       expect(selectMock).toHaveBeenCalled();
+      expect(selectMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          affiliation: expect.anything(),
+        }),
+      );
       expect(limitMock).toHaveBeenCalledWith(8);
       expect(result).toEqual([
-        { id: 'user-1', displayName: 'Ann Example', email: 'ann@example.com' },
+        {
+          id: 'user-1',
+          displayName: 'Ann Example',
+          email: 'ann@example.com',
+          affiliation: 'Research University',
+        },
       ]);
     });
 

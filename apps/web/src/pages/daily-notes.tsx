@@ -696,6 +696,11 @@ export default function DailyNotesPage() {
                                 <span className="block truncate text-xs text-muted-foreground">
                                   {member.email}
                                 </span>
+                                {member.affiliation ? (
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    {member.affiliation}
+                                  </span>
+                                ) : null}
                               </span>
                             </button>
                           ))

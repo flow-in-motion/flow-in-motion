@@ -7,8 +7,26 @@ import type { ApiCollaborator, Membership } from "@/api/hooks";
 const timestamps = { createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 
 const collaborators: ApiCollaborator[] = [
-  { id: "collab-1", tenantId: "tenant-1", userId: "user-alice", role: "Editor", displayName: "Alice Anders", email: "alice@example.com", ...timestamps },
-  { id: "collab-2", tenantId: "tenant-1", userId: "user-bob", role: "Viewer", displayName: "Bob Baker", email: "bob@example.com", ...timestamps },
+  {
+    id: "collab-1",
+    tenantId: "tenant-1",
+    userId: "user-alice",
+    role: "Editor",
+    displayName: "Alice Anders",
+    email: "alice@example.com",
+    affiliation: "University of Sydney",
+    ...timestamps,
+  },
+  {
+    id: "collab-2",
+    tenantId: "tenant-1",
+    userId: "user-bob",
+    role: "Viewer",
+    displayName: "Bob Baker",
+    email: "bob@example.com",
+    affiliation: "Monash University",
+    ...timestamps,
+  },
 ];
 
 const removeCollaboratorMutate = vi.fn();
@@ -29,6 +47,35 @@ vi.mock("@/components/sharing/invitation-panel", () => ({
 const members: Membership[] = [];
 
 describe("ProjectCollaborators", () => {
+  it("displays affiliations and filters collaborators by affiliation", () => {
+    render(
+      <ProjectCollaborators
+        tenantId="tenant-1"
+        projectId="project-1"
+        ownerUserId="user-owner"
+        members={members}
+        entityTitle="Genome Project"
+        canManage
+      />,
+    );
+  
+    expect(screen.getByText("University of Sydney")).toBeInTheDocument();
+    expect(screen.getByText("Monash University")).toBeInTheDocument();
+  
+    fireEvent.change(
+      screen.getByLabelText(
+        "Search collaborators by name, email, or affiliation",
+      ),
+      {
+        target: { value: "sydney" },
+      },
+    );
+  
+    expect(screen.getByText("Alice Anders")).toBeInTheDocument();
+    expect(screen.getByText("University of Sydney")).toBeInTheDocument();
+    expect(screen.queryByText("Bob Baker")).not.toBeInTheDocument();
+    expect(screen.queryByText("Monash University")).not.toBeInTheDocument();
+  });
   it("filters the collaborator list by name as you type", () => {
     render(
       <ProjectCollaborators
@@ -44,7 +91,9 @@ describe("ProjectCollaborators", () => {
     expect(screen.getByText("Alice Anders")).toBeInTheDocument();
     expect(screen.getByText("Bob Baker")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search collaborators by name"), {
+    fireEvent.change(screen.getByLabelText(
+      "Search collaborators by name, email, or affiliation",
+    ), {
       target: { value: "ali" },
     });
 
@@ -64,7 +113,9 @@ describe("ProjectCollaborators", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Search collaborators by name"), {
+    fireEvent.change(screen.getByLabelText(
+      "Search collaborators by name, email, or affiliation",
+    ), {
       target: { value: "zzz" },
     });
 

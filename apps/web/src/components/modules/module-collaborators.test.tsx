@@ -7,9 +7,36 @@ import type { ApiCollaborator, Membership } from "@/api/hooks";
 const timestamps = { createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 
 const collaborators: ApiCollaborator[] = [
-  { id: "collab-1", tenantId: "tenant-1", userId: "user-owner", role: "Owner", displayName: "Owner Person", email: "owner@example.com", ...timestamps },
-  { id: "collab-2", tenantId: "tenant-1", userId: "user-alice", role: "Editor", displayName: "Alice Anders", email: "alice@example.com", ...timestamps },
-  { id: "collab-3", tenantId: "tenant-1", userId: "user-bob", role: "Viewer", displayName: "Bob Baker", email: "bob@example.com", ...timestamps },
+  {
+    id: "collab-1",
+    tenantId: "tenant-1",
+    userId: "user-owner",
+    role: "Owner",
+    displayName: "Owner Person",
+    email: "owner@example.com",
+    affiliation: "University of Melbourne",
+    ...timestamps,
+  },
+  {
+    id: "collab-2",
+    tenantId: "tenant-1",
+    userId: "user-alice",
+    role: "Editor",
+    displayName: "Alice Anders",
+    email: "alice@example.com",
+    affiliation: "University of Sydney",
+    ...timestamps,
+  },
+  {
+    id: "collab-3",
+    tenantId: "tenant-1",
+    userId: "user-bob",
+    role: "Viewer",
+    displayName: "Bob Baker",
+    email: "bob@example.com",
+    affiliation: "CSIRO",
+    ...timestamps,
+  },
 ];
 
 const removeCollaboratorMutate = vi.fn();
@@ -32,6 +59,34 @@ vi.mock("@/components/sharing/invitation-panel", () => ({
 const members: Membership[] = [];
 
 describe("ModuleCollaboratorsManager", () => {
+  it("displays affiliations and filters collaborators by affiliation", () => {
+    render(
+      <ModuleCollaboratorsManager
+        tenantId="tenant-1"
+        moduleId="module-1"
+        moduleTitle="Sequencing pipeline"
+        members={members}
+      />,
+    );
+  
+    expect(screen.getByText("University of Melbourne")).toBeInTheDocument();
+    expect(screen.getByText("University of Sydney")).toBeInTheDocument();
+    expect(screen.getByText("CSIRO")).toBeInTheDocument();
+  
+    fireEvent.change(
+      screen.getByLabelText(
+        "Search collaborators by name, email, or affiliation",
+      ),
+      {
+        target: { value: "sydney" },
+      },
+    );
+  
+    expect(screen.getByText("Alice Anders")).toBeInTheDocument();
+    expect(screen.getByText("University of Sydney")).toBeInTheDocument();
+    expect(screen.queryByText("Owner Person")).not.toBeInTheDocument();
+    expect(screen.queryByText("Bob Baker")).not.toBeInTheDocument();
+  });
   it("filters the collaborator list by name as you type", () => {
     render(
       <ModuleCollaboratorsManager
@@ -45,7 +100,9 @@ describe("ModuleCollaboratorsManager", () => {
     expect(screen.getByText("Alice Anders")).toBeInTheDocument();
     expect(screen.getByText("Bob Baker")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Search collaborators by name"), {
+    fireEvent.change(screen.getByLabelText(
+      "Search collaborators by name, email, or affiliation",
+    ), {
       target: { value: "bob" },
     });
 
@@ -63,7 +120,9 @@ describe("ModuleCollaboratorsManager", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Search collaborators by name"), {
+    fireEvent.change(screen.getByLabelText(
+      "Search collaborators by name, email, or affiliation",
+    ), {
       target: { value: "zzz" },
     });
 
