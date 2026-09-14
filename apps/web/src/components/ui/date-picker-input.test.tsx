@@ -26,9 +26,10 @@ describe("DatePickerInput", () => {
     expect(screen.getByRole("textbox")).toHaveValue("");
   });
 
-  it("accepts a typed DD/MM/YYYY date when allowTyped is set", () => {
-    render(<TestDatePicker allowTyped />);
+  it("accepts a typed DD/MM/YYYY date by default", () => {
+    render(<TestDatePicker />);
     const textbox = screen.getByRole("textbox");
+    expect(screen.getByRole("textbox")).not.toHaveAttribute("readonly");
 
     expect(textbox).not.toHaveAttribute("readonly");
 
@@ -40,7 +41,7 @@ describe("DatePickerInput", () => {
   });
 
   it("reverts an unparsable typed date back to the last valid value on blur", () => {
-    render(<TestDatePicker allowTyped />);
+    render(<TestDatePicker />);
     const textbox = screen.getByRole("textbox");
 
     fireEvent.change(textbox, { target: { value: "05/08/2026" } });

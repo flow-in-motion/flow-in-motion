@@ -30,7 +30,13 @@ function parseDisplayDate(display: string): string | null {
   return isRealDate ? `${year}-${month}-${day}` : null;
 }
 
-export function DatePickerInput({ id, label, value, onChange, allowTyped }: DatePickerInputProps) {
+export function DatePickerInput({
+  id,
+  label,
+  value,
+  onChange,
+  allowTyped = true,
+}: DatePickerInputProps) {
   const pickerRef = useRef<HTMLInputElement>(null);
   const [typedText, setTypedText] = useState(formatDisplayDate(value));
 
