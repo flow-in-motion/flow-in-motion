@@ -142,6 +142,10 @@ export interface ApiModule {
   title: string | null;
   description: string | null;
   abstract: string | null;
+  targetJournal: string | null;
+  backupJournal: string | null;
+  targetConference: string | null;
+  backupConference: string | null;
   tag: string | null;
   status: string | null;
   pipelineStage: string | null;
@@ -1013,6 +1017,10 @@ export interface CreateModuleInput {
   title?: string;
   description?: string;
   abstract?: string;
+  targetJournal?: string;
+  backupJournal?: string;
+  targetConference?: string;
+  backupConference?: string;
   projectId?: string;
   tag?: string;
   status?: string;
@@ -1293,6 +1301,119 @@ export function useArchiveMyModule() {
         queryClient.invalidateQueries({ queryKey: myModulesKey }),
         invalidateResourceEverywhere(queryClient, "modules"),
       ]);
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Module submissions (a paper's submission history)
+// ---------------------------------------------------------------------------
+
+export interface ApiModuleSubmission {
+  id: string;
+  tenantId: string;
+  moduleId: string;
+  createdBy: string;
+  submittedDate: string;
+  journalName: string;
+  status: string;
+  revisionRounds: number | null;
+  decisionDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmissionInput {
+  submittedDate: string;
+  journalName: string;
+  status: string;
+  revisionRounds?: number;
+  decisionDate?: string;
+  notes?: string;
+}
+
+function moduleSubmissionsKey(tenantId: string, moduleId: string) {
+  return ["api", "tenant", tenantId, "modules", moduleId, "submissions"] as const;
+}
+
+export function useModuleSubmissions(
+  tenantId: string,
+  moduleId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: moduleSubmissionsKey(tenantId, moduleId),
+    enabled: Boolean(tenantId) && Boolean(moduleId) && enabled,
+    queryFn: async () =>
+      responseData<ApiModuleSubmission[]>(
+        await apiClient.GET(
+          "/api/v1/tenant/{tenantId}/modules/{moduleId}/submissions",
+          { params: { path: { tenantId, moduleId } } },
+        ),
+      ),
+  });
+}
+
+export function useCreateModuleSubmission(tenantId: string, moduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SubmissionInput) =>
+      responseData<ApiModuleSubmission>(
+        await apiClient.POST(
+          "/api/v1/tenant/{tenantId}/modules/{moduleId}/submissions",
+          { params: { path: { tenantId, moduleId } }, body: input },
+        ),
+      ),
+    async onSuccess() {
+      await queryClient.invalidateQueries({
+        queryKey: moduleSubmissionsKey(tenantId, moduleId),
+      });
+    },
+  });
+}
+
+export function useUpdateModuleSubmission(tenantId: string, moduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      submissionId,
+      input,
+    }: {
+      submissionId: string;
+      input: SubmissionInput;
+    }) =>
+      responseData<ApiModuleSubmission>(
+        await apiClient.PATCH(
+          "/api/v1/tenant/{tenantId}/modules/{moduleId}/submissions/{submissionId}",
+          {
+            params: { path: { tenantId, moduleId, submissionId } },
+            body: input,
+          },
+        ),
+      ),
+    async onSuccess() {
+      await queryClient.invalidateQueries({
+        queryKey: moduleSubmissionsKey(tenantId, moduleId),
+      });
+    },
+  });
+}
+
+export function useDeleteModuleSubmission(tenantId: string, moduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (submissionId: string) =>
+      responseData<{ message: string }>(
+        await apiClient.DELETE(
+          "/api/v1/tenant/{tenantId}/modules/{moduleId}/submissions/{submissionId}",
+          { params: { path: { tenantId, moduleId, submissionId } } },
+        ),
+      ),
+    async onSuccess() {
+      await queryClient.invalidateQueries({
+        queryKey: moduleSubmissionsKey(tenantId, moduleId),
+      });
     },
   });
 }

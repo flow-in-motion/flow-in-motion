@@ -74,6 +74,8 @@ const fixtures = vi.hoisted(() => ({
   ],
 }));
 
+const inviteCollaboratorByEmail = vi.hoisted(() => vi.fn().mockResolvedValue({}));
+
 vi.mock("@/api/client", () => ({
   apiClient: {
     POST: vi.fn().mockResolvedValue({ data: {}, error: undefined, response: new Response() }),
@@ -203,6 +205,7 @@ vi.mock("@/api/hooks", async () => {
     useRemoveModuleCollaborator: () => ({ mutate: vi.fn() }),
     useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
     useInviteCollaborator: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+    inviteCollaboratorByEmail,
     useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
     useUserSearch: () => ({ data: [], isPending: false, isError: false }),
   };
@@ -233,6 +236,7 @@ describe("ModulesPage", () => {
     hookMocks.useModules.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
+    inviteCollaboratorByEmail.mockClear();
   });
   it("requests the next modules page when Next is clicked", () => {
     hookMocks.pagination.totalItems = 21;
@@ -356,6 +360,43 @@ describe("ModulesPage", () => {
     expect(screen.getByRole("combobox", { name: "Collaborator email" })).toBeInTheDocument();
   });
 
+  it("filters the table by pipeline stage", () => {
+    store.setModules([
+      ...store.getModules(),
+      {
+        id: "module-2",
+        displayId: "MOD-002",
+        tenantId: fixtures.tenantId,
+        projectId: null,
+        shortTitle: "Review-stage paper",
+        title: "Review-stage paper",
+        description: "",
+        tag: null,
+        status: "Active",
+        pipelineStage: "Literature Review",
+        dueDate: null,
+        assignedToUserId: null,
+        archivedAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ]);
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Literature synthesis")).toBeInTheDocument();
+    expect(screen.getByText("Review-stage paper")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Stage" }));
+    fireEvent.click(screen.getByRole("option", { name: "Literature Review" }));
+
+    expect(screen.queryByText("Literature synthesis")).not.toBeInTheDocument();
+    expect(screen.getByText("Review-stage paper")).toBeInTheDocument();
+  });
+
   it("sorts by column, toggling direction on repeated clicks", () => {
     store.setModules([
       {
@@ -430,7 +471,7 @@ describe("ModulesPage", () => {
     expect(titleOrder()).toEqual(["Charlie module", "Bravo module", "Alpha module"]);
   });
 
-  it("directs module sharing to the post-creation invitation flow", () => {
+  it("lets collaborator emails be staged while creating a new paper", () => {
     render(
       <MemoryRouter>
         <ModulesPage />
@@ -439,6 +480,39 @@ describe("ModulesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
     expect(screen.queryByRole("combobox", { name: "Collaborators" })).not.toBeInTheDocument();
-    expect(screen.getByText(/After creating the paper, open it to invite collaborators by email/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Collaborator email"), {
+      target: { value: "jamie@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(screen.getByText("jamie@example.com")).toBeInTheDocument();
+  });
+
+  it("invites staged collaborator emails once the new paper is created", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "Independent literature synthesis" },
+    });
+    fireEvent.change(screen.getByLabelText("Collaborator email"), {
+      target: { value: "jamie@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+
+    await waitFor(() =>
+      expect(inviteCollaboratorByEmail).toHaveBeenCalledWith(
+        "module",
+        fixtures.tenantId,
+        expect.any(String),
+        "jamie@example.com",
+      ),
+    );
   });
 });

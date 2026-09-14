@@ -9,6 +9,23 @@ const fixtures = vi.hoisted(() => ({
   createTask: vi.fn(),
   updateTask: vi.fn(),
   updateNote: vi.fn(),
+  createSubmission: vi.fn(),
+  updateSubmission: vi.fn(),
+  deleteSubmission: vi.fn(),
+  submissions: [] as Array<{
+    id: string;
+    tenantId: string;
+    moduleId: string;
+    createdBy: string;
+    submittedDate: string;
+    journalName: string;
+    status: string;
+    revisionRounds: number | null;
+    decisionDate: string | null;
+    notes: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>,
   tasks: [
     {
       id: "task-1",
@@ -111,6 +128,10 @@ vi.mock("@/api/hooks", () => ({
   useCreateTask: () => ({ mutateAsync: fixtures.createTask, isPending: false }),
   useUpdateTask: () => ({ mutateAsync: fixtures.updateTask, isPending: false }),
   useUpdateNote: () => ({ mutateAsync: fixtures.updateNote, isPending: false }),
+  useModuleSubmissions: () => ({ data: fixtures.submissions, isPending: false }),
+  useCreateModuleSubmission: () => ({ mutateAsync: fixtures.createSubmission, isPending: false }),
+  useUpdateModuleSubmission: () => ({ mutateAsync: fixtures.updateSubmission, isPending: false }),
+  useDeleteModuleSubmission: () => ({ mutateAsync: fixtures.deleteSubmission, isPending: false }),
   useTrackEvent: () => vi.fn(),
   useTasks: () => ({
     data: {
@@ -188,7 +209,19 @@ describe("ModuleDetailPage", () => {
     fixtures.updateTask.mockResolvedValue(fixtures.tasks[0]);
     fixtures.updateNote.mockReset();
     fixtures.updateNote.mockResolvedValue(fixtures.notes[0]);
+    fixtures.submissions = [];
+    fixtures.createSubmission.mockReset();
+    fixtures.createSubmission.mockResolvedValue({ id: "submission-1" });
+    fixtures.updateSubmission.mockReset();
+    fixtures.updateSubmission.mockResolvedValue({ id: "submission-1" });
+    fixtures.deleteSubmission.mockReset();
+    fixtures.deleteSubmission.mockResolvedValue({ message: "Submission deleted successfully" });
   });
+
+  function nativeDateInputFor(textInputId: string) {
+    const textInput = document.getElementById(textInputId)!;
+    return textInput.closest(".relative")!.querySelector<HTMLInputElement>('input[type="date"]')!;
+  }
 
   function renderPage() {
     render(
@@ -411,6 +444,93 @@ describe("ModuleDetailPage", () => {
         noteId: "note-2",
         input: { moduleId: "module-1" },
       }),
+    );
+  });
+
+  it("logs a new submission for this paper", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Log submission" }));
+
+    fireEvent.change(nativeDateInputFor("submission-submitted-date"), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Journal \/ venue/ }), {
+      target: { value: "Nature Communications" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
+
+    await waitFor(() =>
+      expect(fixtures.createSubmission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          submittedDate: "2026-03-01",
+          journalName: "Nature Communications",
+          status: "Submitted",
+        }),
+      ),
+    );
+  });
+
+  it("edits an existing submission", async () => {
+    fixtures.submissions = [
+      {
+        id: "submission-1",
+        tenantId: "workspace-1",
+        moduleId: "module-1",
+        createdBy: "user-owner",
+        submittedDate: "2026-03-01",
+        journalName: "Nature Communications",
+        status: "Submitted",
+        revisionRounds: null,
+        decisionDate: null,
+        notes: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit submission to Nature Communications" }),
+    );
+    fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    fireEvent.click(screen.getByRole("option", { name: "Accepted" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateSubmission).toHaveBeenCalledWith({
+        submissionId: "submission-1",
+        input: expect.objectContaining({ status: "Accepted" }),
+      }),
+    );
+  });
+
+  it("deletes a submission after confirmation", async () => {
+    fixtures.submissions = [
+      {
+        id: "submission-1",
+        tenantId: "workspace-1",
+        moduleId: "module-1",
+        createdBy: "user-owner",
+        submittedDate: "2026-03-01",
+        journalName: "Nature Communications",
+        status: "Submitted",
+        revisionRounds: null,
+        decisionDate: null,
+        notes: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete submission to Nature Communications" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.deleteSubmission).toHaveBeenCalledWith("submission-1"),
     );
   });
 });

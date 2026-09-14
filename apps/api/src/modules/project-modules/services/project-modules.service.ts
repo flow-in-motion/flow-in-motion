@@ -137,6 +137,10 @@ export class ProjectModulesService {
       title?: string;
       description?: string;
       abstract?: string;
+      targetJournal?: string;
+      backupJournal?: string;
+      targetConference?: string;
+      backupConference?: string;
       tag?: string;
       status?: string;
       pipelineStage?: string;
@@ -159,6 +163,10 @@ export class ProjectModulesService {
       title: input.title,
       description: input.description,
       abstract: input.abstract,
+      targetJournal: input.targetJournal,
+      backupJournal: input.backupJournal,
+      targetConference: input.targetConference,
+      backupConference: input.backupConference,
       tagId,
       statusId,
       pipelineStageId,
@@ -198,6 +206,10 @@ export class ProjectModulesService {
       title: string;
       description: string;
       abstract: string;
+      targetJournal: string;
+      backupJournal: string;
+      targetConference: string;
+      backupConference: string;
       projectId: string | null;
       tag: string;
       status: string;
@@ -227,6 +239,10 @@ export class ProjectModulesService {
       title: input.title,
       description: input.description,
       abstract: input.abstract,
+      targetJournal: input.targetJournal,
+      backupJournal: input.backupJournal,
+      targetConference: input.targetConference,
+      backupConference: input.backupConference,
       projectId: input.projectId,
       tagId,
       statusId,

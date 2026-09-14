@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { X } from "lucide-react";
 
 import {
+  inviteCollaboratorByEmail,
   useEnumValues,
   useModulePipelineStagePool,
   useNotes,
@@ -17,6 +19,7 @@ import {
   type LinkExistingOption,
 } from "@/components/shared/link-existing-field";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
@@ -38,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const MODULE_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
 const UNASSIGNED = "__unassigned__";
 
@@ -46,6 +51,10 @@ export interface ModuleFormInput {
   title: string;
   description: string;
   abstract: string;
+  targetJournal: string;
+  backupJournal: string;
+  targetConference: string;
+  backupConference: string;
   projectId: string | null;
   status: string;
   pipelineStage: string;
@@ -72,6 +81,10 @@ const INITIAL_FORM: ModuleFormInput = {
   title: "",
   description: "",
   abstract: "",
+  targetJournal: "",
+  backupJournal: "",
+  targetConference: "",
+  backupConference: "",
   projectId: null,
   status: "Active",
   pipelineStage: "",
@@ -115,6 +128,9 @@ export function ModuleDialog({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [linkedTasks, setLinkedTasks] = useState<LinkExistingOption[]>([]);
   const [linkedNotes, setLinkedNotes] = useState<LinkExistingOption[]>([]);
+  const [collaboratorEmails, setCollaboratorEmails] = useState<string[]>([]);
+  const [collaboratorEmailInput, setCollaboratorEmailInput] = useState("");
+  const [collaboratorEmailError, setCollaboratorEmailError] = useState<string | null>(null);
   const isEditing = Boolean(module);
 
   const tasksQuery = useTasks(tenantId, undefined, 1, open && !isEditing);
@@ -146,12 +162,19 @@ export function ModuleDialog({
     setSaveError(null);
     setLinkedTasks([]);
     setLinkedNotes([]);
+    setCollaboratorEmails([]);
+    setCollaboratorEmailInput("");
+    setCollaboratorEmailError(null);
     if (module) {
       setForm({
         shortTitle: module.shortTitle ?? "",
         title: module.title ?? "",
         description: module.description ?? "",
         abstract: module.abstract ?? "",
+        targetJournal: module.targetJournal ?? "",
+        backupJournal: module.backupJournal ?? "",
+        targetConference: module.targetConference ?? "",
+        backupConference: module.backupConference ?? "",
         projectId: module.projectId,
         status: module.status ?? "Active",
         pipelineStage: module.pipelineStage ?? "",
@@ -186,6 +209,10 @@ export function ModuleDialog({
         title: form.title.trim(),
         description: form.description.trim(),
         abstract: form.abstract.trim(),
+        targetJournal: form.targetJournal.trim(),
+        backupJournal: form.backupJournal.trim(),
+        targetConference: form.targetConference.trim(),
+        backupConference: form.backupConference.trim(),
         projectId: isIndependent ? null : form.projectId,
       });
       if (!isEditing && savedModule) {
@@ -202,6 +229,9 @@ export function ModuleDialog({
               input: { moduleId: savedModule.id },
             }),
           ),
+          ...collaboratorEmails.map((email) =>
+            inviteCollaboratorByEmail("module", tenantId, savedModule.id, email),
+          ),
         ]);
       }
       onOpenChange(false);
@@ -209,6 +239,29 @@ export function ModuleDialog({
       setSaveError(error instanceof Error ? error.message : "The module could not be saved.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function addCollaboratorEmail() {
+    const email = collaboratorEmailInput.trim().toLowerCase();
+    if (!email) return;
+    if (!EMAIL_PATTERN.test(email)) {
+      setCollaboratorEmailError("Enter a valid email address.");
+      return;
+    }
+    if (collaboratorEmails.includes(email)) {
+      setCollaboratorEmailError("That email has already been added.");
+      return;
+    }
+    setCollaboratorEmails((current) => [...current, email]);
+    setCollaboratorEmailInput("");
+    setCollaboratorEmailError(null);
+  }
+
+  function handleCollaboratorEmailKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      addCollaboratorEmail();
     }
   }
 
@@ -266,6 +319,52 @@ export function ModuleDialog({
               rows={5}
             />
           </FormField>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField label="Target journal" htmlFor="module-target-journal">
+              <Input
+                id="module-target-journal"
+                value={form.targetJournal}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, targetJournal: event.target.value }))
+                }
+                placeholder="e.g. Nature Communications"
+              />
+            </FormField>
+
+            <FormField label="Backup journal" htmlFor="module-backup-journal">
+              <Input
+                id="module-backup-journal"
+                value={form.backupJournal}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, backupJournal: event.target.value }))
+                }
+                placeholder="e.g. Scientific Reports"
+              />
+            </FormField>
+
+            <FormField label="Target conference" htmlFor="module-target-conference">
+              <Input
+                id="module-target-conference"
+                value={form.targetConference}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, targetConference: event.target.value }))
+                }
+                placeholder="e.g. ICML"
+              />
+            </FormField>
+
+            <FormField label="Backup conference" htmlFor="module-backup-conference">
+              <Input
+                id="module-backup-conference"
+                value={form.backupConference}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, backupConference: event.target.value }))
+                }
+                placeholder="e.g. NeurIPS Workshop"
+              />
+            </FormField>
+          </div>
 
           <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
             <input
@@ -442,9 +541,53 @@ export function ModuleDialog({
           ) : null}
 
           {!isEditing ? (
-            <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-              After creating the paper, open it to invite collaborators by email using a secure acceptance link.
-            </p>
+            <div className="flex flex-col gap-2 border-t border-border pt-4">
+              <span className="text-sm font-medium">Invite collaborators (optional)</span>
+              <p className="text-xs text-muted-foreground">
+                Amazon SES emails a secure one-time link once the paper is created. Press Enter
+                or comma to add each email.
+              </p>
+              <FormField label="Collaborator email" htmlFor="module-collaborator-email">
+                <div className="flex gap-2">
+                  <Input
+                    id="module-collaborator-email"
+                    type="email"
+                    value={collaboratorEmailInput}
+                    onChange={(event) => {
+                      setCollaboratorEmailInput(event.target.value);
+                      setCollaboratorEmailError(null);
+                    }}
+                    onKeyDown={handleCollaboratorEmailKeyDown}
+                    placeholder="name@example.com"
+                  />
+                  <Button type="button" variant="outline" onClick={addCollaboratorEmail}>
+                    Add
+                  </Button>
+                </div>
+              </FormField>
+              {collaboratorEmailError ? (
+                <p className="text-xs text-destructive">{collaboratorEmailError}</p>
+              ) : null}
+              {collaboratorEmails.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {collaboratorEmails.map((email) => (
+                    <Badge key={email} variant="secondary" className="gap-1.5 py-1">
+                      {email}
+                      <button
+                        type="button"
+                        aria-label={`Remove ${email}`}
+                        onClick={() =>
+                          setCollaboratorEmails((current) => current.filter((item) => item !== email))
+                        }
+                        className="rounded-full hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {saveError ? (

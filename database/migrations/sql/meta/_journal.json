@@ -239,6 +239,20 @@
       "when": 1788937708748,
       "tag": "0049_add_module_abstract",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789355198399,
+      "tag": "0050_add_module_journals_conferences_and_submissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1789355199399,
+      "tag": "0051_module_submissions_grants",
+      "breakpoints": true
     }
   ]
 }
