@@ -6,10 +6,14 @@ import {
   buildPaginationMeta,
   paginationOffset,
 } from '../../../common/pagination';
+import { FeedbackEmailService } from './feedback-email.service';
 
 @Injectable()
 export class FeedbackService {
-  constructor(private readonly repository: FeedbackRepository) {}
+  constructor(
+    private readonly repository: FeedbackRepository,
+    private readonly feedbackEmailService: FeedbackEmailService,
+  ) {}
 
   async list(
     tenantId: string,
@@ -61,6 +65,14 @@ export class FeedbackService {
     if (!feedback) {
       throw new NotFoundException('Failed to create feedback');
     }
+    await this.feedbackEmailService.sendFeedbackNotification({
+      feedbackId: feedback.id,
+      tenantId: feedback.tenantId,
+      userId: feedback.userId,
+      message: feedback.message,
+      rating: feedback.rating,
+      submittedAt: feedback.createdAt,
+    });
 
     return feedback;
   }
