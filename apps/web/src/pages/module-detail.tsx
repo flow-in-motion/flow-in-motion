@@ -1,29 +1,38 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, FileStack, Link2, Pencil, Plus, Save, Unlink, X } from "lucide-react";
+import { ChevronDown, ChevronUp, FileStack, Link2, Pencil, Plus, Save, Trash2, Unlink, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { apiClient } from "@/api/client";
 import {
+  useCreateModuleSubmission,
   useCreateTask,
   useCurrentWorkspace,
+  useDeleteModuleSubmission,
   useMembers,
   useEnumValues,
   useModulePipelineStagePool,
+  useModuleSubmissions,
   useMyModule,
   useNotes,
   useProject,
   useProjects,
   useTasks,
   useTrackEvent,
+  useUpdateModuleSubmission,
   useUpdateMyModule,
   useUpdateNote,
   useUpdateTask,
+  type ApiModuleSubmission,
   type ApiNote,
   type ApiModule,
   type ApiProject,
   type ApiTask,
 } from "@/api/hooks";
 import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
+import {
+  SubmissionDialog,
+  type SubmissionFormInput,
+} from "@/components/modules/submission-dialog";
 import { EntityDetailPipeline } from "@/components/pipeline/entity-detail-pipeline";
 import { BackButton } from "@/components/shared/back-button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -48,6 +57,10 @@ interface EditableModule {
   title: string;
   description: string;
   abstract: string;
+  targetJournal: string;
+  backupJournal: string;
+  targetConference: string;
+  backupConference: string;
   status: string;
   pipelineStage: string;
   tag: string;
@@ -61,6 +74,10 @@ function editableValues(module: ApiModule): EditableModule {
     title: module.title ?? "",
     description: module.description ?? "",
     abstract: module.abstract ?? "",
+    targetJournal: module.targetJournal ?? "",
+    backupJournal: module.backupJournal ?? "",
+    targetConference: module.targetConference ?? "",
+    backupConference: module.backupConference ?? "",
     status: module.status ?? "Active",
     pipelineStage: module.pipelineStage ?? "",
     tag: module.tag ?? "",
@@ -344,6 +361,96 @@ function LinkedProjectCard({
   );
 }
 
+function SubmissionHistoryCard({
+  submissions,
+  canManage,
+  onAdd,
+  onEdit,
+  onDelete,
+}: {
+  submissions: ApiModuleSubmission[];
+  canManage: boolean;
+  onAdd: () => void;
+  onEdit: (submission: ApiModuleSubmission) => void;
+  onDelete: (submission: ApiModuleSubmission) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <CardTitle>Submission history ({submissions.length})</CardTitle>
+        {canManage ? (
+          <Button variant="outline" size="sm" onClick={onAdd}>
+            <Plus />
+            Log submission
+          </Button>
+        ) : null}
+      </CardHeader>
+      <CardContent>
+        {submissions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No submissions logged yet for this paper.
+          </p>
+        ) : (
+          <div className="grid gap-2">
+            {submissions.map((submission) => (
+              <div
+                key={submission.id}
+                className="flex items-start gap-1 rounded-md border border-border bg-card p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <span className="block text-sm font-semibold">
+                      {submission.journalName}
+                    </span>
+                    <StatusBadge status={submission.status} />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>Submitted {formatDate(submission.submittedDate)}</span>
+                    {submission.decisionDate ? (
+                      <span>Decision {formatDate(submission.decisionDate)}</span>
+                    ) : null}
+                    {submission.revisionRounds !== null ? (
+                      <span>
+                        {submission.revisionRounds}{" "}
+                        {submission.revisionRounds === 1 ? "revision round" : "revision rounds"}
+                      </span>
+                    ) : null}
+                  </div>
+                  {submission.notes ? (
+                    <p className="mt-2 text-xs text-muted-foreground">{submission.notes}</p>
+                  ) : null}
+                </div>
+                {canManage ? (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onEdit(submission)}
+                      aria-label={`Edit submission to ${submission.journalName}`}
+                      title="Edit"
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDelete(submission)}
+                      aria-label={`Delete submission to ${submission.journalName}`}
+                      title="Delete"
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ModuleDetailPage() {
   const { moduleId = "" } = useParams();
   const navigate = useNavigate();
@@ -379,12 +486,19 @@ export default function ModuleDetailPage() {
   const projectsQuery = useProjects(tenantId, 1, sameTenant);
   const availableProjects = projectsQuery.data?.data ?? [];
   const stagesQuery = useModulePipelineStagePool(module?.tenantId ?? tenantId, Boolean(module));
+  const submissionsQuery = useModuleSubmissions(tenantId, module?.id ?? "", sameTenant);
+  const submissions = submissionsQuery.data ?? [];
+  const createSubmission = useCreateModuleSubmission(tenantId, module?.id ?? "");
+  const updateSubmission = useUpdateModuleSubmission(tenantId, module?.id ?? "");
+  const deleteSubmission = useDeleteModuleSubmission(tenantId, module?.id ?? "");
   const [form, setForm] = useState<EditableModule | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
   const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
+  const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
+  const [editingSubmission, setEditingSubmission] = useState<ApiModuleSubmission | null>(null);
 
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && module) {
@@ -431,6 +545,10 @@ export default function ModuleDetailPage() {
         title: form.title.trim() || undefined,
         description: form.description.trim() || undefined,
         abstract: form.abstract.trim() || undefined,
+        targetJournal: form.targetJournal.trim() || undefined,
+        backupJournal: form.backupJournal.trim() || undefined,
+        targetConference: form.targetConference.trim() || undefined,
+        backupConference: form.backupConference.trim() || undefined,
         status: form.status,
         pipelineStage: form.pipelineStage,
         tag: form.tag || undefined,
@@ -482,6 +600,46 @@ export default function ModuleDetailPage() {
         updateNote.mutateAsync({ noteId, input: { moduleId: module!.id } }),
       ),
     );
+  }
+
+  function openAddSubmission() {
+    setEditingSubmission(null);
+    setIsSubmissionDialogOpen(true);
+  }
+
+  function openEditSubmission(submission: ApiModuleSubmission) {
+    setEditingSubmission(submission);
+    setIsSubmissionDialogOpen(true);
+  }
+
+  async function handleSaveSubmission(input: SubmissionFormInput) {
+    const payload = {
+      submittedDate: input.submittedDate,
+      journalName: input.journalName,
+      status: input.status,
+      revisionRounds: input.revisionRounds ? Number(input.revisionRounds) : undefined,
+      decisionDate: input.decisionDate || undefined,
+      notes: input.notes || undefined,
+    };
+    if (editingSubmission) {
+      await updateSubmission.mutateAsync({
+        submissionId: editingSubmission.id,
+        input: payload,
+      });
+    } else {
+      await createSubmission.mutateAsync(payload);
+    }
+  }
+
+  async function handleDeleteSubmission(submission: ApiModuleSubmission) {
+    if (
+      !window.confirm(
+        `Delete the submission to "${submission.journalName}"? This can't be undone.`,
+      )
+    ) {
+      return;
+    }
+    await deleteSubmission.mutateAsync(submission.id);
   }
 
   function cancelEditing() {
@@ -590,6 +748,10 @@ export default function ModuleDetailPage() {
               <FormField label="Formal title" htmlFor="edit-module-title"><Input id="edit-module-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Add once the paper has a formal title" /></FormField>
               <FormField label="Description" htmlFor="edit-module-description" className="sm:col-span-2"><Textarea id="edit-module-description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} /></FormField>
               <FormField label="Abstract" htmlFor="edit-module-abstract" className="sm:col-span-2"><Textarea id="edit-module-abstract" value={form.abstract} onChange={(event) => setForm({ ...form, abstract: event.target.value })} placeholder="Add the paper's academic abstract" rows={6} /></FormField>
+              <FormField label="Target journal" htmlFor="edit-module-target-journal"><Input id="edit-module-target-journal" value={form.targetJournal} onChange={(event) => setForm({ ...form, targetJournal: event.target.value })} placeholder="e.g. Nature Communications" /></FormField>
+              <FormField label="Backup journal" htmlFor="edit-module-backup-journal"><Input id="edit-module-backup-journal" value={form.backupJournal} onChange={(event) => setForm({ ...form, backupJournal: event.target.value })} placeholder="e.g. Scientific Reports" /></FormField>
+              <FormField label="Target conference" htmlFor="edit-module-target-conference"><Input id="edit-module-target-conference" value={form.targetConference} onChange={(event) => setForm({ ...form, targetConference: event.target.value })} placeholder="e.g. ICML" /></FormField>
+              <FormField label="Backup conference" htmlFor="edit-module-backup-conference"><Input id="edit-module-backup-conference" value={form.backupConference} onChange={(event) => setForm({ ...form, backupConference: event.target.value })} placeholder="e.g. NeurIPS Workshop" /></FormField>
               <FormField label="Status" htmlFor="edit-module-status"><Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}><SelectTrigger id="edit-module-status"><SelectValue /></SelectTrigger><SelectContent>{MODULE_STATUSES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
               <FormField label="Type" htmlFor="edit-module-type"><Select value={form.tag} onValueChange={(value) => setForm({ ...form, tag: value })}><SelectTrigger id="edit-module-type"><SelectValue placeholder="Select a type" /></SelectTrigger><SelectContent>{(tagValuesQuery.data ?? []).map((value) => <SelectItem key={value.id} value={value.value}>{value.value}</SelectItem>)}</SelectContent></Select></FormField>
               <FormField label="Pipeline stage" htmlFor="edit-module-stage"><Select value={form.pipelineStage} onValueChange={(value) => setForm({ ...form, pipelineStage: value })}><SelectTrigger id="edit-module-stage"><SelectValue placeholder="Select a stage" /></SelectTrigger><SelectContent>{(stagesQuery.data ?? []).filter((stage) => !stage.hidden).map((stage: { id: string; value: string }) => <SelectItem key={stage.id} value={stage.value}>{stage.value}</SelectItem>)}</SelectContent></Select></FormField>
@@ -613,6 +775,39 @@ export default function ModuleDetailPage() {
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
               {module.abstract}
             </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!form &&
+      (module.targetJournal || module.backupJournal || module.targetConference || module.backupConference) ? (
+        <Card>
+          <CardHeader><CardTitle>Journals &amp; conferences</CardTitle></CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2">
+            {module.targetJournal ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target journal</p>
+                <p className="mt-1 text-sm font-medium">{module.targetJournal}</p>
+              </div>
+            ) : null}
+            {module.backupJournal ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backup journal</p>
+                <p className="mt-1 text-sm font-medium">{module.backupJournal}</p>
+              </div>
+            ) : null}
+            {module.targetConference ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target conference</p>
+                <p className="mt-1 text-sm font-medium">{module.targetConference}</p>
+              </div>
+            ) : null}
+            {module.backupConference ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backup conference</p>
+                <p className="mt-1 text-sm font-medium">{module.backupConference}</p>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
@@ -679,6 +874,23 @@ export default function ModuleDetailPage() {
             onUnlinkNote={sameTenant ? (note) => void handleUnlinkNote(note) : undefined}
           />
         </section>
+
+        {sameTenant ? (
+          <SubmissionHistoryCard
+            submissions={submissions}
+            canManage={sameTenant}
+            onAdd={openAddSubmission}
+            onEdit={openEditSubmission}
+            onDelete={(submission) => void handleDeleteSubmission(submission)}
+          />
+        ) : null}
+
+        <SubmissionDialog
+          open={isSubmissionDialogOpen}
+          onOpenChange={setIsSubmissionDialogOpen}
+          submission={editingSubmission}
+          onSave={handleSaveSubmission}
+        />
 
         <TaskDialog
           open={isAddTaskOpen}
