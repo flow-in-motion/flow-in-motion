@@ -35,8 +35,8 @@ import { useColumnVisibility } from "@/hooks/use-column-visibility";
 
 const PRIORITY_FILTERS = ["All", "Critical", "High", "Medium", "Low"] as const;
 const TASK_COLUMNS = [
-  { id: "project", label: "Project" },
   { id: "task", label: "Task" },
+  { id: "project", label: "Project" },
   { id: "due", label: "Due" },
   { id: "priority", label: "Priority" },
 ] as const;
@@ -184,8 +184,8 @@ export function PriorityTasksTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.isColumnVisible("project") ? <TableHead>Project</TableHead> : null}
               {columns.isColumnVisible("task") ? <TableHead>Task</TableHead> : null}
+              {columns.isColumnVisible("project") ? <TableHead>Project</TableHead> : null}
               {columns.isColumnVisible("due") ? <TableHead>Due</TableHead> : null}
               {columns.isColumnVisible("priority") ? <TableHead>Priority</TableHead> : null}
             </TableRow>
@@ -203,8 +203,18 @@ export function PriorityTasksTable() {
             ) : (
               filtered.map((row) => (
                 <TableRow key={row.id}>
-                  {columns.isColumnVisible("project") ? (
+                  {columns.isColumnVisible("task") ? (
                     <TableCell className="font-medium">
+                      <Link
+                        to={`/tasks/${row.id}`}
+                        className="text-foreground hover:text-primary hover:underline"
+                      >
+                        {row.task}
+                      </Link>
+                    </TableCell>
+                  ) : null}
+                  {columns.isColumnVisible("project") ? (
+                    <TableCell className="text-muted-foreground">
                       {row.moduleId ? (
                         <Link
                           to={`/modules/${row.moduleId}`}
@@ -222,16 +232,6 @@ export function PriorityTasksTable() {
                       ) : (
                         row.project
                       )}
-                    </TableCell>
-                  ) : null}
-                  {columns.isColumnVisible("task") ? (
-                    <TableCell className="text-muted-foreground">
-                      <Link
-                        to={`/tasks/${row.id}`}
-                        className="text-foreground hover:text-primary hover:underline"
-                      >
-                        {row.task}
-                      </Link>
                     </TableCell>
                   ) : null}
                   {columns.isColumnVisible("due") ? (

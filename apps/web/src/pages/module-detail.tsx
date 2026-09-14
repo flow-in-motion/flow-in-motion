@@ -39,9 +39,11 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LinkExistingDialog } from "@/components/shared/link-existing-dialog";
 import { LoadingState } from "@/components/shared/loading-state";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { TagInput } from "@/components/shared/tag-input";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { PageHeading } from "@/components/typography/heading";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
@@ -89,6 +91,10 @@ function formatDate(iso: string | null) {
   if (!iso) return "—";
   const [year, month, day] = iso.split("-");
   return `${day}/${month}/${year}`;
+}
+
+function splitEntries(value: string | null) {
+  return (value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
 }
 
 function HeaderStat({ label, value }: { label: string; value: string }) {
@@ -742,10 +748,13 @@ export default function ModuleDetailPage() {
               <FormField label="Formal title" htmlFor="edit-module-title"><Input id="edit-module-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Add once the paper has a formal title" /></FormField>
               <FormField label="Description" htmlFor="edit-module-description" className="sm:col-span-2"><Textarea id="edit-module-description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} /></FormField>
               <FormField label="Abstract" htmlFor="edit-module-abstract" className="sm:col-span-2"><Textarea id="edit-module-abstract" value={form.abstract} onChange={(event) => setForm({ ...form, abstract: event.target.value })} placeholder="Add the paper's academic abstract" rows={6} /></FormField>
-              <FormField label="Target journal" htmlFor="edit-module-target-journal"><Input id="edit-module-target-journal" value={form.targetJournal} onChange={(event) => setForm({ ...form, targetJournal: event.target.value })} placeholder="e.g. Nature Communications" /></FormField>
-              <FormField label="Backup journal" htmlFor="edit-module-backup-journal"><Input id="edit-module-backup-journal" value={form.backupJournal} onChange={(event) => setForm({ ...form, backupJournal: event.target.value })} placeholder="e.g. Scientific Reports" /></FormField>
-              <FormField label="Target conference" htmlFor="edit-module-target-conference"><Input id="edit-module-target-conference" value={form.targetConference} onChange={(event) => setForm({ ...form, targetConference: event.target.value })} placeholder="e.g. ICML" /></FormField>
-              <FormField label="Backup conference" htmlFor="edit-module-backup-conference"><Input id="edit-module-backup-conference" value={form.backupConference} onChange={(event) => setForm({ ...form, backupConference: event.target.value })} placeholder="e.g. NeurIPS Workshop" /></FormField>
+              <FormField label="Target journals" htmlFor="edit-module-target-journal"><TagInput id="edit-module-target-journal" value={form.targetJournal} onChange={(value) => setForm({ ...form, targetJournal: value })} placeholder="e.g. Nature Communications, Cell" /></FormField>
+              <FormField label="Backup journals" htmlFor="edit-module-backup-journal"><TagInput id="edit-module-backup-journal" value={form.backupJournal} onChange={(value) => setForm({ ...form, backupJournal: value })} placeholder="e.g. Scientific Reports, PLOS ONE" /></FormField>
+              <FormField label="Target conferences" htmlFor="edit-module-target-conference"><TagInput id="edit-module-target-conference" value={form.targetConference} onChange={(value) => setForm({ ...form, targetConference: value })} placeholder="e.g. ICML, NeurIPS" /></FormField>
+              <FormField label="Backup conferences" htmlFor="edit-module-backup-conference"><TagInput id="edit-module-backup-conference" value={form.backupConference} onChange={(value) => setForm({ ...form, backupConference: value })} placeholder="e.g. NeurIPS Workshop, ICLR Workshop" /></FormField>
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Type a name and press comma or Enter to add it — you can add multiple journals or conferences.
+              </p>
               <FormField label="Status" htmlFor="edit-module-status"><Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}><SelectTrigger id="edit-module-status"><SelectValue /></SelectTrigger><SelectContent>{MODULE_STATUSES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
               <FormField label="Type" htmlFor="edit-module-type"><Select value={form.tag} onValueChange={(value) => setForm({ ...form, tag: value })}><SelectTrigger id="edit-module-type"><SelectValue placeholder="Select a type" /></SelectTrigger><SelectContent>{(tagValuesQuery.data ?? []).map((value) => <SelectItem key={value.id} value={value.value}>{value.value}</SelectItem>)}</SelectContent></Select></FormField>
               <FormField label="Pipeline stage" htmlFor="edit-module-stage"><Select value={form.pipelineStage} onValueChange={(value) => setForm({ ...form, pipelineStage: value })}><SelectTrigger id="edit-module-stage"><SelectValue placeholder="Select a stage" /></SelectTrigger><SelectContent>{(stagesQuery.data ?? []).filter((stage) => !stage.hidden).map((stage: { id: string; value: string }) => <SelectItem key={stage.id} value={stage.value}>{stage.value}</SelectItem>)}</SelectContent></Select></FormField>
@@ -780,26 +789,42 @@ export default function ModuleDetailPage() {
           <CardContent className="grid gap-3 sm:grid-cols-2">
             {module.targetJournal ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target journal</p>
-                <p className="mt-1 text-sm font-medium">{module.targetJournal}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target journals</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {splitEntries(module.targetJournal).map((entry) => (
+                    <Badge key={entry} variant="secondary">{entry}</Badge>
+                  ))}
+                </div>
               </div>
             ) : null}
             {module.backupJournal ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backup journal</p>
-                <p className="mt-1 text-sm font-medium">{module.backupJournal}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backup journals</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {splitEntries(module.backupJournal).map((entry) => (
+                    <Badge key={entry} variant="secondary">{entry}</Badge>
+                  ))}
+                </div>
               </div>
             ) : null}
             {module.targetConference ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target conference</p>
-                <p className="mt-1 text-sm font-medium">{module.targetConference}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target conferences</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {splitEntries(module.targetConference).map((entry) => (
+                    <Badge key={entry} variant="secondary">{entry}</Badge>
+                  ))}
+                </div>
               </div>
             ) : null}
             {module.backupConference ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backup conference</p>
-                <p className="mt-1 text-sm font-medium">{module.backupConference}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backup conferences</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {splitEntries(module.backupConference).map((entry) => (
+                    <Badge key={entry} variant="secondary">{entry}</Badge>
+                  ))}
+                </div>
               </div>
             ) : null}
           </CardContent>
