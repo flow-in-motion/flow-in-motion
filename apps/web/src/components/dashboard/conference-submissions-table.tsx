@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Presentation, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { cn } from "@/lib/utils";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const TYPE_FILTERS = ["All", "Abstract", "Full paper", "Poster"] as const;
 const DEADLINE_FILTERS = ["All", "This week", "This month", "Later", "Past"] as const;
@@ -89,8 +90,10 @@ export function ConferenceSubmissionsTable({
 }) {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
-  const conferencesQuery = useConferences(tenantId);
+  const [page, setPage] = useState(1);
+  const conferencesQuery = useConferences(tenantId, page);
   const conferences = conferencesQuery.data?.data ?? [];
+  const paginationMeta = conferencesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
   const modulesQuery = useModules(tenantId);
@@ -103,6 +106,15 @@ export function ConferenceSubmissionsTable({
   const [search, setSearch] = useState("");
   const [type, setType] = useState<TypeFilter>("All");
   const [deadline, setDeadline] = useState<DeadlineFilter>("All");
+  useEffect(() => {
+    setPage(1);
+  }, [
+    tenantId,
+    search,
+    type,
+    deadline,
+    showPast,
+  ]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingConference, setEditingConference] = useState<ApiConference | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -241,6 +253,18 @@ export function ConferenceSubmissionsTable({
               })}
           </TableBody>
         </Table>
+        {!dashboardView && paginationMeta ? (
+          <div className="mt-4">
+            <PaginationControls
+              page={paginationMeta.page}
+              pageSize={paginationMeta.pageSize}
+              totalItems={paginationMeta.totalItems}
+              totalPages={paginationMeta.totalPages}
+              isPending={conferencesQuery.isFetching}
+              onPageChange={setPage}
+            />
+          </div>
+        ) : null}
       </CardContent>
       <ConferenceSubmissionDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} projects={ownedProjects} modules={ownedModules} onSave={create} />
       <ConferenceSubmissionDialog open={editingConference !== null} onOpenChange={(open) => { if (!open) setEditingConference(null); }}

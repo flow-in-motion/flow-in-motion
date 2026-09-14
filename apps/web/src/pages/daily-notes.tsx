@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { resolveLinkTargetType, type LinkTargetType } from "@/lib/link-target";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
+import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const ALL_NOTES = "All notes";
 const LINK_TARGET_OPTIONS: { value: LinkTargetType; label: string }[] = [
@@ -128,7 +129,9 @@ export default function DailyNotesPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
 
-  const notesQuery = useNotes(tenantId);
+  const [page, setPage] = useState(1);
+
+  const notesQuery = useNotes(tenantId, undefined, page);
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
   const modulesQuery = useModules(tenantId);
@@ -142,6 +145,9 @@ export default function DailyNotesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(noteId ?? null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [linkFilter, setLinkFilter] = useState(ALL_NOTES);
+  useEffect(() => {
+    setPage(1);
+  }, [tenantId, sortOrder, linkFilter]);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [draft, setDraft] = useState<NoteDraft>(EMPTY_DRAFT);
   const [memberSearch, setMemberSearch] = useState("");
@@ -150,6 +156,7 @@ export default function DailyNotesPage() {
   const userSearchQuery = useUserSearch(memberSearch, memberPickerOpen);
 
   const notes = notesQuery.data?.data ?? [];
+  const paginationMeta = notesQuery.data?.meta;
 
   useEffect(() => {
     if (!selectedId && notes.length > 0) {
@@ -221,6 +228,7 @@ export default function DailyNotesPage() {
       const sorted = [...filtered].sort((a, b) => a.title.localeCompare(b.title));
       return sortOrder === "za" ? sorted.reverse() : sorted;
     }
+    
     const sorted = [...filtered].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
@@ -434,6 +442,17 @@ export default function DailyNotesPage() {
               })
             )}
           </div>
+          {paginationMeta ? (
+            <PaginationControls
+              page={paginationMeta.page}
+              pageSize={paginationMeta.pageSize}
+              totalItems={paginationMeta.totalItems}
+              totalPages={paginationMeta.totalPages}
+              isPending={notesQuery.isFetching}
+              compact
+              onPageChange={setPage}
+            />
+          ) : null}
         </aside>
 
         <section className="min-h-[620px] flex-1 rounded-xl border bg-card p-4 shadow-sm sm:p-6">

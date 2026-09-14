@@ -36,6 +36,13 @@ const store = vi.hoisted(() => {
     },
   };
 });
+const hookMocks = vi.hoisted(() => ({
+  useConferences: vi.fn(),
+  pagination: {
+    totalItems: 0,
+    totalPages: 1,
+  },
+}));
 
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
@@ -57,7 +64,12 @@ vi.mock("@/api/hooks", async () => {
     useMe: () => ({ data: { id: fixtures.userId }, isPending: false }),
     useProjects: () => ({ data: { data: [fixtures.project], meta: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }, isPending: false }),
     useModules: () => ({ data: [], isPending: false }),
-    useConferences: () => {
+    useConferences: (
+      tenantId: string,
+      page = 1,
+    ) => {
+      hookMocks.useConferences(tenantId, page);
+    
       const conferences = useSyncExternalStore(
         store.subscribe,
         store.get,
@@ -67,16 +79,14 @@ vi.mock("@/api/hooks", async () => {
         data: {
           data: conferences,
           meta: {
-            page: 1,
+            page,
             pageSize: 20,
-            totalItems: conferences.length,
-            totalPages: Math.max(
-              1,
-              Math.ceil(conferences.length / 20),
-            ),
+            totalItems: hookMocks.pagination.totalItems,
+            totalPages: hookMocks.pagination.totalPages,
           },
         },
         isPending: false,
+        isFetching: false,
         isError: false,
         error: null,
       };
@@ -128,7 +138,51 @@ vi.mock("@/api/hooks", async () => {
 });
 
 describe("ConferenceSubmissionsTable", () => {
-  beforeEach(() => store.set([]));
+  beforeEach(() => {
+    store.set([]);
+    hookMocks.useConferences.mockClear();
+    hookMocks.pagination.totalItems = 0;
+    hookMocks.pagination.totalPages = 1;
+  });
+  it("requests the next conferences page on the full Conferences table", () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+  
+    render(
+      <MemoryRouter>
+        <ConferenceSubmissionsTable showPast />
+      </MemoryRouter>,
+    );
+  
+    expect(hookMocks.useConferences).toHaveBeenCalledWith(
+      fixtures.tenantId,
+      1,
+    );
+  
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  
+    expect(hookMocks.useConferences).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      2,
+    );
+  
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
+  
+  it("does not show pagination controls in dashboard view", () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+  
+    render(
+      <MemoryRouter>
+        <ConferenceSubmissionsTable dashboardView />
+      </MemoryRouter>,
+    );
+  
+    expect(
+      screen.queryByRole("navigation", { name: "Pagination" }),
+    ).not.toBeInTheDocument();
+  });
 
   it("creates, edits, and deletes a conference through the API hooks", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
