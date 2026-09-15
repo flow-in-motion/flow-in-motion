@@ -466,7 +466,7 @@ describe("ModuleDetailPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[0]);
 
     const searchInput = await screen.findByPlaceholderText("Search tasks by title");
-    fireEvent.focus(searchInput);
+    fireEvent.click(searchInput);
     fireEvent.click(await screen.findByText("Independent task"));
     fireEvent.click(screen.getByRole("button", { name: "Link tasks" }));
 
@@ -484,7 +484,7 @@ describe("ModuleDetailPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[1]);
 
     const searchInput = await screen.findByPlaceholderText("Search notes by title");
-    fireEvent.focus(searchInput);
+    fireEvent.click(searchInput);
     fireEvent.click(await screen.findByText("Independent note"));
     fireEvent.click(screen.getByRole("button", { name: "Link notes" }));
 

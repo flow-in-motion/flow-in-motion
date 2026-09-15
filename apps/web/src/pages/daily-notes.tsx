@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, NotebookPen, Pencil, Trash2 } from "lucide-react";
+import { NotebookPen, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 
-import { apiClient } from "@/api/client";
 import {
   useCreateNote,
   useCurrentWorkspace,
   useDeleteNote,
+  useMe,
+  useMembers,
   useModules,
   useNotes,
   useProjects,
@@ -15,11 +16,20 @@ import {
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import { NoteDialog, type NoteFormInput } from "@/components/notes/note-dialog";
+import { NoteMembersManager } from "@/components/notes/note-members";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
+import { SortableHeader } from "@/components/shared/sortable-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -29,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { formatListDate, isOverdue } from "@/lib/list-format";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
@@ -36,11 +47,12 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 const VISIBILITY_FILTERS = ["All", "Private", "Shared"] as const;
 type VisibilityFilter = (typeof VISIBILITY_FILTERS)[number];
 
-type SortColumn = "note" | "linkedTo" | "visibility" | "followUp" | "created";
+type SortColumn = "note" | "content" | "linkedTo" | "visibility" | "followUp" | "created";
 type SortDirection = "asc" | "desc";
 
 const NOTE_COLUMNS = [
-  { id: "note", label: "Note", width: "minmax(240px,2fr)" },
+  { id: "note", label: "Note", width: "minmax(220px,1.5fr)" },
+  { id: "content", label: "Content", width: "minmax(260px,2fr)" },
   { id: "linkedTo", label: "Linked to", width: "170px" },
   { id: "visibility", label: "Visibility", width: "110px" },
   { id: "followUp", label: "Follow-up", width: "120px" },
@@ -51,49 +63,10 @@ function noteTitle(note: ApiNote) {
   return note.title || "Untitled note";
 }
 
-function formatDate(iso: string | null | undefined) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatPlainDate(iso: string) {
-  const [year, month, day] = iso.split("-");
-  return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-interface SortableHeaderProps {
-  label: string;
-  column: SortColumn;
-  sortColumn: SortColumn;
-  sortDirection: SortDirection;
-  onSort: (column: SortColumn) => void;
-}
-
-function SortableHeader({ label, column, sortColumn, sortDirection, onSort }: SortableHeaderProps) {
-  const active = column === sortColumn;
-  const Icon = active ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
-  return (
-    <button
-      type="button"
-      onClick={() => onSort(column)}
-      aria-label={`Sort by ${label}`}
-      className={cn(
-        "flex items-center gap-1 text-left transition-colors",
-        active ? "text-foreground" : "hover:text-foreground",
-      )}
-    >
-      {label}
-      <Icon className={cn("h-3 w-3", active ? "text-primary" : "opacity-30")} />
-    </button>
-  );
+function visibilityPillClass(visibility: string | null) {
+  return visibility === "Shared"
+    ? "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
+    : "border-border text-muted-foreground";
 }
 
 export default function DailyNotesPage() {
@@ -111,10 +84,13 @@ export default function DailyNotesPage() {
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isNewNoteOpen, setIsNewNoteOpen] = useState(false);
   const [newNoteInitialProjectId, setNewNoteInitialProjectId] = useState<string | undefined>();
   const [newNoteInitialModuleId, setNewNoteInitialModuleId] = useState<string | undefined>();
+  const [sharingNote, setSharingNote] = useState<ApiNote | null>(null);
+  const me = useMe();
+  const membersQuery = useMembers(tenantId, 1, sharingNote !== null);
+  const members = membersQuery.data?.data ?? [];
 
   const createNote = useCreateNote(tenantId);
   const deleteNote = useDeleteNote(tenantId);
@@ -184,6 +160,8 @@ export default function DailyNotesPage() {
     switch (column) {
       case "note":
         return (a.title ?? "").localeCompare(b.title ?? "");
+      case "content":
+        return (a.content ?? "").localeCompare(b.content ?? "");
       case "linkedTo":
         return linkTargetLabel(a).localeCompare(linkTargetLabel(b));
       case "visibility":
@@ -222,10 +200,6 @@ export default function DailyNotesPage() {
     setVisibility("All");
   }
 
-  function toggleExpanded(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }
-
   function startAdding() {
     setNewNoteInitialProjectId(undefined);
     setNewNoteInitialModuleId(undefined);
@@ -233,7 +207,7 @@ export default function DailyNotesPage() {
   }
 
   async function handleCreateNote(input: NoteFormInput) {
-    const note = await createNote.mutateAsync({
+    await createNote.mutateAsync({
       title: input.title || "Untitled note",
       content: input.content || undefined,
       projectId: input.linkTarget === "project" ? input.projectId : undefined,
@@ -241,15 +215,6 @@ export default function DailyNotesPage() {
       visibility: input.visibility,
       followUpDate: input.followUpDate || undefined,
     });
-
-    await Promise.all(
-      input.collaboratorUserIds.map((userId) =>
-        apiClient.POST("/api/v1/tenant/{tenantId}/notes/{noteId}/members", {
-          params: { path: { tenantId, noteId: note.id } },
-          body: { userId },
-        }),
-      ),
-    );
     trackEvent({ name: "note_created" });
   }
 
@@ -291,6 +256,30 @@ export default function DailyNotesPage() {
         initialModuleId={newNoteInitialModuleId}
         onSave={handleCreateNote}
       />
+      <Dialog
+        open={sharingNote !== null}
+        onOpenChange={(open) => {
+          if (!open) setSharingNote(null);
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Note collaborators</DialogTitle>
+            <DialogDescription>
+              Invite collaborators to {sharingNote ? noteTitle(sharingNote) : "this note"} by email and manage pending access.
+            </DialogDescription>
+          </DialogHeader>
+          {sharingNote ? (
+            <NoteMembersManager
+              tenantId={tenantId}
+              noteId={sharingNote.id}
+              noteTitle={noteTitle(sharingNote)}
+              ownerUserId={sharingNote.createdBy}
+              members={members}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <div className="surface-toolbar flex flex-wrap items-center gap-3">
         <Input
@@ -328,7 +317,7 @@ export default function DailyNotesPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
-        <div className="min-w-[820px]">
+        <div className="min-w-[1050px]">
           <div
             className="mb-1 grid gap-4 rounded-md bg-muted/65 px-4 py-3 text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground"
             style={{ gridTemplateColumns: gridTemplate }}
@@ -353,118 +342,96 @@ export default function DailyNotesPage() {
                 No notes match the current filters.
               </div>
             ) : (
-              visibleNotes.map((note) => {
-                const isExpanded = expandedId === note.id;
-                return (
-                  <div key={note.id} className="flex flex-col">
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      aria-expanded={isExpanded}
-                      onClick={() => toggleExpanded(note.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          toggleExpanded(note.id);
-                        }
-                      }}
-                      className={cn(
-                        "grid cursor-pointer items-center gap-4 border border-transparent bg-card px-4 py-3.5 transition-colors hover:bg-muted/45",
-                        isExpanded ? "rounded-t-md border-border border-b-0 bg-muted/35" : "rounded-md",
-                      )}
-                      style={{ gridTemplateColumns: gridTemplate }}
-                    >
-                      {columns.isColumnVisible("note") ? (
-                        <div className="flex items-start gap-2">
-                          <ChevronRight
-                            className={cn(
-                              "mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                              isExpanded && "rotate-90",
-                            )}
-                          />
-                          <div className="flex flex-col gap-0.5">
-                            {note.displayId ? (
-                              <span className="font-mono text-[11px] text-muted-foreground">{note.displayId}</span>
-                            ) : null}
-                            <div className="flex items-start gap-2">
-                              <Link
-                                to={`/daily-notes/${note.id}`}
-                                onClick={(event) => event.stopPropagation()}
-                                className="font-semibold leading-tight text-foreground transition-colors hover:text-primary hover:underline"
-                              >
-                                {noteTitle(note)}
-                              </Link>
-                              <Link
-                                to={`/daily-notes/${note.id}?edit=true`}
-                                onClick={(event) => event.stopPropagation()}
-                                aria-label={`Edit ${noteTitle(note)}`}
-                                title="Edit note"
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Link>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  void handleDeleteNote(note);
-                                }}
-                                aria-label={`Delete ${noteTitle(note)}`}
-                                title="Delete note"
-                                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+              visibleNotes.map((note) => (
+                <div
+                  key={note.id}
+                  className="grid items-center gap-4 rounded-md border border-transparent bg-card px-4 py-3.5 transition-colors hover:bg-muted/45"
+                  style={{ gridTemplateColumns: gridTemplate }}
+                >
+                  {columns.isColumnVisible("note") ? (
+                    <div className="flex flex-col gap-0.5">
+                      {note.displayId ? (
+                        <span className="font-mono text-[11px] text-muted-foreground">{note.displayId}</span>
                       ) : null}
-                      {columns.isColumnVisible("linkedTo") ? (
-                        note.projectId || note.moduleId ? (
-                          <Link
-                            to={note.moduleId ? `/modules/${note.moduleId}` : `/projects/${note.projectId}`}
-                            onClick={(event) => event.stopPropagation()}
-                            className="text-sm font-medium text-primary hover:underline"
+                      <div className="flex items-start gap-2">
+                        <Link
+                          to={`/daily-notes/${note.id}`}
+                          className="font-semibold leading-tight text-foreground transition-colors hover:text-primary hover:underline"
+                        >
+                          {noteTitle(note)}
+                        </Link>
+                        {note.visibility === "Shared" && note.createdBy === me.data?.id ? (
+                          <button
+                            type="button"
+                            onClick={() => setSharingNote(note)}
+                            aria-label={`Manage collaborators for ${noteTitle(note)}`}
+                            title="Manage collaborators"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
-                            {linkTargetLabel(note)}
-                          </Link>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">General</span>
-                        )
-                      ) : null}
-                      {columns.isColumnVisible("visibility") ? (
-                        <Badge variant="outline">{note.visibility ?? "Private"}</Badge>
-                      ) : null}
-                      {columns.isColumnVisible("followUp") ? (
-                        <span className="text-sm tabular-nums text-muted-foreground">
-                          {note.followUpDate ? formatPlainDate(note.followUpDate) : "—"}
-                        </span>
-                      ) : null}
-                      {columns.isColumnVisible("created") ? (
-                        <span className="text-sm tabular-nums text-muted-foreground">
-                          {formatDate(note.createdAt)}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {isExpanded ? (
-                      <div className="flex flex-col gap-3 rounded-b-md border border-t-0 bg-muted/25 px-5 py-5">
-                        <div>
-                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Note
-                          </span>
-                          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                            {note.content || "This note does not have any content yet."}
-                          </p>
-                        </div>
-                        <Button asChild variant="outline" size="sm" className="w-fit">
-                          <Link to={`/daily-notes/${note.id}`}>View full note</Link>
-                        </Button>
+                            <UserPlus className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                        <Link
+                          to={`/daily-notes/${note.id}?edit=true`}
+                          aria-label={`Edit ${noteTitle(note)}`}
+                          title="Edit note"
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteNote(note)}
+                          aria-label={`Delete ${noteTitle(note)}`}
+                          title="Delete note"
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                    ) : null}
-                  </div>
-                );
-              })
+                    </div>
+                  ) : null}
+                  {columns.isColumnVisible("content") ? (
+                    <span className="text-sm leading-5 text-muted-foreground">
+                      {note.content || "—"}
+                    </span>
+                  ) : null}
+                  {columns.isColumnVisible("linkedTo") ? (
+                    note.projectId || note.moduleId ? (
+                      <Link
+                        to={note.moduleId ? `/modules/${note.moduleId}` : `/projects/${note.projectId}`}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {linkTargetLabel(note)}
+                      </Link>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">General</span>
+                    )
+                  ) : null}
+                  {columns.isColumnVisible("visibility") ? (
+                    <Badge variant="outline" className={visibilityPillClass(note.visibility)}>
+                      {note.visibility ?? "Private"}
+                    </Badge>
+                  ) : null}
+                  {columns.isColumnVisible("followUp") ? (
+                    <span
+                      className={cn(
+                        "text-sm tabular-nums",
+                        isOverdue(note.followUpDate, false)
+                          ? "font-semibold text-destructive"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {formatListDate(note.followUpDate)}
+                    </span>
+                  ) : null}
+                  {columns.isColumnVisible("created") ? (
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      {formatListDate(note.createdAt)}
+                    </span>
+                  ) : null}
+                </div>
+              ))
             )}
           </div>
           {paginationMeta ? (

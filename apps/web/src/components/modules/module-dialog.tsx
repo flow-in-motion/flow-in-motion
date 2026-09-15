@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import {
-  createDraftInvitation,
   useEnumValues,
   useModulePipelineStagePool,
   useNotes,
@@ -19,7 +17,6 @@ import {
   type LinkExistingOption,
 } from "@/components/shared/link-existing-field";
 import { TagInput } from "@/components/shared/tag-input";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
@@ -44,8 +41,6 @@ import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
 } from "@/components/modules/paper-stage-celebration";
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const MODULE_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
 const UNASSIGNED = "__unassigned__";
@@ -134,9 +129,6 @@ export function ModuleDialog({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [linkedTasks, setLinkedTasks] = useState<LinkExistingOption[]>([]);
   const [linkedNotes, setLinkedNotes] = useState<LinkExistingOption[]>([]);
-  const [collaboratorEmails, setCollaboratorEmails] = useState<string[]>([]);
-  const [collaboratorEmailInput, setCollaboratorEmailInput] = useState("");
-  const [collaboratorEmailError, setCollaboratorEmailError] = useState<string | null>(null);
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
   const isEditing = Boolean(module);
@@ -190,9 +182,6 @@ const generalProjectOption =
     setSaveError(null);
     setLinkedTasks([]);
     setLinkedNotes([]);
-    setCollaboratorEmails([]);
-    setCollaboratorEmailInput("");
-    setCollaboratorEmailError(null);
     if (module) {
       setForm({
         shortTitle: module.shortTitle ?? "",
@@ -284,9 +273,6 @@ const generalProjectOption =
               input: { moduleId: savedModule.id },
             }),
           ),
-          ...collaboratorEmails.map((email) =>
-            createDraftInvitation("module", tenantId, savedModule.id, { email }),
-          ),
         ]);
       }
       if (shouldCelebrate) {
@@ -299,29 +285,6 @@ const generalProjectOption =
       setSaveError(error instanceof Error ? error.message : "The module could not be saved.");
     } finally {
       setIsSaving(false);
-    }
-  }
-
-  function addCollaboratorEmail() {
-    const email = collaboratorEmailInput.trim().toLowerCase();
-    if (!email) return;
-    if (!EMAIL_PATTERN.test(email)) {
-      setCollaboratorEmailError("Enter a valid email address.");
-      return;
-    }
-    if (collaboratorEmails.includes(email)) {
-      setCollaboratorEmailError("That email has already been added.");
-      return;
-    }
-    setCollaboratorEmails((current) => [...current, email]);
-    setCollaboratorEmailInput("");
-    setCollaboratorEmailError(null);
-  }
-
-  function handleCollaboratorEmailKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter" || event.key === ",") {
-      event.preventDefault();
-      addCollaboratorEmail();
     }
   }
 
@@ -562,53 +525,10 @@ const generalProjectOption =
           ) : null}
 
           {!isEditing ? (
-            <div className="flex flex-col gap-2 border-t border-border pt-4">
-              <span className="text-sm font-medium">Add collaborators (optional)</span>
-              <p className="text-xs text-muted-foreground">
-                Added as drafts once the paper is created — open the paper afterward to send each
-                invite. Press Enter or comma to add each email.
-              </p>
-              <FormField label="Collaborator email" htmlFor="module-collaborator-email">
-                <div className="flex gap-2">
-                  <Input
-                    id="module-collaborator-email"
-                    type="email"
-                    value={collaboratorEmailInput}
-                    onChange={(event) => {
-                      setCollaboratorEmailInput(event.target.value);
-                      setCollaboratorEmailError(null);
-                    }}
-                    onKeyDown={handleCollaboratorEmailKeyDown}
-                    placeholder="name@example.com"
-                  />
-                  <Button type="button" variant="outline" onClick={addCollaboratorEmail}>
-                    Add
-                  </Button>
-                </div>
-              </FormField>
-              {collaboratorEmailError ? (
-                <p className="text-xs text-destructive">{collaboratorEmailError}</p>
-              ) : null}
-              {collaboratorEmails.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {collaboratorEmails.map((email) => (
-                    <Badge key={email} variant="secondary" className="gap-1.5 py-1">
-                      {email}
-                      <button
-                        type="button"
-                        aria-label={`Remove ${email}`}
-                        onClick={() =>
-                          setCollaboratorEmails((current) => current.filter((item) => item !== email))
-                        }
-                        className="rounded-full hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+              After creating the paper, open it to invite collaborators by email using a secure
+              acceptance link.
+            </p>
           ) : null}
 
           {saveError ? (

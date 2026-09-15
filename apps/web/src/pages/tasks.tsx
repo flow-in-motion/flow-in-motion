@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, ListTodo, Pencil, Trash2 } from "lucide-react";
+import { ListTodo, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { apiClient } from "@/api/client";
 import {
   useCreateTask,
   useCurrentWorkspace,
   useDeleteTask,
+  useMe,
+  useMembers,
   useModules,
   useTasks,
   useProjects,
@@ -17,9 +18,18 @@ import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-m
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
+import { SortableHeader } from "@/components/shared/sortable-header";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
+import { TaskMembersManager } from "@/components/tasks/task-members";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -29,6 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { formatListDate, isOverdue } from "@/lib/list-format";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
@@ -39,12 +50,11 @@ const PRIORITY_FILTERS = ["All", "Low", "Medium", "High", "Critical"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type PriorityFilter = (typeof PRIORITY_FILTERS)[number];
 
-type SortColumn = "code" | "task" | "description" | "project" | "status" | "priority" | "due" | "est";
+type SortColumn = "task" | "description" | "project" | "status" | "priority" | "due" | "est";
 type SortDirection = "asc" | "desc";
 
 const TASK_COLUMNS = [
-  { id: "code", label: "Code", width: "100px" },
-  { id: "task", label: "Task", width: "minmax(220px,1.5fr)" },
+  { id: "task", label: "Task", width: "minmax(240px,1.5fr)" },
   { id: "description", label: "Description", width: "minmax(260px,2fr)" },
   { id: "project", label: "Linked to", width: "170px" },
   { id: "status", label: "Status", width: "110px" },
@@ -86,39 +96,6 @@ function priorityPillClass(priority: string | null) {
   }
 }
 
-function formatDueDate(iso: string | null) {
-  if (!iso) return "—";
-  const [year, month, day] = iso.split("-");
-  return `${day}/${month}/${year}`;
-}
-
-interface SortableHeaderProps {
-  label: string;
-  column: SortColumn;
-  sortColumn: SortColumn;
-  sortDirection: SortDirection;
-  onSort: (column: SortColumn) => void;
-}
-
-function SortableHeader({ label, column, sortColumn, sortDirection, onSort }: SortableHeaderProps) {
-  const active = column === sortColumn;
-  const Icon = active ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
-  return (
-    <button
-      type="button"
-      onClick={() => onSort(column)}
-      aria-label={`Sort by ${label}`}
-      className={cn(
-        "flex items-center gap-1 text-left transition-colors",
-        active ? "text-foreground" : "hover:text-foreground",
-      )}
-    >
-      {label}
-      <Icon className={cn("h-3 w-3", active ? "text-primary" : "opacity-30")} />
-    </button>
-  );
-}
-
 export default function TasksPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
@@ -134,6 +111,10 @@ export default function TasksPage() {
   const modules = modulesQuery.data?.data ?? [];
 
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+  const [sharingTask, setSharingTask] = useState<ApiTask | null>(null);
+  const me = useMe();
+  const membersQuery = useMembers(tenantId, 1, sharingTask !== null);
+  const members = membersQuery.data?.data ?? [];
 
   const createTask = useCreateTask(tenantId);
   const deleteTask = useDeleteTask(tenantId);
@@ -190,8 +171,6 @@ export default function TasksPage() {
 
   function compareTasks(a: ApiTask, b: ApiTask, column: SortColumn) {
     switch (column) {
-      case "code":
-        return (a.displayId ?? "").localeCompare(b.displayId ?? "");
       case "task":
         return a.title.localeCompare(b.title);
       case "description":
@@ -241,7 +220,7 @@ export default function TasksPage() {
   }
 
   async function handleCreateTask(input: TaskFormInput) {
-    const task = await createTask.mutateAsync({
+    await createTask.mutateAsync({
       title: input.title,
       description: input.description || undefined,
       projectId: input.linkTarget === "project" ? input.projectId : undefined,
@@ -249,19 +228,9 @@ export default function TasksPage() {
       status: input.status,
       priority: input.priority,
       visibility: input.visibility,
-      workingWith: input.workingWith || undefined,
       estimatedHours: input.estimatedHours || undefined,
       dueDate: input.dueDate || undefined,
     });
-
-    await Promise.all(
-      input.collaboratorUserIds.map((userId) =>
-        apiClient.POST("/api/v1/tenant/{tenantId}/tasks/{taskId}/members", {
-          params: { path: { tenantId, taskId: task.id } },
-          body: { userId },
-        }),
-      ),
-    );
     trackEvent({ name: "task_created" });
   }
 
@@ -304,6 +273,30 @@ export default function TasksPage() {
         modules={modules}
         onSave={handleCreateTask}
       />
+      <Dialog
+        open={sharingTask !== null}
+        onOpenChange={(open) => {
+          if (!open) setSharingTask(null);
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Task collaborators</DialogTitle>
+            <DialogDescription>
+              Invite collaborators to {sharingTask?.title ?? "this task"} by email and manage pending access.
+            </DialogDescription>
+          </DialogHeader>
+          {sharingTask ? (
+            <TaskMembersManager
+              tenantId={tenantId}
+              taskId={sharingTask.id}
+              taskTitle={sharingTask.title}
+              ownerUserId={sharingTask.createdBy}
+              members={members}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <div className="surface-toolbar flex flex-wrap items-center gap-3">
         <Input
@@ -384,14 +377,11 @@ export default function TasksPage() {
                   className="grid items-center gap-4 rounded-md border border-transparent bg-card px-4 py-3.5 transition-colors hover:bg-muted/45"
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
-                  {columns.isColumnVisible("code") ? (
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {task.displayId ?? "—"}
-                  </span>
-                  ) : null}
-
                   {columns.isColumnVisible("task") ? (
                   <div className="flex flex-col gap-0.5">
+                    {task.displayId ? (
+                      <span className="font-mono text-[11px] text-muted-foreground">{task.displayId}</span>
+                    ) : null}
                     <div className="flex items-start gap-2">
                       <Link
                         to={`/tasks/${task.id}`}
@@ -399,6 +389,17 @@ export default function TasksPage() {
                       >
                         {task.title}
                       </Link>
+                      {task.visibility === "Shared" && task.createdBy === me.data?.id ? (
+                        <button
+                          type="button"
+                          onClick={() => setSharingTask(task)}
+                          aria-label={`Manage collaborators for ${task.title}`}
+                          title="Manage collaborators"
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <UserPlus className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
                       <Link
                         to={`/tasks/${task.id}?edit=true`}
                         aria-label={`Edit ${task.title}`}
@@ -417,11 +418,6 @@ export default function TasksPage() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    {task.workingWith ? (
-                      <span className="text-xs text-muted-foreground">
-                        Working with: {task.workingWith}
-                      </span>
-                    ) : null}
                   </div>
                   ) : null}
 
@@ -457,7 +453,16 @@ export default function TasksPage() {
                   ) : null}
 
                   {columns.isColumnVisible("due") ? (
-                  <span className="text-sm tabular-nums">{formatDueDate(task.dueDate)}</span>
+                  <span
+                    className={cn(
+                      "text-sm tabular-nums",
+                      isOverdue(task.dueDate, task.status === "Complete")
+                        ? "font-semibold text-destructive"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {formatListDate(task.dueDate)}
+                  </span>
                   ) : null}
 
                   {columns.isColumnVisible("est") ? (

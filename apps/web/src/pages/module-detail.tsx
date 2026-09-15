@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, FileStack, Link2, Pencil, Plus, Save, Trash2, Unlink, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { apiClient } from "@/api/client";
 import {
   useCreateModuleSubmission,
   useCreateTask,
@@ -713,7 +712,7 @@ export default function ModuleDetailPage() {
   }
 
   async function handleCreateTask(input: TaskFormInput) {
-    const task = await createTask.mutateAsync({
+    await createTask.mutateAsync({
       title: input.title,
       description: input.description || undefined,
       projectId: input.linkTarget === "project" ? input.projectId : undefined,
@@ -721,19 +720,9 @@ export default function ModuleDetailPage() {
       status: input.status,
       priority: input.priority,
       visibility: input.visibility,
-      workingWith: input.workingWith || undefined,
       estimatedHours: input.estimatedHours || undefined,
       dueDate: input.dueDate || undefined,
     });
-
-    await Promise.all(
-      input.collaboratorUserIds.map((userId) =>
-        apiClient.POST("/api/v1/tenant/{tenantId}/tasks/{taskId}/members", {
-          params: { path: { tenantId, taskId: task.id } },
-          body: { userId },
-        }),
-      ),
-    );
     trackEvent({ name: "task_created" });
   }
 

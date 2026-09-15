@@ -62,7 +62,7 @@ export function LinkExistingField({
           aria-controls={`${id}-options`}
           aria-autocomplete="list"
           value={search}
-          onFocus={() => setIsOpen(true)}
+          onClick={() => setIsOpen(true)}
           onChange={(event) => {
             setSearch(event.target.value);
             setIsOpen(true);
@@ -75,7 +75,7 @@ export function LinkExistingField({
           <div
             id={`${id}-options`}
             role="listbox"
-            className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+            className="absolute z-50 mt-1 max-h-[32rem] w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
           >
             {matches.length ? (
               matches.map((option) => (
