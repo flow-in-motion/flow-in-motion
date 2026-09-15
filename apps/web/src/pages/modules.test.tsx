@@ -75,7 +75,7 @@ const fixtures = vi.hoisted(() => ({
   ],
 }));
 
-const inviteCollaboratorByEmail = vi.hoisted(() => vi.fn().mockResolvedValue({}));
+const createDraftInvitation = vi.hoisted(() => vi.fn().mockResolvedValue({}));
 
 vi.mock("@/api/client", () => ({
   apiClient: {
@@ -206,10 +206,11 @@ vi.mock("@/api/hooks", async () => {
       }],
       isPending: false,
     }),
-    useRemoveModuleCollaborator: () => ({ mutate: vi.fn() }),
+    useRemoveModuleCollaborator: () => ({ mutate: vi.fn(), isPending: false }),
     useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
-    useInviteCollaborator: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    inviteCollaboratorByEmail,
+    useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+    useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+    createDraftInvitation,
     useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
     useUserSearch: () => ({ data: [], isPending: false, isError: false }),
   };
@@ -241,7 +242,7 @@ describe("ModulesPage", () => {
     hookMocks.useModules.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
-    inviteCollaboratorByEmail.mockClear();
+    createDraftInvitation.mockClear();
   });
   it("requests the next modules page when Next is clicked", () => {
     hookMocks.pagination.totalItems = 21;
@@ -520,7 +521,7 @@ describe("ModulesPage", () => {
     expect(screen.getByText("jamie@example.com")).toBeInTheDocument();
   });
 
-  it("invites staged collaborator emails once the new paper is created", async () => {
+  it("adds staged collaborator emails as drafts once the new paper is created", async () => {
     render(
       <MemoryRouter>
         <ModulesPage />
@@ -538,11 +539,11 @@ describe("ModulesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
 
     await waitFor(() =>
-      expect(inviteCollaboratorByEmail).toHaveBeenCalledWith(
+      expect(createDraftInvitation).toHaveBeenCalledWith(
         "module",
         fixtures.tenantId,
         expect.any(String),
-        "jamie@example.com",
+        { email: "jamie@example.com" },
       ),
     );
   });

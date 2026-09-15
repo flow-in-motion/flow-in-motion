@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
-import type { ApiCollaborator, Membership } from "@/api/hooks";
+import type { ApiCollaborator, ApiInvitation, Membership } from "@/api/hooks";
 
 const timestamps = { createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 
@@ -39,22 +39,29 @@ const collaborators: ApiCollaborator[] = [
   },
 ];
 
+const invitations: ApiInvitation[] = [];
 const removeCollaboratorMutate = vi.fn();
+const createDraftMutate = vi.fn();
 
 vi.mock("@/api/hooks", async () => {
   const actual = await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
   return {
     ...actual,
     useModuleCollaborators: () => ({ data: collaborators, isPending: false }),
-    useRemoveModuleCollaborator: () => ({ mutate: removeCollaboratorMutate }),
+    useRemoveModuleCollaborator: () => ({ mutate: removeCollaboratorMutate, isPending: false }),
     useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
     useEnumValues: () => ({ data: [], isPending: false }),
+    useCollaboratorInvitations: () => ({ data: invitations, isPending: false, isError: false }),
+    useCreateDraftInvitation: () => ({
+      mutateAsync: createDraftMutate,
+      isPending: false,
+      isError: false,
+    }),
+    useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+    useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+    useUserSearch: () => ({ data: [], isPending: false }),
   };
 });
-
-vi.mock("@/components/sharing/invitation-panel", () => ({
-  InvitationPanel: () => <div data-testid="invitation-panel" />,
-}));
 
 const members: Membership[] = [];
 
@@ -68,11 +75,11 @@ describe("ModuleCollaboratorsManager", () => {
         members={members}
       />,
     );
-  
+
     expect(screen.getByText("University of Melbourne")).toBeInTheDocument();
     expect(screen.getByText("University of Sydney")).toBeInTheDocument();
     expect(screen.getByText("CSIRO")).toBeInTheDocument();
-  
+
     fireEvent.change(
       screen.getByLabelText(
         "Search collaborators by name, email, or affiliation",
@@ -81,7 +88,7 @@ describe("ModuleCollaboratorsManager", () => {
         target: { value: "sydney" },
       },
     );
-  
+
     expect(screen.getByText("Alice Anders")).toBeInTheDocument();
     expect(screen.getByText("University of Sydney")).toBeInTheDocument();
     expect(screen.queryByText("Owner Person")).not.toBeInTheDocument();
@@ -127,5 +134,18 @@ describe("ModuleCollaboratorsManager", () => {
     });
 
     expect(screen.getByText('No collaborators match "zzz".')).toBeInTheDocument();
+  });
+
+  it("only lets the owner add a draft collaborator", () => {
+    render(
+      <ModuleCollaboratorsManager
+        tenantId="tenant-1"
+        moduleId="module-1"
+        moduleTitle="Sequencing pipeline"
+        members={members}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Add collaborator" })).toBeInTheDocument();
   });
 });

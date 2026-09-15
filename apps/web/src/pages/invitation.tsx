@@ -39,10 +39,18 @@ export default function InvitationPage() {
   }
 
   const invitation = preview.data;
-  const entityTitle = invitation.projectTitle ?? invitation.moduleTitle ?? `Shared ${invitation.type}`;
-  const destination = invitation.type === "project"
-    ? `/projects/${invitation.projectId}`
-    : `/modules/${invitation.moduleId}`;
+  const entityTitle =
+    invitation.projectTitle ??
+    invitation.moduleTitle ??
+    invitation.taskTitle ??
+    invitation.noteTitle ??
+    `Shared ${invitation.type}`;
+  const destination = {
+    project: `/projects/${invitation.projectId}`,
+    module: `/modules/${invitation.moduleId}`,
+    task: `/tasks/${invitation.taskId}`,
+    note: `/daily-notes/${invitation.noteId}`,
+  }[invitation.type];
 
   async function acceptInvitation() {
     await accept.mutateAsync();
@@ -70,7 +78,7 @@ export default function InvitationPage() {
           <div className="flex items-start gap-3 rounded-xl border bg-muted/35 p-4">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
             <p className="text-sm text-muted-foreground">
-              Sign in with the invited email address. The link is single-use and expires on {new Date(invitation.expiresAt).toLocaleDateString()}.
+              Sign in with the invited email address. The link is single-use{invitation.expiresAt ? ` and expires on ${new Date(invitation.expiresAt).toLocaleDateString()}` : ""}.
             </p>
           </div>
 

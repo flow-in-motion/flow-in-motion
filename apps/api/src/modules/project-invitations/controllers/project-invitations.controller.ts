@@ -73,20 +73,37 @@ export class ProjectInvitationsController {
   }
 
   @ApiOperation({
-    summary: 'Invite and email a project collaborator (owner only)',
+    summary:
+      'Add a draft collaborator by name/email/affiliation (owner only) — nothing is sent yet',
   })
   @ApiResponse({ status: 201 })
-  @ApiResponse({ status: 503, description: 'Email delivery unavailable' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Post()
-  async invite(
+  async createDraft(
     @Param('tenantId') tenantId: string,
     @Param('projectId') projectId: string,
     @Req() req: AuthenticatedRequest,
     @Body() dto: InviteCollaboratorDto,
   ) {
     const user = await this.assertOwner(tenantId, projectId, req);
-    return this.service.invite(projectId, user.id, dto.email);
+    return this.service.createDraft(projectId, user.id, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Send the invitation email for a draft collaborator (owner only)',
+  })
+  @ApiResponse({ status: 201 })
+  @ApiResponse({ status: 503, description: 'Email delivery unavailable' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Post(':id/send')
+  async send(
+    @Param('tenantId') tenantId: string,
+    @Param('projectId') projectId: string,
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.assertOwner(tenantId, projectId, req);
+    return this.service.send(projectId, id);
   }
 
   @ApiOperation({ summary: 'Revoke a pending invitation (owner only)' })

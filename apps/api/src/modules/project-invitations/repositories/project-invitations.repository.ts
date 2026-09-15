@@ -23,11 +23,13 @@ export class ProjectInvitationsRepository {
           id: string;
           project_id: string;
           email: string;
+          name: string | null;
+          affiliation: string | null;
           role: string;
           invited_by: string;
-          token: string;
+          token: string | null;
           status: string;
-          expires_at: string;
+          expires_at: string | null;
           created_at: string;
           updated_at: string;
         }
@@ -39,14 +41,29 @@ export class ProjectInvitationsRepository {
       id: row.id,
       projectId: row.project_id,
       email: row.email,
+      name: row.name,
+      affiliation: row.affiliation,
       role: row.role,
       invitedBy: row.invited_by,
       token: row.token,
       status: row.status,
-      expiresAt: new Date(row.expires_at),
+      expiresAt: row.expires_at ? new Date(row.expires_at) : null,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
+  }
+
+  async findById(projectId: string, id: string) {
+    const [row] = await this.drizzle.db
+      .select()
+      .from(projectInvitations)
+      .where(
+        and(
+          eq(projectInvitations.id, id),
+          eq(projectInvitations.projectId, projectId),
+        ),
+      );
+    return row;
   }
 
   async findByEmail(email: string) {
@@ -64,14 +81,26 @@ export class ProjectInvitationsRepository {
   async create(values: {
     projectId: string;
     email: string;
+    name?: string;
+    affiliation?: string;
     role: string;
     invitedBy: string;
-    token: string;
-    expiresAt: Date;
+    token?: string;
+    status?: string;
+    expiresAt?: Date;
   }) {
     const [row] = await this.drizzle.db
       .insert(projectInvitations)
       .values(values)
+      .returning();
+    return row;
+  }
+
+  async markSent(id: string, values: { token: string; expiresAt: Date }) {
+    const [row] = await this.drizzle.db
+      .update(projectInvitations)
+      .set({ ...values, status: 'pending', updatedAt: new Date() })
+      .where(eq(projectInvitations.id, id))
       .returning();
     return row;
   }

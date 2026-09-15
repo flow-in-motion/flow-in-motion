@@ -13,7 +13,6 @@ import { ModuleCollaboratorsRepository } from '../../module-collaborators/reposi
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
 import { DrizzleService } from '../../../db/drizzle.service';
-import { InvitationEmailService } from '../../invitation-email/invitation-email.service';
 
 function normaliseEmail(value: string) {
   return value.trim().toLowerCase();
@@ -32,18 +31,52 @@ export class ModuleInvitationsService {
     private readonly enumRepository: EnumRepository,
     private readonly modulesRepository: ProjectModulesRepository,
     private readonly drizzle: DrizzleService,
-    private readonly invitationEmailService: InvitationEmailService,
   ) {}
 
   async list(moduleId: string) {
     return this.repository.findByModule(moduleId);
   }
 
-  async invite(moduleId: string, invitedBy: string, email: string) {
-    const normalisedEmail = normaliseEmail(email);
+  async createDraft(
+    moduleId: string,
+    invitedBy: string,
+    input: { email: string; name?: string; affiliation?: string },
+  ) {
     const module = await this.modulesRepository.findByIdGlobal(moduleId);
     if (!module) {
       throw new NotFoundException('Module not found');
+    }
+
+    const invitation = await this.repository.create({
+      moduleId,
+      email: normaliseEmail(input.email),
+      name: input.name,
+      affiliation: input.affiliation,
+      role: 'Collaborator',
+      invitedBy,
+      status: 'draft',
+    });
+
+    if (!invitation) {
+      throw new ConflictException('Failed to create invitation');
+    }
+
+    const { token: _storedHash, ...safeInvitation } = invitation;
+    return safeInvitation;
+  }
+
+  /**
+   * Generates the acceptance token and marks the draft pending. No email is
+   * sent server-side — the caller composes and sends it themselves (see the
+   * frontend's mailto: link), using the returned acceptanceToken.
+   */
+  async send(moduleId: string, id: string) {
+    const draft = await this.repository.findById(moduleId, id);
+    if (!draft) {
+      throw new NotFoundException('Invitation not found');
+    }
+    if (draft.status !== 'draft') {
+      throw new ConflictException('This invitation has already been sent');
     }
 
     const tokenBytes = Number(
@@ -57,37 +90,18 @@ export class ModuleInvitationsService {
     const tokenHash = hashInvitationToken(rawToken);
     const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
 
-    const invitation = await this.repository.create({
-      moduleId,
-      email: normalisedEmail,
-      role: 'Collaborator',
-      invitedBy,
+    const invitation = await this.repository.markSent(id, {
       token: tokenHash,
       expiresAt,
     });
-
     if (!invitation) {
-      throw new ConflictException('Failed to create invitation');
-    }
-
-    try {
-      await this.invitationEmailService.sendInvitation({
-        email: normalisedEmail,
-        targetType: 'module',
-        targetTitle: module.shortTitle ?? module.title ?? 'Untitled paper',
-        acceptanceToken: rawToken,
-        expiresAt,
-      });
-    } catch (error) {
-      await this.repository.delete(invitation.moduleId, invitation.id);
-      throw error;
+      throw new ConflictException('Failed to send invitation');
     }
 
     const { token: _storedHash, ...safeInvitation } = invitation;
     return {
       invitation: safeInvitation,
       acceptanceToken: rawToken,
-      emailSent: true,
     };
   }
 
@@ -120,7 +134,7 @@ export class ModuleInvitationsService {
         'This invitation has already been used or revoked',
       );
     }
-    if (invitation.expiresAt.getTime() < Date.now()) {
+    if (!invitation.expiresAt || invitation.expiresAt.getTime() < Date.now()) {
       throw new GoneException('This invitation has expired');
     }
     if (normaliseEmail(invitation.email) !== normaliseEmail(userEmail)) {

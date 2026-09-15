@@ -253,17 +253,21 @@ export interface ApiMember {
   createdAt: string;
 }
 
-export type InvitationTarget = "project" | "module";
+export type InvitationTarget = "project" | "module" | "task" | "note";
 
 export interface ApiInvitation {
   id: string;
   projectId?: string;
   moduleId?: string;
+  taskId?: string;
+  noteId?: string;
   email: string;
-  role: string;
+  name?: string | null;
+  affiliation?: string | null;
+  role?: string;
   invitedBy: string;
   status: string;
-  expiresAt: string;
+  expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -271,13 +275,14 @@ export interface ApiInvitation {
 export interface CreatedInvitation {
   invitation: ApiInvitation;
   acceptanceToken: string;
-  emailSent?: boolean;
 }
 
 export interface InvitationPreview extends ApiInvitation {
   type: InvitationTarget;
   projectTitle?: string | null;
   moduleTitle?: string | null;
+  taskTitle?: string | null;
+  noteTitle?: string | null;
 }
 
 export const apiKeys = {
@@ -353,6 +358,8 @@ export const apiKeys = {
     ["api", "tenant", tenantId, "tasks", "detail", taskId] as const,
   taskMembers: (tenantId: string, taskId: string) =>
     ["api", "tenant", tenantId, "tasks", taskId, "members"] as const,
+  taskInvitations: (tenantId: string, taskId: string) =>
+    ["api", "tenant", tenantId, "tasks", taskId, "invitations"] as const,
   notes: (
     tenantId: string,
     projectId?: string,
@@ -370,6 +377,8 @@ export const apiKeys = {
     ["api", "tenant", tenantId, "notes", "detail", noteId] as const,
   noteMembers: (tenantId: string, noteId: string) =>
     ["api", "tenant", tenantId, "notes", noteId, "members"] as const,
+  noteInvitations: (tenantId: string, noteId: string) =>
+    ["api", "tenant", tenantId, "notes", noteId, "invitations"] as const,
   conferences: (
     tenantId: string,
     page = 1,
@@ -2205,12 +2214,19 @@ export function useModulePipelineStagePool(tenantId: string, enabled = true) {
   });
 }
 
+const INVITATION_COLLECTIONS: Record<InvitationTarget, string> = {
+  project: "projects",
+  module: "modules",
+  task: "tasks",
+  note: "notes",
+};
+
 function invitationCollectionPath(
   target: InvitationTarget,
   tenantId: string,
   entityId: string,
 ) {
-  const collection = target === "project" ? "projects" : "modules";
+  const collection = INVITATION_COLLECTIONS[target];
   return `/api/v1/tenant/${encodeURIComponent(tenantId)}/${collection}/${encodeURIComponent(entityId)}/invitations`;
 }
 
@@ -2219,23 +2235,48 @@ function invitationQueryKey(
   tenantId: string,
   entityId: string,
 ) {
-  return target === "project"
-    ? apiKeys.projectInvitations(tenantId, entityId)
-    : apiKeys.moduleInvitations(tenantId, entityId);
+  switch (target) {
+    case "project":
+      return apiKeys.projectInvitations(tenantId, entityId);
+    case "module":
+      return apiKeys.moduleInvitations(tenantId, entityId);
+    case "task":
+      return apiKeys.taskInvitations(tenantId, entityId);
+    case "note":
+      return apiKeys.noteInvitations(tenantId, entityId);
+  }
 }
 
-export async function inviteCollaboratorByEmail(
+export interface DraftCollaboratorInput {
+  email: string;
+  name?: string;
+  affiliation?: string;
+}
+
+export async function createDraftInvitation(
   target: InvitationTarget,
   tenantId: string,
   entityId: string,
-  email: string,
+  input: DraftCollaboratorInput,
 ) {
-  return apiJson<CreatedInvitation>(
+  return apiJson<ApiInvitation>(
     invitationCollectionPath(target, tenantId, entityId),
     {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(input),
     },
+  );
+}
+
+export async function sendCollaboratorInvitation(
+  target: InvitationTarget,
+  tenantId: string,
+  entityId: string,
+  invitationId: string,
+) {
+  return apiJson<CreatedInvitation>(
+    `${invitationCollectionPath(target, tenantId, entityId)}/${encodeURIComponent(invitationId)}/send`,
+    { method: "POST" },
   );
 }
 
@@ -2255,15 +2296,32 @@ export function useCollaboratorInvitations(
   });
 }
 
-export function useInviteCollaborator(
+export function useCreateDraftInvitation(
   target: InvitationTarget,
   tenantId: string,
   entityId: string,
 ) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (email: string) =>
-      inviteCollaboratorByEmail(target, tenantId, entityId, email),
+    mutationFn: (input: DraftCollaboratorInput) =>
+      createDraftInvitation(target, tenantId, entityId, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: invitationQueryKey(target, tenantId, entityId),
+      });
+    },
+  });
+}
+
+export function useSendInvitation(
+  target: InvitationTarget,
+  tenantId: string,
+  entityId: string,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (invitationId: string) =>
+      sendCollaboratorInvitation(target, tenantId, entityId, invitationId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: invitationQueryKey(target, tenantId, entityId),

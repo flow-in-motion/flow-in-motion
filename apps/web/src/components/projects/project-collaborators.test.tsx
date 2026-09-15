@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
-import type { ApiCollaborator, Membership } from "@/api/hooks";
+import type { ApiCollaborator, ApiInvitation, Membership } from "@/api/hooks";
 
 const timestamps = { createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 
@@ -29,20 +29,33 @@ const collaborators: ApiCollaborator[] = [
   },
 ];
 
+const invitations: ApiInvitation[] = [];
 const removeCollaboratorMutate = vi.fn();
+const createDraftMutate = vi.fn();
+const sendInvitationMutate = vi.fn();
+const revokeInvitationMutate = vi.fn();
 
 vi.mock("@/api/hooks", async () => {
   const actual = await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
   return {
     ...actual,
     useProjectCollaborators: () => ({ data: collaborators, isPending: false }),
-    useRemoveProjectCollaborator: () => ({ mutate: removeCollaboratorMutate }),
+    useRemoveProjectCollaborator: () => ({ mutate: removeCollaboratorMutate, isPending: false }),
+    useCollaboratorInvitations: () => ({ data: invitations, isPending: false, isError: false }),
+    useCreateDraftInvitation: () => ({
+      mutateAsync: createDraftMutate,
+      isPending: false,
+      isError: false,
+    }),
+    useSendInvitation: () => ({ mutateAsync: sendInvitationMutate, isPending: false, isError: false }),
+    useRevokeCollaboratorInvitation: () => ({
+      mutate: revokeInvitationMutate,
+      isPending: false,
+      isError: false,
+    }),
+    useUserSearch: () => ({ data: [], isPending: false }),
   };
 });
-
-vi.mock("@/components/sharing/invitation-panel", () => ({
-  InvitationPanel: () => <div data-testid="invitation-panel" />,
-}));
 
 const members: Membership[] = [];
 
@@ -58,10 +71,10 @@ describe("ProjectCollaborators", () => {
         canManage
       />,
     );
-  
+
     expect(screen.getByText("University of Sydney")).toBeInTheDocument();
     expect(screen.getByText("Monash University")).toBeInTheDocument();
-  
+
     fireEvent.change(
       screen.getByLabelText(
         "Search collaborators by name, email, or affiliation",
@@ -70,7 +83,7 @@ describe("ProjectCollaborators", () => {
         target: { value: "sydney" },
       },
     );
-  
+
     expect(screen.getByText("Alice Anders")).toBeInTheDocument();
     expect(screen.getByText("University of Sydney")).toBeInTheDocument();
     expect(screen.queryByText("Bob Baker")).not.toBeInTheDocument();
@@ -120,5 +133,35 @@ describe("ProjectCollaborators", () => {
     });
 
     expect(screen.getByText('No collaborators match "zzz".')).toBeInTheDocument();
+  });
+
+  it("adds a draft collaborator by name, email, and affiliation without sending anything", async () => {
+    render(
+      <ProjectCollaborators
+        tenantId="tenant-1"
+        projectId="project-1"
+        ownerUserId="user-owner"
+        members={members}
+        entityTitle="Genome Project"
+        canManage
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Collaborator name"), {
+      target: { value: "Jamie Collaborator" },
+    });
+    fireEvent.change(screen.getByLabelText("Collaborator email"), {
+      target: { value: "jamie@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Collaborator affiliation"), {
+      target: { value: "Example University" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add collaborator" }));
+
+    expect(createDraftMutate).toHaveBeenCalledWith({
+      email: "jamie@example.com",
+      name: "Jamie Collaborator",
+      affiliation: "Example University",
+    });
   });
 });

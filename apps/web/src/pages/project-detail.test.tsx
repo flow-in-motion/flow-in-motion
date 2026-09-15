@@ -134,9 +134,14 @@ vi.mock("@/api/hooks", () => ({
     },
   }),
   useProjectCollaborators: () => ({ data: [], isPending: false }),
-  useRemoveProjectCollaborator: () => ({ mutate: vi.fn() }),
-  useCollaboratorInvitations: () => ({ data: [], isPending: false }),
-  useInviteCollaborator: () => ({
+  useRemoveProjectCollaborator: () => ({ mutate: vi.fn(), isPending: false }),
+  useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
+  useCreateDraftInvitation: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+    isError: false,
+  }),
+  useSendInvitation: () => ({
     mutateAsync: vi.fn(),
     isPending: false,
     isError: false,
@@ -144,6 +149,7 @@ vi.mock("@/api/hooks", () => ({
   useRevokeCollaboratorInvitation: () => ({
     mutate: vi.fn(),
     isPending: false,
+    isError: false,
   }),
   useUserSearch: () => ({ data: [], isPending: false, isError: false }),
 }));
