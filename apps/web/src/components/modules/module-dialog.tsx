@@ -18,6 +18,7 @@ import {
   LinkExistingField,
   type LinkExistingOption,
 } from "@/components/shared/link-existing-field";
+import { TagInput } from "@/components/shared/tag-input";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -335,48 +336,51 @@ export function ModuleDialog({
             />
           </FormField>
 
+          <p className="text-xs text-muted-foreground">
+            Type a name and press comma or Enter to add it — you can add multiple journals or conferences.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="Target journal" htmlFor="module-target-journal">
-              <Input
+            <FormField label="Target journals" htmlFor="module-target-journal">
+              <TagInput
                 id="module-target-journal"
                 value={form.targetJournal}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, targetJournal: event.target.value }))
+                onChange={(value) =>
+                  setForm((current) => ({ ...current, targetJournal: value }))
                 }
-                placeholder="e.g. Nature Communications"
+                placeholder="e.g. Nature Communications, Cell"
               />
             </FormField>
 
-            <FormField label="Backup journal" htmlFor="module-backup-journal">
-              <Input
+            <FormField label="Backup journals" htmlFor="module-backup-journal">
+              <TagInput
                 id="module-backup-journal"
                 value={form.backupJournal}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, backupJournal: event.target.value }))
+                onChange={(value) =>
+                  setForm((current) => ({ ...current, backupJournal: value }))
                 }
-                placeholder="e.g. Scientific Reports"
+                placeholder="e.g. Scientific Reports, PLOS ONE"
               />
             </FormField>
 
-            <FormField label="Target conference" htmlFor="module-target-conference">
-              <Input
+            <FormField label="Target conferences" htmlFor="module-target-conference">
+              <TagInput
                 id="module-target-conference"
                 value={form.targetConference}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, targetConference: event.target.value }))
+                onChange={(value) =>
+                  setForm((current) => ({ ...current, targetConference: value }))
                 }
-                placeholder="e.g. ICML"
+                placeholder="e.g. ICML, NeurIPS"
               />
             </FormField>
 
-            <FormField label="Backup conference" htmlFor="module-backup-conference">
-              <Input
+            <FormField label="Backup conferences" htmlFor="module-backup-conference">
+              <TagInput
                 id="module-backup-conference"
                 value={form.backupConference}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, backupConference: event.target.value }))
+                onChange={(value) =>
+                  setForm((current) => ({ ...current, backupConference: value }))
                 }
-                placeholder="e.g. NeurIPS Workshop"
+                placeholder="e.g. NeurIPS Workshop, ICLR Workshop"
               />
             </FormField>
           </div>
