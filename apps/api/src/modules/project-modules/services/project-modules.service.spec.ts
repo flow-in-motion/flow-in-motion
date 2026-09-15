@@ -380,14 +380,13 @@ describe('ProjectModulesService', () => {
       expect(repository.update).not.toHaveBeenCalled();
     });
 
-    it('resolves tag and status to enum ids', async () => {
+    it('resolves status to its enum id', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
           Promise.resolve({ id: `${category}-${value}-id` }),
       );
       repository.create.mockResolvedValue({
         id: 'module-1',
-        tagId: 'module_type-Research Paper-id',
         statusId: 'project_status-Active-id',
       });
 
@@ -395,13 +394,11 @@ describe('ProjectModulesService', () => {
         projectId: 'project-1',
         shortTitle: 'New Module',
         title: 'New Module',
-        tag: 'Research Paper',
         status: 'Active',
       });
 
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          tagId: 'module_type-Research Paper-id',
           statusId: 'project_status-Active-id',
         }),
       );
@@ -505,17 +502,6 @@ describe('ProjectModulesService', () => {
           projectId: 'project-1',
           shortTitle: 'Paper in progress',
           pipelineStage: 'Not A Real Stage',
-        }),
-      ).rejects.toThrow(NotFoundException);
-    });
-
-    it('throws NotFoundException for an unknown tag value', async () => {
-      enumRepository.findByCategoryAndValue.mockResolvedValue(undefined);
-      await expect(
-        service.create('tenant-1', 'user-1', {
-          projectId: 'project-1',
-          shortTitle: 'New Module',
-          tag: 'NotReal',
         }),
       ).rejects.toThrow(NotFoundException);
     });

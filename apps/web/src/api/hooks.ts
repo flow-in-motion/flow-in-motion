@@ -148,7 +148,6 @@ export interface ApiModule {
   backupJournal: string | null;
   targetConference: string | null;
   backupConference: string | null;
-  tag: string | null;
   status: string | null;
   pipelineStage: string | null;
   pipelineStageChangedAt: string | null;
@@ -1037,7 +1036,6 @@ export interface CreateModuleInput {
   targetConference?: string;
   backupConference?: string;
   projectId: string;
-  tag?: string;
   status?: string;
   pipelineStage?: string;
   dueDate?: string;
@@ -2129,7 +2127,7 @@ export function useDeleteCalendarEvent(tenantId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Generic enum values (e.g. module_type)
+// Generic enum values (e.g. project_status)
 // ---------------------------------------------------------------------------
 
 export interface ApiEnumValue {

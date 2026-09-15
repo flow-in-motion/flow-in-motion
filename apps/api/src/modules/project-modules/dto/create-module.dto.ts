@@ -88,14 +88,6 @@ export class CreateModuleDto {
 
   @ApiProperty({
     required: false,
-    example: 'Research Paper',
-  })
-  @IsOptional()
-  @IsString()
-  tag?: string;
-
-  @ApiProperty({
-    required: false,
     example: 'Active',
   })
   @IsOptional()

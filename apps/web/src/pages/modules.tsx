@@ -51,7 +51,6 @@ const MODULE_COLUMNS = [
   { id: "status", label: "Status", width: "110px" },
   { id: "progress", label: "Progress", width: "130px" },
   { id: "stage", label: "Stage", width: "170px" },
-  { id: "type", label: "Type", width: "140px" },
   { id: "due", label: "Due Date", width: "110px" },
   { id: "assignee", label: "Assigned To", width: "150px" },
 ] as const;
@@ -204,8 +203,6 @@ export default function ModulesPage() {
       }
       case "stage":
         return (a.pipelineStage ?? "").localeCompare(b.pipelineStage ?? "");
-      case "type":
-        return (a.tag ?? "").localeCompare(b.tag ?? "");
       case "due":
         return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
       case "assignee":
@@ -248,7 +245,6 @@ export default function ModulesPage() {
       projectId: input.projectId ?? undefined,
       status: input.status,
       pipelineStage: input.pipelineStage,
-      tag: input.tag || undefined,
       dueDate: input.dueDate || undefined,
       assignedToUserId: input.assignedToUserId ?? undefined,
     });
@@ -289,7 +285,7 @@ export default function ModulesPage() {
         icon={FileStack}
         eyebrow="Workflows"
         title="Papers"
-        description="Organise project-related or independent areas of work by status, type and assignee."
+        description="Organise project-related or independent areas of work by status and assignee."
         actions={<Button onClick={() => setIsNewModuleOpen(true)}>New Paper</Button>}
       />
 
@@ -493,11 +489,7 @@ export default function ModulesPage() {
                       {module.pipelineStage ?? "Unassigned"}
                     </span>
                   ) : null}
-                  {columns.isColumnVisible("type") ? (
-                    <span className="text-sm text-muted-foreground">
-                      {module.tag ?? "—"}
-                    </span>
-                  ) : null}
+                  
                   {columns.isColumnVisible("due") ? (
                     <span
                       className={cn(

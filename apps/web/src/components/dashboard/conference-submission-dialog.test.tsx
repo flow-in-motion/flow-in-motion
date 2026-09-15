@@ -43,7 +43,6 @@ function makeModule(overrides: Partial<ApiModule>): ApiModule {
     backupJournal: null,
     targetConference: null,
     backupConference: null,
-    tag: "Research Paper",
     status: null,
     pipelineStage: null,
     pipelineStageChangedAt: null,
@@ -158,9 +157,12 @@ describe("ConferenceSubmissionDialog", () => {
     expect(linkCombobox()).toHaveValue("Genome Project");
   });
 
-  it("lets a module tagged Research Paper be picked, resolving to its parent project", () => {
+  it("lets a paper be picked, resolving to its parent project", () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
-    const paperModule = makeModule({ id: "module-paper", title: "Draft manuscript", tag: "Research Paper" });
+    const paperModule = makeModule({
+      id: "module-paper",
+      title: "Draft manuscript",
+    });
     render(
       <ConferenceSubmissionDialog
         open
@@ -201,7 +203,10 @@ describe("ConferenceSubmissionDialog", () => {
   });
 
   it("filters the dropdown as you type", () => {
-    const otherModule = makeModule({ id: "module-2", title: "Grant application", tag: "Grant Submission" });
+    const otherModule = makeModule({
+      id: "module-2",
+      title: "Grant application",
+    });
     render(
       <ConferenceSubmissionDialog
         open

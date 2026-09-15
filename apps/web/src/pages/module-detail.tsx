@@ -8,7 +8,7 @@ import {
   useCurrentWorkspace,
   useDeleteModuleSubmission,
   useMembers,
-  useEnumValues,
+
   useModulePipelineStagePool,
   useModuleSubmissions,
   useMyModule,
@@ -68,7 +68,6 @@ interface EditableModule {
   backupConference: string;
   status: string;
   pipelineStage: string;
-  tag: string;
   dueDate: string;
   assignedToUserId: string;
 }
@@ -85,7 +84,6 @@ function editableValues(module: ApiModule): EditableModule {
     backupConference: module.backupConference ?? "",
     status: module.status ?? "Active",
     pipelineStage: module.pipelineStage ?? "",
-    tag: module.tag ?? "",
     dueDate: module.dueDate ?? "",
     assignedToUserId: module.assignedToUserId ?? "",
   };
@@ -514,7 +512,7 @@ export default function ModuleDetailPage() {
   const updateTask = useUpdateTask(tenantId);
   const updateNote = useUpdateNote(tenantId);
   const trackEvent = useTrackEvent(tenantId);
-  const tagValuesQuery = useEnumValues("module_type");
+  
 
   const module = moduleQuery.data;
   const sameTenant = Boolean(module && tenantId && module.tenantId === tenantId);
@@ -604,7 +602,6 @@ export default function ModuleDetailPage() {
         backupConference: form.backupConference.trim() || undefined,
         status: form.status,
         pipelineStage: form.pipelineStage,
-        tag: form.tag || undefined,
         dueDate: form.dueDate || undefined,
         assignedToUserId: form.assignedToUserId || undefined,
       },
@@ -759,7 +756,7 @@ export default function ModuleDetailPage() {
         icon={FileStack}
         eyebrow={module.displayId ?? module.id}
         title={paperDisplayTitle(module)}
-        description={module.description || "Review and update the module's status, type and planning details."}
+        description={module.description || "Review and update the paper's status and planning details."}
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={module.status ?? "—"} />
@@ -771,7 +768,6 @@ export default function ModuleDetailPage() {
         {!form ? (
           <div className="flex flex-wrap gap-2">
             {module.title ? <HeaderStat label="Formal title" value={module.title} /> : null}
-            <HeaderStat label="Type" value={module.tag ?? "—"} />
             <HeaderStat label="Status" value={module.status ?? "—"} />
             <HeaderStat label="Pipeline stage" value={module.pipelineStage ?? "Unassigned"} />
             <HeaderStat label="Due" value={formatDate(module.dueDate)} />
@@ -797,7 +793,6 @@ export default function ModuleDetailPage() {
                 Type a name and press comma or Enter to add it — you can add multiple journals or conferences.
               </p>
               <FormField label="Status" htmlFor="edit-module-status"><Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}><SelectTrigger id="edit-module-status"><SelectValue /></SelectTrigger><SelectContent>{MODULE_STATUSES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
-              <FormField label="Type" htmlFor="edit-module-type"><Select value={form.tag} onValueChange={(value) => setForm({ ...form, tag: value })}><SelectTrigger id="edit-module-type"><SelectValue placeholder="Select a type" /></SelectTrigger><SelectContent>{(tagValuesQuery.data ?? []).map((value) => <SelectItem key={value.id} value={value.value}>{value.value}</SelectItem>)}</SelectContent></Select></FormField>
               <FormField label="Pipeline stage" htmlFor="edit-module-stage"><Select value={form.pipelineStage} onValueChange={(value) => setForm({ ...form, pipelineStage: value })}><SelectTrigger id="edit-module-stage"><SelectValue placeholder="Select a stage" /></SelectTrigger><SelectContent>{(stagesQuery.data ?? []).filter((stage) => !stage.hidden).map((stage: { id: string; value: string }) => <SelectItem key={stage.id} value={stage.value}>{stage.value}</SelectItem>)}</SelectContent></Select></FormField>
               <FormField label="Due date" htmlFor="edit-module-due"><DatePickerInput id="edit-module-due" label="Due date" value={form.dueDate} onChange={(value) => setForm({ ...form, dueDate: value })} /></FormField>
               <FormField label="Assigned to" htmlFor="edit-module-assignee"><Select value={form.assignedToUserId || "__unassigned__"} onValueChange={(value) => setForm({ ...form, assignedToUserId: value === "__unassigned__" ? "" : value })}><SelectTrigger id="edit-module-assignee"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__unassigned__">Unassigned</SelectItem>{(members).map((member) => <SelectItem key={member.userId} value={member.userId}>{member.displayName}</SelectItem>)}</SelectContent></Select></FormField>

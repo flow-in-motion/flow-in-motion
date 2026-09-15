@@ -92,12 +92,14 @@ export function ConferenceSubmissionDialog({
       .filter((module): module is ApiModule & { projectId: string } => Boolean(module.projectId))
       .map((module) => {
         const parentProject = projectById.get(module.projectId);
-        const kind = module.tag === "Research Paper" ? "Paper" : "Module";
+
         return {
           key: `module:${module.id}`,
           projectId: module.projectId,
           label: paperDisplayTitle(module),
-          meta: parentProject ? `${kind} · via ${parentProject.title}` : kind,
+          meta: parentProject
+            ? `Paper · via ${parentProject.title}`
+            : "Paper",
         };
       });
     return [...projectOptions, ...moduleOptions];
