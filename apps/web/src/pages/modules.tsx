@@ -129,6 +129,7 @@ export default function ModulesPage() {
   const paginationMeta = modulesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
+  const generalProject = projectsQuery.data?.generalProject ?? null;
   const tasksQuery = useTasks(tenantId);
   const tasks = tasksQuery.data?.data ?? [];
   const stagesQuery = useModulePipelineStagePool(tenantId);
@@ -328,6 +329,7 @@ export default function ModulesPage() {
         onOpenChange={setIsNewModuleOpen}
         tenantId={tenantId}
         projects={projects}
+        generalProject={generalProject}
         members={members}
         onSave={handleCreateModule}
       />

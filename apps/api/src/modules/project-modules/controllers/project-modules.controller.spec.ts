@@ -2,6 +2,7 @@ import { ProjectModulesController } from './project-modules.controller';
 import { ProjectModulesService } from '../services/project-modules.service';
 import { UsersService } from '../../users/users.service';
 import { ConfigService } from '@nestjs/config';
+import { CreateModuleDto } from '../dto/create-module.dto';
 
 describe('ProjectModulesController', () => {
   let controller: ProjectModulesController;
@@ -96,7 +97,11 @@ describe('ProjectModulesController', () => {
   describe('create', () => {
     it('resolves the caller and delegates to the service', async () => {
       modulesService.create.mockResolvedValue({ id: 'm1' });
-      const dto = { shortTitle: 'New Module', title: 'New Module' };
+      const dto: CreateModuleDto = {
+        shortTitle: '...',
+        title: '...',
+        projectId: '11111111-1111-4111-8111-111111111111',
+      };
 
       const result = await controller.create('tenant-1', req, dto);
 

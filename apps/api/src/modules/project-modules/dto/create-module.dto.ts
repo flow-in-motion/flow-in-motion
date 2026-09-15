@@ -78,10 +78,13 @@ export class CreateModuleDto {
   @IsString()
   backupConference?: string;
 
-  @ApiProperty({ required: false })
-  @IsOptional()
+  @ApiProperty({
+    format: 'uuid',
+    description:
+      'The owned project this paper belongs to. Independent papers use the General project.',
+  })
   @IsUUID()
-  projectId?: string;
+  projectId!: string;
 
   @ApiProperty({
     required: false,

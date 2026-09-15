@@ -46,6 +46,7 @@ import {
   type ApiNote,
   type ApiProject,
   type ApiTask,
+  useProjects,
 } from "@/api/hooks";
 import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
 import { paperDisplayTitle } from "@/lib/paper-title";
@@ -394,6 +395,8 @@ export default function ProjectDetailPage() {
   // another workspace must still open here (see MyProjectsController on the
   // backend).
   const projectQuery = useMyProject(projectId);
+  const projectsQuery = useProjects(tenantId);
+  const generalProject = projectsQuery.data?.generalProject ?? null;
   const modulesQuery = useModules(tenantId, projectId);
   const modules = modulesQuery.data?.data ?? [];
   const tasksQuery = useTasks(tenantId, projectId);
@@ -559,7 +562,7 @@ export default function ProjectDetailPage() {
       backupJournal: input.backupJournal || undefined,
       targetConference: input.targetConference || undefined,
       backupConference: input.backupConference || undefined,
-      projectId: input.projectId ?? undefined,
+      projectId: input.projectId,
       status: input.status,
       pipelineStage: input.pipelineStage,
       tag: input.tag || undefined,
@@ -571,12 +574,23 @@ export default function ProjectDetailPage() {
   }
 
   async function handleUnlinkModule(module: ApiModule) {
-    if (!window.confirm(`Unlink "${paperDisplayTitle(module)}" from this project? It will become an independent paper.`)) {
+    if (!generalProject) {
       return;
     }
+  
+    if (
+      !window.confirm(
+        `Move "${paperDisplayTitle(module)}" to General? It will become an independent paper.`,
+      )
+    ) {
+      return;
+    }
+  
     await updateModule.mutateAsync({
       moduleId: module.id,
-      input: { projectId: null },
+      input: {
+        projectId: generalProject.id,
+      },
     });
   }
 

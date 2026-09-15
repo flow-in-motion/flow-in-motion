@@ -236,6 +236,7 @@ export default function PipelinePage() {
 
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
+  const generalProject = projectsQuery.data?.generalProject ?? null;
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
   const tasksQuery = useTasks(tenantId);
@@ -460,14 +461,15 @@ export default function PipelinePage() {
         actions={<Button onClick={() => setIsNewPaperOpen(true)}>New Paper</Button>}
       />
 
-      <ModuleDialog
-        open={isNewPaperOpen}
-        onOpenChange={setIsNewPaperOpen}
-        tenantId={tenantId}
-        projects={projects}
-        members={members}
-        onSave={handleCreateModule}
-      />
+    <ModuleDialog
+      open={isNewPaperOpen}
+      onOpenChange={setIsNewPaperOpen}
+      tenantId={tenantId}
+      projects={projects}
+      generalProject={generalProject}
+      members={members}
+      onSave={handleCreateModule}
+    />
       <PaperStageCelebration
         open={isPaperCelebrationOpen}
         onOpenChange={setIsPaperCelebrationOpen}

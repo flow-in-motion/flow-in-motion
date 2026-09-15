@@ -14,6 +14,7 @@ import {
   buildPaginationMeta,
   paginationOffset,
 } from '../../../common/pagination';
+import { ProjectsService } from '../../projects/services/projects.service';
 
 function slugify(name: string) {
   return name
@@ -28,6 +29,7 @@ export class WorkspacesService {
   constructor(
     private readonly repository: WorkspacesRepository,
     private readonly drizzle: DrizzleService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async createWorkspace(ownerUserId: string, name: string) {
@@ -67,7 +69,9 @@ export class WorkspacesService {
         target: workspaceContexts.userId,
         set: { tenantId: tenant.id, updatedAt: new Date() },
       });
-
+    await this.projectsService.create(ownerUserId, tenant.id, {
+      title: 'General',
+    });
     return { ...tenant, membershipRole: 'owner' as const };
   }
 

@@ -30,14 +30,18 @@ export class ProjectsService {
     pageSize: number,
   ) {
     const offset = paginationOffset(page, pageSize);
-    const { data: rows, totalItems } = await this.repository.findActiveByTenant(
-      tenantId,
-      offset,
-      pageSize,
-    );
-    const shaped = await this.withDisplayValues(rows, callerUserId);
+
+    const [{ data: rows, totalItems }, generalRow] = await Promise.all([
+      this.repository.findActiveByTenant(tenantId, offset, pageSize),
+      this.repository.findGeneralByTenant(tenantId),
+    ]);
+
+    const rowsToShape = generalRow ? [generalRow, ...rows] : rows;
+    const shaped = await this.withDisplayValues(rowsToShape, callerUserId);
+
     return {
-      data: shaped,
+      generalProject: generalRow ? (shaped[0] ?? null) : null,
+      data: generalRow ? shaped.slice(1) : shaped,
       meta: buildPaginationMeta(page, pageSize, totalItems),
     };
   }

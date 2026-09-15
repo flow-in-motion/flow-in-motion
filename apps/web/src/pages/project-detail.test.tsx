@@ -43,6 +43,25 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 vi.mock("@/api/hooks", () => ({
+  useProjects: () => ({
+    data: {
+      generalProject: {
+        id: "project-general",
+        tenantId: "workspace-1",
+        userId: "user-owner",
+        title: "General",
+      },
+      data: [],
+      meta: {
+        page: 1,
+        pageSize: 20,
+        totalItems: 0,
+        totalPages: 1,
+      },
+    },
+    isPending: false,
+    isError: false,
+  }),
   useMe: () => ({
     data: {
       id: "user-owner",
@@ -327,7 +346,7 @@ describe("ProjectDetailPage", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("unlinks a module from this project", async () => {
+  it("moves a module from this project into General", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     render(
       <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
@@ -344,7 +363,7 @@ describe("ProjectDetailPage", () => {
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: { projectId: null },
+        input: { projectId: "project-general" },
       }),
     );
   });

@@ -10,6 +10,7 @@ describe('ProjectsService', () => {
   let repository: {
     findById: jest.Mock;
     findByIdGlobal: jest.Mock;
+    findGeneralByTenant: jest.Mock;
     findActiveByTenant: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -30,6 +31,7 @@ describe('ProjectsService', () => {
     repository = {
       findById: jest.fn(),
       findByIdGlobal: jest.fn(),
+      findGeneralByTenant: jest.fn().mockResolvedValue(undefined),
       findActiveByTenant: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -233,7 +235,15 @@ describe('ProjectsService', () => {
   });
 
   describe('listActive', () => {
-    it('returns a paginated page of projects with pagination metadata', async () => {
+    it('returns General separately from the paginated major projects', async () => {
+      repository.findGeneralByTenant.mockResolvedValue({
+        id: 'project-general',
+        title: 'General',
+        userId: 'user-1',
+        statusId: null,
+        importanceId: null,
+      });
+
       repository.findActiveByTenant.mockResolvedValue({
         data: [
           {
@@ -246,18 +256,33 @@ describe('ProjectsService', () => {
         ],
         totalItems: 1,
       });
+
       collaboratorsRepository.findByProjectIdsAndUser.mockResolvedValue(
-        new Map([['project-1', { roleId: 'role-owner' }]]),
+        new Map([
+          ['project-general', { roleId: 'role-owner' }],
+          ['project-1', { roleId: 'role-owner' }],
+        ]),
       );
 
       const result = await service.listActive('tenant-1', 'user-1', 1, 20);
+
+      expect(repository.findGeneralByTenant).toHaveBeenCalledWith('tenant-1');
 
       expect(repository.findActiveByTenant).toHaveBeenCalledWith(
         'tenant-1',
         0,
         20,
       );
+
+      expect(result.generalProject).toEqual(
+        expect.objectContaining({
+          id: 'project-general',
+          title: 'General',
+        }),
+      );
+
       expect(result.data.map((project) => project.id)).toEqual(['project-1']);
+
       expect(result.meta).toEqual({
         page: 1,
         pageSize: 20,

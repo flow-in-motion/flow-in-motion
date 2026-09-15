@@ -79,8 +79,16 @@ const fixtures = vi.hoisted(() => ({
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
   projects: [
-    { id: "project-1", title: "Genome Sequencing Study" },
-    { id: "project-2", title: "Protein Folding Analysis" },
+    {
+      id: "project-1",
+      userId: "user-owner",
+      title: "Genome Sequencing Study",
+    },
+    {
+      id: "project-2",
+      userId: "user-owner",
+      title: "Protein Folding Analysis",
+    },
   ],
   stages: [
     {
@@ -187,7 +195,21 @@ vi.mock("@/api/hooks", () => ({
   useEnumValues: () => ({ data: [] }),
   useProject: () => ({ data: undefined, isError: false }),
   useProjects: () => ({
-    data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } },
+    data: {
+      generalProject: {
+        id: "project-general",
+        tenantId: "workspace-1",
+        userId: "user-owner",
+        title: "General",
+      },
+      data: fixtures.projects,
+      meta: {
+        page: 1,
+        pageSize: 20,
+        totalItems: fixtures.projects.length,
+        totalPages: 1,
+      },
+    },
     isPending: false,
   }),
   useModuleCollaborators: () => ({ data: [], isPending: false }),
@@ -333,12 +355,12 @@ describe("ModuleDetailPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("unlinks a module from its project when Independent module is checked", async () => {
+  it("moves a paper to General when Independent paper is checked", async () => {
     fixtures.module.projectId = "project-1";
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Change project" }));
-    const checkbox = screen.getByRole("checkbox", { name: /Independent module/ });
+    const checkbox = screen.getByRole("checkbox", { name: /Independent paper/ })
     expect(checkbox).not.toBeChecked();
 
     fireEvent.click(checkbox);
@@ -348,18 +370,18 @@ describe("ModuleDetailPage", () => {
       expect(fixtures.updateModule).toHaveBeenCalledWith(
         expect.objectContaining({
           moduleId: "module-1",
-          input: { projectId: null },
+          input: { projectId: "project-general" },
         }),
       ),
     );
   });
 
-  it("blocks saving when Independent module is unchecked without picking a project", () => {
+  it("blocks saving when Independent paper is unchecked without picking a project", () => {
     fixtures.module.projectId = null;
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Change project" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Independent module/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Independent paper/ }));
 
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
@@ -389,17 +411,19 @@ describe("ModuleDetailPage", () => {
     );
   });
 
-  it("unlinks the project via the quick Unlink button", async () => {
+  it("moves the paper to General via the quick action", async () => {
     fixtures.module.projectId = "project-1";
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Unlink" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Move to General" }),
+    );
 
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: { projectId: null },
+        input: { projectId: "project-general" },
       }),
     );
   });

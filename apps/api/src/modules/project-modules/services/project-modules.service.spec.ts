@@ -1,13 +1,21 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProjectModulesService } from './project-modules.service';
 import { ProjectModulesRepository } from '../repositories/project-modules.repository';
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { ModuleCollaboratorsRepository } from '../../module-collaborators/repositories/module-collaborators.repository';
 import { ProjectCollaboratorsRepository } from '../../project-collaborators/repositories/project-collaborators.repository';
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
+import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 
 describe('ProjectModulesService', () => {
   let service: ProjectModulesService;
+  let projectsRepository: {
+    findById: jest.Mock;
+  };
   let repository: {
     findById: jest.Mock;
     findByIdGlobal: jest.Mock;
@@ -41,6 +49,14 @@ describe('ProjectModulesService', () => {
       archive: jest.fn(),
       findAccessiblePageByUser: jest.fn(),
     };
+    projectsRepository = {
+      findById: jest.fn().mockResolvedValue({
+        id: 'project-1',
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        title: 'Test Project',
+      }),
+    };
     enumRepository = {
       findByCategoryAndValue: jest.fn(),
       findModuleStageByValueForTenant: jest.fn(),
@@ -53,17 +69,17 @@ describe('ProjectModulesService', () => {
     projectCollaboratorsRepository = {
       findByProjectAndUser: jest.fn().mockResolvedValue(undefined),
     };
-    sequences = {
-      nextDisplayId: jest.fn().mockResolvedValue('MOD-0001'),
-    };
-
     service = new ProjectModulesService(
       repository as unknown as ProjectModulesRepository,
       enumRepository as unknown as EnumRepository,
       collaboratorsRepository as unknown as ModuleCollaboratorsRepository,
       projectCollaboratorsRepository as unknown as ProjectCollaboratorsRepository,
+      projectsRepository as unknown as ProjectsRepository,
       sequences as unknown as TenantSequencesRepository,
     );
+    sequences = {
+      nextDisplayId: jest.fn().mockResolvedValue('MOD-0001'),
+    };
   });
 
   describe('findOne', () => {
@@ -306,6 +322,64 @@ describe('ProjectModulesService', () => {
   });
 
   describe('create', () => {
+    it('rejects creating a paper for a project that does not exist', async () => {
+      projectsRepository.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.create('tenant-1', 'user-1', {
+          projectId: 'missing-project',
+          shortTitle: 'New Paper',
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(projectsRepository.findById).toHaveBeenCalledWith(
+        'tenant-1',
+        'missing-project',
+      );
+
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects creating a paper under another user's project", async () => {
+      projectsRepository.findById.mockResolvedValue({
+        id: 'project-1',
+        tenantId: 'tenant-1',
+        userId: 'different-owner',
+        title: 'Someone Else Project',
+      });
+
+      await expect(
+        service.create('tenant-1', 'user-1', {
+          projectId: 'project-1',
+          shortTitle: 'New Paper',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects removing the project from a paper', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: 'project-1',
+        tagId: null,
+        statusId: null,
+      });
+
+      projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
+        roleId: 'role-1',
+      });
+
+      await expect(
+        service.update('tenant-1', 'module-1', 'user-1', {
+          projectId: null as unknown as string,
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(projectsRepository.findById).not.toHaveBeenCalled();
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
     it('resolves tag and status to enum ids', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
@@ -318,6 +392,7 @@ describe('ProjectModulesService', () => {
       });
 
       await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
         shortTitle: 'New Module',
         title: 'New Module',
         tag: 'Research Paper',
@@ -346,6 +421,7 @@ describe('ProjectModulesService', () => {
       });
 
       await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
         shortTitle: 'New Module',
         targetJournal: 'Nature Communications',
         backupJournal: 'Scientific Reports',
@@ -380,6 +456,7 @@ describe('ProjectModulesService', () => {
       });
 
       await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
         shortTitle: 'Paper in progress',
         pipelineStage: 'Drafting & Writing',
       });
@@ -404,7 +481,10 @@ describe('ProjectModulesService', () => {
         pipelineStageId: null,
       });
 
-      await service.create('tenant-1', 'user-1', { shortTitle: 'New Module' });
+      await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
+        shortTitle: 'New Module',
+      });
 
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({ pipelineStageChangedAt: expect.any(Date) }),
@@ -422,6 +502,7 @@ describe('ProjectModulesService', () => {
 
       await expect(
         service.create('tenant-1', 'user-1', {
+          projectId: 'project-1',
           shortTitle: 'Paper in progress',
           pipelineStage: 'Not A Real Stage',
         }),
@@ -432,6 +513,7 @@ describe('ProjectModulesService', () => {
       enumRepository.findByCategoryAndValue.mockResolvedValue(undefined);
       await expect(
         service.create('tenant-1', 'user-1', {
+          projectId: 'project-1',
           shortTitle: 'New Module',
           tag: 'NotReal',
         }),
@@ -463,6 +545,34 @@ describe('ProjectModulesService', () => {
   });
 
   describe('update', () => {
+    it("rejects moving a paper into another user's project", async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: 'project-1',
+        tagId: null,
+        statusId: null,
+      });
+
+      projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
+        roleId: 'role-1',
+      });
+
+      projectsRepository.findById.mockResolvedValue({
+        id: 'project-2',
+        tenantId: 'tenant-1',
+        userId: 'different-owner',
+        title: 'Another User Project',
+      });
+
+      await expect(
+        service.update('tenant-1', 'module-1', 'user-1', {
+          projectId: 'project-2',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
     it('passes through the target/backup journal and conference fields', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
@@ -526,31 +636,47 @@ describe('ProjectModulesService', () => {
       );
     });
 
-    it('unlinks a module from its project, making it independent', async () => {
+    it('moves an independent paper into the General project', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
         tagId: null,
         statusId: null,
       });
+
       projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
         roleId: 'role-1',
       });
+
+      projectsRepository.findById.mockResolvedValue({
+        id: 'project-general',
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        title: 'General',
+      });
+
       repository.update.mockResolvedValue({
         id: 'module-1',
-        projectId: null,
+        projectId: 'project-general',
         tagId: null,
         statusId: null,
       });
 
       await service.update('tenant-1', 'module-1', 'user-1', {
-        projectId: null,
+        projectId: 'project-general',
       });
+
+      expect(projectsRepository.findById).toHaveBeenCalledWith(
+        'tenant-1',
+        'project-general',
+      );
 
       expect(repository.update).toHaveBeenCalledWith(
         'tenant-1',
         'module-1',
-        expect.objectContaining({ projectId: null }),
+        expect.objectContaining({
+          projectId: 'project-general',
+        }),
       );
     });
 
