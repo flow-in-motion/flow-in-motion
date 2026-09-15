@@ -1,11 +1,29 @@
-import { join } from 'path';
 import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import { ProjectInvitationsModule } from './project-invitations.module';
 import { TaskInvitationsModule } from '../task-invitations/task-invitations.module';
 import { NoteInvitationsModule } from '../note-invitations/note-invitations.module';
-import { envValidationSchema } from '../../config/env.validation';
 import { DbModule } from '../../db/db.module';
+
+// Dummy values standing in for envValidationSchema's required fields, fed
+// straight in via `validate` so this doesn't depend on a real .env file
+// (there isn't one in CI). DbModule's DrizzleService only builds its
+// connection pool in onModuleInit(), which .compile() never calls, so none
+// of this needs to resolve to real infra.
+const testEnv = {
+  APP_URL: 'http://localhost:3000',
+  POSTGRES_HOST: 'localhost',
+  POSTGRES_DB: 'test',
+  POSTGRES_MIGRATION_USER: 'test',
+  POSTGRES_MIGRATION_PASSWORD: 'test',
+  POSTGRES_RUNTIME_USER: 'test',
+  POSTGRES_RUNTIME_PASSWORD: 'test',
+  MINIO_ENDPOINT: 'http://localhost:9000',
+  COGNITO_REGION: 'us-east-1',
+  COGNITO_USER_POOL_ID: 'test-pool',
+  COGNITO_CLIENT_ID: 'test-client',
+  COGNITO_DOMAIN: 'example.com',
+};
 
 // Regression check: this whole module graph (including the newly-added
 // TaskInvitationsModule/NoteInvitationsModule) must actually resolve its
@@ -17,8 +35,8 @@ describe('ProjectInvitationsModule (compile check)', () => {
       imports: [
         ConfigModule.forRoot({
           isGlobal: true,
-          envFilePath: [join(__dirname, '..', '..', '..', '..', '..', '.env')],
-          validationSchema: envValidationSchema,
+          ignoreEnvFile: true,
+          validate: () => testEnv,
         }),
         DbModule,
         ProjectInvitationsModule,
