@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import DailyNotesPage from "@/pages/daily-notes";
@@ -11,10 +11,11 @@ type NoteFixture = {
   projectId: string | null;
   moduleId: string | null;
   createdBy: string;
-  title: string;
+  title: string | null;
   content: string | null;
   visibility: string | null;
-  createdAt: string;
+  followUpDate: string | null;
+  createdAt: string | null;
   updatedAt: string;
 };
 
@@ -47,34 +48,12 @@ const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
   projects: [{ id: "project-1", title: "Genome Project" }],
   modules: [{ id: "module-1", title: "Assay optimization" }],
-  members: [
-    {
-      id: "membership-owner",
-      userId: "user-owner",
-      displayName: "Avi Researcher",
-      email: "owner@example.com",
-      role: "owner",
-    },
-    {
-      id: "membership-collaborator",
-      userId: "user-collaborator",
-      displayName: "Jamie Collaborator",
-      email: "jamie@example.com",
-      role: "limited_member",
-    },
-  ],
-  // Proves the "Share with" search hits the platform-wide user-search
-  // endpoint, not the workspace member list.
   allUsers: [
     { id: "user-outside-workspace", displayName: "Jamie Outsider", email: "jamie@example.com" },
   ],
 }));
 
-const sharingMutations = vi.hoisted(() => ({
-  addNoteMember: vi.fn(),
-}));
-
-const updateNoteMock = vi.hoisted(() => vi.fn());
+const deleteNoteMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/client", () => ({
   apiClient: {
@@ -87,28 +66,11 @@ vi.mock("@/api/hooks", async () => {
   return {
     useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
     useTrackEvent: () => vi.fn(),
-    useMembers: () => ({
-      data: {
-        data: fixtures.members,
-        meta: {
-          page: 1,
-          pageSize: 20,
-          totalItems: fixtures.members.length,
-          totalPages: 1,
-        },
-      },
-      isPending: false,
-    }),
     useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
     useModules: () => ({
       data: {
         data: fixtures.modules,
-        meta: {
-          page: 1,
-          pageSize: 20,
-          totalItems: fixtures.modules.length,
-          totalPages: 1,
-        },
+        meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 },
       },
     }),
     useUserSearch: (query: string) => ({
@@ -119,18 +81,11 @@ vi.mock("@/api/hooks", async () => {
         : [],
       isPending: false,
     }),
-    useNotes: (
-      tenantId: string,
-      projectId?: string,
-      page = 1,
-    ) => {
+    useNotes: (tenantId: string, projectId?: string, page = 1) => {
       hookMocks.useNotes(tenantId, projectId, page);
-    
-      const notes = useSyncExternalStore(
-        store.subscribe,
-        store.getNotes,
-      );
-    
+
+      const notes = useSyncExternalStore(store.subscribe, store.getNotes);
+
       return {
         data: {
           data: notes,
@@ -161,6 +116,7 @@ vi.mock("@/api/hooks", async () => {
           title: input.title as string,
           content: (input.content as string | undefined) ?? null,
           visibility: (input.visibility as string | undefined) ?? "Private",
+          followUpDate: (input.followUpDate as string | undefined) ?? null,
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
         };
@@ -168,48 +124,27 @@ vi.mock("@/api/hooks", async () => {
         return note;
       }),
     }),
-    useUpdateNote: () => ({
-      mutateAsync: updateNoteMock.mockImplementation(
-        async ({ noteId, input }: { noteId: string; input: Record<string, unknown> }) => {
-          const updated = store.getNotes().map((item) =>
-            item.id === noteId
-              ? {
-                  ...item,
-                  ...input,
-                  projectId:
-                    input.projectId === "" || input.projectId === null
-                      ? null
-                      : (input.projectId as string | undefined) ?? item.projectId,
-                  moduleId:
-                    input.moduleId === "" || input.moduleId === null
-                      ? null
-                      : (input.moduleId as string | undefined) ?? item.moduleId,
-                }
-              : item,
-          );
-          store.setNotes(updated);
-          return updated.find((item) => item.id === noteId);
-        },
-      ),
-    }),
-    useDeleteNote: () => ({
-      mutateAsync: vi.fn(async (noteId: string) => {
-        store.setNotes(store.getNotes().filter((item) => item.id !== noteId));
-      }),
-    }),
-    useNoteMembers: () => ({ data: [], isPending: false }),
-    useAddNoteMember: () => ({ mutate: sharingMutations.addNoteMember }),
-    useRemoveNoteMember: () => ({ mutate: vi.fn() }),
+    useDeleteNote: () => ({ mutateAsync: deleteNoteMock }),
   };
 });
 
+function renderPage(initialEntries: string[] = ["/daily-notes"]) {
+  render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Routes>
+        <Route path="daily-notes" element={<DailyNotesPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("DailyNotesPage", () => {
   beforeEach(() => {
-    sharingMutations.addNoteMember.mockClear();
-    updateNoteMock.mockClear();
     hookMocks.useNotes.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
+    deleteNoteMock.mockReset();
+    deleteNoteMock.mockResolvedValue({});
     store.setNotes([
       {
         id: "note-1",
@@ -221,79 +156,82 @@ describe("DailyNotesPage", () => {
         title: "Initial observations",
         content: "Baseline readings look consistent.",
         visibility: "Private",
+        followUpDate: null,
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
       },
     ]);
   });
+
+  it("lists notes using the expandable list layout shared with Projects/Papers/Tasks/Conferences", () => {
+    renderPage();
+
+    expect(screen.getByRole("heading", { name: "Daily Notes" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Initial observations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Note" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort by Created" })).toBeInTheDocument();
+  });
+
+  it("hides note content by default, showing it only after expanding the row", () => {
+    renderPage();
+
+    expect(screen.queryByText("Baseline readings look consistent.")).not.toBeInTheDocument();
+
+    const row = screen.getByText("NTE-001").closest('[role="button"]')!;
+    fireEvent.click(row);
+
+    expect(screen.getByText("Baseline readings look consistent.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View full note" })).toHaveAttribute(
+      "href",
+      "/daily-notes/note-1",
+    );
+
+    fireEvent.click(row);
+
+    expect(screen.queryByText("Baseline readings look consistent.")).not.toBeInTheDocument();
+  });
+
   it("requests the next notes page when Next is clicked", () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;
-  
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
-  
-    expect(hookMocks.useNotes).toHaveBeenCalledWith(
-      fixtures.tenantId,
-      undefined,
-      1,
-    );
-  
+
+    renderPage();
+
+    expect(hookMocks.useNotes).toHaveBeenCalledWith(fixtures.tenantId, undefined, 1);
+
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  
-    expect(hookMocks.useNotes).toHaveBeenLastCalledWith(
-      fixtures.tenantId,
-      undefined,
-      2,
-    );
-  
+
+    expect(hookMocks.useNotes).toHaveBeenLastCalledWith(fixtures.tenantId, undefined, 2);
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
-  
-  it("creates a general note", async () => {
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
-    fireEvent.change(screen.getByLabelText("Note title"), {
+  it("creates a general note", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "New Note" }));
+    fireEvent.change(screen.getByPlaceholderText("Enter a note title"), {
       target: { value: "Reagent calibration notes" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Note" }));
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("heading", { name: "Reagent calibration notes" }),
-      ).toBeInTheDocument(),
+      expect(screen.getByRole("link", { name: "Reagent calibration notes" })).toBeInTheDocument(),
     );
   });
 
   it("shows a project-select field when the Project link target is chosen", () => {
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
+    renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    fireEvent.click(screen.getByRole("button", { name: "New Note" }));
     fireEvent.click(screen.getByRole("button", { name: "Project" }));
 
     expect(screen.getByText("Select a project")).toBeInTheDocument();
   });
 
   it("searches all platform users, not just workspace members, when sharing a new note", () => {
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
+    renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    fireEvent.click(screen.getByRole("button", { name: "New Note" }));
 
     const visibilityTrigger = screen
       .getAllByRole("combobox")
@@ -306,66 +244,23 @@ describe("DailyNotesPage", () => {
 
     expect(screen.getByText("jamie@example.com")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("option", { name: /Jamie Outsider/ }));
-    expect(screen.getByLabelText("Selected note members")).toHaveTextContent(
-      "Jamie Outsider",
-    );
+    expect(screen.getByLabelText("Selected note members")).toHaveTextContent("Jamie Outsider");
   });
 
-  it("directly assigns any platform user when a private note is changed to shared", () => {
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
+  it("pre-fills and opens the create dialog when linked via a project's Add note action", () => {
+    renderPage(["/daily-notes?projectId=project-1&new=true"]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit note" }));
-    const visibilityTrigger = screen
+    expect(screen.getByRole("dialog", { name: "Create a new note" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
+    const projectTrigger = screen
       .getAllByRole("combobox")
-      .find((element) => element.textContent?.includes("Private"));
-    fireEvent.click(visibilityTrigger!);
-    fireEvent.click(screen.getByRole("option", { name: "Shared" }));
-
-    const search = screen.getByPlaceholderText("Type a name or email to search all users");
-    fireEvent.change(search, { target: { value: "Jamie" } });
-    fireEvent.click(screen.getByRole("option", { name: /Jamie Outsider/ }));
-
-    expect(sharingMutations.addNoteMember).toHaveBeenCalledWith("user-outside-workspace");
-    expect(screen.getByText(/No email invitation is sent/)).toBeInTheDocument();
+      .find((el) => el.textContent?.includes("Genome Project"));
+    expect(projectTrigger).toBeDefined();
   });
 
-  it("edits an existing note's title and content", async () => {
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit note" }));
-    fireEvent.change(screen.getByLabelText("Note title"), {
-      target: { value: "Updated observations" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Save note" }));
-
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Updated observations" })).toBeInTheDocument(),
-    );
-  });
-
-  it("sorts notes alphabetically by title", () => {
+  it("filters the list by search text", () => {
     store.setNotes([
-      {
-        id: "note-1",
-        displayId: "NTE-001",
-        tenantId: fixtures.tenantId,
-        projectId: null,
-        moduleId: null,
-        createdBy: "user-owner",
-        title: "Charlie note",
-        content: null,
-        visibility: "Private",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      },
+      ...store.getNotes(),
       {
         id: "note-2",
         displayId: "NTE-002",
@@ -373,168 +268,61 @@ describe("DailyNotesPage", () => {
         projectId: null,
         moduleId: null,
         createdBy: "user-owner",
-        title: "Alpha note",
+        title: "Reagent calibration",
         content: null,
         visibility: "Private",
+        followUpDate: null,
         createdAt: "2026-01-02T00:00:00.000Z",
         updatedAt: "2026-01-02T00:00:00.000Z",
       },
+    ]);
+    renderPage();
+
+    fireEvent.change(screen.getByPlaceholderText("Search notes…"), {
+      target: { value: "Reagent" },
+    });
+
+    expect(screen.getByRole("link", { name: "Reagent calibration" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Initial observations" })).not.toBeInTheDocument();
+  });
+
+  it("deletes a note after confirmation", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete Initial observations" }));
+
+    expect(deleteNoteMock).toHaveBeenCalledWith("note-1");
+  });
+
+  it("renders and sorts legacy notes that have a missing title or created date, without crashing", () => {
+    // Regression test: some real notes have a null title/createdAt (data
+    // predating a stricter backend contract), which previously crashed
+    // compareNotes's unconditional `.localeCompare` on those fields.
+    store.setNotes([
+      ...store.getNotes(),
       {
-        id: "note-3",
-        displayId: "NTE-003",
+        id: "note-legacy",
+        displayId: null,
         tenantId: fixtures.tenantId,
         projectId: null,
         moduleId: null,
         createdBy: "user-owner",
-        title: "Bravo note",
+        title: null,
         content: null,
         visibility: "Private",
-        createdAt: "2026-01-03T00:00:00.000Z",
-        updatedAt: "2026-01-03T00:00:00.000Z",
-      },
-    ]);
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
-
-    const sidebar = screen.getByRole("heading", { level: 3, name: "Daily Notes" }).closest("aside")!;
-    const titleOrder = () =>
-      within(sidebar)
-        .getAllByText(/^(Alpha|Bravo|Charlie) note$/)
-        .map((el) => el.textContent);
-
-    // Default sort is newest first (by createdAt).
-    expect(titleOrder()).toEqual(["Bravo note", "Alpha note", "Charlie note"]);
-
-    fireEvent.click(screen.getByRole("combobox", { name: "Sort notes by" }));
-    fireEvent.click(screen.getByRole("option", { name: "Title (A–Z)" }));
-
-    expect(titleOrder()).toEqual(["Alpha note", "Bravo note", "Charlie note"]);
-
-    fireEvent.click(screen.getByRole("combobox", { name: "Sort notes by" }));
-    fireEvent.click(screen.getByRole("option", { name: "Title (Z–A)" }));
-
-    expect(titleOrder()).toEqual(["Charlie note", "Bravo note", "Alpha note"]);
-  });
-
-  it("unlinks a note from its project via the Unlink button", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    store.setNotes([
-      {
-        id: "note-1",
-        displayId: "NTE-001",
-        tenantId: fixtures.tenantId,
-        projectId: "project-1",
-        moduleId: null,
-        createdBy: "user-owner",
-        title: "Initial observations",
-        content: "Baseline readings look consistent.",
-        visibility: "Private",
-        createdAt: "2026-01-01T00:00:00.000Z",
+        followUpDate: null,
+        createdAt: null,
         updatedAt: "2026-01-01T00:00:00.000Z",
       },
     ]);
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Unlink" }));
+    renderPage();
 
-    await waitFor(() =>
-      expect(
-        screen.getByText("This is a general note with no linked project or paper."),
-      ).toBeInTheDocument(),
-    );
-  });
+    expect(screen.getByRole("link", { name: "Untitled note" })).toBeInTheDocument();
 
-  it("shows the paper (not the project) when linked to a project-linked paper, alongside its parent project", () => {
-    // The backend denormalizes a module-linked note's projectId to the
-    // module's parent project, so both fields are set here — the "Linked
-    // work" section must not mistake that for a direct project link.
-    store.setNotes([
-      {
-        id: "note-1",
-        displayId: "NTE-001",
-        tenantId: fixtures.tenantId,
-        projectId: "project-1",
-        moduleId: "module-1",
-        createdBy: "user-owner",
-        title: "Assay results",
-        content: null,
-        visibility: "Private",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      },
-    ]);
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Note" }));
 
-    expect(screen.getByText("Paper")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /Paper Assay optimization/ }),
-    ).toHaveAttribute("href", "/modules/module-1");
-
-    expect(screen.getByText("Parent project")).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /Parent project Genome Project/ }),
-    ).toHaveAttribute("href", "/projects/project-1");
-  });
-
-  it("sends null (not empty string) to clear a note's module link when switching to General", async () => {
-    store.setNotes([
-      {
-        id: "note-1",
-        displayId: "NTE-001",
-        tenantId: fixtures.tenantId,
-        projectId: null,
-        moduleId: "module-1",
-        createdBy: "user-owner",
-        title: "Linked to a module",
-        content: null,
-        visibility: "Private",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-      },
-    ]);
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit note" }));
-    fireEvent.click(screen.getByRole("button", { name: "General" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save note" }));
-
-    await waitFor(() => expect(updateNoteMock).toHaveBeenCalled());
-    expect(updateNoteMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        noteId: "note-1",
-        input: expect.objectContaining({ projectId: null, moduleId: null }),
-      }),
-    );
-  });
-
-  it("deletes the selected note", async () => {
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(
-      <MemoryRouter>
-        <DailyNotesPage />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByRole("heading", { name: "Initial observations" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Delete note" }));
-
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "No note selected" })).toBeInTheDocument(),
-    );
+    expect(screen.getByRole("link", { name: "Untitled note" })).toBeInTheDocument();
   });
 });

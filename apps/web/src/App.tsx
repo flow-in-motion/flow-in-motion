@@ -20,6 +20,7 @@ const ConferencesPage = lazy(() => import("@/pages/conferences"));
 const ConferenceDetailPage = lazy(() => import("@/pages/conference-detail"));
 const TaskDetailPage = lazy(() => import("@/pages/task-detail"));
 const DailyNotesPage = lazy(() => import("@/pages/daily-notes"));
+const DailyNoteDetailPage = lazy(() => import("@/pages/daily-note-detail"));
 const PipelinePage = lazy(() => import("@/pages/pipeline"));
 const AccountAuditPage = lazy(() => import("@/pages/account-audit"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
@@ -92,7 +93,7 @@ export default function App() {
               <Route path="conferences/:conferenceId" element={routePage(<ConferenceDetailPage />)} />
               <Route path="tasks/:taskId" element={routePage(<TaskDetailPage />)} />
               <Route path="daily-notes" element={routePage(<DailyNotesPage />)} />
-              <Route path="daily-notes/:noteId" element={routePage(<DailyNotesPage />)} />
+              <Route path="daily-notes/:noteId" element={routePage(<DailyNoteDetailPage />)} />
               <Route path="pipeline" element={routePage(<PipelinePage />)} />
               <Route path="settings" element={routePage(<SettingsPage />)} />
               <Route
