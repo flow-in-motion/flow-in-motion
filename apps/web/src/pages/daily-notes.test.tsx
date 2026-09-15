@@ -48,38 +48,33 @@ const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
   projects: [{ id: "project-1", title: "Genome Project" }],
   modules: [{ id: "module-1", title: "Assay optimization" }],
-  allUsers: [
-    { id: "user-outside-workspace", displayName: "Jamie Outsider", email: "jamie@example.com" },
-  ],
 }));
 
 const deleteNoteMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/api/client", () => ({
-  apiClient: {
-    POST: vi.fn().mockResolvedValue({ data: {}, error: undefined, response: new Response() }),
-  },
-}));
 
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
     useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
     useTrackEvent: () => vi.fn(),
+    useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
+    useMembers: () => ({
+      data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } },
+      isPending: false,
+    }),
+    useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
+    useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+    useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+    useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+    useUserSearch: () => ({ data: [], isPending: false, isError: false }),
+    useNoteMembers: () => ({ data: [], isPending: false }),
+    useRemoveNoteMember: () => ({ mutate: vi.fn(), isPending: false }),
     useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
     useModules: () => ({
       data: {
         data: fixtures.modules,
         meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 },
       },
-    }),
-    useUserSearch: (query: string) => ({
-      data: query.trim()
-        ? fixtures.allUsers.filter((user) =>
-            user.displayName.toLowerCase().includes(query.trim().toLowerCase()),
-          )
-        : [],
-      isPending: false,
     }),
     useNotes: (tenantId: string, projectId?: string, page = 1) => {
       hookMocks.useNotes(tenantId, projectId, page);
@@ -163,7 +158,7 @@ describe("DailyNotesPage", () => {
     ]);
   });
 
-  it("lists notes using the expandable list layout shared with Projects/Papers/Tasks/Conferences", () => {
+  it("lists notes using the flat table layout shared with Projects/Papers/Tasks", () => {
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Daily Notes" })).toBeInTheDocument();
@@ -172,23 +167,10 @@ describe("DailyNotesPage", () => {
     expect(screen.getByRole("button", { name: "Sort by Created" })).toBeInTheDocument();
   });
 
-  it("hides note content by default, showing it only after expanding the row", () => {
+  it("shows a content preview under the note title without needing to expand", () => {
     renderPage();
 
-    expect(screen.queryByText("Baseline readings look consistent.")).not.toBeInTheDocument();
-
-    const row = screen.getByText("NTE-001").closest('[role="button"]')!;
-    fireEvent.click(row);
-
     expect(screen.getByText("Baseline readings look consistent.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View full note" })).toHaveAttribute(
-      "href",
-      "/daily-notes/note-1",
-    );
-
-    fireEvent.click(row);
-
-    expect(screen.queryByText("Baseline readings look consistent.")).not.toBeInTheDocument();
   });
 
   it("requests the next notes page when Next is clicked", () => {
@@ -228,7 +210,7 @@ describe("DailyNotesPage", () => {
     expect(screen.getByText("Select a project")).toBeInTheDocument();
   });
 
-  it("searches all platform users, not just workspace members, when sharing a new note", () => {
+  it("points to inviting collaborators after the note is created, instead of staging them", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "New Note" }));
@@ -239,12 +221,14 @@ describe("DailyNotesPage", () => {
     fireEvent.click(visibilityTrigger!);
     fireEvent.click(screen.getByRole("option", { name: "Shared" }));
 
-    const shareSearch = screen.getByPlaceholderText("Type a name or email to search all users");
-    fireEvent.change(shareSearch, { target: { value: "Jamie" } });
-
-    expect(screen.getByText("jamie@example.com")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("option", { name: /Jamie Outsider/ }));
-    expect(screen.getByLabelText("Selected note members")).toHaveTextContent("Jamie Outsider");
+    expect(
+      screen.queryByPlaceholderText("Type a name or email to search all users"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "After creating the note, open it to invite collaborators by email using a secure acceptance link.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("pre-fills and opens the create dialog when linked via a project's Add note action", () => {
@@ -284,6 +268,24 @@ describe("DailyNotesPage", () => {
 
     expect(screen.getByRole("link", { name: "Reagent calibration" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Initial observations" })).not.toBeInTheDocument();
+  });
+
+  it("shows the collaborators icon only for shared notes the current user owns", () => {
+    store.setNotes(store.getNotes().map((note) => ({ ...note, visibility: "Shared" })));
+
+    renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Manage collaborators for Initial observations" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the collaborators icon for private notes", () => {
+    renderPage();
+
+    expect(
+      screen.queryByRole("button", { name: /Manage collaborators/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("deletes a note after confirmation", async () => {

@@ -75,8 +75,6 @@ const fixtures = vi.hoisted(() => ({
   ],
 }));
 
-const createDraftInvitation = vi.hoisted(() => vi.fn().mockResolvedValue({}));
-
 vi.mock("@/api/client", () => ({
   apiClient: {
     POST: vi.fn().mockResolvedValue({ data: {}, error: undefined, response: new Response() }),
@@ -210,7 +208,6 @@ vi.mock("@/api/hooks", async () => {
     useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
     useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
     useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    createDraftInvitation,
     useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
     useUserSearch: () => ({ data: [], isPending: false, isError: false }),
   };
@@ -242,7 +239,6 @@ describe("ModulesPage", () => {
     hookMocks.useModules.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
-    createDraftInvitation.mockClear();
   });
   it("requests the next modules page when Next is clicked", () => {
     hookMocks.pagination.totalItems = 21;
@@ -351,7 +347,7 @@ describe("ModulesPage", () => {
     });
 
     const projectSearch = screen.getByPlaceholderText("Search projects by title");
-    fireEvent.focus(projectSearch);
+    fireEvent.click(projectSearch);
     fireEvent.click(await screen.findByText("Genome Project"));
 
     fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
@@ -503,7 +499,7 @@ describe("ModulesPage", () => {
     expect(titleOrder()).toEqual(["Charlie module", "Bravo module", "Alpha module"]);
   });
 
-  it("lets collaborator emails be staged while creating a new paper", () => {
+  it("points to inviting collaborators after the paper is created, instead of staging them", () => {
     render(
       <MemoryRouter>
         <ModulesPage />
@@ -511,40 +507,12 @@ describe("ModulesPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
-    expect(screen.queryByRole("combobox", { name: "Collaborators" })).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Collaborator email"), {
-      target: { value: "jamie@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
-
-    expect(screen.getByText("jamie@example.com")).toBeInTheDocument();
-  });
-
-  it("adds staged collaborator emails as drafts once the new paper is created", async () => {
-    render(
-      <MemoryRouter>
-        <ModulesPage />
-      </MemoryRouter>,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
-    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
-      target: { value: "Independent literature synthesis" },
-    });
-    fireEvent.change(screen.getByLabelText("Collaborator email"), {
-      target: { value: "jamie@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Add" }));
-    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
-
-    await waitFor(() =>
-      expect(createDraftInvitation).toHaveBeenCalledWith(
-        "module",
-        fixtures.tenantId,
-        expect.any(String),
-        { email: "jamie@example.com" },
+    expect(screen.queryByLabelText("Collaborator email")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "After creating the paper, open it to invite collaborators by email using a secure acceptance link.",
       ),
-    );
+    ).toBeInTheDocument();
   });
 });

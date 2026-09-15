@@ -103,7 +103,6 @@ function formValues(task: ApiTask): TaskFormInput {
     estimatedHours: task.estimatedHours ?? "",
     visibility: task.visibility ?? "Private",
     workingWith: task.workingWith ?? "",
-    collaboratorUserIds: [],
   };
 }
 

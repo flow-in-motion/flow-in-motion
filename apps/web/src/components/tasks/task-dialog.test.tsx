@@ -1,14 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/api/hooks", async () => {
-  const actual = await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
-  return {
-    ...actual,
-    useUserSearch: () => ({ data: [], isPending: false }),
-  };
-});
-
 import { TaskDialog } from "@/components/tasks/task-dialog";
 
 describe("TaskDialog", () => {

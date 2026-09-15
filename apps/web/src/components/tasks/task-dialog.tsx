@@ -1,14 +1,6 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { Search, X } from "lucide-react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import {
-  useUserSearch,
-  type ApiModule,
-  type ApiProject,
-  type ApiTask,
-  type ApiUserSearchResult,
-} from "@/api/hooks";
-import { Badge } from "@/components/ui/badge";
+import { type ApiModule, type ApiProject, type ApiTask } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
@@ -54,8 +46,6 @@ export interface TaskFormInput {
   estimatedHours: string;
   visibility: string;
   workingWith: string;
-  /** Applied by the caller after creation, since a brand-new task has no id yet. */
-  collaboratorUserIds: string[];
 }
 
 interface TaskDialogProps {
@@ -84,7 +74,6 @@ const INITIAL_FORM: TaskFormInput = {
   estimatedHours: "",
   visibility: "Private",
   workingWith: "",
-  collaboratorUserIds: [],
 };
 
 function formFromTask(task: ApiTask): TaskFormInput {
@@ -100,7 +89,6 @@ function formFromTask(task: ApiTask): TaskFormInput {
     estimatedHours: task.estimatedHours ?? "",
     visibility: task.visibility ?? "Private",
     workingWith: task.workingWith ?? "",
-    collaboratorUserIds: [],
   };
 }
 
@@ -141,9 +129,6 @@ export function TaskDialog({
   onSave,
 }: TaskDialogProps) {
   const [form, setForm] = useState<TaskFormInput>(INITIAL_FORM);
-  const [memberSearch, setMemberSearch] = useState("");
-  const [memberPickerOpen, setMemberPickerOpen] = useState(false);
-  const [selectedMembers, setSelectedMembers] = useState<ApiUserSearchResult[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const isEditing = Boolean(task);
@@ -159,17 +144,8 @@ export function TaskDialog({
     } else {
       setForm(INITIAL_FORM);
     }
-    setMemberSearch("");
-    setMemberPickerOpen(false);
-    setSelectedMembers([]);
     setSaveError(null);
   }, [open, task, initialProjectId, initialModuleId]);
-
-  const userSearchQuery = useUserSearch(memberSearch, memberPickerOpen);
-  const matchingMembers = useMemo(() => {
-    const selectedIds = new Set(selectedMembers.map((member) => member.id));
-    return (userSearchQuery.data ?? []).filter((member) => !selectedIds.has(member.id));
-  }, [userSearchQuery.data, selectedMembers]);
 
   function setLinkTarget(linkTarget: LinkTargetType) {
     setForm((prev) => ({
@@ -192,7 +168,6 @@ export function TaskDialog({
         title: form.title.trim(),
         description: form.description.trim(),
         workingWith: form.visibility === "Shared" ? form.workingWith.trim() : "",
-        collaboratorUserIds: selectedMembers.map((member) => member.id),
       });
       onOpenChange(false);
     } catch (error) {
@@ -365,103 +340,10 @@ export function TaskDialog({
           </div>
 
           {form.visibility === "Shared" && !isEditing ? (
-            <FormField label="Share with" htmlFor="task-members">
-              <div
-                className="relative"
-                onBlur={(event) => {
-                  if (!event.currentTarget.contains(event.relatedTarget)) {
-                    setMemberPickerOpen(false);
-                  }
-                }}
-              >
-                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="task-members"
-                  role="combobox"
-                  aria-expanded={memberPickerOpen}
-                  aria-controls="task-new-member-options"
-                  aria-autocomplete="list"
-                  value={memberSearch}
-                  onFocus={() => setMemberPickerOpen(true)}
-                  onChange={(event) => {
-                    setMemberSearch(event.target.value);
-                    setMemberPickerOpen(true);
-                  }}
-                  placeholder="Type a name or email to search all users"
-                  className="pl-9"
-                  autoComplete="off"
-                />
-                {memberPickerOpen && memberSearch.trim() ? (
-                  <div
-                    id="task-new-member-options"
-                    role="listbox"
-                    className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
-                  >
-                    {userSearchQuery.isPending ? (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">
-                        Searching…
-                      </p>
-                    ) : matchingMembers.length ? (
-                      matchingMembers.map((member) => (
-                        <button
-                          key={member.id}
-                          type="button"
-                          role="option"
-                          aria-selected="false"
-                          className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
-                          onClick={() => {
-                            setSelectedMembers((current) => [...current, member]);
-                            setMemberSearch("");
-                          }}
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-medium">
-                              {member.displayName}
-                            </span>
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {member.email}
-                            </span>
-                            {member.affiliation ? (
-                              <span className="block truncate text-xs text-muted-foreground">
-                                {member.affiliation}
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">
-                        No matching users.
-                      </p>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-              {selectedMembers.length ? (
-                <div className="mt-2 flex flex-wrap gap-2" aria-label="Selected task members">
-                  {selectedMembers.map((member) => (
-                    <Badge key={member.id} variant="secondary" className="gap-1.5 py-1">
-                      {member.displayName}
-                      <button
-                        type="button"
-                        aria-label={`Remove ${member.displayName}`}
-                        onClick={() =>
-                          setSelectedMembers((current) =>
-                            current.filter((item) => item.id !== member.id),
-                          )
-                        }
-                        className="rounded-full hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
-              <p className="mt-2 text-xs text-muted-foreground">
-                Selected users receive access directly when the task is created. No email invitation is sent.
-              </p>
-            </FormField>
+            <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
+              After creating the task, open it to invite collaborators by email using a secure
+              acceptance link.
+            </p>
           ) : null}
 
           {saveError ? (

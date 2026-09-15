@@ -61,11 +61,6 @@ const fixtures = vi.hoisted(() => ({
       role: "owner",
     },
   ],
-  // Distinct from `members` on purpose: proves the "Share with" search hits
-  // the platform-wide user-search endpoint, not the workspace member list.
-  allUsers: [
-    { id: "user-outside-workspace", displayName: "Jamie Outsider", email: "jamie@example.com" },
-  ],
 }));
 
 const sharingMutations = vi.hoisted(() => ({
@@ -83,6 +78,7 @@ vi.mock("@/api/hooks", async () => {
   return {
     useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
     useTrackEvent: () => vi.fn(),
+    useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
     useMembers: () => ({
       data: {
         data: fixtures.members,
@@ -106,14 +102,6 @@ vi.mock("@/api/hooks", async () => {
           totalPages: 1,
         },
       },
-    }),
-    useUserSearch: (query: string) => ({
-      data: query.trim()
-        ? fixtures.allUsers.filter((user) =>
-            user.displayName.toLowerCase().includes(query.trim().toLowerCase()),
-          )
-        : [],
-      isPending: false,
     }),
     useTasks: (
       tenantId: string,
@@ -188,6 +176,11 @@ vi.mock("@/api/hooks", async () => {
     useTaskMembers: () => ({ data: [], isPending: false }),
     useAddTaskMember: () => ({ mutate: sharingMutations.addTaskMember }),
     useRemoveTaskMember: () => ({ mutate: vi.fn() }),
+    useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
+    useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+    useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+    useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+    useUserSearch: () => ({ data: [], isPending: false, isError: false }),
   };
 });
 
@@ -333,7 +326,7 @@ describe("TasksPage", () => {
     ).toHaveAttribute("href", "/modules/module-1");
   });
 
-  it("searches all platform users, not just workspace members, when sharing a new task", () => {
+  it("points to inviting collaborators after the task is created, instead of staging them", () => {
     render(
       <MemoryRouter>
         <TasksPage />
@@ -344,12 +337,40 @@ describe("TasksPage", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Visibility" }));
     fireEvent.click(screen.getByRole("option", { name: "Shared" }));
 
-    const shareSearch = screen.getByRole("combobox", { name: /Share with/ });
-    fireEvent.change(shareSearch, { target: { value: "Jamie" } });
+    expect(screen.queryByRole("combobox", { name: /Share with/ })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "After creating the task, open it to invite collaborators by email using a secure acceptance link.",
+      ),
+    ).toBeInTheDocument();
+  });
 
-    expect(screen.getByText("Jamie Outsider")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("option", { name: /Jamie Outsider/ }));
-    expect(screen.getByLabelText("Selected task members")).toHaveTextContent("Jamie Outsider");
+  it("shows the collaborators icon only for shared tasks the current user owns", () => {
+    store.setTasks(store.getTasks().map((task) => ({ ...task, visibility: "Shared" })));
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Manage collaborators for Submit interim safety report to IRB",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the collaborators icon for private tasks", () => {
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /Manage collaborators/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("routes table-row editing to the task page", () => {

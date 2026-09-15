@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArrowDown, ArrowUp, ArrowUpDown, FileStack, Pencil, UserPlus } from "lucide-react";
+import { FileStack, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
@@ -21,6 +21,7 @@ import { paperDisplayTitle } from "@/lib/paper-title";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
+import { SortableHeader } from "@/components/shared/sortable-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { formatListDate, isOverdue } from "@/lib/list-format";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
@@ -83,39 +85,6 @@ function ProgressCell({ completed, total }: { completed: number; total: number }
       </div>
       <span className="text-xs text-muted-foreground">{percent}%</span>
     </div>
-  );
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  const [year, month, day] = iso.split("-");
-  return `${day}/${month}/${year}`;
-}
-
-interface SortableHeaderProps {
-  label: string;
-  column: SortColumn;
-  sortColumn: SortColumn;
-  sortDirection: SortDirection;
-  onSort: (column: SortColumn) => void;
-}
-
-function SortableHeader({ label, column, sortColumn, sortDirection, onSort }: SortableHeaderProps) {
-  const active = column === sortColumn;
-  const Icon = active ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
-  return (
-    <button
-      type="button"
-      onClick={() => onSort(column)}
-      aria-label={`Sort by ${label}`}
-      className={cn(
-        "flex items-center gap-1 text-left transition-colors",
-        active ? "text-foreground" : "hover:text-foreground",
-      )}
-    >
-      {label}
-      <Icon className={cn("h-3 w-3", active ? "text-primary" : "opacity-30")} />
-    </button>
   );
 }
 
@@ -337,7 +306,7 @@ export default function ModulesPage() {
           if (!open) setSharingModule(null);
         }}
       >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Paper collaborators</DialogTitle>
             <DialogDescription>
@@ -488,7 +457,7 @@ export default function ModulesPage() {
                             disabled={archiveModule.isPending}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
-                            <Archive className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                         <span className="max-w-md text-xs text-muted-foreground">
@@ -528,8 +497,15 @@ export default function ModulesPage() {
                     </span>
                   ) : null}
                   {columns.isColumnVisible("due") ? (
-                    <span className="text-sm tabular-nums text-muted-foreground">
-                      {formatDate(module.dueDate)}
+                    <span
+                      className={cn(
+                        "text-sm tabular-nums",
+                        isOverdue(module.dueDate, module.status === "Complete")
+                          ? "font-semibold text-destructive"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {formatListDate(module.dueDate)}
                     </span>
                   ) : null}
                   {columns.isColumnVisible("assignee") ? (

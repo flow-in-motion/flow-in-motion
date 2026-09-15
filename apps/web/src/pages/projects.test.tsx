@@ -285,25 +285,20 @@ describe("ProjectsPage", () => {
     expect(screen.getByText(/After creating the project, open it to invite collaborators by email/i)).toBeInTheDocument();
   });
 
-  it("shows linked module/task/note counts and a link to the full project page when expanded", () => {
+  it("shows linked paper/note counts and a description line directly in the row, without needing to expand", () => {
     renderPage();
 
     const projectLink = screen.getByRole("link", {
       name: "Enzyme Kinetics Inhibition Study Across Temperature Gradients",
     });
-    const projectRow = projectLink.closest('[role="button"]');
-    expect(projectRow).not.toBeNull();
-    fireEvent.click(projectRow!);
+    expect(projectLink).toHaveAttribute("href", "/projects/PRJ-101");
+    expect(screen.queryByRole("button", { name: /expand/i })).not.toBeInTheDocument();
 
-    const overview = screen.getByText("Overview").parentElement!;
-    expect(within(overview).getByText("Papers").nextElementSibling).toHaveTextContent("1");
-    expect(within(overview).getByText("Tasks").nextElementSibling).toHaveTextContent("1");
-    expect(within(overview).getByText("Notes").nextElementSibling).toHaveTextContent("1");
+    const projectRow = projectLink.closest(".grid") as HTMLElement;
+    expect(within(projectRow).getByText("A study of enzyme kinetics under varying temperature.")).toBeInTheDocument();
 
-    expect(screen.getByRole("link", { name: "View full project details" })).toHaveAttribute(
-      "href",
-      "/projects/PRJ-101",
-    );
+    const columnValues = within(projectRow).getAllByText("1");
+    expect(columnValues.length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows a Papers column with the linked paper count, and no Progress column", () => {
@@ -319,7 +314,7 @@ describe("ProjectsPage", () => {
     const projectLink = screen.getByRole("link", {
       name: "Enzyme Kinetics Inhibition Study Across Temperature Gradients",
     });
-    const projectRow = projectLink.closest('[role="button"]') as HTMLElement;
+    const projectRow = projectLink.closest(".grid") as HTMLElement;
     expect(within(projectRow).getByText("2")).toBeInTheDocument();
   });
 
