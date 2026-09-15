@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { DrizzleService } from '../../../db/drizzle.service';
 import { WorkspacesRepository } from '../repositories/workspaces.repository';
 import { WorkspacesService } from './workspaces.service';
+import { ProjectsService } from '../../projects/services/projects.service';
 
 describe('WorkspacesService', () => {
   let service: WorkspacesService;
@@ -14,6 +15,9 @@ describe('WorkspacesService', () => {
     findPageByMemberUserId: jest.Mock;
   };
   let drizzle: { db: { insert: jest.Mock } };
+  let projectsService: {
+    create: jest.Mock;
+  };
 
   beforeEach(() => {
     repository = {
@@ -25,25 +29,41 @@ describe('WorkspacesService', () => {
       findPageByMemberUserId: jest.fn(),
     };
     drizzle = { db: { insert: jest.fn() } };
+    projectsService = {
+      create: jest.fn(),
+    };
     service = new WorkspacesService(
       repository as unknown as WorkspacesRepository,
       drizzle as unknown as DrizzleService,
+      projectsService as unknown as ProjectsService,
     );
   });
 
-  it('creates a workspace, owner membership, and current context', async () => {
-    const tenant = { id: 'tenant-1', name: 'My Workspace' };
+  it('creates a workspace, owner membership, current context, and General project', async () => {
+    const tenant = {
+      id: 'tenant-1',
+      name: 'My Workspace',
+    };
+
     let insertCall = 0;
+
     drizzle.db.insert.mockImplementation(() => {
       insertCall += 1;
+
       if (insertCall === 1) {
         return {
-          values: () => ({ returning: () => Promise.resolve([tenant]) }),
+          values: () => ({
+            returning: () => Promise.resolve([tenant]),
+          }),
         };
       }
+
       if (insertCall === 2) {
-        return { values: () => Promise.resolve(undefined) };
+        return {
+          values: () => Promise.resolve(undefined),
+        };
       }
+
       return {
         values: () => ({
           onConflictDoUpdate: () => Promise.resolve(undefined),
@@ -51,10 +71,25 @@ describe('WorkspacesService', () => {
       };
     });
 
+    projectsService.create.mockResolvedValue({
+      id: 'project-general',
+      tenantId: 'tenant-1',
+      userId: 'user-1',
+      title: 'General',
+    });
+
     await expect(
       service.createWorkspace('user-1', 'My Workspace'),
-    ).resolves.toEqual({ ...tenant, membershipRole: 'owner' });
+    ).resolves.toEqual({
+      ...tenant,
+      membershipRole: 'owner',
+    });
+
     expect(drizzle.db.insert).toHaveBeenCalledTimes(3);
+
+    expect(projectsService.create).toHaveBeenCalledWith('user-1', 'tenant-1', {
+      title: 'General',
+    });
   });
 
   it('returns a paginated list of active workspaces available to the user', async () => {

@@ -27,6 +27,7 @@ import {
   type ApiModule,
   type ApiProject,
   type ApiTask,
+  useMe,
 } from "@/api/hooks";
 import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
 import {
@@ -257,6 +258,7 @@ function LinkedProjectCard({
   module,
   canChangeProject,
   availableProjects,
+  generalProject,
   linkedProject,
   isSaving,
   onChangeProject,
@@ -264,31 +266,49 @@ function LinkedProjectCard({
   module: ApiModule;
   canChangeProject: boolean;
   availableProjects: ApiProject[];
+  generalProject: ApiProject | null;
   linkedProject: { title?: string; isError: boolean };
   isSaving: boolean;
-  onChangeProject: (projectId: string | null) => Promise<void>;
+  onChangeProject: (projectId: string) => Promise<void>;
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [isIndependent, setIsIndependent] = useState(module.projectId === null);
+  const [isIndependent, setIsIndependent] = useState(
+    module.projectId === null || module.projectId === generalProject?.id,
+  );
   const [projectId, setProjectId] = useState(module.projectId ?? "");
 
   function startEditing() {
-    setIsIndependent(module.projectId === null);
+    setIsIndependent(
+      module.projectId === null || module.projectId === generalProject?.id,
+    );
     setProjectId(module.projectId ?? "");
     setIsEditing(true);
   }
 
   async function handleSave() {
-    if (!isIndependent && !projectId) return;
-    await onChangeProject(isIndependent ? null : projectId);
+    if (isIndependent) {
+      if (!generalProject) return;
+      await onChangeProject(generalProject.id);
+    } else {
+      if (!projectId) return;
+      await onChangeProject(projectId);
+    }
+  
     setIsEditing(false);
   }
 
-  async function handleUnlink() {
-    if (!window.confirm("Unlink this module from its project? It will become an independent module.")) {
+  async function handleMoveToGeneral() {
+    if (!generalProject) return;
+  
+    if (
+      !window.confirm(
+        "Move this paper to General? It will be treated as an independent paper.",
+      )
+    ) {
       return;
     }
-    await onChangeProject(null);
+  
+    await onChangeProject(generalProject.id);
   }
 
   return (
@@ -297,10 +317,17 @@ function LinkedProjectCard({
         <CardTitle>Linked project</CardTitle>
         {canChangeProject && !isEditing ? (
           <div className="flex items-center gap-2">
-            {module.projectId ? (
-              <Button variant="ghost" size="sm" onClick={() => void handleUnlink()} disabled={isSaving}>
+            {module.projectId &&
+            module.projectId !== generalProject?.id &&
+            generalProject ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void handleMoveToGeneral()}
+                disabled={isSaving}
+              >
                 <Unlink />
-                Unlink
+                Move to General
               </Button>
             ) : null}
             <Button variant="ghost" size="sm" onClick={startEditing}>
@@ -324,11 +351,12 @@ function LinkedProjectCard({
                 className="mt-0.5 h-4 w-4 accent-primary"
               />
               <span>
-                <span className="block text-sm font-medium">Independent module</span>
-                <span className="block text-xs text-muted-foreground">
-                  Only explicitly added collaborators can see an independent module.
-                  Project-linked modules are visible to anyone who can see the project.
-                </span>
+              <span className="block text-sm font-medium">
+                Independent paper
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Independent papers are stored in the General project.
+              </span>
               </span>
             </label>
             {!isIndependent ? (
@@ -349,7 +377,10 @@ function LinkedProjectCard({
                 type="button"
                 size="sm"
                 onClick={() => void handleSave()}
-                disabled={isSaving || (!isIndependent && !projectId)}
+                disabled={
+                  isSaving ||
+                  (isIndependent ? !generalProject : !projectId)
+                }
               >
                 {isSaving ? "Saving…" : "Save"}
               </Button>
@@ -467,6 +498,7 @@ export default function ModuleDetailPage() {
   const [searchParams] = useSearchParams();
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
+  const me = useMe();
 
   // Modules are tenant-agnostic — a module the caller collaborates on
   // (directly, or via its linked project) must still open here (see
@@ -493,7 +525,11 @@ export default function ModuleDetailPage() {
   // tenant's projects without full membership there (same boundary as the
   // collaborators section below).
   const projectsQuery = useProjects(tenantId, 1, sameTenant);
-  const availableProjects = projectsQuery.data?.data ?? [];
+  const generalProject = projectsQuery.data?.generalProject ?? null;
+
+  const availableProjects = (projectsQuery.data?.data ?? []).filter(
+    (project) => project.userId === me.data?.id,
+  );
   const stagesQuery = useModulePipelineStagePool(module?.tenantId ?? tenantId, Boolean(module));
   const submissionsQuery = useModuleSubmissions(tenantId, module?.id ?? "", sameTenant);
   const submissions = submissionsQuery.data ?? [];
@@ -582,7 +618,7 @@ export default function ModuleDetailPage() {
     }
   }
 
-  async function handleChangeProject(projectId: string | null) {
+  async function handleChangeProject(projectId: string) {
     await updateModule.mutateAsync({
       moduleId,
       input: { projectId },
@@ -862,7 +898,11 @@ export default function ModuleDetailPage() {
                 module={module}
                 canChangeProject={sameTenant}
                 availableProjects={availableProjects}
-                linkedProject={{ title: linkedProjectQuery.data?.title, isError: linkedProjectQuery.isError }}
+                generalProject={generalProject}
+                linkedProject={{
+                  title: linkedProjectQuery.data?.title,
+                  isError: linkedProjectQuery.isError,
+                }}
                 isSaving={updateModule.isPending}
                 onChangeProject={handleChangeProject}
               />

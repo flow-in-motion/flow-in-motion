@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,6 +9,7 @@ import { ModuleCollaboratorsRepository } from '../../module-collaborators/reposi
 import { ProjectCollaboratorsRepository } from '../../project-collaborators/repositories/project-collaborators.repository';
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
 import { ProjectModulesRepository } from '../repositories/project-modules.repository';
+import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 import {
   buildPaginationMeta,
   paginationOffset,
@@ -21,6 +23,7 @@ export class ProjectModulesService {
     private readonly enumRepository: EnumRepository,
     private readonly collaboratorsRepository: ModuleCollaboratorsRepository,
     private readonly projectCollaboratorsRepository: ProjectCollaboratorsRepository,
+    private readonly projectsRepository: ProjectsRepository,
     private readonly sequences: TenantSequencesRepository,
   ) {}
 
@@ -128,11 +131,31 @@ export class ProjectModulesService {
     return this.findOne(module.tenantId, moduleId, callerUserId);
   }
 
+  private async ensureProjectOwnedByCaller(
+    tenantId: string,
+    projectId: string,
+    callerUserId: string,
+  ) {
+    const project = await this.projectsRepository.findById(tenantId, projectId);
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (project.userId !== callerUserId) {
+      throw new ForbiddenException(
+        'Papers can only be added to projects owned by the current user',
+      );
+    }
+
+    return project;
+  }
+
   async create(
     tenantId: string,
     callerUserId: string,
     input: {
-      projectId?: string;
+      projectId: string;
       shortTitle: string;
       title?: string;
       description?: string;
@@ -148,6 +171,11 @@ export class ProjectModulesService {
       dueDate?: string;
     },
   ) {
+    await this.ensureProjectOwnedByCaller(
+      tenantId,
+      input.projectId,
+      callerUserId,
+    );
     const tagId = await this.resolveEnum('module_type', input.tag);
     const statusId = await this.resolveEnum('project_status', input.status);
     const pipelineStageId = input.pipelineStage
@@ -210,7 +238,7 @@ export class ProjectModulesService {
       backupJournal: string;
       targetConference: string;
       backupConference: string;
-      projectId: string | null;
+      projectId: string;
       tag: string;
       status: string;
       pipelineStage: string;
@@ -219,6 +247,19 @@ export class ProjectModulesService {
     }>,
   ) {
     const existing = await this.findOne(tenantId, moduleId, callerUserId);
+    if (Object.prototype.hasOwnProperty.call(input, 'projectId')) {
+      if (!input.projectId) {
+        throw new BadRequestException(
+          'A paper must belong to a project. Use the General project for independent papers.',
+        );
+      }
+
+      await this.ensureProjectOwnedByCaller(
+        tenantId,
+        input.projectId,
+        callerUserId,
+      );
+    }
 
     const [tagId, statusId, pipelineStageId] = await Promise.all([
       input.tag ? this.resolveEnum('module_type', input.tag) : undefined,

@@ -55,7 +55,11 @@ const hookMocks = vi.hoisted(() => ({
 
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
-  projects: [] as Array<{ id: string; title: string }>,
+  projects: [] as Array<{
+    id: string;
+    userId: string;
+    title: string;
+  }>,
   tasks: [] as Array<{ id: string; moduleId: string | null; status: string | null }>,
   members: [
     {
@@ -101,7 +105,38 @@ vi.mock("@/api/hooks", async () => {
       },
       isPending: false,
     }),
-    useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
+    useProjects: () => ({
+      data: {
+        generalProject: {
+          id: "project-general",
+          displayId: "PRJ-0001",
+          tenantId: fixtures.tenantId,
+          userId: "user-owner",
+          title: "General",
+          description: null,
+          researchArea: null,
+          status: null,
+          importance: null,
+          scheduledFor: null,
+          dueDate: null,
+          totalBudget: null,
+          targetJournals: null,
+          archivedAt: null,
+          role: "Owner",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+        data: fixtures.projects,
+        meta: {
+          page: 1,
+          pageSize: 20,
+          totalItems: fixtures.projects.length,
+          totalPages: 1,
+        },
+      },
+      isPending: false,
+      isError: false,
+    }),
     useTasks: () => ({
       data: {
         data: fixtures.tasks,
@@ -338,7 +373,7 @@ describe("ModulesPage", () => {
   });
 
   it("allows a module to be linked to a project", async () => {
-    fixtures.projects = [{ id: "project-1", title: "Genome Project" }];
+    fixtures.projects = [{ id: "project-1", userId: "user-owner", title: "Genome Project" }];
     render(
       <MemoryRouter>
         <ModulesPage />

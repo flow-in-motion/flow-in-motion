@@ -115,6 +115,18 @@ vi.mock("@/api/hooks", () => ({
   
     return {
       data: {
+        generalProject: {
+          ...fixtures.project,
+          id: "PRJ-GENERAL",
+          displayId: "PRJ-0001",
+          title: "General",
+          description: null,
+          researchArea: null,
+          status: null,
+          importance: null,
+          scheduledFor: null,
+          dueDate: null,
+        },
         data: fixtures.projects,
         meta: {
           page,
@@ -240,6 +252,37 @@ describe("ProjectsPage", () => {
 
     expect(editLink).toHaveAttribute("href", "/projects/PRJ-101?edit=true");
     expect(screen.getByText("Low")).toBeInTheDocument();
+  });
+
+  it("shows General separately from the major projects table", () => {
+    renderPage();
+  
+    expect(
+      screen.getByText("General workspace"),
+    ).toBeInTheDocument();
+  
+    expect(
+      screen.getByRole("heading", { name: "Major projects" }),
+    ).toBeInTheDocument();
+  
+    const generalLink = screen.getByRole("link", {
+      name: "General",
+    });
+  
+    expect(generalLink).toHaveAttribute(
+      "href",
+      "/projects/PRJ-GENERAL",
+    );
+  
+    // General is displayed in its dedicated section, not as an expandable
+    // project row in the Major Projects table.
+    expect(generalLink.closest('[role="button"]')).toBeNull();
+  
+    expect(
+      screen.getByText(
+        "Enzyme Kinetics Inhibition Study Across Temperature Gradients",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("opens collaborator management directly from the project row", () => {

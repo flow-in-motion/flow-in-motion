@@ -11,6 +11,7 @@ import { ModuleAccessGuard } from './policies/module-access.guard';
 import { ProjectModulesRepository } from './repositories/project-modules.repository';
 import { ProjectModulesService } from './services/project-modules.service';
 import { MembershipsModule } from '../memberships/memberships.module';
+import { ProjectsModule } from '../projects/project.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { MembershipsModule } from '../memberships/memberships.module';
     EnumModule,
     forwardRef(() => ModuleCollaboratorsModule),
     ProjectCollaboratorsModule,
+    ProjectsModule,
     TenantSequencesModule,
     MembershipsModule,
   ],

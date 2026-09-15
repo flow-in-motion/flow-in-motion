@@ -12,6 +12,7 @@ import {
   type ApiModule,
   type ApiProject,
   type Membership,
+  useMe,
 } from "@/api/hooks";
 import {
   LinkExistingField,
@@ -58,7 +59,7 @@ export interface ModuleFormInput {
   backupJournal: string;
   targetConference: string;
   backupConference: string;
-  projectId: string | null;
+  projectId: string;
   status: string;
   pipelineStage: string;
   tag: string;
@@ -73,6 +74,7 @@ interface ModuleDialogProps {
   projects: ApiProject[];
   members: Membership[];
   module?: ApiModule | null;
+  generalProject?: ApiProject | null;
   /** Pre-links a new module to this project when the dialog is opened for creation. */
   initialProjectId?: string;
   /** Returns the saved module so newly-created papers can link existing tasks/notes to it. */
@@ -88,7 +90,7 @@ const INITIAL_FORM: ModuleFormInput = {
   backupJournal: "",
   targetConference: "",
   backupConference: "",
-  projectId: null,
+  projectId: "",
   status: "Active",
   pipelineStage: "",
   tag: "",
@@ -118,6 +120,7 @@ export function ModuleDialog({
   onOpenChange,
   tenantId,
   projects,
+  generalProject,
   members,
   module,
   initialProjectId,
@@ -137,6 +140,16 @@ export function ModuleDialog({
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
   const isEditing = Boolean(module);
+  const me = useMe();
+
+const generalProjectOption =
+  generalProject && generalProject.userId === me.data?.id
+    ? {
+        id: generalProject.id,
+        label: "Independent paper",
+        sublabel: "Stored in General",
+      }
+    : null;
 
   const tasksQuery = useTasks(tenantId, undefined, 1, open && !isEditing);
   const notesQuery = useNotes(tenantId, undefined, 1, open && !isEditing);
@@ -153,10 +166,16 @@ export function ModuleDialog({
     label: note.title,
     sublabel: note.moduleId ? "Linked to another paper" : "Unlinked",
   }));
-  const projectOptions = projects.map((project) => ({
-    id: project.id,
-    label: project.title,
-  }));
+  const projectOptions = [
+    ...(generalProjectOption ? [generalProjectOption] : []),
+    ...projects
+      .filter((project) => project.userId === me.data?.id)
+      .map((project) => ({
+        id: project.id,
+        label: project.title,
+        sublabel: "Major project",
+      })),
+  ];
 
   const visibleStages = useMemo(
     () =>
@@ -184,7 +203,7 @@ export function ModuleDialog({
         backupJournal: module.backupJournal ?? "",
         targetConference: module.targetConference ?? "",
         backupConference: module.backupConference ?? "",
-        projectId: module.projectId,
+        projectId: module.projectId ?? "",
         status: module.status ?? "Active",
         pipelineStage: module.pipelineStage ?? "",
         tag: module.tag ?? "",
@@ -207,8 +226,11 @@ export function ModuleDialog({
           : { id: initialProjectId, label: "Unknown project" },
       );
     } else {
-      setForm(INITIAL_FORM);
-      setSelectedProject(null);
+      setForm({
+        ...INITIAL_FORM,
+        projectId: generalProjectOption?.id ?? "",
+      });
+      setSelectedProject(generalProjectOption);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, module, initialProjectId]);
@@ -220,6 +242,12 @@ export function ModuleDialog({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!selectedProject) {
+      setSaveError(
+        "Choose a major project or select Independent paper.",
+      );
+      return;
+    }
     setIsSaving(true);
     setSaveError(null);
     const shouldCelebrate = enteredSubmittedUnderReview(
@@ -240,7 +268,7 @@ export function ModuleDialog({
         backupJournal: form.backupJournal.trim(),
         targetConference: form.targetConference.trim(),
         backupConference: form.backupConference.trim(),
-        projectId: selectedProject ? selectedProject.id : null,
+        projectId: selectedProject.id,
       });
       if (!isEditing && savedModule) {
         await Promise.all([
@@ -489,7 +517,7 @@ export function ModuleDialog({
           {!isEditing ? (
             <div className="grid gap-4 rounded-lg border p-4">
               <p className="text-sm font-medium">Link existing work (optional)</p>
-              <FormField label="Project" htmlFor="module-project">
+              <FormField label="Project" htmlFor="module-project" required>
                 <LinkExistingField
                   id="module-project"
                   placeholder="Search projects by title"
@@ -500,9 +528,8 @@ export function ModuleDialog({
                   emptyMessage="No matching projects."
                 />
                 <p className="text-xs text-muted-foreground">
-                  Leave unset to keep this an independent paper — only explicitly added
-                  collaborators can see it. Project-linked papers are visible to anyone who can
-                  see the project.
+                  Select Independent paper to store this paper under General, or choose one of
+                  your major projects.
                 </p>
               </FormField>
               <FormField label="Tasks" htmlFor="new-module-link-tasks">

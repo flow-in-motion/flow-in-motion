@@ -203,6 +203,7 @@ export default function ProjectsPage() {
   const [page, setPage] = useState(1);
 
   const projectsQuery = useProjects(tenantId, page);
+  const generalProject = projectsQuery.data?.generalProject ?? null;
   const paginationMeta = projectsQuery.data?.meta;
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
@@ -434,7 +435,105 @@ export default function ProjectsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+      {generalProject ? (
+        <section
+          aria-labelledby="general-project-heading"
+          className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card p-5"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <FolderKanban className="h-5 w-5" />
+              </span>
 
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  General workspace
+                </p>
+
+                <Link
+                  id="general-project-heading"
+                  to={`/projects/${generalProject.id}`}
+                  className="mt-0.5 block text-lg font-semibold hover:text-primary hover:underline"
+                >
+                  {generalProject.title}
+                </Link>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Catch-all work that does not belong to a major project.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-4 rounded-lg border bg-background/70 px-4 py-2">
+                <div>
+                  <p className="text-lg font-semibold tabular-nums">
+                    {moduleCountByProject.get(generalProject.id) ?? 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Papers</p>
+                </div>
+
+                <div className="h-8 w-px bg-border" />
+
+                <div>
+                  <p className="text-lg font-semibold tabular-nums">
+                    {noteCountByProject.get(generalProject.id) ?? 0}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Notes</p>
+                </div>
+              </div>
+
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/projects/${generalProject.id}`}>
+                  View project
+                </Link>
+              </Button>
+
+              {generalProject.tenantId === tenantId ? (
+                <button
+                  type="button"
+                  onClick={() => setSharingProject(generalProject)}
+                  aria-label="Manage collaborators for General"
+                  title="Manage collaborators"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </button>
+              ) : null}
+
+              <Link
+                to={`/projects/${generalProject.id}?edit=true`}
+                aria-label="Edit General"
+                title="Edit project"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Pencil className="h-4 w-4" />
+              </Link>
+
+              {me.data?.id === generalProject.userId ? (
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteProject(generalProject)}
+                  aria-label="Delete General"
+                  title="Delete project"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <div>
+        <h2 className="text-lg font-semibold">Major projects</h2>
+        <p className="text-sm text-muted-foreground">
+          Research projects with their own scope, schedule, and deliverables.
+        </p>
+      </div>
+      
       <div className="surface-toolbar flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           <Input

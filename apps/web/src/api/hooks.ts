@@ -705,7 +705,10 @@ export interface CreateProjectInput {
   targetJournals?: string;
 }
 export type UpdateProjectInput = Partial<CreateProjectInput>;
-
+export interface ProjectsPageResponse
+  extends PaginatedResponse<ApiProject> {
+  generalProject: ApiProject | null;
+}
 export function useProjects(
   tenantId: string,
   page = 1,
@@ -715,7 +718,7 @@ export function useProjects(
     queryKey: apiKeys.projectsPage(tenantId, page),
     enabled: Boolean(tenantId) && enabled,
     queryFn: async () =>
-      responseData<PaginatedResponse<ApiProject>>(
+      responseData<ProjectsPageResponse>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/projects", {
           params: {
             path: { tenantId },
@@ -1033,17 +1036,14 @@ export interface CreateModuleInput {
   backupJournal?: string;
   targetConference?: string;
   backupConference?: string;
-  projectId?: string;
+  projectId: string;
   tag?: string;
   status?: string;
   pipelineStage?: string;
   dueDate?: string;
   assignedToUserId?: string;
 }
-export type UpdateModuleInput = Omit<Partial<CreateModuleInput>, "projectId"> & {
-  /** `null` unlinks the module (makes it independent); omit to leave unchanged. */
-  projectId?: string | null;
-};
+export type UpdateModuleInput = Partial<CreateModuleInput>;
 
 export function useModules(
   tenantId: string,

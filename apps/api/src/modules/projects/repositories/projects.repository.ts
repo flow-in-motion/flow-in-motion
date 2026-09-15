@@ -23,6 +23,21 @@ export class ProjectsRepository {
       .where(eq(projects.id, projectId));
     return project;
   }
+  async findGeneralByTenant(tenantId: string) {
+    const [project] = await this.drizzle.db
+      .select()
+      .from(projects)
+      .where(
+        and(
+          eq(projects.tenantId, tenantId),
+          isNull(projects.archivedAt),
+          sql`lower(btrim(${projects.title})) = 'general'`,
+        ),
+      )
+      .limit(1);
+
+    return project;
+  }
 
   /** Tenant-agnostic multi-project fetch, for listing across a caller's collaborations. */
   async findAccessiblePageByUser(
@@ -77,23 +92,30 @@ export class ProjectsRepository {
   }
 
   async findActiveByTenant(tenantId: string, offset: number, limit: number) {
+    const whereCondition = and(
+      eq(projects.tenantId, tenantId),
+      isNull(projects.archivedAt),
+      sql`lower(btrim(${projects.title})) <> 'general'`,
+    );
+
     const [data, countResult] = await Promise.all([
       this.drizzle.db
         .select()
         .from(projects)
-        .where(
-          and(eq(projects.tenantId, tenantId), isNull(projects.archivedAt)),
-        )
+        .where(whereCondition)
         .limit(limit)
         .offset(offset),
+
       this.drizzle.db
         .select({ count: sql<number>`count(*)::int` })
         .from(projects)
-        .where(
-          and(eq(projects.tenantId, tenantId), isNull(projects.archivedAt)),
-        ),
+        .where(whereCondition),
     ]);
-    return { data, totalItems: countResult[0]?.count ?? 0 };
+
+    return {
+      data,
+      totalItems: countResult[0]?.count ?? 0,
+    };
   }
 
   async create(
