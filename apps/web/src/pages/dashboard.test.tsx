@@ -1,9 +1,27 @@
+import type { ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import DashboardPage from "@/pages/dashboard";
 import { PreferencesContext } from "@/preferences/preferences-context";
+
+vi.mock("@/components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div role="menu">{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    onSelect,
+  }: {
+    children: ReactNode;
+    onSelect?: (event: { preventDefault: () => void }) => void;
+  }) => (
+    <button type="button" role="menuitem" onClick={(event) => onSelect?.(event)}>
+      {children}
+    </button>
+  ),
+}));
 
 const queryState = vi.hoisted(() => ({
   projectsPending: false,
@@ -28,8 +46,8 @@ vi.mock("@/api/hooks", () => ({
   }),
   useModulePipelineStagePool: () => ({
     data: [
-      { value: "Concept, Ideation", sortOrder: 1, hidden: false },
-      { value: "Lit Review, Study Design, Protocol", sortOrder: 2, hidden: false },
+      { id: "stage-1", value: "Concept, Ideation", sortOrder: 1, hidden: false },
+      { id: "stage-2", value: "Lit Review, Study Design, Protocol", sortOrder: 2, hidden: false },
     ],
     isPending: queryState.stagesPending,
     isError: queryState.stagesError !== null,
@@ -70,8 +88,15 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useMe: () => ({ data: { id: "user-1" }, isPending: false }),
+  useMembers: () => ({
+    data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } },
+    isPending: false,
+  }),
+  useEnumValues: () => ({ data: [], isPending: false }),
   useCreateProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateConference: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -145,6 +170,20 @@ describe("DashboardPage", () => {
     expect(screen.queryByRole("heading", { name: "Task health" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Priority workload" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Project progress" })).not.toBeInTheDocument();
+  });
+
+  it("lets you create a paper or a note from the Create menu", () => {
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("menuitem", { name: /Add Paper/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Add Note/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("menuitem", { name: /Add Paper/ }));
+    expect(screen.getByRole("dialog", { name: "Create a new paper" })).toBeInTheDocument();
   });
 
   it("adds a hidden-by-default insight card back via Customise dashboard", () => {

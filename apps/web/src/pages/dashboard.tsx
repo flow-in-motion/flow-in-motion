@@ -7,6 +7,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   ListTodo,
+  NotebookPen,
   Plus,
   SlidersHorizontal,
 } from "lucide-react";
@@ -15,10 +16,13 @@ import { Link } from "react-router-dom";
 
 import {
   useCreateConference,
+  useCreateModule,
+  useCreateNote,
   useCreateProject,
   useCreateTask,
   useCurrentWorkspace,
   useMe,
+  useMembers,
   useModules,
   useProjects,
   useTasks,
@@ -38,6 +42,8 @@ import {
 } from "@/components/dashboard/customize-dashboard-dialog";
 import { PipelineOverviewTable } from "@/components/dashboard/pipeline-overview-table";
 import { PriorityTasksTable } from "@/components/dashboard/priority-tasks-table";
+import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
+import { NoteDialog, type NoteFormInput } from "@/components/notes/note-dialog";
 import { NewProjectDialog, type NewProjectInput } from "@/components/projects/new-project-dialog";
 // import { WorkOnThisNextBanner } from "@/components/dashboard/work-on-this-next-banner";
 import { ErrorState } from "@/components/shared/error-state";
@@ -262,12 +268,18 @@ export default function DashboardPage() {
   const me = useMe();
   const createProject = useCreateProject(tenantId);
   const createTask = useCreateTask(tenantId);
+  const createModule = useCreateModule(tenantId);
+  const createNote = useCreateNote(tenantId);
   const createConference = useCreateConference(tenantId);
   const trackEvent = useTrackEvent(tenantId);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+  const [isNewModuleOpen, setIsNewModuleOpen] = useState(false);
+  const [isNewNoteOpen, setIsNewNoteOpen] = useState(false);
   const [isNewConferenceOpen, setIsNewConferenceOpen] = useState(false);
+  const membersQuery = useMembers(tenantId, 1, isNewModuleOpen);
+  const members = membersQuery.data?.data ?? [];
   const [layout, setLayout] = useState(loadDashboardLayout);
   const preferences = usePreferences();
   const hydratedWorkspace = useRef("");
@@ -429,6 +441,39 @@ export default function DashboardPage() {
     trackEvent({ name: "task_created" });
   }
 
+  async function handleCreateModule(input: ModuleFormInput) {
+    const module = await createModule.mutateAsync({
+      shortTitle: input.shortTitle,
+      title: input.title || undefined,
+      description: input.description || undefined,
+      abstract: input.abstract || undefined,
+      targetJournal: input.targetJournal || undefined,
+      backupJournal: input.backupJournal || undefined,
+      targetConference: input.targetConference || undefined,
+      backupConference: input.backupConference || undefined,
+      projectId: input.projectId ?? undefined,
+      status: input.status,
+      pipelineStage: input.pipelineStage,
+      tag: input.tag || undefined,
+      dueDate: input.dueDate || undefined,
+      assignedToUserId: input.assignedToUserId ?? undefined,
+    });
+    trackEvent({ name: "module_created" });
+    return module;
+  }
+
+  async function handleCreateNote(input: NoteFormInput) {
+    await createNote.mutateAsync({
+      title: input.title || "Untitled note",
+      content: input.content || undefined,
+      projectId: input.linkTarget === "project" ? input.projectId : undefined,
+      moduleId: input.linkTarget === "module" ? input.moduleId : undefined,
+      visibility: input.visibility,
+      followUpDate: input.followUpDate || undefined,
+    });
+    trackEvent({ name: "note_created" });
+  }
+
   async function handleCreateConference(input: ConferenceSubmissionInput) {
     await createConference.mutateAsync(input);
     trackEvent({ name: "conference_created" });
@@ -486,6 +531,14 @@ export default function DashboardPage() {
                   <ListTodo />
                   Add Task
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setIsNewModuleOpen(true)}>
+                  <FileStack />
+                  Add Paper
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setIsNewNoteOpen(true)}>
+                  <NotebookPen />
+                  Add Note
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setIsNewConferenceOpen(true)}>
                   <FilePenLine />
                   Add Conference
@@ -513,6 +566,21 @@ export default function DashboardPage() {
         projects={projects}
         modules={modules}
         onSave={handleCreateTask}
+      />
+      <ModuleDialog
+        open={isNewModuleOpen}
+        onOpenChange={setIsNewModuleOpen}
+        tenantId={tenantId}
+        projects={projects}
+        members={members}
+        onSave={handleCreateModule}
+      />
+      <NoteDialog
+        open={isNewNoteOpen}
+        onOpenChange={setIsNewNoteOpen}
+        projects={projects}
+        modules={modules}
+        onSave={handleCreateNote}
       />
       <ConferenceSubmissionDialog
         open={isNewConferenceOpen}
