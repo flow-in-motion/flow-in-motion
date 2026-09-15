@@ -105,7 +105,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
       });
       collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
@@ -119,7 +118,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
       projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
@@ -136,7 +134,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
       await expect(
@@ -153,7 +150,6 @@ describe('ProjectModulesService', () => {
             id: 'module-1',
             tenantId: 'tenant-1',
             projectId: 'project-1',
-            tagId: null,
             statusId: null,
             archivedAt: null,
           },
@@ -161,7 +157,6 @@ describe('ProjectModulesService', () => {
             id: 'module-2',
             tenantId: 'tenant-2',
             projectId: null,
-            tagId: null,
             statusId: null,
             archivedAt: null,
           },
@@ -201,7 +196,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
       });
       collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
@@ -232,7 +226,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
       });
       collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
@@ -249,7 +242,6 @@ describe('ProjectModulesService', () => {
       );
       repository.archive.mockResolvedValue({
         id: 'module-1',
-        tagId: null,
         statusId: 'archived-status-id',
       });
 
@@ -277,13 +269,11 @@ describe('ProjectModulesService', () => {
           {
             id: 'module-1',
             projectId: null,
-            tagId: null,
             statusId: null,
           },
           {
             id: 'module-2',
             projectId: 'project-1',
-            tagId: null,
             statusId: null,
           },
         ],
@@ -361,7 +351,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
 
@@ -412,7 +401,6 @@ describe('ProjectModulesService', () => {
       );
       repository.create.mockResolvedValue({
         id: 'module-1',
-        tagId: null,
         statusId: null,
       });
 
@@ -446,7 +434,6 @@ describe('ProjectModulesService', () => {
       });
       repository.create.mockResolvedValue({
         id: 'module-1',
-        tagId: null,
         statusId: null,
         pipelineStageId: 'tenant-stage-drafting',
       });
@@ -472,7 +459,6 @@ describe('ProjectModulesService', () => {
       );
       repository.create.mockResolvedValue({
         id: 'module-1',
-        tagId: null,
         statusId: null,
         pipelineStageId: null,
       });
@@ -512,7 +498,6 @@ describe('ProjectModulesService', () => {
       );
       repository.create.mockResolvedValue({
         id: 'module-1',
-        tagId: null,
         statusId: null,
       });
       await service.create('tenant-1', 'user-1', {
@@ -534,7 +519,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
 
@@ -562,7 +546,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
       });
       collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
@@ -570,7 +553,6 @@ describe('ProjectModulesService', () => {
       });
       repository.update.mockResolvedValue({
         id: 'module-1',
-        tagId: null,
         statusId: null,
       });
 
@@ -597,7 +579,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
       });
       collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
@@ -606,7 +587,6 @@ describe('ProjectModulesService', () => {
       repository.update.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-2',
-        tagId: null,
         statusId: null,
       });
 
@@ -625,7 +605,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
 
@@ -643,7 +622,6 @@ describe('ProjectModulesService', () => {
       repository.update.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-general',
-        tagId: null,
         statusId: null,
       });
 
@@ -669,7 +647,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
       projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
@@ -678,7 +655,6 @@ describe('ProjectModulesService', () => {
       repository.update.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
 
@@ -697,7 +673,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
         pipelineStageId: 'stage-concept-id',
       });
@@ -714,7 +689,6 @@ describe('ProjectModulesService', () => {
       repository.update.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
         pipelineStageId: 'stage-drafting-id',
       });
@@ -734,7 +708,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
         pipelineStageId: 'stage-concept-id',
       });
@@ -751,7 +724,6 @@ describe('ProjectModulesService', () => {
       repository.update.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
         pipelineStageId: 'stage-concept-id',
       });
@@ -771,7 +743,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
       projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
@@ -780,7 +751,6 @@ describe('ProjectModulesService', () => {
       repository.update.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
-        tagId: null,
         statusId: null,
       });
 
@@ -801,7 +771,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
       });
       collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
@@ -818,7 +787,6 @@ describe('ProjectModulesService', () => {
       );
       repository.archive.mockResolvedValue({
         id: 'module-1',
-        tagId: null,
         statusId: 'archived-status-id',
       });
 
