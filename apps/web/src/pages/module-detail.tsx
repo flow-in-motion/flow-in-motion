@@ -684,7 +684,6 @@ export default function ModuleDetailPage() {
       status: input.status,
       priority: input.priority,
       visibility: input.visibility,
-      workingWith: input.workingWith || undefined,
       estimatedHours: input.estimatedHours || undefined,
       dueDate: input.dueDate || undefined,
     });

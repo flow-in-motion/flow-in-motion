@@ -228,7 +228,6 @@ export default function TasksPage() {
       status: input.status,
       priority: input.priority,
       visibility: input.visibility,
-      workingWith: input.workingWith || undefined,
       estimatedHours: input.estimatedHours || undefined,
       dueDate: input.dueDate || undefined,
     });
@@ -419,11 +418,6 @@ export default function TasksPage() {
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    {task.workingWith ? (
-                      <span className="text-xs text-muted-foreground">
-                        Working with: {task.workingWith}
-                      </span>
-                    ) : null}
                   </div>
                   ) : null}
 

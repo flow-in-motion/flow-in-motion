@@ -47,11 +47,12 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 const VISIBILITY_FILTERS = ["All", "Private", "Shared"] as const;
 type VisibilityFilter = (typeof VISIBILITY_FILTERS)[number];
 
-type SortColumn = "note" | "linkedTo" | "visibility" | "followUp" | "created";
+type SortColumn = "note" | "content" | "linkedTo" | "visibility" | "followUp" | "created";
 type SortDirection = "asc" | "desc";
 
 const NOTE_COLUMNS = [
-  { id: "note", label: "Note", width: "minmax(240px,2fr)" },
+  { id: "note", label: "Note", width: "minmax(220px,1.5fr)" },
+  { id: "content", label: "Content", width: "minmax(260px,2fr)" },
   { id: "linkedTo", label: "Linked to", width: "170px" },
   { id: "visibility", label: "Visibility", width: "110px" },
   { id: "followUp", label: "Follow-up", width: "120px" },
@@ -159,6 +160,8 @@ export default function DailyNotesPage() {
     switch (column) {
       case "note":
         return (a.title ?? "").localeCompare(b.title ?? "");
+      case "content":
+        return (a.content ?? "").localeCompare(b.content ?? "");
       case "linkedTo":
         return linkTargetLabel(a).localeCompare(linkTargetLabel(b));
       case "visibility":
@@ -314,7 +317,7 @@ export default function DailyNotesPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
-        <div className="min-w-[820px]">
+        <div className="min-w-[1050px]">
           <div
             className="mb-1 grid gap-4 rounded-md bg-muted/65 px-4 py-3 text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground"
             style={{ gridTemplateColumns: gridTemplate }}
@@ -386,10 +389,12 @@ export default function DailyNotesPage() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <span className="max-w-md text-xs text-muted-foreground">
-                        {note.content || "No content yet"}
-                      </span>
                     </div>
+                  ) : null}
+                  {columns.isColumnVisible("content") ? (
+                    <span className="text-sm leading-5 text-muted-foreground">
+                      {note.content || "—"}
+                    </span>
                   ) : null}
                   {columns.isColumnVisible("linkedTo") ? (
                     note.projectId || note.moduleId ? (

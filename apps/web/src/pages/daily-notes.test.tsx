@@ -167,9 +167,10 @@ describe("DailyNotesPage", () => {
     expect(screen.getByRole("button", { name: "Sort by Created" })).toBeInTheDocument();
   });
 
-  it("shows a content preview under the note title without needing to expand", () => {
+  it("shows note content in its own column, without needing to expand", () => {
     renderPage();
 
+    expect(screen.getByRole("button", { name: "Sort by Content" })).toBeInTheDocument();
     expect(screen.getByText("Baseline readings look consistent.")).toBeInTheDocument();
   });
 

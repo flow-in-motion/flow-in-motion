@@ -45,7 +45,6 @@ export interface TaskFormInput {
   dueDate: string;
   estimatedHours: string;
   visibility: string;
-  workingWith: string;
 }
 
 interface TaskDialogProps {
@@ -73,7 +72,6 @@ const INITIAL_FORM: TaskFormInput = {
   dueDate: "",
   estimatedHours: "",
   visibility: "Private",
-  workingWith: "",
 };
 
 function formFromTask(task: ApiTask): TaskFormInput {
@@ -88,7 +86,6 @@ function formFromTask(task: ApiTask): TaskFormInput {
     dueDate: task.dueDate ?? "",
     estimatedHours: task.estimatedHours ?? "",
     visibility: task.visibility ?? "Private",
-    workingWith: task.workingWith ?? "",
   };
 }
 
@@ -167,7 +164,6 @@ export function TaskDialog({
         ...form,
         title: form.title.trim(),
         description: form.description.trim(),
-        workingWith: form.visibility === "Shared" ? form.workingWith.trim() : "",
       });
       onOpenChange(false);
     } catch (error) {
@@ -324,19 +320,6 @@ export function TaskDialog({
                 </SelectContent>
               </Select>
             </FormField>
-
-            {form.visibility === "Shared" ? (
-              <FormField label="Working with" htmlFor="task-working-with">
-                <Input
-                  id="task-working-with"
-                  value={form.workingWith}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, workingWith: event.target.value }))
-                  }
-                  placeholder="Person, team or external dependency"
-                />
-              </FormField>
-            ) : null}
           </div>
 
           {form.visibility === "Shared" && !isEditing ? (

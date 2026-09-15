@@ -102,7 +102,6 @@ function formValues(task: ApiTask): TaskFormInput {
     dueDate: task.dueDate ?? "",
     estimatedHours: task.estimatedHours ?? "",
     visibility: task.visibility ?? "Private",
-    workingWith: task.workingWith ?? "",
   };
 }
 
@@ -334,7 +333,6 @@ export default function TaskDetailPage() {
         status: form.status,
         priority: form.priority,
         visibility: form.visibility,
-        workingWith: form.workingWith.trim() || undefined,
         estimatedHours: form.estimatedHours || undefined,
         dueDate: form.dueDate || undefined,
       },
@@ -418,7 +416,6 @@ export default function TaskDetailPage() {
                 <FormField label="Due date" htmlFor="edit-task-due"><DatePickerInput id="edit-task-due" label="Due date" value={form.dueDate} onChange={(value) => setForm({ ...form, dueDate: value })} /></FormField>
                 <FormField label="Estimated hours" htmlFor="edit-task-hours"><Input id="edit-task-hours" type="number" min="0" step="0.5" value={form.estimatedHours} onChange={(event) => setForm({ ...form, estimatedHours: event.target.value })} /></FormField>
                 <FormField label="Visibility" htmlFor="edit-task-visibility"><Select value={form.visibility} onValueChange={(value) => setForm({ ...form, visibility: value })}><SelectTrigger id="edit-task-visibility"><SelectValue /></SelectTrigger><SelectContent>{VISIBILITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
-                {form.visibility === "Shared" ? <FormField label="Working with" htmlFor="edit-task-working"><Input id="edit-task-working" value={form.workingWith} onChange={(event) => setForm({ ...form, workingWith: event.target.value })} /></FormField> : null}
               </div>
               {updateTask.isError ? (
                 <p role="alert" className="text-sm text-destructive">
