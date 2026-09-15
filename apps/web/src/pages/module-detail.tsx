@@ -30,6 +30,10 @@ import {
 } from "@/api/hooks";
 import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
 import {
+  enteredSubmittedUnderReview,
+  PaperStageCelebration,
+} from "@/components/modules/paper-stage-celebration";
+import {
   SubmissionDialog,
   type SubmissionFormInput,
 } from "@/components/modules/submission-dialog";
@@ -497,6 +501,7 @@ export default function ModuleDetailPage() {
   const updateSubmission = useUpdateModuleSubmission(tenantId, module?.id ?? "");
   const deleteSubmission = useDeleteModuleSubmission(tenantId, module?.id ?? "");
   const [form, setForm] = useState<EditableModule | null>(null);
+  const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
@@ -544,7 +549,13 @@ export default function ModuleDetailPage() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form) return;
+    if (!form || !module) return;
+  
+    const shouldCelebrate = enteredSubmittedUnderReview(
+      module.pipelineStage,
+      form.pipelineStage,
+    );
+  
     await updateModule.mutateAsync({
       moduleId,
       input: {
@@ -563,7 +574,12 @@ export default function ModuleDetailPage() {
         assignedToUserId: form.assignedToUserId || undefined,
       },
     });
+  
     setForm(null);
+  
+    if (shouldCelebrate) {
+      setIsPaperCelebrationOpen(true);
+    }
   }
 
   async function handleChangeProject(projectId: string | null) {
@@ -969,6 +985,11 @@ export default function ModuleDetailPage() {
           emptyMessage={notesQuery.isPending ? "Loading notes…" : "No matching notes."}
           confirmLabel="Link notes"
           onConfirm={handleLinkNotes}
+        />
+        <PaperStageCelebration
+          open={isPaperCelebrationOpen}
+          onOpenChange={setIsPaperCelebrationOpen}
+          paperTitle={paperDisplayTitle(module)}
         />
       </div>
     </div>

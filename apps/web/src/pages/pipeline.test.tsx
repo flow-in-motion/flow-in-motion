@@ -72,8 +72,13 @@ const stages = vi.hoisted(() => {
 });
 
 const fixtures = vi.hoisted(() => ({
+  confetti: vi.fn(),
   tenantId: "workspace-1",
   projects: [] as ProjectFixture[],
+}));
+
+vi.mock("canvas-confetti", () => ({
+  default: fixtures.confetti,
 }));
 
 vi.mock("@/api/hooks", async () => {
@@ -195,8 +200,18 @@ function baseStages(): StageFixture[] {
       id: "stage-3",
       tenantId: "workspace-1",
       category: "module_pipeline_stage",
-      value: "Complete",
+      value: "Submitted, Under Review",
       sortOrder: 3,
+      hidden: false,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "stage-4",
+      tenantId: "workspace-1",
+      category: "module_pipeline_stage",
+      value: "Complete",
+      sortOrder: 4,
       hidden: false,
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -230,6 +245,7 @@ describe("PipelinePage", () => {
     stages.set(baseStages());
     modules.set(baseModules());
     fixtures.projects = [];
+    fixtures.confetti.mockReset();
   });
 
   it("provides a paper edit action in both flow and column views", () => {
@@ -352,7 +368,7 @@ describe("PipelinePage", () => {
     const title = "Sample Preparation Protocol";
     fireEvent.change(
       screen.getByRole("combobox", { name: `Move ${title} to stage` }),
-      { target: { value: "2" } },
+      { target: { value: "3" } },
     );
 
     const targetStage = screen.getByRole("group", {
@@ -400,7 +416,43 @@ describe("PipelinePage", () => {
     expect(screen.getByText("Reagent Calibration")).toBeInTheDocument();
     expect(screen.queryByText("Sample Preparation Protocol")).not.toBeInTheDocument();
   });
-
+  it("celebrates when a paper is dragged into Submitted, Under Review", async () => {
+    render(
+      <MemoryRouter>
+        <PipelinePage />
+      </MemoryRouter>,
+    );
+  
+    const title = "Sample Preparation Protocol";
+    const card = screen.getByText(title).closest('[draggable="true"]');
+    const targetStage = screen.getByRole("group", {
+      name: "Submitted, Under Review stage drop zone",
+    });
+  
+    const data = new Map<string, string>();
+    const dataTransfer = {
+      effectAllowed: "none",
+      dropEffect: "none",
+      setData: (type: string, value: string) => data.set(type, value),
+      getData: (type: string) => data.get(type) ?? "",
+    };
+  
+    expect(card).not.toBeNull();
+  
+    fireEvent.dragStart(card!, { dataTransfer });
+    fireEvent.dragOver(targetStage, { dataTransfer });
+    fireEvent.drop(targetStage, { dataTransfer });
+  
+    await waitFor(() =>
+      expect(within(targetStage).getByText(title)).toBeInTheDocument(),
+    );
+  
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Paper submitted — congratulations!",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(title);
+    expect(fixtures.confetti).toHaveBeenCalledOnce();
+  });
   it("hides stages the workspace has marked hidden", () => {
     stages.set([
       ...baseStages().map((stage) =>

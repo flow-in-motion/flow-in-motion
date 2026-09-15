@@ -41,6 +41,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  enteredSubmittedUnderReview,
+  PaperStageCelebration,
+} from "@/components/modules/paper-stage-celebration";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -132,6 +136,8 @@ export function ModuleDialog({
   const [collaboratorEmails, setCollaboratorEmails] = useState<string[]>([]);
   const [collaboratorEmailInput, setCollaboratorEmailInput] = useState("");
   const [collaboratorEmailError, setCollaboratorEmailError] = useState<string | null>(null);
+  const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
+  const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
   const isEditing = Boolean(module);
 
   const tasksQuery = useTasks(tenantId, undefined, 1, open && !isEditing);
@@ -218,6 +224,13 @@ export function ModuleDialog({
     event.preventDefault();
     setIsSaving(true);
     setSaveError(null);
+    const shouldCelebrate = enteredSubmittedUnderReview(
+      module?.pipelineStage,
+      form.pipelineStage,
+    );
+    
+    const submittedPaperTitle =
+      form.shortTitle.trim() || form.title.trim() || "Paper";
     try {
       const savedModule = await onSave({
         ...form,
@@ -250,6 +263,11 @@ export function ModuleDialog({
           ),
         ]);
       }
+      if (shouldCelebrate) {
+        setCelebrationPaperTitle(submittedPaperTitle);
+        setIsPaperCelebrationOpen(true);
+      }
+      
       onOpenChange(false);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "The module could not be saved.");
@@ -282,6 +300,7 @@ export function ModuleDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
@@ -602,5 +621,11 @@ export function ModuleDialog({
         </form>
       </DialogContent>
     </Dialog>
+    <PaperStageCelebration
+      open={isPaperCelebrationOpen}
+      onOpenChange={setIsPaperCelebrationOpen}
+      paperTitle={celebrationPaperTitle}
+    />
+  </>
   );
 }

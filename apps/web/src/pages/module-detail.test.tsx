@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ModuleDetailPage from "@/pages/module-detail";
 
 const fixtures = vi.hoisted(() => ({
+  confetti: vi.fn(),
   updateModule: vi.fn(),
   createTask: vi.fn(),
   updateTask: vi.fn(),
@@ -65,6 +66,7 @@ const fixtures = vi.hoisted(() => ({
     displayId: "MOD-001",
     tenantId: "workspace-1",
     projectId: null as string | null,
+    shortTitle: "Literature synthesis",
     title: "Literature synthesis",
     description: null,
     tag: "Research Paper",
@@ -95,15 +97,27 @@ const fixtures = vi.hoisted(() => ({
       id: "stage-2",
       tenantId: null,
       category: "module_pipeline_stage",
-      value: "Publication",
+      value: "Submitted, Under Review",
       sortOrder: 2,
+      hidden: false,
+      createdAt: "",
+      updatedAt: "",
+    },
+    {
+      id: "stage-3",
+      tenantId: null,
+      category: "module_pipeline_stage",
+      value: "Publication",
+      sortOrder: 3,
       hidden: false,
       createdAt: "",
       updatedAt: "",
     },
   ],
 }));
-
+vi.mock("canvas-confetti", () => ({
+  default: fixtures.confetti,
+}));
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({
     data: { id: "workspace-1" },
@@ -197,6 +211,7 @@ vi.mock("@/api/hooks", () => ({
 
 describe("ModuleDetailPage", () => {
   beforeEach(() => {
+    fixtures.confetti.mockReset();
     fixtures.module.pipelineStage = "Concept";
     fixtures.module.projectId = null;
     fixtures.updateModule.mockReset();
@@ -235,7 +250,46 @@ describe("ModuleDetailPage", () => {
       </MemoryRouter>,
     );
   }
-
+  it("celebrates after moving the paper into Submitted, Under Review", async () => {
+    renderPage();
+  
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Module" }),
+    );
+  
+    fireEvent.click(
+      screen.getByRole("combobox", { name: "Pipeline stage" }),
+    );
+  
+    fireEvent.click(
+      screen.getByRole("option", {
+        name: "Submitted, Under Review",
+      }),
+    );
+  
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save Changes" }),
+    );
+  
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          moduleId: "module-1",
+          input: expect.objectContaining({
+            pipelineStage: "Submitted, Under Review",
+          }),
+        }),
+      ),
+    );
+  
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Paper submitted — congratulations!",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Literature synthesis",
+    );
+    expect(fixtures.confetti).toHaveBeenCalledOnce();
+  });
   it("returns to whatever page linked into edit mode when editing is cancelled", () => {
     render(
       <MemoryRouter

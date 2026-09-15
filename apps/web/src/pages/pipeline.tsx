@@ -16,6 +16,10 @@ import {
   type ApiPipelineStage,
 } from "@/api/hooks";
 import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
+import {
+  enteredSubmittedUnderReview,
+  PaperStageCelebration,
+} from "@/components/modules/paper-stage-celebration";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
@@ -252,6 +256,8 @@ export default function PipelinePage() {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverStageIndex, setDragOverStageIndex] = useState<number | null>(null);
   const [isNewPaperOpen, setIsNewPaperOpen] = useState(false);
+  const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
+  const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
 
   const stages = useMemo(
     () =>
@@ -383,9 +389,26 @@ export default function PipelinePage() {
   }
 
   function moveItem(id: string, stageIndex: number) {
-    const stageValue = stages[stageIndex]?.value;
-    if (!stageValue) return;
-    void updateModule.mutateAsync({ moduleId: id, input: { pipelineStage: stageValue } });
+    const row = moduleRows.find((item) => item.id === id);
+    const nextStage = stages[stageIndex]?.value;
+    const previousStage =
+      row?.stageIndex === undefined
+        ? undefined
+        : stages[row.stageIndex]?.value;
+  
+    if (!row || !nextStage || previousStage === nextStage) return;
+  
+    void updateModule
+      .mutateAsync({
+        moduleId: id,
+        input: { pipelineStage: nextStage },
+      })
+      .then(() => {
+        if (enteredSubmittedUnderReview(previousStage, nextStage)) {
+          setCelebrationPaperTitle(row.title);
+          setIsPaperCelebrationOpen(true);
+        }
+      });
   }
 
   function handleDragStart(event: DragEvent<HTMLDivElement>, row: PipelineRow) {
@@ -444,6 +467,11 @@ export default function PipelinePage() {
         projects={projects}
         members={members}
         onSave={handleCreateModule}
+      />
+      <PaperStageCelebration
+        open={isPaperCelebrationOpen}
+        onOpenChange={setIsPaperCelebrationOpen}
+        paperTitle={celebrationPaperTitle}
       />
 
       <div className="surface-toolbar flex flex-col gap-4">
