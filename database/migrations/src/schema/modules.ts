@@ -22,7 +22,6 @@ export const modules = pgTable(
     backupJournal: text('backup_journal'),
     targetConference: text('target_conference'),
     backupConference: text('backup_conference'),
-    tagId: uuid('tag_id').references((): AnyPgColumn => enumTable.id),
     statusId: uuid('status_id').references((): AnyPgColumn => enumTable.id),
     pipelineStageId: uuid('pipeline_stage_id').references((): AnyPgColumn => enumTable.id),
     pipelineStageChangedAt: timestamp('pipeline_stage_changed_at', { withTimezone: true }),

@@ -94,7 +94,6 @@ describe('ProjectModulesService', () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        tagId: null,
         statusId: null,
       });
       await expect(
