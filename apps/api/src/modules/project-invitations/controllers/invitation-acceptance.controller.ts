@@ -15,6 +15,8 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { UsersService } from '../../users/users.service';
 import { ProjectInvitationsService } from '../services/project-invitations.service';
 import { ModuleInvitationsService } from '../../module-invitations/services/module-invitations.service';
+import { TaskInvitationsService } from '../../task-invitations/services/task-invitations.service';
+import { NoteInvitationsService } from '../../note-invitations/services/note-invitations.service';
 
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
@@ -26,6 +28,8 @@ export class InvitationAcceptanceController {
   constructor(
     private readonly projectInvitations: ProjectInvitationsService,
     private readonly moduleInvitations: ModuleInvitationsService,
+    private readonly taskInvitations: TaskInvitationsService,
+    private readonly noteInvitations: NoteInvitationsService,
     private readonly usersService: UsersService,
   ) {}
 
@@ -44,6 +48,12 @@ export class InvitationAcceptanceController {
       .preview(token)
       .catch(() => null);
     if (module) return { type: 'module', ...module };
+
+    const task = await this.taskInvitations.preview(token).catch(() => null);
+    if (task) return { type: 'task', ...task };
+
+    const note = await this.noteInvitations.preview(token).catch(() => null);
+    if (note) return { type: 'note', ...note };
 
     throw new NotFoundException('Invitation not found');
   }
@@ -75,6 +85,18 @@ export class InvitationAcceptanceController {
       .then((row) => ({ type: 'module', row }))
       .catch(() => null);
     if (module) return module;
+
+    const task = await this.taskInvitations
+      .accept(token, user.id, user.email)
+      .then((row) => ({ type: 'task', row }))
+      .catch(() => null);
+    if (task) return task;
+
+    const note = await this.noteInvitations
+      .accept(token, user.id, user.email)
+      .then((row) => ({ type: 'note', row }))
+      .catch(() => null);
+    if (note) return note;
 
     throw new NotFoundException('Invitation not found');
   }

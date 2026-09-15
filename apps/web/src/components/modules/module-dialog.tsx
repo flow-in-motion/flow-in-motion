@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent, type 
 import { X } from "lucide-react";
 
 import {
-  inviteCollaboratorByEmail,
+  createDraftInvitation,
   useEnumValues,
   useModulePipelineStagePool,
   useNotes,
@@ -13,13 +13,11 @@ import {
   type ApiProject,
   type Membership,
 } from "@/api/hooks";
-import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
 import {
   LinkExistingField,
   type LinkExistingOption,
 } from "@/components/shared/link-existing-field";
 import { TagInput } from "@/components/shared/tag-input";
-import { paperDisplayTitle } from "@/lib/paper-title";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
@@ -259,7 +257,7 @@ export function ModuleDialog({
             }),
           ),
           ...collaboratorEmails.map((email) =>
-            inviteCollaboratorByEmail("module", tenantId, savedModule.id, email),
+            createDraftInvitation("module", tenantId, savedModule.id, { email }),
           ),
         ]);
       }
@@ -488,26 +486,6 @@ export function ModuleDialog({
             </FormField>
           </div>
 
-          {isEditing && module && module.tenantId === tenantId ? (
-            <div className="flex flex-col gap-2 border-t border-border pt-4">
-              <span className="text-sm font-medium">Collaborators</span>
-              <ModuleCollaboratorsManager
-                tenantId={tenantId}
-                moduleId={module.id}
-                moduleTitle={paperDisplayTitle(module)}
-                members={members}
-              />
-            </div>
-          ) : isEditing && module ? (
-            <div className="flex flex-col gap-2 border-t border-border pt-4">
-              <span className="text-sm font-medium">Collaborators</span>
-              <p className="text-sm text-muted-foreground">
-                This paper was shared with you from another workspace. Only members of that
-                workspace can manage who has access.
-              </p>
-            </div>
-          ) : null}
-
           {!isEditing ? (
             <div className="grid gap-4 rounded-lg border p-4">
               <p className="text-sm font-medium">Link existing work (optional)</p>
@@ -558,10 +536,10 @@ export function ModuleDialog({
 
           {!isEditing ? (
             <div className="flex flex-col gap-2 border-t border-border pt-4">
-              <span className="text-sm font-medium">Invite collaborators (optional)</span>
+              <span className="text-sm font-medium">Add collaborators (optional)</span>
               <p className="text-xs text-muted-foreground">
-                Amazon SES emails a secure one-time link once the paper is created. Press Enter
-                or comma to add each email.
+                Added as drafts once the paper is created — open the paper afterward to send each
+                invite. Press Enter or comma to add each email.
               </p>
               <FormField label="Collaborator email" htmlFor="module-collaborator-email">
                 <div className="flex gap-2">

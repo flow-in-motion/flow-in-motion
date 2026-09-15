@@ -13,7 +13,6 @@ import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 import { DrizzleService } from '../../../db/drizzle.service';
 import { sql } from 'drizzle-orm';
-import { InvitationEmailService } from '../../invitation-email/invitation-email.service';
 
 function normaliseEmail(value: string) {
   return value.trim().toLowerCase();
@@ -32,18 +31,52 @@ export class ProjectInvitationsService {
     private readonly enumRepository: EnumRepository,
     private readonly projectsRepository: ProjectsRepository,
     private readonly drizzle: DrizzleService,
-    private readonly invitationEmailService: InvitationEmailService,
   ) {}
 
   async list(projectId: string) {
     return this.repository.findByProject(projectId);
   }
 
-  async invite(projectId: string, invitedBy: string, email: string) {
-    const normalisedEmail = normaliseEmail(email);
+  async createDraft(
+    projectId: string,
+    invitedBy: string,
+    input: { email: string; name?: string; affiliation?: string },
+  ) {
     const project = await this.projectsRepository.findByIdGlobal(projectId);
     if (!project) {
       throw new NotFoundException('Project not found');
+    }
+
+    const invitation = await this.repository.create({
+      projectId,
+      email: normaliseEmail(input.email),
+      name: input.name,
+      affiliation: input.affiliation,
+      role: 'Collaborator',
+      invitedBy,
+      status: 'draft',
+    });
+
+    if (!invitation) {
+      throw new ConflictException('Failed to create invitation');
+    }
+
+    const { token: _storedHash, ...safeInvitation } = invitation;
+    return safeInvitation;
+  }
+
+  /**
+   * Generates the acceptance token and marks the draft pending. No email is
+   * sent server-side — the caller composes and sends it themselves (see the
+   * frontend's mailto: link), using the returned acceptanceToken.
+   */
+  async send(projectId: string, id: string) {
+    const draft = await this.repository.findById(projectId, id);
+    if (!draft) {
+      throw new NotFoundException('Invitation not found');
+    }
+    if (draft.status !== 'draft') {
+      throw new ConflictException('This invitation has already been sent');
     }
 
     const tokenBytes = Number(
@@ -57,30 +90,12 @@ export class ProjectInvitationsService {
     const tokenHash = hashInvitationToken(rawToken);
     const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
 
-    const invitation = await this.repository.create({
-      projectId,
-      email: normalisedEmail,
-      role: 'Collaborator',
-      invitedBy,
+    const invitation = await this.repository.markSent(id, {
       token: tokenHash,
       expiresAt,
     });
-
     if (!invitation) {
-      throw new ConflictException('Failed to create invitation');
-    }
-
-    try {
-      await this.invitationEmailService.sendInvitation({
-        email: normalisedEmail,
-        targetType: 'project',
-        targetTitle: project.title,
-        acceptanceToken: rawToken,
-        expiresAt,
-      });
-    } catch (error) {
-      await this.repository.delete(invitation.projectId, invitation.id);
-      throw error;
+      throw new ConflictException('Failed to send invitation');
     }
 
     // The raw token is only ever returned here, once. Only its hash is stored.
@@ -88,7 +103,6 @@ export class ProjectInvitationsService {
     return {
       invitation: safeInvitation,
       acceptanceToken: rawToken,
-      emailSent: true,
     };
   }
 
@@ -121,7 +135,7 @@ export class ProjectInvitationsService {
         'This invitation has already been used or revoked',
       );
     }
-    if (invitation.expiresAt.getTime() < Date.now()) {
+    if (!invitation.expiresAt || invitation.expiresAt.getTime() < Date.now()) {
       throw new GoneException('This invitation has expired');
     }
     if (normaliseEmail(invitation.email) !== normaliseEmail(userEmail)) {

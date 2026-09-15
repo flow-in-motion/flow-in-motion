@@ -12,19 +12,30 @@ const fixtures = vi.hoisted(() => ({
     tenantId: "workspace-1",
     projectId: null as string | null,
     moduleId: null as string | null,
+    createdBy: "user-owner",
     title: "Draft literature review",
     description: null,
     status: "To do",
     priority: "Medium",
     dueDate: null,
     estimatedHours: null,
-    visibility: "Private",
+    visibility: "Private" as string,
     workingWith: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
   projects: [{ id: "project-1", title: "Genome Sequencing Study" }],
   modules: [{ id: "module-1", title: "Assay optimization" }],
+  members: [
+    {
+      id: "membership-owner",
+      userId: "user-owner",
+      displayName: "Avi Researcher",
+      email: "owner@example.com",
+      affiliation: null as string | null,
+      role: "owner",
+    },
+  ],
 }));
 
 vi.mock("@/api/hooks", () => ({
@@ -48,12 +59,26 @@ vi.mock("@/api/hooks", () => ({
     data: projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
     isError: false,
   }),
+  useMembers: () => ({
+    data: { data: fixtures.members, meta: { page: 1, pageSize: 20, totalItems: fixtures.members.length, totalPages: 1 } },
+    isPending: false,
+  }),
+  useTaskMembers: () => ({ data: [], isPending: false }),
+  useAddTaskMember: () => ({ mutate: vi.fn() }),
+  useRemoveTaskMember: () => ({ mutate: vi.fn(), isPending: false }),
+  useUserSearch: () => ({ data: [], isPending: false }),
+  useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
+  useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
+  useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+  useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+  useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }));
 
 describe("TaskDetailPage", () => {
   beforeEach(() => {
     fixtures.task.projectId = null;
     fixtures.task.moduleId = null;
+    fixtures.task.visibility = "Private";
     fixtures.updateTask.mockReset();
     fixtures.updateTask.mockResolvedValue(fixtures.task);
   });
@@ -228,5 +253,19 @@ describe("TaskDetailPage", () => {
     expect(
       screen.getByRole("button", { name: "Show task members" }),
     ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows the task's creator as Owner in the members list, even though they aren't an explicit member", () => {
+    fixtures.task.visibility = "Shared";
+    render(
+      <MemoryRouter initialEntries={["/tasks/task-1"]}>
+        <Routes>
+          <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Avi Researcher")).toBeInTheDocument();
+    expect(screen.getByText("Owner")).toBeInTheDocument();
   });
 });

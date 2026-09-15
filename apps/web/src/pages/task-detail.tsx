@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 
 import {
   useCurrentWorkspace,
+  useMembers,
   useModules,
   useMyTask,
   useProject,
@@ -280,6 +281,8 @@ export default function TaskDetailPage() {
   const trackEvent = useTrackEvent(task?.tenantId ?? "");
   const linkedProjectQuery = useProject(tenantId, task?.projectId ?? "", Boolean(task?.projectId));
   const sameTenant = Boolean(task && tenantId && task.tenantId === tenantId);
+  const membersQuery = useMembers(tenantId, 1, sameTenant);
+  const members = membersQuery.data?.data ?? [];
   const [form, setForm] = useState<TaskFormInput | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isOverviewVisible, setIsOverviewVisible] = useState(true);
@@ -504,6 +507,9 @@ export default function TaskDetailPage() {
                   <TaskMembersManager
                     tenantId={tenantId}
                     taskId={task.id}
+                    taskTitle={task.title}
+                    ownerUserId={task.createdBy}
+                    members={members}
                   />
                 ) : task.visibility === "Shared" ? (
                   <p className="text-sm text-muted-foreground">

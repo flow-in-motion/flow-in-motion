@@ -1,9 +1,19 @@
 // apps/api/src/modules/project-invitations/dto/invite-collaborator.dto.ts
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail } from 'class-validator';
+import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class InviteCollaboratorDto {
   @ApiProperty({ example: 'colleague@example.com' })
   @IsEmail()
   email!: string;
+
+  @ApiPropertyOptional({ example: 'Dr. Colleague Name' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'University of Example' })
+  @IsOptional()
+  @IsString()
+  affiliation?: string;
 }

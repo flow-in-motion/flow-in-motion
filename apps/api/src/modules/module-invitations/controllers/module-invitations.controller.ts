@@ -85,20 +85,37 @@ export class ModuleInvitationsController {
   }
 
   @ApiOperation({
-    summary: 'Invite and email a module collaborator (owner only)',
+    summary:
+      'Add a draft collaborator by name/email/affiliation (owner only) — nothing is sent yet',
   })
   @ApiResponse({ status: 201 })
-  @ApiResponse({ status: 503, description: 'Email delivery unavailable' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Post()
-  async invite(
+  async createDraft(
     @Param('tenantId') tenantId: string,
     @Param('moduleId') moduleId: string,
     @Req() req: AuthenticatedRequest,
     @Body() dto: InviteCollaboratorDto,
   ) {
     const user = await this.assertOwner(tenantId, moduleId, req);
-    return this.service.invite(moduleId, user.id, dto.email);
+    return this.service.createDraft(moduleId, user.id, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Send the invitation email for a draft collaborator (owner only)',
+  })
+  @ApiResponse({ status: 201 })
+  @ApiResponse({ status: 503, description: 'Email delivery unavailable' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Post(':id/send')
+  async send(
+    @Param('tenantId') tenantId: string,
+    @Param('moduleId') moduleId: string,
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    await this.assertOwner(tenantId, moduleId, req);
+    return this.service.send(moduleId, id);
   }
 
   @ApiOperation({ summary: 'Revoke a pending invitation (owner only)' })

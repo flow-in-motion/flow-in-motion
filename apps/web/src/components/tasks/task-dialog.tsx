@@ -8,7 +8,6 @@ import {
   type ApiTask,
   type ApiUserSearchResult,
 } from "@/api/hooks";
-import { TaskMembersManager } from "@/components/tasks/task-members";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
@@ -134,7 +133,6 @@ function linkTargetPillClass(selected: boolean) {
 export function TaskDialog({
   open,
   onOpenChange,
-  tenantId,
   projects,
   modules,
   task,
@@ -365,24 +363,6 @@ export function TaskDialog({
               </FormField>
             ) : null}
           </div>
-
-          {form.visibility === "Shared" && isEditing && task && task.tenantId === tenantId ? (
-            <div className="flex flex-col gap-2 border-t border-border pt-4">
-              <span className="text-sm font-medium">Members</span>
-              <TaskMembersManager
-                tenantId={tenantId}
-                taskId={task.id}
-              />
-            </div>
-          ) : form.visibility === "Shared" && isEditing && task ? (
-            <div className="flex flex-col gap-2 border-t border-border pt-4">
-              <span className="text-sm font-medium">Members</span>
-              <p className="text-sm text-muted-foreground">
-                This task was shared with you from another workspace. Only members of that
-                workspace can manage who has access.
-              </p>
-            </div>
-          ) : null}
 
           {form.visibility === "Shared" && !isEditing ? (
             <FormField label="Share with" htmlFor="task-members">

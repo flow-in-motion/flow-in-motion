@@ -22,6 +22,16 @@ const fixtures = vi.hoisted(() => ({
   },
   projects: [{ id: "project-1", title: "Genome Sequencing Study" }],
   modules: [{ id: "module-1", title: "Assay optimization" }],
+  members: [
+    {
+      id: "membership-owner",
+      userId: "user-owner",
+      displayName: "Avi Researcher",
+      email: "owner@example.com",
+      affiliation: null as string | null,
+      role: "owner",
+    },
+  ],
 }));
 
 vi.mock("@/api/hooks", () => ({
@@ -44,10 +54,19 @@ vi.mock("@/api/hooks", () => ({
     data: projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
     isError: false,
   }),
+  useMembers: () => ({
+    data: { data: fixtures.members, meta: { page: 1, pageSize: 20, totalItems: fixtures.members.length, totalPages: 1 } },
+    isPending: false,
+  }),
   useNoteMembers: () => ({ data: [], isPending: false }),
   useAddNoteMember: () => ({ mutate: vi.fn() }),
-  useRemoveNoteMember: () => ({ mutate: vi.fn() }),
+  useRemoveNoteMember: () => ({ mutate: vi.fn(), isPending: false }),
   useUserSearch: () => ({ data: [], isPending: false }),
+  useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
+  useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
+  useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+  useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
+  useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }));
 
 describe("DailyNoteDetailPage", () => {
@@ -222,6 +241,20 @@ describe("DailyNoteDetailPage", () => {
     expect(
       screen.getByRole("button", { name: "Show shared with" }),
     ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows the note's creator as Owner in the shared-with list, even though they aren't an explicit member", () => {
+    fixtures.note.visibility = "Shared";
+    render(
+      <MemoryRouter initialEntries={["/daily-notes/note-1"]}>
+        <Routes>
+          <Route path="daily-notes/:noteId" element={<DailyNoteDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Avi Researcher")).toBeInTheDocument();
+    expect(screen.getByText("Owner")).toBeInTheDocument();
   });
 
   it("edits a note's title and content", async () => {

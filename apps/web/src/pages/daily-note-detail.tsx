@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 
 import {
   useCurrentWorkspace,
+  useMembers,
   useModules,
   useMyNote,
   useProject,
@@ -262,6 +263,8 @@ export default function DailyNoteDetailPage() {
   const note = noteQuery.data;
   const linkedProjectQuery = useProject(tenantId, note?.projectId ?? "", Boolean(note?.projectId));
   const sameTenant = Boolean(note && tenantId && note.tenantId === tenantId);
+  const membersQuery = useMembers(tenantId, 1, sameTenant);
+  const members = membersQuery.data?.data ?? [];
   const [form, setForm] = useState<NoteEditForm | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isOverviewVisible, setIsOverviewVisible] = useState(true);
@@ -469,6 +472,9 @@ export default function DailyNoteDetailPage() {
                   <NoteMembersManager
                     tenantId={tenantId}
                     noteId={note.id}
+                    noteTitle={note.title || "Untitled note"}
+                    ownerUserId={note.createdBy}
+                    members={members}
                   />
                 ) : note.visibility === "Shared" ? (
                   <p className="text-sm text-muted-foreground">
