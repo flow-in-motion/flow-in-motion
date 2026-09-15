@@ -23,11 +23,21 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import {
+  CONFERENCE_DEADLINE_FILTERS as DEADLINE_FILTERS,
+  CONFERENCE_TYPE_FILTERS as TYPE_FILTERS,
+  conferenceTypeBadgeClass as typeBadgeClass,
+  conferenceUrgencyClass as urgencyClass,
+  conferenceUrgencyLabel as urgencyLabel,
+  formatConferenceDate as formatDate,
+  formatConferenceDateRange as formatConferenceDates,
+  matchesConferenceDeadline as matchesDeadline,
+  type ConferenceDeadlineFilter as DeadlineFilter,
+  type ConferenceTypeFilter as TypeFilter,
+} from "@/lib/conference-format";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
-const TYPE_FILTERS = ["All", "Abstract", "Full paper", "Poster"] as const;
-const DEADLINE_FILTERS = ["All", "This week", "This month", "Later", "Past"] as const;
 const CONFERENCE_COLUMNS = [
   { id: "conference", label: "Conference" },
   { id: "submissionDue", label: "Submission Due" },
@@ -36,48 +46,6 @@ const CONFERENCE_COLUMNS = [
   { id: "linkedProjects", label: "Linked Projects or Modules/Papers" },
   { id: "actions", label: "Actions" },
 ] as const;
-
-type TypeFilter = (typeof TYPE_FILTERS)[number];
-type DeadlineFilter = (typeof DEADLINE_FILTERS)[number];
-
-function formatDate(iso: string) {
-  const [year, month, day] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" })
-    .format(new Date(year, month - 1, day));
-}
-
-function formatConferenceDates(startDate: string, endDate: string) {
-  if (startDate === endDate) return formatDate(startDate);
-  return `${formatDate(startDate)} – ${formatDate(endDate)}`;
-}
-
-function typeBadgeClass(type: string | null) {
-  if (type === "Abstract") return "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400";
-  if (type === "Poster") return "border-violet-300 text-violet-700 dark:border-violet-800 dark:text-violet-400";
-  return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
-}
-
-function urgencyLabel(daysRemaining: number) {
-  if (daysRemaining < 0) return `${Math.abs(daysRemaining)} day${daysRemaining === -1 ? "" : "s"} overdue`;
-  if (daysRemaining === 0) return "Due today";
-  return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`;
-}
-
-function urgencyClass(daysRemaining: number) {
-  if (daysRemaining <= 3) return "font-semibold text-destructive";
-  if (daysRemaining <= 7) return "font-medium text-orange-600 dark:text-orange-400";
-  return "text-muted-foreground";
-}
-
-function matchesDeadline(daysRemaining: number, filter: DeadlineFilter) {
-  switch (filter) {
-    case "All": return true;
-    case "This week": return daysRemaining >= 0 && daysRemaining <= 7;
-    case "This month": return daysRemaining > 7 && daysRemaining <= 30;
-    case "Later": return daysRemaining > 30;
-    case "Past": return daysRemaining < 0;
-  }
-}
 
 export function ConferenceSubmissionsTable({
   showPast = false,
