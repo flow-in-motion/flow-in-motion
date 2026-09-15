@@ -170,7 +170,6 @@ export class ProjectModulesRepository {
     backupJournal?: string;
     targetConference?: string;
     backupConference?: string;
-    tagId?: string;
     statusId?: string;
     pipelineStageId?: string;
     pipelineStageChangedAt?: Date;
@@ -214,7 +213,6 @@ export class ProjectModulesRepository {
       targetConference: string;
       backupConference: string;
       projectId: string | null;
-      tagId: string;
       statusId: string;
       pipelineStageId: string;
       pipelineStageChangedAt: Date;

@@ -23,7 +23,6 @@ type ModuleFixture = {
   shortTitle: string | null;
   title: string | null;
   description: string | null;
-  tag: string | null;
   status: string | null;
   pipelineStage: string | null;
   assignedToUserId: string | null;
@@ -181,7 +180,6 @@ vi.mock("@/api/hooks", async () => {
           shortTitle: (input.shortTitle as string | undefined) ?? null,
           title: (input.title as string | undefined) ?? null,
           description: (input.description as string | undefined) ?? null,
-          tag: (input.tag as string | undefined) ?? null,
           status: (input.status as string | undefined) ?? "Active",
           pipelineStage: (input.pipelineStage as string | undefined) ?? null,
           assignedToUserId: (input.assignedToUserId as string | undefined) ?? null,
@@ -253,7 +251,6 @@ function baseModules(): ModuleFixture[] {
       shortTitle: "Sample Preparation Protocol",
       title: "Sample Preparation Protocol",
       description: null,
-      tag: null,
       status: "Active",
       pipelineStage: "Concept, Ideation",
       assignedToUserId: null,
@@ -415,7 +412,6 @@ describe("PipelinePage", () => {
         shortTitle: "Reagent Calibration",
         title: "Reagent Calibration",
         description: null,
-        tag: null,
         status: "Active",
         pipelineStage: "Concept, Ideation",
         assignedToUserId: null,

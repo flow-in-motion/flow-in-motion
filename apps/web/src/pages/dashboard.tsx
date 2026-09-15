@@ -454,7 +454,6 @@ export default function DashboardPage() {
       projectId: input.projectId ?? undefined,
       status: input.status,
       pipelineStage: input.pipelineStage,
-      tag: input.tag || undefined,
       dueDate: input.dueDate || undefined,
       assignedToUserId: input.assignedToUserId ?? undefined,
     });

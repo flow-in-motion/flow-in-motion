@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   BadRequestException,
   ForbiddenException,
@@ -164,7 +165,6 @@ export class ProjectModulesService {
       backupJournal?: string;
       targetConference?: string;
       backupConference?: string;
-      tag?: string;
       status?: string;
       pipelineStage?: string;
       assignedToUserId?: string;
@@ -176,7 +176,6 @@ export class ProjectModulesService {
       input.projectId,
       callerUserId,
     );
-    const tagId = await this.resolveEnum('module_type', input.tag);
     const statusId = await this.resolveEnum('project_status', input.status);
     const pipelineStageId = input.pipelineStage
       ? await this.resolveModulePipelineStage(tenantId, input.pipelineStage)
@@ -195,7 +194,6 @@ export class ProjectModulesService {
       backupJournal: input.backupJournal,
       targetConference: input.targetConference,
       backupConference: input.backupConference,
-      tagId,
       statusId,
       pipelineStageId,
       pipelineStageChangedAt: new Date(),
@@ -239,7 +237,6 @@ export class ProjectModulesService {
       targetConference: string;
       backupConference: string;
       projectId: string;
-      tag: string;
       status: string;
       pipelineStage: string;
       assignedToUserId: string;
@@ -261,8 +258,7 @@ export class ProjectModulesService {
       );
     }
 
-    const [tagId, statusId, pipelineStageId] = await Promise.all([
-      input.tag ? this.resolveEnum('module_type', input.tag) : undefined,
+    const [statusId, pipelineStageId] = await Promise.all([
       input.status
         ? this.resolveEnum('project_status', input.status)
         : undefined,
@@ -285,7 +281,6 @@ export class ProjectModulesService {
       targetConference: input.targetConference,
       backupConference: input.backupConference,
       projectId: input.projectId,
-      tagId,
       statusId,
       pipelineStageId,
       pipelineStageChangedAt: stageChanged ? new Date() : undefined,
@@ -379,19 +374,17 @@ export class ProjectModulesService {
   private async withDisplayValues<
     T extends {
       id: string;
-      tagId: string | null;
       statusId: string | null;
       pipelineStageId: string | null;
     },
   >(rows: T[], _callerUserId: string) {
     const enumIds = rows
-      .flatMap((row) => [row.tagId, row.statusId, row.pipelineStageId])
+      .flatMap((row) => [row.statusId, row.pipelineStageId])
       .filter((id): id is string => id !== null);
     const valuesById = await this.enumRepository.findValuesByIds(enumIds);
 
-    return rows.map(({ tagId, statusId, pipelineStageId, ...rest }) => ({
+    return rows.map(({ statusId, pipelineStageId, ...rest }) => ({
       ...rest,
-      tag: tagId ? (valuesById.get(tagId) ?? null) : null,
       status: statusId ? (valuesById.get(statusId) ?? null) : null,
       pipelineStage: pipelineStageId
         ? (valuesById.get(pipelineStageId) ?? null)

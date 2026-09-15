@@ -288,6 +288,13 @@
       "when": 1789452315717,
       "tag": "0056_backfill_independent_papers_to_general",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1789457332753,
+      "tag": "0057_remove_module_type",
+      "breakpoints": true
     }
   ]
 }

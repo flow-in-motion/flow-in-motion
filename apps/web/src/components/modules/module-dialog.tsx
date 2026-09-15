@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import {
-  useEnumValues,
   useModulePipelineStagePool,
   useNotes,
   useTasks,
@@ -57,7 +56,6 @@ export interface ModuleFormInput {
   projectId: string;
   status: string;
   pipelineStage: string;
-  tag: string;
   dueDate: string;
   assignedToUserId: string | null;
 }
@@ -88,7 +86,6 @@ const INITIAL_FORM: ModuleFormInput = {
   projectId: "",
   status: "Active",
   pipelineStage: "",
-  tag: "",
   dueDate: "",
   assignedToUserId: null,
 };
@@ -121,7 +118,6 @@ export function ModuleDialog({
   initialProjectId,
   onSave,
 }: ModuleDialogProps) {
-  const tagValuesQuery = useEnumValues("module_type", open);
   const stagesQuery = useModulePipelineStagePool(tenantId, open);
   const [form, setForm] = useState<ModuleFormInput>(INITIAL_FORM);
   const [selectedProject, setSelectedProject] = useState<LinkExistingOption | null>(null);
@@ -195,7 +191,6 @@ const generalProjectOption =
         projectId: module.projectId ?? "",
         status: module.status ?? "Active",
         pipelineStage: module.pipelineStage ?? "",
-        tag: module.tag ?? "",
         dueDate: module.dueDate ?? "",
         assignedToUserId: module.assignedToUserId,
       });
@@ -403,20 +398,6 @@ const generalProjectOption =
                 <SelectContent>
                   {MODULE_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-
-            <FormField label="Type" htmlFor="module-tag">
-              <Select
-                value={form.tag}
-                onValueChange={(value) => setForm((current) => ({ ...current, tag: value }))}
-              >
-                <SelectTrigger id="module-tag"><SelectValue placeholder="Select a type" /></SelectTrigger>
-                <SelectContent>
-                  {(tagValuesQuery.data ?? []).map((tagValue) => (
-                    <SelectItem key={tagValue.id} value={tagValue.value}>{tagValue.value}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
