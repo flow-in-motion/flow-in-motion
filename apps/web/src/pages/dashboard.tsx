@@ -1,9 +1,9 @@
 // import { ActivityOverviewChart } from "@/components/dashboard/activity-overview-chart";
 import {
   ArrowUpRight,
-  Boxes,
   ChevronDown,
   FilePenLine,
+  FileStack,
   FolderKanban,
   LayoutDashboard,
   ListTodo,
@@ -99,7 +99,7 @@ function buildSummary(counts: {
       label: "Active Papers",
       description: "Active of all visible papers",
       value: `${counts.activeModules} of ${counts.totalModules}`,
-      icon: Boxes,
+      icon: FileStack,
       tone: "emerald",
       to: "/modules",
     },
