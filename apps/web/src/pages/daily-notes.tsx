@@ -242,7 +242,7 @@ export default function DailyNotesPage() {
         icon={NotebookPen}
         tone="violet"
         eyebrow="Research journal"
-        title="Daily Notes"
+        title="Notes"
         description="Capture research updates, decisions and observations, then connect them to projects or papers."
         actions={<Button onClick={startAdding}>New Note</Button>}
       />

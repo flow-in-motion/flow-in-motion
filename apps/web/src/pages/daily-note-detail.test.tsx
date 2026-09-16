@@ -86,14 +86,14 @@ describe("DailyNoteDetailPage", () => {
       >
         <Routes>
           <Route path="daily-notes/:noteId" element={<DailyNoteDetailPage />} />
-          <Route path="daily-notes" element={<h1>Daily Notes</h1>} />
+          <Route path="daily-notes" element={<h1>Notes</h1>} />
         </Routes>
       </MemoryRouter>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel Editing" }));
 
-    expect(screen.getByRole("heading", { name: "Daily Notes" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Notes" })).toBeInTheDocument();
   });
 
   it("falls back to the read-only note view when there is no previous page to return to", () => {
@@ -101,7 +101,7 @@ describe("DailyNoteDetailPage", () => {
       <MemoryRouter initialEntries={["/daily-notes/note-1?edit=true"]}>
         <Routes>
           <Route path="daily-notes/:noteId" element={<DailyNoteDetailPage />} />
-          <Route path="daily-notes" element={<h1>Daily Notes</h1>} />
+          <Route path="daily-notes" element={<h1>Notes</h1>} />
         </Routes>
       </MemoryRouter>,
     );

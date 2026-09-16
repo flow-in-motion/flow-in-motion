@@ -62,6 +62,28 @@ describe("FeedbackDialog", () => {
     ).toBeInTheDocument();
   });
 
+  it("fills the first three stars when rating 3 is selected", () => {
+    render(
+      <FeedbackDialog
+        open
+        tenantId="tenant-1"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Rate 3 out of 5" }));
+
+    const stars = [1, 2, 3, 4, 5].map((value) =>
+      screen.getByRole("button", { name: `Rate ${value} out of 5` }).querySelector("svg"),
+    );
+
+    expect(stars[0]).toHaveClass("fill-amber-400");
+    expect(stars[1]).toHaveClass("fill-amber-400");
+    expect(stars[2]).toHaveClass("fill-amber-400");
+    expect(stars[3]).not.toHaveClass("fill-amber-400");
+    expect(stars[4]).not.toHaveClass("fill-amber-400");
+  });
+
   it("shows an error when submission fails", async () => {
     mocks.createFeedback.mockRejectedValue(
       new Error("Feedback service unavailable"),

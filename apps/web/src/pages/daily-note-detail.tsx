@@ -299,7 +299,7 @@ export default function DailyNoteDetailPage() {
         description="This note doesn't exist, or you don't have access to it."
         action={
           <Button asChild variant="outline">
-            <Link to="/daily-notes">Back to Daily Notes</Link>
+            <Link to="/daily-notes">Back to Notes</Link>
           </Button>
         }
       />

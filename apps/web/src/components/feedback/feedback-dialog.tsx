@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
+import { Star } from "lucide-react";
 
 import { useCreateFeedback } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -27,12 +29,14 @@ export function FeedbackDialog({
 
   const [message, setMessage] = useState("");
   const [rating, setRating] = useState<number | undefined>();
+  const [hoverRating, setHoverRating] = useState<number | undefined>();
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
     setMessage("");
     setRating(undefined);
+    setHoverRating(undefined);
     setSubmitted(false);
     setError(null);
   }
@@ -133,24 +137,35 @@ export function FeedbackDialog({
                 Rating <span className="text-muted-foreground">(optional)</span>
               </legend>
 
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <Button
-                    key={value}
-                    type="button"
-                    variant={rating === value ? "default" : "outline"}
-                    size="icon"
-                    aria-label={`Rate ${value} out of 5`}
-                    aria-pressed={rating === value}
-                    onClick={() =>
-                      setRating((current) =>
-                        current === value ? undefined : value,
-                      )
-                    }
-                  >
-                    {value}
-                  </Button>
-                ))}
+              <div
+                className="flex gap-1"
+                onMouseLeave={() => setHoverRating(undefined)}
+              >
+                {[1, 2, 3, 4, 5].map((value) => {
+                  const filled = value <= (hoverRating ?? rating ?? 0);
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-label={`Rate ${value} out of 5`}
+                      aria-pressed={rating === value}
+                      onMouseEnter={() => setHoverRating(value)}
+                      onClick={() =>
+                        setRating((current) =>
+                          current === value ? undefined : value,
+                        )
+                      }
+                      className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Star
+                        className={cn(
+                          "h-6 w-6",
+                          filled && "fill-amber-400 text-amber-500",
+                        )}
+                      />
+                    </button>
+                  );
+                })}
               </div>
             </fieldset>
 

@@ -182,6 +182,27 @@ describe('NotesService', () => {
       );
     });
 
+    it('passes the createdAt timestamp straight through to the response', async () => {
+      // Regression test: the notes table used to store this under a
+      // differently-named column ("note_date"), which the service never
+      // renamed — so the API response silently never had a createdAt field
+      // at all, even though every other entity exposes one.
+      repository.findById.mockResolvedValue({
+        id: 'note-1',
+        createdBy: 'user-1',
+        visibilityId: null,
+        createdAt: '2026-01-05T00:00:00.000Z',
+      });
+
+      const result = await service.findOne('tenant-1', 'note-1', 'user-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          createdAt: '2026-01-05T00:00:00.000Z',
+        }),
+      );
+    });
+
     it('returns the note when the caller is a note member', async () => {
       repository.findById.mockResolvedValue({
         id: 'note-1',

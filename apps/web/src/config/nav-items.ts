@@ -48,10 +48,10 @@ export const navGroups: NavGroup[] = [
     label: "Workspace",
     items: [
       { label: "Dashboard", to: "/", icon: LayoutDashboard, end: true },
-      { label: "Major Projects", to: "/projects", icon: FolderKanban },
+      { label: "Projects", to: "/projects", icon: FolderKanban },
       { label: "Papers", to: "/modules", icon: FileStack },
       { label: "Tasks", to: "/tasks", icon: ClipboardList },
-      { label: "Daily Notes", to: "/daily-notes", icon: NotebookPen },
+      { label: "Notes", to: "/daily-notes", icon: NotebookPen },
     ],
   },
   {

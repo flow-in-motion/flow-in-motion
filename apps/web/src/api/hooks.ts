@@ -538,10 +538,14 @@ export function useUpdateWorkspacePreferences(tenantId: string) {
     onError(_error, _patch, context) {
       queryClient.setQueryData(queryKey, context?.previous);
     },
-    onSuccess(preferences, patch) {
-      queryClient.setQueryData<WorkspacePreferences>(queryKey, (current) =>
-        mergePatch(current ?? preferences, patch),
-      );
+    onSuccess(preferences) {
+      // The server already returns the fully merged row — trust it as-is
+      // instead of re-deriving from whatever's in the cache right now. That
+      // client-side re-merge used to be able to overwrite a newer optimistic
+      // update (or the result of a still-in-flight later save) with a stale
+      // reconstruction, which is how a rapid sequence of dashboard-layout
+      // reorders could settle on the wrong order.
+      queryClient.setQueryData<WorkspacePreferences>(queryKey, preferences);
     },
   });
 }

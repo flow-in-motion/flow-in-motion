@@ -296,7 +296,7 @@ export default function ProjectsPage() {
         icon={FolderKanban}
         tone="blue"
         eyebrow="Workflows"
-        title="Major Projects"
+        title="Projects"
         description="Track research work by stage, dates, collaborators and outstanding tasks."
         actions={<Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>}
       />

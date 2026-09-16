@@ -271,4 +271,58 @@ describe("DashboardPage", () => {
     await waitFor(() => expect(updateDashboardLayout).toHaveBeenCalledTimes(1));
     expect(updateDashboardLayout.mock.calls[0]?.[0].hidden).toContain("task-health");
   });
+
+  it("debounces a burst of reorder clicks into a single save with the final order", async () => {
+    const updateDashboardLayout = vi.fn();
+    render(
+      <MemoryRouter>
+        <PreferencesContext.Provider
+          value={{
+            workspaceId: "workspace-1",
+            workspacePreferences: {
+              dashboardLayout: {
+                order: [
+                  "stalled-papers",
+                  "task-health",
+                  "priority-workload",
+                  "project-progress",
+                  "tasks",
+                  "pipeline",
+                  "conferences",
+                ],
+                hidden: [],
+              },
+            },
+            updateDashboardLayout,
+            updateTableColumns: vi.fn(),
+            updatePipelineHiddenStages: vi.fn(),
+          }}
+        >
+          <DashboardPage />
+        </PreferencesContext.Provider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Customise dashboard" }));
+
+    // Move "Stalled papers" (first row) down three times in quick succession —
+    // this used to fire one save request per click; each carried its own
+    // snapshot of the order, and an earlier request settling after a later
+    // one could stomp the final order back to an intermediate step.
+    const moveDown = screen.getByRole("button", { name: "Move Stalled papers down" });
+    fireEvent.click(moveDown);
+    fireEvent.click(moveDown);
+    fireEvent.click(moveDown);
+
+    await waitFor(() => expect(updateDashboardLayout).toHaveBeenCalledTimes(1));
+    expect(updateDashboardLayout.mock.calls[0]?.[0].order).toEqual([
+      "task-health",
+      "priority-workload",
+      "project-progress",
+      "stalled-papers",
+      "tasks",
+      "pipeline",
+      "conferences",
+    ]);
+  });
 });

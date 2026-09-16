@@ -285,6 +285,7 @@ export default function DashboardPage() {
   const hydratedWorkspace = useRef("");
   const lastSavedLayout = useRef("");
   const isHydratingLayout = useRef(false);
+  const saveLayoutTimeout = useRef<ReturnType<typeof setTimeout>>();
 
   const ownedProjects = useMemo(
     () => projects.filter(
@@ -371,8 +372,16 @@ export default function DashboardPage() {
     if (!preferences || hydratedWorkspace.current !== preferences.workspaceId) return;
     if (serialized === lastSavedLayout.current) return;
     lastSavedLayout.current = serialized;
-    preferences.updateDashboardLayout(layout);
+    // Debounced so a burst of reorder clicks (or a drag) sends one save for
+    // the final layout instead of one request per intermediate step — fewer
+    // concurrent requests means less chance of an older one settling last.
+    clearTimeout(saveLayoutTimeout.current);
+    saveLayoutTimeout.current = setTimeout(() => {
+      preferences.updateDashboardLayout(layout);
+    }, 500);
   }, [layout, preferences]);
+
+  useEffect(() => () => clearTimeout(saveLayoutTimeout.current), []);
 
   function toggleWidget(widgetId: DashboardWidgetId) {
     setLayout((current) => ({
