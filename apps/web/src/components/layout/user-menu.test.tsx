@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { UserMenu } from "./user-menu";
 import type { ReactNode } from "react";
 
-vi.mock("react-oidc-context", () => ({
+vi.mock("@/auth/auth-provider", () => ({
   useAuth: () => ({
     isAuthenticated: true,
     user: {

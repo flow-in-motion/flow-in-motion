@@ -15,7 +15,7 @@ describe('NoteInvitationsController', () => {
   let usersService: { findByExternalAuthId: jest.Mock };
   let notesRepository: { findById: jest.Mock };
 
-  const req = { user: { sub: 'cognito-sub' } } as any;
+  const req = { user: { sub: 'supabase-user' } } as any;
 
   beforeEach(() => {
     service = {

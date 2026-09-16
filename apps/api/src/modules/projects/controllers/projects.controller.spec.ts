@@ -36,7 +36,9 @@ describe('ProjectsController', () => {
     );
   });
 
-  const req = { user: { sub: 'cognito-sub-1', accessToken: 'token-1' } } as any;
+  const req = {
+    user: { sub: 'supabase-user-1', accessToken: 'token-1' },
+  } as any;
 
   describe('list', () => {
     it('resolves the caller and delegates to the service', async () => {
@@ -81,7 +83,7 @@ describe('ProjectsController', () => {
       const result = await controller.create('tenant-1', req, dto);
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-        'cognito-sub-1',
+        'supabase-user-1',
       );
       expect(projectsService.create).toHaveBeenCalledWith(
         'user-1',

@@ -1,8 +1,23 @@
-import { Building2, Check, ChevronsUpDown, CircleAlert, LogOut, Moon, Settings, Sun, MessageSquareText } from "lucide-react";
-import { useAuth } from "react-oidc-context";
+import {
+  Building2,
+  Check,
+  ChevronsUpDown,
+  CircleAlert,
+  LogOut,
+  Moon,
+  Settings,
+  Sun,
+  MessageSquareText,
+} from "lucide-react";
+import { useAuth } from "@/auth/auth-provider";
 import { Link } from "react-router-dom";
 
-import { useCurrentWorkspace, useMe, useSwitchWorkspace, useWorkspaces } from "@/api/hooks";
+import {
+  useCurrentWorkspace,
+  useMe,
+  useSwitchWorkspace,
+  useWorkspaces,
+} from "@/api/hooks";
 import { useSignOut } from "@/auth/sign-out";
 import { useAppearanceTheme } from "@/theme/appearance-theme";
 import { Avatar } from "@/components/ui/avatar";
@@ -38,7 +53,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
     return null;
   }
 
-  const displayName = me.data?.displayName ?? auth.user?.profile.email ?? "Account";
+  const displayName = me.data?.displayName ?? auth.user?.email ?? "Account";
   const workspaceName = workspace.data?.name ?? "Current workspace";
 
   return (
@@ -115,9 +130,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
               >
                 <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
 
-                <span className="flex-1 truncate">
-                  {option.name}
-                </span>
+                <span className="flex-1 truncate">{option.name}</span>
 
                 {isCurrent ? (
                   <Check className="h-4 w-4 shrink-0 text-primary" />
@@ -128,9 +141,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem
-            onSelect={() => setFeedbackOpen(true)}
-          >
+          <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>
             <MessageSquareText className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="flex-1">Feedback</span>
           </DropdownMenuItem>
@@ -163,9 +174,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
               <Moon className="h-4 w-4 shrink-0 text-muted-foreground" />
             )}
 
-            {appearance.theme === "dark"
-              ? "Use light theme"
-              : "Use dark theme"}
+            {appearance.theme === "dark" ? "Use light theme" : "Use dark theme"}
           </DropdownMenuItem>
 
           <DropdownMenuSeparator />

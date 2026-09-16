@@ -25,6 +25,16 @@ function loadEnv(filePath) {
 }
 
 const env = { ...loadEnv(path.join(root, '.env')), ...process.env };
+const sslMode = env.POSTGRES_SSL_MODE || 'require';
+const ssl =
+  sslMode === 'disable'
+    ? false
+    : sslMode === 'verify-full'
+      ? {
+          rejectUnauthorized: true,
+          ca: env.POSTGRES_SSL_CA?.replace(/\\n/g, '\n'),
+        }
+      : { rejectUnauthorized: false };
 const dryRun = process.argv.includes('--dry-run');
 const listWorkspaces = process.argv.includes('--list-workspaces');
 const dedupe = process.argv.includes('--dedupe');
@@ -36,7 +46,7 @@ const client = new Client({
   database: env.POSTGRES_DB,
   user: env.POSTGRES_RUNTIME_USER,
   password: env.POSTGRES_RUNTIME_PASSWORD,
-  ssl: env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  ssl,
 });
 
 const projectStagePool = [

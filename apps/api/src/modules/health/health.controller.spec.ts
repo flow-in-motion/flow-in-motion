@@ -1,42 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HealthCheckService, HttpHealthIndicator } from '@nestjs/terminus';
-import { ConfigService } from '@nestjs/config';
+import { HealthCheckService } from '@nestjs/terminus';
 import { HealthController } from './health.controller';
-
-// Mock the entire 'pg' module so no real DB connection is ever attempted
-jest.mock('pg', () => {
-  return {
-    Client: jest.fn(),
-  };
-});
-
-import { Client } from 'pg';
+import { DrizzleService } from '../../db/drizzle.service';
 
 describe('HealthController', () => {
   let controller: HealthController;
   let healthCheckService: HealthCheckService;
-  let httpHealthIndicator: HttpHealthIndicator;
-
-  const mockConfigService = {
-    getOrThrow: jest.fn((key: string) => {
-      const values: Record<string, string> = {
-        MINIO_ENDPOINT: 'http://localhost:9000',
-        POSTGRES_HOST: 'localhost',
-        POSTGRES_RUNTIME_USER: 'testuser',
-        POSTGRES_RUNTIME_PASSWORD: 'testpassword',
-      };
-      return values[key];
-    }),
-    get: jest.fn((key: string) => {
-      const values: Record<string, string> = {
-        POSTGRES_PORT: '5432',
-        POSTGRES_DB: 'testdb',
-      };
-      return values[key];
-    }),
-  };
+  let drizzle: { checkConnection: jest.Mock };
 
   beforeEach(async () => {
+    drizzle = { checkConnection: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
       providers: [
@@ -47,21 +20,14 @@ describe('HealthController', () => {
           },
         },
         {
-          provide: HttpHealthIndicator,
-          useValue: {
-            pingCheck: jest.fn(),
-          },
-        },
-        {
-          provide: ConfigService,
-          useValue: mockConfigService,
+          provide: DrizzleService,
+          useValue: drizzle,
         },
       ],
     }).compile();
 
     controller = module.get<HealthController>(HealthController);
     healthCheckService = module.get<HealthCheckService>(HealthCheckService);
-    httpHealthIndicator = module.get<HttpHealthIndicator>(HttpHealthIndicator);
   });
 
   afterEach(() => {
@@ -86,62 +52,36 @@ describe('HealthController', () => {
   });
 
   describe('checkReadiness', () => {
-    it('should call health.check with postgres and minio indicator functions', async () => {
+    it('should call health.check with the postgres indicator', async () => {
       const mockResult = {
         status: 'ok',
-        info: { postgres: { status: 'up' }, minio: { status: 'up' } },
+        info: { postgres: { status: 'up' } },
         error: {},
         details: {},
       };
       (healthCheckService.check as jest.Mock).mockImplementation(
         async (indicators: Array<() => Promise<any>>) => {
-          // execute the indicator functions so we exercise checkPostgres/pingCheck too
+          // Execute the indicator function so checkPostgres is exercised too.
           for (const indicator of indicators) {
             await indicator();
           }
           return mockResult;
         },
       );
-      (httpHealthIndicator.pingCheck as jest.Mock).mockResolvedValue({
-        minio: { status: 'up' },
-      });
-
-      // mock a successful Postgres connection for this test
-      const mockConnect = jest.fn().mockResolvedValue(undefined);
-      const mockQuery = jest.fn().mockResolvedValue(undefined);
-      const mockEnd = jest.fn().mockResolvedValue(undefined);
-      (Client as unknown as jest.Mock).mockImplementation(() => ({
-        connect: mockConnect,
-        query: mockQuery,
-        end: mockEnd,
-      }));
+      drizzle.checkConnection.mockResolvedValue(undefined);
 
       const result = await controller.checkReadiness();
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(healthCheckService.check).toHaveBeenCalledTimes(1);
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(httpHealthIndicator.pingCheck).toHaveBeenCalledWith(
-        'minio',
-        'http://localhost:9000/minio/health/live',
-      );
-      expect(mockConnect).toHaveBeenCalled();
-      expect(mockQuery).toHaveBeenCalledWith('SELECT 1');
-      expect(mockEnd).toHaveBeenCalled();
+      expect(drizzle.checkConnection).toHaveBeenCalledTimes(1);
       expect(result).toEqual(mockResult);
     });
   });
 
   describe('checkPostgres (private, via checkReadiness)', () => {
     it('should return status up when connection and query succeed', async () => {
-      const mockConnect = jest.fn().mockResolvedValue(undefined);
-      const mockQuery = jest.fn().mockResolvedValue(undefined);
-      const mockEnd = jest.fn().mockResolvedValue(undefined);
-      (Client as unknown as jest.Mock).mockImplementation(() => ({
-        connect: mockConnect,
-        query: mockQuery,
-        end: mockEnd,
-      }));
+      drizzle.checkConnection.mockResolvedValue(undefined);
 
       (healthCheckService.check as jest.Mock).mockImplementation(
         async (indicators: Array<() => Promise<any>>) => {
@@ -149,25 +89,15 @@ describe('HealthController', () => {
           return { status: 'ok', results };
         },
       );
-      (httpHealthIndicator.pingCheck as jest.Mock).mockResolvedValue({
-        minio: { status: 'up' },
-      });
-
       const result: any = await controller.checkReadiness();
 
       expect(result.results[0]).toEqual({ postgres: { status: 'up' } });
     });
 
     it('should throw an error when the Postgres connection fails', async () => {
-      const mockConnect = jest
-        .fn()
-        .mockRejectedValue(new Error('connection refused'));
-      const mockEnd = jest.fn().mockResolvedValue(undefined);
-      (Client as unknown as jest.Mock).mockImplementation(() => ({
-        connect: mockConnect,
-        query: jest.fn(),
-        end: mockEnd,
-      }));
+      drizzle.checkConnection.mockRejectedValue(
+        new Error('connection refused'),
+      );
 
       (healthCheckService.check as jest.Mock).mockImplementation(
         async (indicators: Array<() => Promise<any>>) => {
@@ -180,7 +110,7 @@ describe('HealthController', () => {
       await expect(controller.checkReadiness()).rejects.toThrow(
         'Postgres check failed: connection refused',
       );
-      expect(mockEnd).toHaveBeenCalled();
+      expect(drizzle.checkConnection).toHaveBeenCalledTimes(1);
     });
   });
 });

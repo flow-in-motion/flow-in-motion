@@ -13,16 +13,16 @@ import { DbModule } from '../../db/db.module';
 const testEnv = {
   APP_URL: 'http://localhost:3000',
   POSTGRES_HOST: 'localhost',
+  POSTGRES_PORT: '5432',
   POSTGRES_DB: 'test',
+  POSTGRES_SSL_MODE: 'disable',
   POSTGRES_MIGRATION_USER: 'test',
   POSTGRES_MIGRATION_PASSWORD: 'test',
   POSTGRES_RUNTIME_USER: 'test',
   POSTGRES_RUNTIME_PASSWORD: 'test',
-  MINIO_ENDPOINT: 'http://localhost:9000',
-  COGNITO_REGION: 'us-east-1',
-  COGNITO_USER_POOL_ID: 'test-pool',
-  COGNITO_CLIENT_ID: 'test-client',
-  COGNITO_DOMAIN: 'example.com',
+  SUPABASE_URL: 'https://test-project.supabase.co',
+  SUPABASE_JWT_AUDIENCE: 'authenticated',
+  AWS_REGION: 'ap-southeast-2',
 };
 
 // Regression check: this whole module graph (including the newly-added

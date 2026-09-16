@@ -37,7 +37,7 @@ describe('MyModulesController', () => {
   });
 
   function req() {
-    return { user: { sub: 'cognito-sub-1' } } as never;
+    return { user: { sub: 'supabase-user-1' } } as never;
   }
 
   it('list() delegates with the caller and pagination parameters', async () => {
@@ -56,7 +56,7 @@ describe('MyModulesController', () => {
     const result = await controller.list(req(), { page: 2 });
 
     expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-      'cognito-sub-1',
+      'supabase-user-1',
     );
 
     expect(configService.get).toHaveBeenCalledWith('PAGE_SIZE', 20);

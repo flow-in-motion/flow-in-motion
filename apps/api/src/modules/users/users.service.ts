@@ -1,33 +1,18 @@
-import { HttpService } from '@nestjs/axios';
 import {
   ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { users } from '@research-tracker/migrations';
-import { and, eq, ilike, inArray, or, sql } from 'drizzle-orm';
-import { firstValueFrom } from 'rxjs';
+import { and, eq, ilike, inArray, or } from 'drizzle-orm';
 import { DrizzleService } from '../../db/drizzle.service';
+import type { AuthenticatedPrincipal } from '../auth/jwt.strategy';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
-
-interface CognitoUserInfo {
-  sub: string;
-  email?: string;
-  email_verified?: string | boolean;
-  name?: string;
-  preferred_username?: string;
-  username?: string;
-}
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private readonly drizzle: DrizzleService,
-    private readonly http: HttpService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly drizzle: DrizzleService) {}
 
   /**
    * Search users by name or email, across the whole platform (not scoped to
@@ -85,10 +70,8 @@ export class UsersService {
     return existing;
   }
 
-  async findOrProvisionFromAccessToken(
-    externalAuthId: string,
-    accessToken: string,
-  ) {
+  async findOrProvisionFromPrincipal(principal: AuthenticatedPrincipal) {
+    const externalAuthId = principal.sub;
     const [existing] = await this.drizzle.db
       .select()
       .from(users)
@@ -99,26 +82,15 @@ export class UsersService {
       return existing;
     }
 
-    const profile = await this.fetchCognitoUserInfo(accessToken);
-    if (profile.sub !== externalAuthId) {
-      throw new UnauthorizedException(
-        'Cognito profile does not match the access token',
-      );
-    }
-
-    const email = profile.email?.trim().toLowerCase();
+    const email = principal.email?.trim().toLowerCase();
     if (!email) {
       throw new UnauthorizedException(
-        'Cognito did not return an email. Ensure the app client requests the email scope.',
+        'Supabase access token does not contain an email claim',
       );
     }
 
     const displayName: string =
-      profile.name?.trim() ||
-      profile.preferred_username?.trim() ||
-      profile.username?.trim() ||
-      email.split('@')[0] ||
-      email;
+      principal.displayName?.trim() || email.split('@')[0] || email;
 
     if (existing) {
       const [updated] = await this.drizzle.db
@@ -156,11 +128,6 @@ export class UsersService {
         .returning();
       return linked;
     }
-
-    const debugCheck = await this.drizzle.db.execute(
-      sql`SELECT current_setting('app.current_user_id', true) as val, pg_backend_pid() as pid`,
-    );
-    console.log('DEBUG - users insert, session var:', debugCheck.rows[0]);
 
     const [created] = await this.drizzle.db
       .insert(users)
@@ -200,23 +167,5 @@ export class UsersService {
     }
 
     return updated;
-  }
-
-  private async fetchCognitoUserInfo(accessToken: string) {
-    const domain = this.configService.getOrThrow<string>('COGNITO_DOMAIN');
-
-    try {
-      const response = await firstValueFrom(
-        this.http.get<CognitoUserInfo>(`https://${domain}/oauth2/userInfo`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-          timeout: 5000,
-        }),
-      );
-      return response.data;
-    } catch {
-      throw new UnauthorizedException(
-        'Unable to load the authenticated Cognito profile',
-      );
-    }
   }
 }

@@ -46,7 +46,7 @@ describe('CalendarEventsController', () => {
 
   const req = {
     user: {
-      sub: 'cognito-sub-1',
+      sub: 'supabase-user-1',
       accessToken: 'token-1',
     },
   } as any;
@@ -80,7 +80,7 @@ describe('CalendarEventsController', () => {
       const result = await controller.create('tenant-1', req, dto);
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-        'cognito-sub-1',
+        'supabase-user-1',
       );
       expect(calendarEventsService.create).toHaveBeenCalledWith(
         'tenant-1',

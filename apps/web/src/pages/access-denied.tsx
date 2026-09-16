@@ -1,7 +1,7 @@
 import { ShieldX } from "lucide-react";
-import { useAuth } from "react-oidc-context";
 import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/auth/auth-provider";
 import { AuthStateFrame } from "@/components/auth/auth-state-frame";
 import { Button } from "@/components/ui/button";
 
@@ -15,7 +15,7 @@ export default function AccessDeniedPage() {
       return;
     }
 
-    void auth.signinRedirect({ state: { returnTo: "/" } });
+    navigate("/sign-in", { replace: true, state: { returnTo: "/" } });
   }
 
   return (
@@ -27,7 +27,8 @@ export default function AccessDeniedPage() {
       tone="danger"
     >
       <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-6 text-muted-foreground">
-        If you think you should have access, ask the workspace owner to review your membership and project permissions.
+        If you think you should have access, ask the workspace owner to review
+        your membership and project permissions.
       </div>
       <Button className="mt-5 w-full" onClick={continueFromDenied}>
         {auth.isAuthenticated ? "Return to Workspace" : "Go to Sign In"}

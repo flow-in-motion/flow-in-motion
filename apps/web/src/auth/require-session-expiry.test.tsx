@@ -4,11 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { RequireAuth } from "@/auth/require-auth";
 
-vi.mock("react-oidc-context", () => ({
+vi.mock("@/auth/auth-provider", () => ({
   useAuth: () => ({
     isAuthenticated: false,
     isLoading: false,
-    user: { expired: true },
+    isSessionExpired: true,
   }),
 }));
 
@@ -22,7 +22,10 @@ describe("RequireAuth session expiry", () => {
     render(
       <MemoryRouter initialEntries={["/protected?view=recent"]}>
         <Routes>
-          <Route path="session-expired" element={<SessionExpiredDestination />} />
+          <Route
+            path="session-expired"
+            element={<SessionExpiredDestination />}
+          />
           <Route element={<RequireAuth />}>
             <Route path="protected" element={<p>Protected content</p>} />
           </Route>
@@ -31,7 +34,9 @@ describe("RequireAuth session expiry", () => {
     );
 
     expect(
-      screen.getByText("Session expired destination: ?returnTo=%2Fprotected%3Fview%3Drecent"),
+      screen.getByText(
+        "Session expired destination: ?returnTo=%2Fprotected%3Fview%3Drecent",
+      ),
     ).toBeInTheDocument();
   });
 });

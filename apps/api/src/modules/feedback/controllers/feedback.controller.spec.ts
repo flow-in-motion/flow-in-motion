@@ -40,7 +40,7 @@ describe('FeedbackController', () => {
 
   const req = {
     user: {
-      sub: 'cognito-sub-1',
+      sub: 'supabase-user-1',
       accessToken: 'token-1',
     },
   } as any;
@@ -62,7 +62,7 @@ describe('FeedbackController', () => {
       const result = await controller.list('tenant-1', req, { page: 2 });
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-        'cognito-sub-1',
+        'supabase-user-1',
       );
 
       expect(configService.get).toHaveBeenCalledWith('PAGE_SIZE', 20);

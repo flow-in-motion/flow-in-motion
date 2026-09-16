@@ -14,7 +14,7 @@ describe('WorkspacesController', () => {
     switchCurrentWorkspace: jest.Mock;
     deleteWorkspace: jest.Mock;
   };
-  let usersService: { findOrProvisionFromAccessToken: jest.Mock };
+  let usersService: { findOrProvisionFromPrincipal: jest.Mock };
   let configService: {
     get: jest.Mock;
   };
@@ -28,7 +28,7 @@ describe('WorkspacesController', () => {
       deleteWorkspace: jest.fn(),
     };
     usersService = {
-      findOrProvisionFromAccessToken: jest.fn(),
+      findOrProvisionFromPrincipal: jest.fn(),
     };
     configService = {
       get: jest.fn().mockReturnValue(20),
@@ -57,7 +57,7 @@ describe('WorkspacesController', () => {
 
   describe('list', () => {
     it('lists paginated workspaces for the provisioned caller', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-1',
       });
 
@@ -75,16 +75,15 @@ describe('WorkspacesController', () => {
 
       const req = {
         user: {
-          sub: 'cognito-sub-1',
+          sub: 'supabase-user-1',
           accessToken: 'token-1',
         },
       } as any;
 
       const result = await controller.list(req, { page: 2 });
 
-      expect(usersService.findOrProvisionFromAccessToken).toHaveBeenCalledWith(
-        'cognito-sub-1',
-        'token-1',
+      expect(usersService.findOrProvisionFromPrincipal).toHaveBeenCalledWith(
+        req.user,
       );
 
       expect(configService.get).toHaveBeenCalledWith('PAGE_SIZE', 20);
@@ -101,7 +100,7 @@ describe('WorkspacesController', () => {
 
   describe('create', () => {
     it('resolves the caller and delegates to the service', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-1',
       });
       workspacesService.createWorkspace.mockResolvedValue({
@@ -110,15 +109,14 @@ describe('WorkspacesController', () => {
       });
 
       const req = {
-        user: { sub: 'cognito-sub-1', accessToken: 'token-1' },
+        user: { sub: 'supabase-user-1', accessToken: 'token-1' },
       } as any;
       const dto = { name: 'New Co' };
 
       const result = await controller.create(req, dto);
 
-      expect(usersService.findOrProvisionFromAccessToken).toHaveBeenCalledWith(
-        'cognito-sub-1',
-        'token-1',
+      expect(usersService.findOrProvisionFromPrincipal).toHaveBeenCalledWith(
+        req.user,
       );
       expect(workspacesService.createWorkspace).toHaveBeenCalledWith(
         'user-1',
@@ -128,10 +126,10 @@ describe('WorkspacesController', () => {
     });
 
     it('throws NotFoundException if the user could not be found or provisioned', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue(undefined);
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue(undefined);
 
       const req = {
-        user: { sub: 'cognito-sub-2', accessToken: 'token-2' },
+        user: { sub: 'supabase-user-2', accessToken: 'token-2' },
       } as any;
       const dto = { name: 'New Co' };
 
@@ -144,7 +142,7 @@ describe('WorkspacesController', () => {
 
   describe('getCurrent', () => {
     it('resolves the caller and delegates to the service', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-1',
       });
       workspacesService.getCurrentWorkspace.mockResolvedValue({
@@ -152,7 +150,7 @@ describe('WorkspacesController', () => {
       });
 
       const req = {
-        user: { sub: 'cognito-sub-1', accessToken: 'token-1' },
+        user: { sub: 'supabase-user-1', accessToken: 'token-1' },
       } as any;
 
       const result = await controller.getCurrent(req);
@@ -164,10 +162,10 @@ describe('WorkspacesController', () => {
     });
 
     it('throws NotFoundException if the user could not be found or provisioned', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue(undefined);
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue(undefined);
 
       const req = {
-        user: { sub: 'cognito-sub-2', accessToken: 'token-2' },
+        user: { sub: 'supabase-user-2', accessToken: 'token-2' },
       } as any;
 
       await expect(controller.getCurrent(req)).rejects.toThrow(
@@ -179,14 +177,14 @@ describe('WorkspacesController', () => {
 
   describe('switchCurrent', () => {
     it('switches to an available workspace for the provisioned caller', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-1',
       });
       workspacesService.switchCurrentWorkspace.mockResolvedValue({
         id: 'tenant-2',
       });
       const req = {
-        user: { sub: 'cognito-sub-1', accessToken: 'token-1' },
+        user: { sub: 'supabase-user-1', accessToken: 'token-1' },
       } as any;
 
       await expect(
@@ -201,13 +199,13 @@ describe('WorkspacesController', () => {
 
   describe('remove', () => {
     it('resolves the caller and delegates to the service', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-1',
       });
       workspacesService.deleteWorkspace.mockResolvedValue({ id: 'tenant-1' });
 
       const req = {
-        user: { sub: 'cognito-sub-1', accessToken: 'token-1' },
+        user: { sub: 'supabase-user-1', accessToken: 'token-1' },
       } as any;
 
       await expect(controller.remove(req, 'tenant-1')).resolves.toEqual({
@@ -220,10 +218,10 @@ describe('WorkspacesController', () => {
     });
 
     it('throws NotFoundException if the user could not be found or provisioned', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue(undefined);
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue(undefined);
 
       const req = {
-        user: { sub: 'cognito-sub-2', accessToken: 'token-2' },
+        user: { sub: 'supabase-user-2', accessToken: 'token-2' },
       } as any;
 
       await expect(controller.remove(req, 'tenant-1')).rejects.toThrow(

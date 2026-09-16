@@ -6,6 +6,7 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Request } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Observable, from } from 'rxjs';
 import * as schema from '@research-tracker/migrations';
@@ -23,9 +24,18 @@ export class RequestContextInterceptor implements NestInterceptor {
   constructor(
     private readonly drizzle: DrizzleService,
     private readonly usersService: UsersService,
+    private readonly configService: ConfigService,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if (
+      req.originalUrl === '/health' ||
+      req.originalUrl.startsWith('/health/')
+    ) {
+      return next.handle();
+    }
+
     return from(this.handle(context, next));
   }
 
@@ -52,6 +62,12 @@ export class RequestContextInterceptor implements NestInterceptor {
 
     try {
       await client.query('BEGIN');
+      await client.query('SELECT set_config($1, $2, true)', [
+        'statement_timeout',
+        String(
+          this.configService.get<number>('POSTGRES_QUERY_TIMEOUT_MS', 10_000),
+        ),
+      ]);
       if (tenantId) {
         await client.query('SELECT set_config($1, $2, true)', [
           'app.current_tenant_id',

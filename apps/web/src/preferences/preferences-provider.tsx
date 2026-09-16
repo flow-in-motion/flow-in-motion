@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { useAuth } from "react-oidc-context";
+import { useAuth } from "@/auth/auth-provider";
 
 import {
   useAccountPreferences,

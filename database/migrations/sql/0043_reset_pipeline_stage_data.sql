@@ -3,26 +3,8 @@
 -- per-tenant/per-module custom stage pool to one fixed, 15-value catalog
 -- that a workspace can only reorder and hide/show (never rename or add to).
 --
--- This is intentionally destructive to existing pipeline-stage data (dev/test
--- only, per product decision) and idempotent so it's safe to re-run.
-
--- 1. Detach papers from their current stage before the old stage rows are
---    deleted, so the delete below doesn't hit an FK violation.
-UPDATE "modules" SET pipeline_stage_id = NULL;
-
--- 2. The project pipeline is gone entirely — remove every row in that
---    category, at any scope (global defaults, tenant pool, or the
---    now-dropped per-project custom rows).
-DELETE FROM "enum" WHERE category = 'project_pipeline_stage';
-
--- 3. Wipe the old module_pipeline_stage rows at every scope (global
---    defaults, tenant customizations, and any leftover per-module custom
---    rows) so the new fixed 15-value catalog is the only thing left.
-DELETE FROM "enum" WHERE category = 'module_pipeline_stage';
-
--- 4. Seed the new fixed 15-value global catalog (tenant/project/module all
---    NULL). These rows are never edited directly — a tenant that reorders or
---    hides a stage gets its own copy (tenant_id set) created on first write.
+-- Historical reset/delete operations are intentionally omitted for the new
+-- empty deployment. Seed only the final fixed 15-value global catalog.
 INSERT INTO "enum" (category, value, sort_order, hidden)
 SELECT defaults.category, defaults.value, defaults.sort_order, false
 FROM (VALUES
@@ -51,16 +33,3 @@ WHERE NOT EXISTS (
     AND existing.category = defaults.category
     AND existing.value = defaults.value
 );
-
--- 5. Repoint every existing paper to the first stage so dev/test data isn't
---    left stageless after step 1.
-UPDATE "modules"
-SET pipeline_stage_id = (
-  SELECT id FROM "enum"
-  WHERE category = 'module_pipeline_stage'
-    AND value = 'Concept, Ideation'
-    AND tenant_id IS NULL
-    AND project_id IS NULL
-    AND module_id IS NULL
-)
-WHERE pipeline_stage_id IS NULL;

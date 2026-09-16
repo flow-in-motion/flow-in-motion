@@ -1,5 +1,7 @@
 # Temporary Dev PostgreSQL on AWS RDS
 
+> **Superseded:** the current deployment plan uses a fresh Supabase database. Do not create this RDS instance for the Supabase deployment.
+
 A throwaway RDS PostgreSQL instance for development, replacing the local `docker-compose` Postgres. Not for production data — deleted when development is complete (step 9).
 
 **Recommended:** Amazon RDS for PostgreSQL, `db.t4g.micro`, single-AZ, 20GB gp3 storage, in `ap-southeast-2` (same region as the existing Cognito setup). Free if your AWS account is inside its Free Tier window (check **Billing → Free Tier**); otherwise ~$12-15/month.

@@ -11,7 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const workspaceSchema = z.object({
-  name: z.string().trim().min(2, "Use at least 2 characters.").max(100, "Use 100 characters or fewer."),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Use at least 2 characters.")
+    .max(100, "Use 100 characters or fewer."),
 });
 
 type WorkspaceForm = z.infer<typeof workspaceSchema>;
@@ -19,7 +23,7 @@ type WorkspaceForm = z.infer<typeof workspaceSchema>;
 const onboardingSteps = [
   {
     title: "Account secured",
-    description: "Your Cognito account is ready.",
+    description: "Your Supabase account is ready.",
     icon: ShieldCheck,
     complete: true,
   },
@@ -65,8 +69,8 @@ export default function WorkspaceOnboardingPage() {
             Set up a focused home for your research.
           </Heading>
           <p className="mt-4 max-w-md text-base leading-7 text-muted-foreground">
-            Your workspace keeps your projects, tasks, and notes together in one place, with clear
-            ownership boundaries.
+            Your workspace keeps your projects, tasks, and notes together in one
+            place, with clear ownership boundaries.
           </p>
 
           <ol className="mt-9 grid gap-5">
@@ -82,11 +86,17 @@ export default function WorkspaceOnboardingPage() {
                         : "bg-background text-muted-foreground"
                     }`}
                   >
-                    {step.complete ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                    {step.complete ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Icon className="h-4 w-4" />
+                    )}
                   </span>
                   <div className="pt-0.5">
                     <p className="text-sm font-semibold">{step.title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {step.description}
+                    </p>
                   </div>
                 </li>
               );
@@ -104,10 +114,16 @@ export default function WorkspaceOnboardingPage() {
                 Your workspace is ready
               </Heading>
               <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-                <span className="font-semibold text-foreground">{createWorkspace.data.name}</span> has
-                been set up. You can now begin adding projects, tasks, and notes.
+                <span className="font-semibold text-foreground">
+                  {createWorkspace.data.name}
+                </span>{" "}
+                has been set up. You can now begin adding projects, tasks, and
+                notes.
               </p>
-              <Button className="mt-7 min-w-44" onClick={() => navigate("/", { replace: true })}>
+              <Button
+                className="mt-7 min-w-44"
+                onClick={() => navigate("/", { replace: true })}
+              >
                 Open Workspace
               </Button>
             </div>
@@ -121,13 +137,20 @@ export default function WorkspaceOnboardingPage() {
                   Create your workspace
                 </Heading>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  These details identify your workspace to you and future collaborators.
+                  These details identify your workspace to you and future
+                  collaborators.
                 </p>
               </div>
 
-              <form onSubmit={form.handleSubmit(submit)} className="mt-6 grid gap-5">
+              <form
+                onSubmit={form.handleSubmit(submit)}
+                className="mt-6 grid gap-5"
+              >
                 <div className="grid gap-2">
-                  <label htmlFor="onboarding-workspace-name" className="text-sm font-medium">
+                  <label
+                    htmlFor="onboarding-workspace-name"
+                    className="text-sm font-medium"
+                  >
                     Workspace name <span className="text-destructive">*</span>
                   </label>
                   <Input
@@ -149,10 +172,13 @@ export default function WorkspaceOnboardingPage() {
                   <div className="flex items-start gap-3">
                     <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                     <div>
-                      <p className="text-sm font-semibold">You will be the workspace owner</p>
+                      <p className="text-sm font-semibold">
+                        You will be the workspace owner
+                      </p>
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Each workspace has a single owner. You can still share individual projects,
-                        tasks, and notes with other people separately.
+                        Each workspace has a single owner. You can still share
+                        individual projects, tasks, and notes with other people
+                        separately.
                       </p>
                     </div>
                   </div>
@@ -163,8 +189,15 @@ export default function WorkspaceOnboardingPage() {
                     {createWorkspace.error.message}
                   </p>
                 ) : null}
-                <Button type="submit" size="lg" className="mt-1 w-full" disabled={createWorkspace.isPending}>
-                  {createWorkspace.isPending ? "Creating Workspace…" : "Create Workspace"}
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="mt-1 w-full"
+                  disabled={createWorkspace.isPending}
+                >
+                  {createWorkspace.isPending
+                    ? "Creating Workspace…"
+                    : "Create Workspace"}
                 </Button>
               </form>
             </>

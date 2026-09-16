@@ -39,17 +39,16 @@ class AuthTestController {
   getProtectedResource(@Req() request: AuthenticatedRequest) {
     return {
       sub: request.user.sub,
-      username: request.user.username,
+      email: request.user.email,
+      displayName: request.user.displayName,
     };
   }
 }
 
-describe('JwtAuthGuard with Cognito access tokens', () => {
-  const region = 'ap-southeast-2';
-  const userPoolId = 'ap-southeast-2_testPool';
-  const clientId = 'test-client-id';
-  const issuer =
-    'https://cognito-idp.' + region + '.amazonaws.com/' + userPoolId;
+describe('JwtAuthGuard with Supabase access tokens', () => {
+  const supabaseUrl = 'https://test-project.supabase.co';
+  const issuer = `${supabaseUrl}/auth/v1`;
+  const audience = 'authenticated';
 
   let app: INestApplication<App>;
   let privateKey = '';
@@ -71,11 +70,12 @@ describe('JwtAuthGuard with Cognito access tokens', () => {
     });
 
     const payload = encodeSegment({
-      sub: 'cognito-user-123',
-      username: 'test-user',
+      sub: 'supabase-user-123',
+      email: 'test@example.com',
+      user_metadata: { full_name: 'Test User' },
       iss: issuer,
-      token_use: 'access',
-      client_id: clientId,
+      aud: audience,
+      role: 'authenticated',
       iat: now,
       exp: now + 300,
       ...overrides,
@@ -109,9 +109,8 @@ describe('JwtAuthGuard with Cognito access tokens', () => {
     privateKey = keyPair.privateKey;
 
     const configValues: Record<string, string> = {
-      COGNITO_REGION: region,
-      COGNITO_USER_POOL_ID: userPoolId,
-      COGNITO_CLIENT_ID: clientId,
+      SUPABASE_URL: supabaseUrl,
+      SUPABASE_JWT_AUDIENCE: audience,
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -123,6 +122,9 @@ describe('JwtAuthGuard with Cognito access tokens', () => {
         {
           provide: ConfigService,
           useValue: {
+            get: jest.fn(
+              (key: string, fallback?: string) => configValues[key] ?? fallback,
+            ),
             getOrThrow: jest.fn((key: string) => {
               const value = configValues[key];
 
@@ -145,14 +147,15 @@ describe('JwtAuthGuard with Cognito access tokens', () => {
     await app.close();
   });
 
-  it('accepts a valid Cognito access token', async () => {
+  it('accepts a valid Supabase access token', async () => {
     await request(app.getHttpServer())
       .get('/auth-test')
       .set('Authorization', 'Bearer ' + createToken())
       .expect(200)
       .expect({
-        sub: 'cognito-user-123',
-        username: 'test-user',
+        sub: 'supabase-user-123',
+        email: 'test@example.com',
+        displayName: 'Test User',
       });
   });
 
@@ -167,7 +170,7 @@ describe('JwtAuthGuard with Cognito access tokens', () => {
         'Authorization',
         'Bearer ' +
           createToken({
-            iss: 'https://cognito-idp.ap-southeast-2.amazonaws.com/wrong-pool',
+            iss: 'https://wrong-project.supabase.co/auth/v1',
           }),
       )
       .expect(401);
@@ -195,20 +198,17 @@ describe('JwtAuthGuard with Cognito access tokens', () => {
       .expect(401);
   });
 
-  it('rejects an ID token', async () => {
+  it('rejects a token issued for a different audience', async () => {
     await request(app.getHttpServer())
       .get('/auth-test')
-      .set('Authorization', 'Bearer ' + createToken({ token_use: 'id' }))
+      .set('Authorization', 'Bearer ' + createToken({ aud: 'wrong-audience' }))
       .expect(401);
   });
 
-  it('rejects a token issued for a different client', async () => {
+  it('rejects a token without a subject claim', async () => {
     await request(app.getHttpServer())
       .get('/auth-test')
-      .set(
-        'Authorization',
-        'Bearer ' + createToken({ client_id: 'wrong-client-id' }),
-      )
+      .set('Authorization', 'Bearer ' + createToken({ sub: undefined }))
       .expect(401);
   });
 

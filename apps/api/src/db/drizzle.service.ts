@@ -1,40 +1,36 @@
 // apps/api/src/db/drizzle.service.ts
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as schema from '@research-tracker/migrations';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, PoolClient } from 'pg';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { getRequestContext } from './request-context';
+import { createPostgresPoolConfig } from './postgres-pool.config';
 
 @Injectable()
 export class DrizzleService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(DrizzleService.name);
   private pool!: Pool;
   private plainDb!: NodePgDatabase<typeof schema>;
 
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
-    this.pool = new Pool({
-      host: this.configService.getOrThrow<string>('POSTGRES_HOST'),
-      port: this.configService.getOrThrow<number>('POSTGRES_PORT'),
-      user: this.configService.getOrThrow<string>('POSTGRES_RUNTIME_USER'),
-      password: this.configService.getOrThrow<string>(
-        'POSTGRES_RUNTIME_PASSWORD',
-      ),
-      database: this.configService.getOrThrow<string>('POSTGRES_DB'),
-      ssl: this.configService.get<boolean>('POSTGRES_SSL', true)
-        ? {
-            rejectUnauthorized: true,
-            ca: readFileSync(
-              join(__dirname, '../../certs/rds-ca-bundle.pem'),
-              'utf-8',
-            ),
-          }
-        : false,
+    this.pool = new Pool(createPostgresPoolConfig(this.configService));
+    this.pool.on('error', (error) => {
+      this.logger.warn(
+        `Discarding an idle Postgres connection: ${error.message}`,
+      );
     });
 
+    // node-postgres uses server-side prepared statements only for explicitly
+    // named queries. The application and Drizzle calls intentionally use
+    // unnamed queries, which are compatible with transaction pooling.
     this.plainDb = drizzle(this.pool, { schema });
   }
 
@@ -45,6 +41,10 @@ export class DrizzleService implements OnModuleInit, OnModuleDestroy {
 
   async getClient(): Promise<PoolClient> {
     return this.pool.connect();
+  }
+
+  async checkConnection(): Promise<void> {
+    await this.pool.query('SELECT 1');
   }
 
   async onModuleDestroy() {

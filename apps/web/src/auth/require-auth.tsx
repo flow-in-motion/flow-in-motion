@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "react-oidc-context";
+import { useAuth } from "@/auth/auth-provider";
 
 /**
  * Layout route: renders the protected subtree only when signed in.
@@ -19,7 +19,7 @@ export function RequireAuth() {
     );
   }
 
-  if (auth.user?.expired) {
+  if (auth.isSessionExpired) {
     return (
       <Navigate
         to={`/session-expired?returnTo=${encodeURIComponent(returnTo)}`}

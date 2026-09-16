@@ -9,12 +9,12 @@ describe('MyInvitationsController', () => {
   let controller: MyInvitationsController;
   let projectInvitations: { listForEmailWithTitles: jest.Mock };
   let moduleInvitations: { listForEmailWithTitles: jest.Mock };
-  let usersService: { findOrProvisionFromAccessToken: jest.Mock };
+  let usersService: { findOrProvisionFromPrincipal: jest.Mock };
 
   beforeEach(async () => {
     projectInvitations = { listForEmailWithTitles: jest.fn() };
     moduleInvitations = { listForEmailWithTitles: jest.fn() };
-    usersService = { findOrProvisionFromAccessToken: jest.fn() };
+    usersService = { findOrProvisionFromPrincipal: jest.fn() };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [MyInvitationsController],
@@ -31,7 +31,7 @@ describe('MyInvitationsController', () => {
   });
 
   it('provisions a brand-new user from the access token before listing invitations', async () => {
-    usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+    usersService.findOrProvisionFromPrincipal.mockResolvedValue({
       id: 'new-user-id',
       email: 'newcomer@example.com',
     });
@@ -41,14 +41,13 @@ describe('MyInvitationsController', () => {
     moduleInvitations.listForEmailWithTitles.mockResolvedValue([]);
 
     const req = {
-      user: { sub: 'cognito-sub-new', accessToken: 'access-token-new' },
+      user: { sub: 'supabase-user-new', accessToken: 'access-token-new' },
     } as any;
 
     const result = await controller.list(req);
 
-    expect(usersService.findOrProvisionFromAccessToken).toHaveBeenCalledWith(
-      'cognito-sub-new',
-      'access-token-new',
+    expect(usersService.findOrProvisionFromPrincipal).toHaveBeenCalledWith(
+      req.user,
     );
     expect(projectInvitations.listForEmailWithTitles).toHaveBeenCalledWith(
       'newcomer@example.com',
@@ -60,10 +59,10 @@ describe('MyInvitationsController', () => {
   });
 
   it('throws NotFoundException when the user could not be found or provisioned', async () => {
-    usersService.findOrProvisionFromAccessToken.mockResolvedValue(undefined);
+    usersService.findOrProvisionFromPrincipal.mockResolvedValue(undefined);
 
     const req = {
-      user: { sub: 'cognito-sub', accessToken: 'access-token' },
+      user: { sub: 'supabase-user', accessToken: 'access-token' },
     } as any;
 
     await expect(controller.list(req)).rejects.toThrow(NotFoundException);

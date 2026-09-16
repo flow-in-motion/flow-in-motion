@@ -40,7 +40,7 @@ describe('NotesController', () => {
   });
 
   const req = {
-    user: { sub: 'cognito-sub-1', accessToken: 'token-1' },
+    user: { sub: 'supabase-user-1', accessToken: 'token-1' },
   } as any;
 
   describe('list', () => {
@@ -67,7 +67,7 @@ describe('NotesController', () => {
       });
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-        'cognito-sub-1',
+        'supabase-user-1',
       );
 
       expect(configService.get).toHaveBeenCalledWith('PAGE_SIZE', 20);
@@ -110,7 +110,7 @@ describe('NotesController', () => {
       const result = await controller.create('tenant-1', req, dto);
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-        'cognito-sub-1',
+        'supabase-user-1',
       );
       expect(notesService.create).toHaveBeenCalledWith(
         'tenant-1',

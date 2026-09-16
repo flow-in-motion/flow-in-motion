@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Clock3 } from "lucide-react";
-import { useAuth } from "react-oidc-context";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
+import { useAuth } from "@/auth/auth-provider";
 import { AuthStateFrame } from "@/components/auth/auth-state-frame";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,7 @@ function safeReturnTo(value: string | null): string {
 
 export default function SessionExpiredPage() {
   const auth = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isRedirecting, setIsRedirecting] = useState(false);
   const returnTo = safeReturnTo(searchParams.get("returnTo"));
@@ -19,8 +20,8 @@ export default function SessionExpiredPage() {
   async function signInAgain() {
     setIsRedirecting(true);
     try {
-      await auth.removeUser();
-      await auth.signinRedirect({ state: { returnTo } });
+      await auth.signOut();
+      navigate("/sign-in", { replace: true, state: { returnTo } });
     } catch {
       setIsRedirecting(false);
     }
@@ -42,7 +43,11 @@ export default function SessionExpiredPage() {
           {auth.error.message}
         </p>
       ) : null}
-      <Button className="mt-5 w-full" onClick={signInAgain} disabled={isRedirecting}>
+      <Button
+        className="mt-5 w-full"
+        onClick={signInAgain}
+        disabled={isRedirecting}
+      >
         {isRedirecting ? "Redirecting to sign in..." : "Sign In Again"}
       </Button>
     </AuthStateFrame>

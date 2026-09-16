@@ -7,6 +7,9 @@
     "test": "echo \"No tests yet\" && exit 0",
     "db:generate": "dotenv -e ../../.env -- drizzle-kit generate",
     "db:migrate": "dotenv -e ../../.env -- drizzle-kit migrate",
+    "db:bootstrap:supabase": "dotenv -e ../../.env -- node scripts/bootstrap-roles.mjs",
+    "db:dry-run": "dotenv -e ../../.env -- node scripts/dry-run-migrations.mjs",
+    "db:verify": "dotenv -e ../../.env -- node scripts/verify-database.mjs",
     "build": "tsc -p tsconfig.json",
     "prepare": "tsc -p tsconfig.json"
   },

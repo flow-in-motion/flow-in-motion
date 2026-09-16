@@ -6,7 +6,7 @@ import { RequireAuth } from "@/auth/require-auth";
 
 const mockUseAuth = vi.fn();
 
-vi.mock("react-oidc-context", () => ({
+vi.mock("@/auth/auth-provider", () => ({
   useAuth: () => mockUseAuth(),
 }));
 

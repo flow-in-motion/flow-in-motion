@@ -1,5 +1,7 @@
 # PostgreSQL Hosting Options on AWS
 
+> **Superseded:** Flow in Motion now uses Supabase for PostgreSQL and authentication. This document is retained only as historical evaluation material and is not the current deployment plan.
+
 ## Context
 
 The app currently runs PostgreSQL locally (via `docker-compose.yml`), accessed through `drizzle-orm`/`pg`, with separate migration (DDL) and runtime (DML) database roles already in place. We already run on AWS for Cognito and SES. We need to move the database to AWS.

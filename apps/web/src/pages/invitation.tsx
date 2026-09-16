@@ -1,8 +1,8 @@
 import { ArrowRight, CheckCircle2, Mail, ShieldCheck } from "lucide-react";
-import { useAuth } from "react-oidc-context";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAcceptInvitation, useInvitationPreview } from "@/api/hooks";
+import { useAuth } from "@/auth/auth-provider";
 import { AuthScreenBackground } from "@/components/layout/auth-screen-background";
 import { Wordmark } from "@/components/layout/wordmark";
 import { ErrorState } from "@/components/shared/error-state";
@@ -66,11 +66,18 @@ export default function InvitationPage() {
             <Mail className="h-6 w-6" />
           </span>
           <div>
-            <Badge variant="secondary" className="mb-3 capitalize">{invitation.type} invitation</Badge>
-            <CardTitle className="text-2xl">Collaborate on {entityTitle}</CardTitle>
+            <Badge variant="secondary" className="mb-3 capitalize">
+              {invitation.type} invitation
+            </Badge>
+            <CardTitle className="text-2xl">
+              Collaborate on {entityTitle}
+            </CardTitle>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              This invitation was sent to <span className="font-medium text-foreground">{invitation.email}</span>.
-              Accept it to add the {invitation.type} to your workspace views.
+              This invitation was sent to{" "}
+              <span className="font-medium text-foreground">
+                {invitation.email}
+              </span>
+              . Accept it to add the {invitation.type} to your workspace views.
             </p>
           </div>
         </CardHeader>
@@ -78,7 +85,11 @@ export default function InvitationPage() {
           <div className="flex items-start gap-3 rounded-xl border bg-muted/35 p-4">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
             <p className="text-sm text-muted-foreground">
-              Sign in with the invited email address. The link is single-use{invitation.expiresAt ? ` and expires on ${new Date(invitation.expiresAt).toLocaleDateString()}` : ""}.
+              Sign in with the invited email address. The link is single-use
+              {invitation.expiresAt
+                ? ` and expires on ${new Date(invitation.expiresAt).toLocaleDateString()}`
+                : ""}
+              .
             </p>
           </div>
 
@@ -93,13 +104,21 @@ export default function InvitationPage() {
               </Button>
             </div>
           ) : auth.isAuthenticated ? (
-            <Button size="lg" onClick={() => void acceptInvitation()} disabled={accept.isPending}>
+            <Button
+              size="lg"
+              onClick={() => void acceptInvitation()}
+              disabled={accept.isPending}
+            >
               {accept.isPending ? "Accepting…" : "Accept invitation"}
             </Button>
           ) : (
             <Button
               size="lg"
-              onClick={() => auth.signinRedirect({ state: { returnTo: `/invitations/${token}` } })}
+              onClick={() =>
+                navigate("/sign-in", {
+                  state: { returnTo: `/invitations/${token}` },
+                })
+              }
               disabled={auth.isLoading}
             >
               Sign in to accept
@@ -108,7 +127,9 @@ export default function InvitationPage() {
           )}
 
           {accept.isError ? (
-            <p className="text-center text-sm text-destructive">{accept.error.message}</p>
+            <p className="text-center text-sm text-destructive">
+              {accept.error.message}
+            </p>
           ) : null}
         </CardContent>
       </Card>

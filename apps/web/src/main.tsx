@@ -1,13 +1,11 @@
 import { StrictMode, useState, type ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
-import { useAuth } from "react-oidc-context";
 import { BrowserRouter } from "react-router-dom";
 
 import { ApiAuthBridge } from "@/api/api-auth-bridge";
 import { createQueryClient } from "@/api/query-client";
-import { cognitoRedirectUri } from "@/auth/auth-config";
-import { AppAuthProvider } from "@/auth/auth-provider";
+import { AppAuthProvider, useAuth } from "@/auth/auth-provider";
 import { AppErrorBoundary } from "@/components/shared/error-boundary";
 import { installGlobalErrorHandlers } from "@/lib/client-error-reporter";
 import { ColorThemeProvider } from "@/theme/color-theme";
@@ -20,35 +18,29 @@ import "./index.css";
 
 installGlobalErrorHandlers();
 
-const configuredOrigin = new URL(cognitoRedirectUri).origin;
-
-if (window.location.origin !== configuredOrigin) {
-  window.location.replace(`${configuredOrigin}${window.location.pathname}${window.location.search}`);
-} else {
-  createRoot(document.getElementById("root")!).render(
-    <AppErrorBoundary label="Research in Motion" className="min-h-screen">
-      <AppearanceThemeProvider>
-        <TextSizeProvider>
-          <DesignThemeProvider>
-            <ColorThemeProvider>
-              <BrowserRouter>
-                <AppAuthProvider>
-                  <AuthenticatedQueryRoot />
-                </AppAuthProvider>
-              </BrowserRouter>
-            </ColorThemeProvider>
-          </DesignThemeProvider>
-        </TextSizeProvider>
-      </AppearanceThemeProvider>
-    </AppErrorBoundary>,
-  );
-}
+createRoot(document.getElementById("root")!).render(
+  <AppErrorBoundary label="Research in Motion" className="min-h-screen">
+    <AppearanceThemeProvider>
+      <TextSizeProvider>
+        <DesignThemeProvider>
+          <ColorThemeProvider>
+            <BrowserRouter>
+              <AppAuthProvider>
+                <AuthenticatedQueryRoot />
+              </AppAuthProvider>
+            </BrowserRouter>
+          </ColorThemeProvider>
+        </DesignThemeProvider>
+      </TextSizeProvider>
+    </AppearanceThemeProvider>
+  </AppErrorBoundary>,
+);
 
 export function AuthenticatedQueryRoot() {
   const auth = useAuth();
 
   return (
-    <SubjectQueryRoot key={auth.user?.profile.sub ?? "signed-out"}>
+    <SubjectQueryRoot key={auth.user?.id ?? "signed-out"}>
       <StrictMode>
         <ApiAuthBridge>
           <PreferencesProvider>
@@ -62,5 +54,7 @@ export function AuthenticatedQueryRoot() {
 
 export function SubjectQueryRoot({ children }: { children: ReactNode }) {
   const [queryClient] = useState(createQueryClient);
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
 }

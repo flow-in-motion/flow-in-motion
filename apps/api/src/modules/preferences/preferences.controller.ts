@@ -32,10 +32,7 @@ export class PreferencesController {
   ) {}
 
   private async userId(req: AuthenticatedRequest) {
-    const user = await this.users.findOrProvisionFromAccessToken(
-      req.user.sub,
-      req.user.accessToken,
-    );
+    const user = await this.users.findOrProvisionFromPrincipal(req.user);
     if (!user)
       throw new NotFoundException('User could not be found or provisioned');
     return user.id;

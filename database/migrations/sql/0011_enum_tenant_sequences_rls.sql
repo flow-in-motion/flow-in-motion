@@ -1,4 +1,30 @@
 -- Custom SQL migration file, put your code below! --
+CREATE OR REPLACE FUNCTION is_project_collaborator(check_project_id uuid, check_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM project_collaborators
+    WHERE project_id = check_project_id AND user_id = check_user_id
+  );
+$$;
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION is_module_collaborator(check_module_id uuid, check_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM module_collaborators
+    WHERE module_id = check_module_id AND user_id = check_user_id
+  );
+$$;
+--> statement-breakpoint
 ALTER TABLE tenant_sequences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "enum" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
@@ -25,7 +51,7 @@ CREATE POLICY enum_visibility ON "enum"
     -- base values: always visible to everyone
     (tenant_id IS NULL AND project_id IS NULL AND module_id IS NULL)
     -- tenant-scoped custom values: visible to members of that tenant
-    OR (tenant_id IS NOT NULL AND ECXISTS (
+    OR (tenant_id IS NOT NULL AND EXISTS (
       SELECT 1 FROM tenant_memberships
       WHERE tenant_memberships.tenant_id = "enum".tenant_id
         AND tenant_memberships.user_id = NULLIF(current_setting('app.current_user_id', true), '')::uuid

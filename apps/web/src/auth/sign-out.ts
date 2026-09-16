@@ -1,17 +1,16 @@
-import { useAuth } from "react-oidc-context";
+import { useNavigate } from "react-router-dom";
 
-import { buildCognitoLogoutUrl } from "@/auth/auth-config";
+import { useAuth } from "@/auth/auth-provider";
 
 /**
- * Cognito's /logout endpoint isn't a standard OIDC end_session_endpoint, so
- * we clear the local session ourselves and redirect manually rather than
- * using react-oidc-context's built-in signoutRedirect().
+ * Clear the Supabase session locally and remotely, then return to sign-in.
  */
 export function useSignOut() {
   const auth = useAuth();
+  const navigate = useNavigate();
 
   return async function signOut() {
-    await auth.removeUser();
-    window.location.assign(buildCognitoLogoutUrl());
+    await auth.signOut();
+    navigate("/sign-in", { replace: true });
   };
 }

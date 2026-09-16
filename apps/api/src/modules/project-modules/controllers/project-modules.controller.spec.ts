@@ -40,7 +40,9 @@ describe('ProjectModulesController', () => {
     );
   });
 
-  const req = { user: { sub: 'cognito-sub-1', accessToken: 'token-1' } } as any;
+  const req = {
+    user: { sub: 'supabase-user-1', accessToken: 'token-1' },
+  } as any;
 
   describe('list', () => {
     it('resolves the caller and delegates with pagination parameters', async () => {
@@ -62,7 +64,7 @@ describe('ProjectModulesController', () => {
       });
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-        'cognito-sub-1',
+        'supabase-user-1',
       );
 
       expect(configService.get).toHaveBeenCalledWith('PAGE_SIZE', 20);

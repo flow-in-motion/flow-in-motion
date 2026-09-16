@@ -66,10 +66,7 @@ export class InvitationAcceptanceController {
     @Param('token') token: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    const user = await this.usersService.findOrProvisionFromAccessToken(
-      req.user.sub,
-      req.user.accessToken,
-    );
+    const user = await this.usersService.findOrProvisionFromPrincipal(req.user);
     if (!user) {
       throw new NotFoundException('User could not be found or provisioned');
     }

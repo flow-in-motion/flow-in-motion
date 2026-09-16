@@ -6,13 +6,13 @@ import { UsersService } from './users.service';
 describe('MeController', () => {
   let controller: MeController;
   let usersService: {
-    findOrProvisionFromAccessToken: jest.Mock;
+    findOrProvisionFromPrincipal: jest.Mock;
     updateProfile: jest.Mock;
   };
 
   beforeEach(async () => {
     usersService = {
-      findOrProvisionFromAccessToken: jest.fn(),
+      findOrProvisionFromPrincipal: jest.fn(),
       updateProfile: jest.fn(),
     };
 
@@ -26,7 +26,7 @@ describe('MeController', () => {
 
   describe('getMe', () => {
     it('returns the mapped user profile for an existing user', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-uuid-1',
         email: 'real@example.com',
         displayName: 'Real User',
@@ -36,19 +36,18 @@ describe('MeController', () => {
         phone: null,
         researchInterests: null,
         status: 'active',
-        externalAuthId: 'cognito-sub-1',
+        externalAuthId: 'supabase-user-1',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
       const req = {
-        user: { sub: 'cognito-sub-1', accessToken: 'access-token-1' },
+        user: { sub: 'supabase-user-1', accessToken: 'access-token-1' },
       } as any;
       const result = await controller.getMe(req);
 
-      expect(usersService.findOrProvisionFromAccessToken).toHaveBeenCalledWith(
-        'cognito-sub-1',
-        'access-token-1',
+      expect(usersService.findOrProvisionFromPrincipal).toHaveBeenCalledWith(
+        req.user,
       );
       expect(result).toEqual({
         id: 'user-uuid-1',
@@ -66,7 +65,7 @@ describe('MeController', () => {
     });
 
     it('provisions and returns a new user on first login', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-uuid-2',
         email: 'real2@example.com',
         displayName: 'New User',
@@ -76,13 +75,13 @@ describe('MeController', () => {
         phone: null,
         researchInterests: null,
         status: 'active',
-        externalAuthId: 'cognito-sub-2',
+        externalAuthId: 'supabase-user-2',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
       const req = {
-        user: { sub: 'cognito-sub-2', accessToken: 'access-token-2' },
+        user: { sub: 'supabase-user-2', accessToken: 'access-token-2' },
       } as any;
       const result = await controller.getMe(req);
 
@@ -97,10 +96,10 @@ describe('MeController', () => {
     });
 
     it('throws NotFoundException when the user could not be found or provisioned', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue(undefined);
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue(undefined);
 
       const req = {
-        user: { sub: 'cognito-sub-3', accessToken: 'access-token-3' },
+        user: { sub: 'supabase-user-3', accessToken: 'access-token-3' },
       } as any;
 
       await expect(controller.getMe(req)).rejects.toThrow(NotFoundException);
@@ -109,7 +108,7 @@ describe('MeController', () => {
 
   describe('updateMe', () => {
     it('updates and returns a completed profile', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-uuid-1',
       });
       usersService.updateProfile.mockResolvedValue({
@@ -125,7 +124,7 @@ describe('MeController', () => {
       });
 
       const req = {
-        user: { sub: 'cognito-sub-1', accessToken: 'access-token-1' },
+        user: { sub: 'supabase-user-1', accessToken: 'access-token-1' },
       } as any;
       const input = {
         displayName: 'Dr Real User',

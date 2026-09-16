@@ -13,7 +13,7 @@ describe('InvitationAcceptanceController', () => {
   let moduleInvitations: { preview: jest.Mock; accept: jest.Mock };
   let taskInvitations: { preview: jest.Mock; accept: jest.Mock };
   let noteInvitations: { preview: jest.Mock; accept: jest.Mock };
-  let usersService: { findOrProvisionFromAccessToken: jest.Mock };
+  let usersService: { findOrProvisionFromPrincipal: jest.Mock };
 
   beforeEach(async () => {
     projectInvitations = { preview: jest.fn(), accept: jest.fn() };
@@ -26,7 +26,7 @@ describe('InvitationAcceptanceController', () => {
       preview: jest.fn().mockRejectedValue(new NotFoundException()),
       accept: jest.fn().mockRejectedValue(new NotFoundException()),
     };
-    usersService = { findOrProvisionFromAccessToken: jest.fn() };
+    usersService = { findOrProvisionFromPrincipal: jest.fn() };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [InvitationAcceptanceController],
@@ -46,21 +46,20 @@ describe('InvitationAcceptanceController', () => {
 
   describe('accept', () => {
     it('provisions a brand-new user from the access token before accepting', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'new-user-id',
         email: 'newcomer@example.com',
       });
       projectInvitations.accept.mockResolvedValue({ id: 'collab-1' });
 
       const req = {
-        user: { sub: 'cognito-sub-new', accessToken: 'access-token-new' },
+        user: { sub: 'supabase-user-new', accessToken: 'access-token-new' },
       } as any;
 
       const result = await controller.accept('raw-token', req);
 
-      expect(usersService.findOrProvisionFromAccessToken).toHaveBeenCalledWith(
-        'cognito-sub-new',
-        'access-token-new',
+      expect(usersService.findOrProvisionFromPrincipal).toHaveBeenCalledWith(
+        req.user,
       );
       expect(projectInvitations.accept).toHaveBeenCalledWith(
         'raw-token',
@@ -71,7 +70,7 @@ describe('InvitationAcceptanceController', () => {
     });
 
     it('falls back to a module invitation when no project invitation matches', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-id',
         email: 'someone@example.com',
       });
@@ -79,7 +78,7 @@ describe('InvitationAcceptanceController', () => {
       moduleInvitations.accept.mockResolvedValue({ id: 'collab-2' });
 
       const req = {
-        user: { sub: 'cognito-sub', accessToken: 'access-token' },
+        user: { sub: 'supabase-user', accessToken: 'access-token' },
       } as any;
 
       const result = await controller.accept('raw-token', req);
@@ -88,7 +87,7 @@ describe('InvitationAcceptanceController', () => {
     });
 
     it('falls back to a task invitation when no project/module invitation matches', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-id',
         email: 'someone@example.com',
       });
@@ -97,7 +96,7 @@ describe('InvitationAcceptanceController', () => {
       taskInvitations.accept.mockResolvedValue({ id: 'member-1' });
 
       const req = {
-        user: { sub: 'cognito-sub', accessToken: 'access-token' },
+        user: { sub: 'supabase-user', accessToken: 'access-token' },
       } as any;
 
       const result = await controller.accept('raw-token', req);
@@ -106,7 +105,7 @@ describe('InvitationAcceptanceController', () => {
     });
 
     it('falls back to a note invitation when nothing else matches', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue({
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
         id: 'user-id',
         email: 'someone@example.com',
       });
@@ -116,7 +115,7 @@ describe('InvitationAcceptanceController', () => {
       noteInvitations.accept.mockResolvedValue({ id: 'member-2' });
 
       const req = {
-        user: { sub: 'cognito-sub', accessToken: 'access-token' },
+        user: { sub: 'supabase-user', accessToken: 'access-token' },
       } as any;
 
       const result = await controller.accept('raw-token', req);
@@ -125,10 +124,10 @@ describe('InvitationAcceptanceController', () => {
     });
 
     it('throws NotFoundException when the user could not be found or provisioned', async () => {
-      usersService.findOrProvisionFromAccessToken.mockResolvedValue(undefined);
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue(undefined);
 
       const req = {
-        user: { sub: 'cognito-sub', accessToken: 'access-token' },
+        user: { sub: 'supabase-user', accessToken: 'access-token' },
       } as any;
 
       await expect(controller.accept('raw-token', req)).rejects.toThrow(

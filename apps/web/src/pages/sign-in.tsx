@@ -1,5 +1,5 @@
-import { useAuth } from "react-oidc-context";
-import { Link, useLocation } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   CheckCircle2,
@@ -13,12 +13,20 @@ import {
 } from "lucide-react";
 
 import { Wordmark } from "@/components/layout/wordmark";
+import { useAuth } from "@/auth/auth-provider";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const HIGHLIGHTS = [
   { icon: FlaskConical, text: "Track every project from idea to acceptance" },
-  { icon: Users, text: "Share projects, papers, tasks, notes with collaborators" },
-  { icon: TrendingUp, text: "See your pipeline, tasks and deadlines at a glance" },
+  {
+    icon: Users,
+    text: "Share projects, papers, tasks, notes with collaborators",
+  },
+  {
+    icon: TrendingUp,
+    text: "See your pipeline, tasks and deadlines at a glance",
+  },
 ];
 
 const RESEARCH_FLOW = [
@@ -31,7 +39,37 @@ const RESEARCH_FLOW = [
 export default function SignInPage() {
   const auth = useAuth();
   const location = useLocation();
-  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo ?? "/";
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const returnTo =
+    (location.state as { returnTo?: string } | null)?.returnTo ?? "/";
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await auth.signInWithPassword(email, password);
+      navigate(returnTo, { replace: true });
+    } catch {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function resetPassword() {
+    if (!email) return;
+    setIsSubmitting(true);
+    try {
+      await auth.sendPasswordReset(email);
+      setResetSent(true);
+    } catch {
+      // The auth provider exposes a safe, user-facing error message.
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div className="app-canvas grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(26rem,0.92fr)]">
@@ -47,8 +85,8 @@ export default function SignInPage() {
             Where your research momentum lives
           </h1>
           <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground text-balance">
-            One place to plan projects, assign tasks, organise notes, and
-            follow your pipeline from first idea to acceptance.
+            One place to plan projects, assign tasks, organise notes, and follow
+            your pipeline from first idea to acceptance.
           </p>
 
           <div className="mt-8 rounded-2xl border border-primary/15 bg-card/75 p-5 shadow-[var(--shadow-md)] ring-1 ring-white/60 dark:ring-white/[0.03]">
@@ -67,10 +105,15 @@ export default function SignInPage() {
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Icon className="h-4 w-4" />
                     </span>
-                    <span className="text-[0.6875rem] font-semibold text-foreground">{label}</span>
+                    <span className="text-[0.6875rem] font-semibold text-foreground">
+                      {label}
+                    </span>
                   </div>
                   {index < RESEARCH_FLOW.length - 1 ? (
-                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary/40" aria-hidden="true" />
+                    <ArrowRight
+                      className="h-3.5 w-3.5 shrink-0 text-primary/40"
+                      aria-hidden="true"
+                    />
                   ) : null}
                 </div>
               ))}
@@ -119,24 +162,73 @@ export default function SignInPage() {
               Continue to your projects, papers, tasks, pipeline, and notes.
             </p>
           </div>
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={() => auth.signinRedirect({ state: { returnTo } })}
-            disabled={auth.isLoading}
-          >
-            {auth.isLoading ? "Redirecting…" : "Sign in"}
-          </Button>
+          <form className="grid w-full gap-4 text-left" onSubmit={submit}>
+            <div className="grid gap-1.5">
+              <label htmlFor="sign-in-email" className="text-sm font-medium">
+                Email address
+              </label>
+              <Input
+                id="sign-in-email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <label htmlFor="sign-in-password" className="text-sm font-medium">
+                Password
+              </label>
+              <Input
+                id="sign-in-password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </div>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={auth.isLoading || isSubmitting}
+            >
+              {isSubmitting ? "Signing in…" : "Sign in"}
+            </Button>
+            <button
+              type="button"
+              className="text-center text-xs font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50"
+              onClick={() => void resetPassword()}
+              disabled={!email || isSubmitting}
+            >
+              Forgot your password?
+            </button>
+          </form>
           {auth.error ? (
-            <p className="text-xs text-destructive">{auth.error.message}</p>
+            <p role="alert" className="text-xs text-destructive">
+              {auth.error.message}
+            </p>
+          ) : null}
+          {resetSent ? (
+            <p role="status" className="text-xs text-emerald-700">
+              If that account exists, a password-reset email has been sent.
+            </p>
           ) : null}
           <p className="text-xs text-muted-foreground">
             By signing in, you agree to our{" "}
-            <Link to="/terms" className="font-medium underline underline-offset-2 hover:text-foreground">
+            <Link
+              to="/terms"
+              className="font-medium underline underline-offset-2 hover:text-foreground"
+            >
               Terms
             </Link>{" "}
             and{" "}
-            <Link to="/privacy" className="font-medium underline underline-offset-2 hover:text-foreground">
+            <Link
+              to="/privacy"
+              className="font-medium underline underline-offset-2 hover:text-foreground"
+            >
               Privacy Policy
             </Link>
             .

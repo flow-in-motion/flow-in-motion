@@ -29,14 +29,14 @@ describe('MyTasksController', () => {
   });
 
   function req() {
-    return { user: { sub: 'cognito-sub-1' } } as never;
+    return { user: { sub: 'supabase-user-1' } } as never;
   }
 
   it('list() resolves the caller and delegates to listForCaller', async () => {
     tasksService.listForCaller.mockResolvedValue([{ id: 'task-1' }]);
     const result = await controller.list(req());
     expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-      'cognito-sub-1',
+      'supabase-user-1',
     );
     expect(tasksService.listForCaller).toHaveBeenCalledWith('user-1');
     expect(result).toEqual([{ id: 'task-1' }]);

@@ -35,7 +35,7 @@ describe('ModuleSubmissionsController', () => {
   });
 
   const req = {
-    user: { sub: 'cognito-sub-1', accessToken: 'token-1' },
+    user: { sub: 'supabase-user-1', accessToken: 'token-1' },
   } as any;
 
   describe('list', () => {
@@ -62,7 +62,7 @@ describe('ModuleSubmissionsController', () => {
       const result = await controller.create('tenant-1', 'module-1', req, dto);
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
-        'cognito-sub-1',
+        'supabase-user-1',
       );
       expect(service.create).toHaveBeenCalledWith(
         'tenant-1',

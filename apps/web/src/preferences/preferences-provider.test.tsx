@@ -25,7 +25,7 @@ const themeSetters = vi.hoisted(() => ({
   textSize: vi.fn(),
 }));
 
-vi.mock("react-oidc-context", () => ({
+vi.mock("@/auth/auth-provider", () => ({
   useAuth: () => ({ isAuthenticated: true }),
 }));
 

@@ -302,6 +302,13 @@
       "when": 1789518451918,
       "tag": "0058_rename_note_date_to_created_at",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1789518452918,
+      "tag": "0059_supabase_security_baseline",
+      "breakpoints": true
     }
   ]
 }

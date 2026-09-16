@@ -7,15 +7,32 @@
 -- real security boundary here, not RLS — so these SECURITY DEFINER
 -- functions deliberately bypass RLS for a token-based lookup only.
 --
--- find_project_invitation_by_token/find_module_invitation_by_token already
--- exist (owned by a different role than this migration runs as) — only
--- task_invitations/note_invitations need new functions here.
+CREATE OR REPLACE FUNCTION find_project_invitation_by_token(token_hash text)
+RETURNS project_invitations
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT * FROM project_invitations WHERE token = token_hash;
+$$;
+
+CREATE OR REPLACE FUNCTION find_module_invitation_by_token(token_hash text)
+RETURNS module_invitations
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT * FROM module_invitations WHERE token = token_hash;
+$$;
 
 CREATE OR REPLACE FUNCTION find_task_invitation_by_token(token_hash text)
 RETURNS task_invitations
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
+SET search_path = public, pg_temp
 AS $$
   SELECT * FROM task_invitations WHERE token = token_hash;
 $$;
@@ -25,6 +42,7 @@ RETURNS note_invitations
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
+SET search_path = public, pg_temp
 AS $$
   SELECT * FROM note_invitations WHERE token = token_hash;
 $$;
@@ -39,6 +57,7 @@ RETURNS text
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
+SET search_path = public, pg_temp
 AS $$
   SELECT title FROM tasks WHERE id = target_task_id;
 $$;
@@ -48,6 +67,7 @@ RETURNS text
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
+SET search_path = public, pg_temp
 AS $$
   SELECT title FROM notes WHERE id = target_note_id;
 $$;

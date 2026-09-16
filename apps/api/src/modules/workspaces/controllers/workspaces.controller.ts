@@ -50,10 +50,7 @@ export class WorkspacesController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateWorkspaceDto,
   ) {
-    const user = await this.usersService.findOrProvisionFromAccessToken(
-      req.user.sub,
-      req.user.accessToken,
-    );
+    const user = await this.usersService.findOrProvisionFromPrincipal(req.user);
 
     if (!user) {
       throw new NotFoundException('User could not be found or provisioned');
@@ -72,10 +69,7 @@ export class WorkspacesController {
     @Req() req: AuthenticatedRequest,
     @Query() query: PaginationQueryDto,
   ) {
-    const user = await this.usersService.findOrProvisionFromAccessToken(
-      req.user.sub,
-      req.user.accessToken,
-    );
+    const user = await this.usersService.findOrProvisionFromPrincipal(req.user);
 
     if (!user) {
       throw new NotFoundException('User could not be found or provisioned');
@@ -95,10 +89,7 @@ export class WorkspacesController {
   @UseGuards(JwtAuthGuard)
   @Get('current')
   async getCurrent(@Req() req: AuthenticatedRequest) {
-    const user = await this.usersService.findOrProvisionFromAccessToken(
-      req.user.sub,
-      req.user.accessToken,
-    );
+    const user = await this.usersService.findOrProvisionFromPrincipal(req.user);
 
     if (!user) {
       throw new NotFoundException('User could not be found or provisioned');
@@ -117,10 +108,7 @@ export class WorkspacesController {
     @Req() req: AuthenticatedRequest,
     @Body() dto: SwitchWorkspaceDto,
   ) {
-    const user = await this.usersService.findOrProvisionFromAccessToken(
-      req.user.sub,
-      req.user.accessToken,
-    );
+    const user = await this.usersService.findOrProvisionFromPrincipal(req.user);
 
     if (!user) {
       throw new NotFoundException('User could not be found or provisioned');
@@ -143,10 +131,7 @@ export class WorkspacesController {
     @Req() req: AuthenticatedRequest,
     @Param('workspaceId') workspaceId: string,
   ) {
-    const user = await this.usersService.findOrProvisionFromAccessToken(
-      req.user.sub,
-      req.user.accessToken,
-    );
+    const user = await this.usersService.findOrProvisionFromPrincipal(req.user);
 
     if (!user) {
       throw new NotFoundException('User could not be found or provisioned');

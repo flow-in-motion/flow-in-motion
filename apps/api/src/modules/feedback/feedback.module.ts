@@ -25,7 +25,7 @@ import { FeedbackService } from './services/feedback.service';
         new SESv2Client({
           region:
             configService.get<string>('INVITATION_EMAIL_REGION') ??
-            configService.getOrThrow<string>('COGNITO_REGION'),
+            configService.get<string>('AWS_REGION', 'ap-southeast-2'),
         }),
     },
   ],
