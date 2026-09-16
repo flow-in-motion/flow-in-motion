@@ -180,7 +180,7 @@ export function ConferenceSubmissionsTable({
         {!dashboardView && !hideCreateButton && ownedProjects.length === 0 && !isLoading ? <p className="text-sm text-muted-foreground">Create or own a project before adding a conference.</p> : null}
         {actionError ? <p role="alert" className="text-sm text-destructive">{actionError}</p> : null}
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-[var(--card-padding)]">
         <Table>
           <TableHeader><TableRow>
             {columns.isColumnVisible("conference") ? <TableHead>Conference</TableHead> : null}

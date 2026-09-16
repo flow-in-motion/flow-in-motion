@@ -22,7 +22,7 @@ export const notes = pgTable(
     title: text('title').notNull(),
     content: text('content'),
     visibilityId: uuid('visibility_id').references(() => enumTable.id),
-    noteDate: timestamp('note_date', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     followUpDate: date('follow_up_date'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

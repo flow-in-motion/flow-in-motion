@@ -161,7 +161,7 @@ describe("DailyNotesPage", () => {
   it("lists notes using the flat table layout shared with Projects/Papers/Tasks", () => {
     renderPage();
 
-    expect(screen.getByRole("heading", { name: "Daily Notes" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Notes" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Initial observations" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort by Note" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort by Created" })).toBeInTheDocument();

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -68,6 +68,7 @@ const workspaceSchema = z.object({
 type WorkspaceForm = z.infer<typeof workspaceSchema>;
 
 export default function SettingsPage() {
+  const location = useLocation();
   const me = useMe();
   const workspace = useCurrentWorkspace();
   const workspaces = useWorkspaces();
@@ -101,6 +102,13 @@ export default function SettingsPage() {
       researchInterests: me.data.researchInterests ?? "",
     });
   }, [me.data]);
+
+  useEffect(() => {
+    if (!location.hash || !workspace.data?.id) return;
+    const id = location.hash.slice(1);
+    const target = document.getElementById(id);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash, workspace.data?.id]);
 
   function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -671,7 +679,7 @@ export default function SettingsPage() {
       </div>
 
       {workspace.data?.id ? (
-        <div className="mx-auto mt-7 w-full max-w-5xl">
+        <div id="paper-pipeline-stages" className="mx-auto mt-7 w-full max-w-5xl scroll-mt-6">
           <PaperStageSettings tenantId={workspace.data.id} />
         </div>
       ) : null}

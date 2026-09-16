@@ -165,6 +165,19 @@ describe("SettingsPage", () => {
     mockDeleteWorkspace.mockReset().mockResolvedValue({ id: "workspace-1" });
   });
 
+  it("scrolls straight to the paper pipeline stages section when linked in with a hash", () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    render(
+      <MemoryRouter initialEntries={["/settings#paper-pipeline-stages"]}>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+  });
+
   it("reminds an incomplete user and saves their professional profile", () => {
     render(
       <MemoryRouter>

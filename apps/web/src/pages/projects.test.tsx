@@ -275,7 +275,7 @@ describe("ProjectsPage", () => {
     );
   
     // General is displayed in its dedicated section, not as an expandable
-    // project row in the Major Projects table.
+    // project row in the Projects table.
     expect(generalLink.closest('[role="button"]')).toBeNull();
   
     expect(
