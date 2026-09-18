@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { type INestApplicationContext, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 
 import { CleanupLambdaModule } from './cleanup-lambda.module';
@@ -9,11 +9,13 @@ interface CleanupLambdaResult {
   deletedModules: number;
 }
 
+type CleanupApplicationContext = Pick<INestApplicationContext, 'get' | 'close'>;
+
 const logger = new Logger('ArchiveCleanupLambda');
 
-export async function handler(): Promise<CleanupLambdaResult> {
-  const app = await NestFactory.createApplicationContext(CleanupLambdaModule);
-
+export async function runCleanup(
+  app: CleanupApplicationContext,
+): Promise<CleanupLambdaResult> {
   try {
     const cleanup = app.get(ArchiveCleanupService);
     const result = await cleanup.handleCleanup();
@@ -38,4 +40,9 @@ export async function handler(): Promise<CleanupLambdaResult> {
   } finally {
     await app.close();
   }
+}
+
+export async function handler(): Promise<CleanupLambdaResult> {
+  const app = await NestFactory.createApplicationContext(CleanupLambdaModule);
+  return runCleanup(app);
 }
