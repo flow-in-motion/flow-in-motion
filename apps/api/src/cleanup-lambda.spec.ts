@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 
-import { runCleanup } from './cleanup-lambda';
+import { runCleanup } from './cleanup-runner';
 import { ArchiveCleanupService } from './modules/archive-cleanup/archive-cleanup.service';
 
 describe('cleanup Lambda runner', () => {
