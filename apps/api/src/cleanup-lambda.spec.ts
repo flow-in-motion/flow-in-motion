@@ -1,10 +1,31 @@
-import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 
-import { handler } from './cleanup-lambda';
 import { ArchiveCleanupService } from './modules/archive-cleanup/archive-cleanup.service';
+
+const mockCreateApplicationContext = jest.fn();
+
+jest.mock('@nestjs/core', () => {
+  const actual =
+    jest.requireActual<typeof import('@nestjs/core')>('@nestjs/core');
+
+  return {
+    ...actual,
+    NestFactory: {
+      ...actual.NestFactory,
+      createApplicationContext: mockCreateApplicationContext,
+    },
+  };
+});
+
+// Load the handler only after NestFactory has been mocked.
+/* eslint-disable @typescript-eslint/no-require-imports */
+const { handler } =
+  require('./cleanup-lambda') as typeof import('./cleanup-lambda');
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 describe('cleanup Lambda handler', () => {
   afterEach(() => {
+    mockCreateApplicationContext.mockReset();
     jest.restoreAllMocks();
   });
 
@@ -21,15 +42,14 @@ describe('cleanup Lambda handler', () => {
       throw new Error('Unexpected provider requested');
     });
 
-    jest
-      .spyOn(NestFactory, 'createApplicationContext')
-      .mockResolvedValue({ get, close } as never);
+    mockCreateApplicationContext.mockResolvedValue({ get, close });
 
     await expect(handler()).resolves.toEqual({
       deletedProjects: 1,
       deletedModules: 2,
     });
 
+    expect(mockCreateApplicationContext).toHaveBeenCalledTimes(1);
     expect(handleCleanup).toHaveBeenCalledTimes(1);
     expect(close).toHaveBeenCalledTimes(1);
   });
@@ -38,13 +58,18 @@ describe('cleanup Lambda handler', () => {
     const failure = new Error('Cleanup failed');
     const handleCleanup = jest.fn().mockRejectedValue(failure);
     const close = jest.fn().mockResolvedValue(undefined);
+    const loggerError = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
 
-    jest.spyOn(NestFactory, 'createApplicationContext').mockResolvedValue({
+    mockCreateApplicationContext.mockResolvedValue({
       get: () => ({ handleCleanup }),
       close,
-    } as never);
+    });
 
     await expect(handler()).rejects.toThrow('Cleanup failed');
+
+    expect(loggerError).toHaveBeenCalled();
     expect(close).toHaveBeenCalledTimes(1);
   });
 });
