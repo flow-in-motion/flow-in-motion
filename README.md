@@ -13,8 +13,8 @@ A functioning application that several researchers can use concurrently through 
 ### 1. Clone and enter the repo
 
 ```bash
-git clone https://github.com/vritika14/ResearchAndTracking.git
-cd ResearchAndTracking
+git clone https://github.com/flow-in-motion/flow-in-motion.git
+cd flow-in-motion
 ```
 
 ### 2. Use the correct Node version
