@@ -2,7 +2,6 @@ import serverlessExpress from '@codegenie/serverless-express';
 import type {
   APIGatewayProxyEventV2,
   APIGatewayProxyResultV2,
-  Callback,
   Context,
 } from 'aws-lambda';
 import type { RequestListener } from 'node:http';
@@ -11,7 +10,6 @@ import { createApp } from './create-app';
 type LambdaHandler = (
   event: APIGatewayProxyEventV2,
   context: Context,
-  callback: Callback<APIGatewayProxyResultV2>,
 ) => Promise<APIGatewayProxyResultV2>;
 
 let serverPromise: Promise<LambdaHandler> | undefined;
@@ -37,7 +35,7 @@ async function bootstrapLambda(): Promise<LambdaHandler> {
 
   // The adapter defaults to promise resolution, while its public Handler type
   // also includes callback-style void responses.
-  return server as LambdaHandler;
+  return server as unknown as LambdaHandler;
 }
 
 function getServer(): Promise<LambdaHandler> {
@@ -45,10 +43,10 @@ function getServer(): Promise<LambdaHandler> {
   return serverPromise;
 }
 
-export const handler: LambdaHandler = async (event, context, callback) => {
+export const handler: LambdaHandler = async (event, context) => {
   // Allow Lambda to return while retaining the PostgreSQL pool for reuse.
   context.callbackWaitsForEmptyEventLoop = false;
 
   const server = await getServer();
-  return server(event, context, callback);
+  return server(event, context);
 };

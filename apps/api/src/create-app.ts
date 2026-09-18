@@ -7,8 +7,18 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
-export async function createApp(): Promise<INestApplication> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+interface CreateAppOptions {
+  enableScheduler?: boolean;
+}
+
+export async function createApp(
+  options: CreateAppOptions = {},
+): Promise<INestApplication> {
+  const rootModule = options.enableScheduler
+    ? (await import('./scheduled-app.module')).ScheduledAppModule
+    : AppModule;
+
+  const app = await NestFactory.create(rootModule, { bufferLogs: true });
   app.useLogger(app.get(Logger));
 
   const configService = app.get(ConfigService);

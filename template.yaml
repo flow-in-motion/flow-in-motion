@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Flow in Motion production API
+
+Parameters:
+  AppUrl:
+    Type: String
+    Default: https://flowinmotion.org
+
+  SupabaseUrl:
+    Type: String
+    Description: HTTPS URL of the production Supabase project
+
+  DatabaseSecretName:
+    Type: String
+    Default: flow-in-motion/production/api-database
+
+
+Resources:
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: flow-in-motion-production-api
+      Description: Flow in Motion NestJS API
+      CodeUri: .
+      Handler: dist/lambda.handler
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 512
+      Timeout: 25
+
+      # VpcConfig is intentionally omitted. The function connects to the
+      # Supabase transaction pooler over TLS through Lambda's internet access.
+      Environment:
+        Variables:
+          NODE_ENV: production
+          LOG_LEVEL: info
+          APP_URL: !Ref AppUrl
+          ENABLE_SCHEDULER: "false"
+
+          PAGE_SIZE: "20"
+
+          POSTGRES_HOST: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_HOST}}"
+          POSTGRES_PORT: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_PORT}}"
+          POSTGRES_DB: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_DB}}"
+          POSTGRES_RUNTIME_USER: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_RUNTIME_USER}}"
+          POSTGRES_RUNTIME_PASSWORD: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_RUNTIME_PASSWORD}}"
+          POSTGRES_SSL_MODE: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_SSL_MODE}}"
+          POSTGRES_CONNECT_TIMEOUT_MS: "5000"
+          POSTGRES_QUERY_TIMEOUT_MS: "10000"
+          POSTGRES_IDLE_TIMEOUT_MS: "10000"
+
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_JWT_AUDIENCE: authenticated
+
+          INVITATION_EMAIL_FROM: no-reply@flowinmotion.org
+          INVITATION_EMAIL_REGION: ap-southeast-2
+
+      Policies:
+        - Statement:
+            - Sid: SendTransactionalEmail
+              Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/flowinmotion.org
+
+    Metadata:
+            BuildMethod: makefile
+
+  ApiFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ApiFunction}
+      RetentionInDays: 14
+
+Outputs:
+  ApiFunctionName:
+    Description: Deployed Lambda function name
+    Value: !Ref ApiFunction
+
+  ApiFunctionArn:
+    Description: Deployed Lambda function ARN
+    Value: !GetAtt ApiFunction.Arn

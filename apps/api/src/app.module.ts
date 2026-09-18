@@ -30,15 +30,6 @@ import { PreferencesModule } from './modules/preferences/preferences.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RequestContextInterceptor } from './db/request-context.interceptor';
-import { ScheduleModule } from '@nestjs/schedule';
-import { ArchiveCleanupModule } from './modules/archive-cleanup/archive-cleanup.module';
-
-const isLambdaEnvironment = Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
-
-const schedulerImports =
-  isLambdaEnvironment || process.env.ENABLE_SCHEDULER === 'false'
-    ? []
-    : [ScheduleModule.forRoot(), ArchiveCleanupModule];
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -46,7 +37,6 @@ const schedulerImports =
       envFilePath: [join(__dirname, '..', '..', '..', '.env')],
       validationSchema: envValidationSchema,
     }),
-    ...schedulerImports,
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({

@@ -2,7 +2,9 @@ import { ConfigService } from '@nestjs/config';
 import { createApp } from './create-app';
 
 async function bootstrap() {
-  const app = await createApp();
+  const app = await createApp({
+    enableScheduler: process.env.ENABLE_SCHEDULER !== 'false',
+  });
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
 

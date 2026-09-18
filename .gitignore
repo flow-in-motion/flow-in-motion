@@ -39,3 +39,6 @@ package-lock.json
 *.plan
 terraform.tfvars
 *.auto.tfvars
+
+#aws
+.aws-sam/

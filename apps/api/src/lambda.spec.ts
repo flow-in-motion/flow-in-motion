@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEventV2, Callback, Context } from 'aws-lambda';
+import type { APIGatewayProxyEventV2, Context } from 'aws-lambda';
 
 const mockCreateApp = jest.fn();
 const mockServerlessExpress = jest.fn();
@@ -19,7 +19,7 @@ const { handler } = require('./lambda') as typeof import('./lambda');
 describe('Lambda handler', () => {
   it('initializes Nest once and reuses it across warm invocations', async () => {
     const init = jest.fn().mockResolvedValue(undefined);
-    const expressApp = {};
+    const expressApp = jest.fn();
     const lambdaServer = jest.fn().mockResolvedValue({
       statusCode: 200,
       body: 'ok',
@@ -38,10 +38,9 @@ describe('Lambda handler', () => {
     const context = {
       callbackWaitsForEmptyEventLoop: true,
     } as Context;
-    const callback = jest.fn() as unknown as Callback;
 
-    await handler(event, context, callback);
-    await handler(event, context, callback);
+    await handler(event, context);
+    await handler(event, context);
 
     expect(mockCreateApp).toHaveBeenCalledTimes(1);
     expect(init).toHaveBeenCalledTimes(1);
