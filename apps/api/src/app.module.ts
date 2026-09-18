@@ -30,9 +30,6 @@ import { PreferencesModule } from './modules/preferences/preferences.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RequestContextInterceptor } from './db/request-context.interceptor';
-import { ScheduleModule } from '@nestjs/schedule';
-import { ArchiveCleanupModule } from './modules/archive-cleanup/archive-cleanup.module';
-
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -40,7 +37,6 @@ import { ArchiveCleanupModule } from './modules/archive-cleanup/archive-cleanup.
       envFilePath: [join(__dirname, '..', '..', '..', '.env')],
       validationSchema: envValidationSchema,
     }),
-    ScheduleModule.forRoot(),
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -94,7 +90,6 @@ import { ArchiveCleanupModule } from './modules/archive-cleanup/archive-cleanup.
     ModuleSubmissionsModule,
     FeedbackModule,
     PreferencesModule,
-    ArchiveCleanupModule,
     AnalyticsModule,
   ],
   controllers: [AppController],

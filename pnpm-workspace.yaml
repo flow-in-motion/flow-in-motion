@@ -2,6 +2,9 @@ packages:
   - 'packages/*'
   - 'apps/*'
   - 'database/*'
+
+injectWorkspacePackages: true
+
 allowBuilds:
   '@scarf/scarf': false
   esbuild: true
