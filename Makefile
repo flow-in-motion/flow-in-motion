@@ -1,4 +1,4 @@
-build-ApiFunction:
+build-ApiFunction build-CleanupFunction:
 	CI=true pnpm --filter @research-tracker/api build
 	lambda_deploy_dir="$$(mktemp -d)"; \
 		trap 'rm -rf "$$lambda_deploy_dir"' EXIT; \

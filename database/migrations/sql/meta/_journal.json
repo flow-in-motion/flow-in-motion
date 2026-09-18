@@ -309,6 +309,13 @@
       "when": 1789518452918,
       "tag": "0059_supabase_security_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1789771476409,
+      "tag": "0060_grant_cleanup_function_execution",
+      "breakpoints": true
     }
   ]
 }
