@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
 import { sql } from 'drizzle-orm';
 import { DrizzleService } from '../../db/drizzle.service';
 
@@ -11,7 +10,6 @@ export class ArchiveCleanupService {
 
   constructor(private readonly drizzle: DrizzleService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async handleCleanup() {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);

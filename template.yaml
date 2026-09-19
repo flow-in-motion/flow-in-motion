@@ -21,7 +21,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: flow-in-motion-production-api
-      Description: Flow in Motion NestJS API
+      Description: Flow in Motion production NestJS API
       CodeUri: .
       Handler: dist/lambda.handler
       Runtime: nodejs24.x
@@ -37,7 +37,6 @@ Resources:
           NODE_ENV: production
           LOG_LEVEL: info
           APP_URL: !Ref AppUrl
-          ENABLE_SCHEDULER: "false"
 
           PAGE_SIZE: "20"
 
@@ -67,13 +66,111 @@ Resources:
               Resource: !Sub arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/flowinmotion.org
 
     Metadata:
-            BuildMethod: makefile
+      BuildMethod: makefile
 
   ApiFunctionLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${ApiFunction}
       RetentionInDays: 14
+  CleanupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: flow-in-motion-production-cleanup
+      Description: Flow in Motion production daily archive cleanup
+      CodeUri: .
+      Handler: dist/cleanup-lambda.handler
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 512
+      Timeout: 60
+
+      # No VPC attachment. The function connects to the Supabase transaction
+      # pooler over the internet using TLS.
+      Environment:
+        Variables:
+          NODE_ENV: production
+          LOG_LEVEL: info
+          APP_URL: !Ref AppUrl
+
+          POSTGRES_HOST: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_HOST}}"
+          POSTGRES_PORT: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_PORT}}"
+          POSTGRES_DB: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_DB}}"
+          POSTGRES_RUNTIME_USER: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_RUNTIME_USER}}"
+          POSTGRES_RUNTIME_PASSWORD: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_RUNTIME_PASSWORD}}"
+          POSTGRES_SSL_MODE: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:POSTGRES_SSL_MODE}}"
+          POSTGRES_CONNECT_TIMEOUT_MS: "5000"
+          POSTGRES_QUERY_TIMEOUT_MS: "10000"
+          POSTGRES_IDLE_TIMEOUT_MS: "10000"
+
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_JWT_AUDIENCE: authenticated
+
+    Metadata:
+      BuildMethod: makefile
+
+  CleanupFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${CleanupFunction}
+      RetentionInDays: 14
+
+
+  CleanupDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: flow-in-motion-production-cleanup-dlq
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  CleanupSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowEventBridgeScheduler
+            Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: invoke-cleanup-lambda
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InvokeOnlyCleanupLambda
+                Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt CleanupFunction.Arn
+              - Sid: SendFailuresToCleanupDlq
+                Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt CleanupDeadLetterQueue.Arn
+
+  CleanupSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: flow-in-motion-production-daily-cleanup
+      Description: Permanently remove projects and papers archived over 14 days
+      ScheduleExpression: cron(0 2 * * ? *)
+      ScheduleExpressionTimezone: Australia/Sydney
+      State: ENABLED
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt CleanupFunction.Arn
+        RoleArn: !GetAtt CleanupSchedulerRole.Arn
+        Input: '{"source":"flow-in-motion.archive-cleanup"}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 3600
+          MaximumRetryAttempts: 2
+        DeadLetterConfig:
+          Arn: !GetAtt CleanupDeadLetterQueue.Arn
 
 Outputs:
   ApiFunctionName:
@@ -83,3 +180,15 @@ Outputs:
   ApiFunctionArn:
     Description: Deployed Lambda function ARN
     Value: !GetAtt ApiFunction.Arn
+
+  CleanupFunctionName:
+    Description: Scheduled cleanup Lambda function name
+    Value: !Ref CleanupFunction
+
+  CleanupScheduleName:
+    Description: EventBridge Scheduler schedule name
+    Value: !Ref CleanupSchedule
+
+  CleanupDeadLetterQueueUrl:
+    Description: Queue containing cleanup invocations that exhausted retries
+    Value: !Ref CleanupDeadLetterQueue
