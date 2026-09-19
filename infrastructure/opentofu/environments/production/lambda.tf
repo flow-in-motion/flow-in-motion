@@ -15,6 +15,7 @@ resource "aws_lambda_function" "api" {
   environment {
     variables = merge(local.common_lambda_environment, {
       DATABASE_SECRET_ARN = aws_secretsmanager_secret.database.arn
+      FEEDBACK_EMAIL_TO   = var.feedback_email_to
     })
   }
 
