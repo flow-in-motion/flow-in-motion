@@ -58,7 +58,7 @@ resource "aws_route53_record" "spf" {
   name    = var.domain_name
   type    = "TXT"
   ttl     = 300
-  records = ["\"v=spf1 include:amazonses.com ~all\""]
+  records = ["v=spf1 include:amazonses.com ~all"]
 }
 
 resource "aws_route53_record" "dmarc" {
