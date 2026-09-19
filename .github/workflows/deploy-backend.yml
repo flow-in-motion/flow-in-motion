@@ -103,24 +103,36 @@ jobs:
           test -f "$artifact_dir/dist/lambda.js"
           test -f "$artifact_dir/dist/cleanup-lambda.js"
 
+          mkdir -p .artifacts
+
+          (
+            cd "$artifact_dir"
+            zip -q -r -y "$GITHUB_WORKSPACE/.artifacts/lambda.zip" .
+          )
+
+          test -s .artifacts/lambda.zip
+
           unpacked_bytes="$(
-            du -skL "$artifact_dir" |
-              awk '{ print $1 * 1024 }'
+            unzip -l .artifacts/lambda.zip |
+              awk '
+                /^---------/ {
+                  separators += 1
+                  if (separators == 2) exit
+                  next
+                }
+                separators == 1 && $1 ~ /^[0-9]+$/ {
+                  total += $1
+                }
+                END {
+                  printf "%.0f\n", total
+                }
+              '
           )"
 
           if (( unpacked_bytes >= 262144000 )); then
             echo "Lambda artifact exceeds the 250 MiB unzipped limit"
             exit 1
           fi
-
-          mkdir -p .artifacts
-
-          (
-            cd "$artifact_dir"
-            zip -q -r "$GITHUB_WORKSPACE/.artifacts/lambda.zip" .
-          )
-
-          test -s .artifacts/lambda.zip
 
           archive_bytes="$(stat -c '%s' .artifacts/lambda.zip)"
 
