@@ -87,3 +87,19 @@ variable "lambda_package_path" {
   description = "Absolute or repository-relative path to the production Lambda ZIP package."
   type        = string
 }
+
+variable "feedback_email_to" {
+  description = "Mailbox that receives submitted application feedback"
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition = can(
+      regex(
+        "^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$",
+        var.feedback_email_to,
+      )
+    )
+    error_message = "feedback_email_to must be a valid email address."
+  }
+}
