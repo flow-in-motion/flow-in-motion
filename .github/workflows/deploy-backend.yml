@@ -1,0 +1,299 @@
+name: Deploy Backend
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_lambda_package_path: ${{ github.workspace }}/.artifacts/lambda.zip
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read Node version
+        run: echo "NODE_VERSION=$(cat .nvmrc)" >> "$GITHUB_ENV"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set up AWS SAM
+        uses: aws-actions/setup-sam@v2
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ vars.OPENTOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Validate templates
+        run: |
+          sam validate --template-file template.yaml
+          tofu -chdir=infrastructure/opentofu/environments/production fmt -check
+          tofu -chdir=infrastructure/opentofu/environments/production init -backend=false -input=false
+          tofu -chdir=infrastructure/opentofu/environments/production validate
+
+      - name: Build and package Lambda
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PATH="$GITHUB_WORKSPACE/node_modules/.bin:$PATH" \
+            sam build \
+              --build-in-source \
+              --template-file template.yaml
+
+          artifact_dir=".aws-sam/build/ApiFunction"
+
+          test -f "$artifact_dir/dist/lambda.js"
+          test -f "$artifact_dir/dist/cleanup-lambda.js"
+
+          unpacked_bytes="$(
+            du -skL "$artifact_dir" |
+              awk '{ print $1 * 1024 }'
+          )"
+
+          if (( unpacked_bytes >= 262144000 )); then
+            echo "Lambda artifact exceeds the 250 MiB unzipped limit"
+            exit 1
+          fi
+
+          mkdir -p .artifacts
+
+          (
+            cd "$artifact_dir"
+            zip -q -r "$GITHUB_WORKSPACE/.artifacts/lambda.zip" .
+          )
+
+          test -s .artifacts/lambda.zip
+
+          archive_bytes="$(stat -c '%s' .artifacts/lambda.zip)"
+
+          if (( archive_bytes >= 52428800 )); then
+            echo "Lambda ZIP exceeds the 50 MiB direct-upload limit"
+            exit 1
+          fi
+
+      - name: Configure AWS credentials through OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: flow-in-motion-backend-deploy
+          role-duration-seconds: 3600
+          mask-aws-account-id: true
+
+      - name: Initialize production state
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          account_id="$(
+            aws sts get-caller-identity \
+              --query Account \
+              --output text
+          )"
+
+          state_bucket="flow-in-motion-opentofu-state-${account_id}"
+
+          tofu \
+            -chdir=infrastructure/opentofu/environments/production \
+            init \
+            -reconfigure \
+            -input=false \
+            -backend-config="bucket=${state_bucket}"
+
+      - name: Plan production deployment
+        env:
+          TF_VAR_supabase_url: ${{ vars.SUPABASE_URL }}
+          TF_VAR_budget_notification_email: ${{ secrets.BUDGET_NOTIFICATION_EMAIL }}
+          TF_VAR_feedback_email_to: ${{ secrets.FEEDBACK_EMAIL_TO }}
+        run: |
+          tofu \
+            -chdir=infrastructure/opentofu/environments/production \
+            plan \
+            -input=false \
+            -lock-timeout=5m \
+            -out=deployment.tfplan
+
+      - name: Apply production deployment
+        run: |
+          tofu \
+            -chdir=infrastructure/opentofu/environments/production \
+            apply \
+            -input=false \
+            -lock-timeout=5m \
+            deployment.tfplan
+
+      - name: Wait for Lambda updates
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          api_function="$(
+            tofu \
+              -chdir=infrastructure/opentofu/environments/production \
+              output -raw api_function_name
+          )"
+
+          cleanup_function="$(
+            tofu \
+              -chdir=infrastructure/opentofu/environments/production \
+              output -raw cleanup_function_name
+          )"
+
+          aws lambda wait function-updated-v2 \
+            --function-name "$api_function"
+
+          aws lambda wait function-updated-v2 \
+            --function-name "$cleanup_function"
+
+      - name: Test public health endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          api_gateway_endpoint="$(
+            tofu \
+              -chdir=infrastructure/opentofu/environments/production \
+              output -raw api_gateway_endpoint
+          )"
+
+          api_custom_domain="$(
+            tofu \
+              -chdir=infrastructure/opentofu/environments/production \
+              output -raw api_custom_domain
+          )"
+
+          curl \
+            --fail-with-body \
+            --retry 5 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            "${api_gateway_endpoint}/health/live"
+
+          curl \
+            --fail-with-body \
+            --retry 5 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            "${api_custom_domain}/health/live"
+
+          curl \
+            --fail-with-body \
+            --retry 5 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            "${api_custom_domain}/health/ready"
+
+      - name: Test authenticated endpoint
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          auth_response="$(
+            jq -n \
+              --arg email "$E2E_TEST_EMAIL" \
+              --arg password "$E2E_TEST_PASSWORD" \
+              '{email: $email, password: $password}' |
+            curl \
+              --silent \
+              --show-error \
+              --fail-with-body \
+              -X POST \
+              "${SUPABASE_URL}/auth/v1/token?grant_type=password" \
+              -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+              -H "Content-Type: application/json" \
+              --data-binary @-
+          )"
+
+          access_token="$(
+            printf '%s' "$auth_response" |
+              jq -r '.access_token // empty'
+          )"
+
+          if [[ -z "$access_token" ]]; then
+            echo "Unable to obtain the authenticated smoke-test token"
+            exit 1
+          fi
+
+          echo "::add-mask::$access_token"
+
+          api_custom_domain="$(
+            tofu \
+              -chdir=infrastructure/opentofu/environments/production \
+              output -raw api_custom_domain
+          )"
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+
+          http_code="$(
+            curl \
+              --silent \
+              --show-error \
+              --output "$response_file" \
+              --write-out '%{http_code}' \
+              -H "Authorization: Bearer ${access_token}" \
+              "${api_custom_domain}/api/v1/me"
+          )"
+
+          test "$http_code" = "200"
+          jq -e 'has("id") and has("email")' "$response_file" >/dev/null
