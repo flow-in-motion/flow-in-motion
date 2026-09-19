@@ -2,9 +2,14 @@ import type { APIGatewayProxyEventV2, Context } from 'aws-lambda';
 
 const mockCreateApp = jest.fn();
 const mockServerlessExpress = jest.fn();
+const mockLoadDatabaseSecretEnvironment = jest.fn();
 
 jest.mock('./create-app', () => ({
   createApp: mockCreateApp,
+}));
+
+jest.mock('./config/load-database-secret', () => ({
+  loadDatabaseSecretEnvironment: mockLoadDatabaseSecretEnvironment,
 }));
 
 jest.mock('@codegenie/serverless-express', () => ({
@@ -25,6 +30,8 @@ describe('Lambda handler', () => {
       body: 'ok',
     });
 
+    mockLoadDatabaseSecretEnvironment.mockResolvedValue(undefined);
+
     mockCreateApp.mockResolvedValue({
       init,
       getHttpAdapter: () => ({
@@ -42,6 +49,7 @@ describe('Lambda handler', () => {
     await handler(event, context);
     await handler(event, context);
 
+    expect(mockLoadDatabaseSecretEnvironment).toHaveBeenCalledTimes(1);
     expect(mockCreateApp).toHaveBeenCalledTimes(1);
     expect(init).toHaveBeenCalledTimes(1);
     expect(mockServerlessExpress).toHaveBeenCalledTimes(1);

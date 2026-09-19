@@ -18,6 +18,8 @@ Parameters:
 
 Resources:
   ApiFunction:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: flow-in-motion-production-api
@@ -69,11 +71,15 @@ Resources:
       BuildMethod: makefile
 
   ApiFunctionLogGroup:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${ApiFunction}
       RetentionInDays: 14
   CleanupFunction:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: flow-in-motion-production-cleanup
@@ -111,6 +117,8 @@ Resources:
       BuildMethod: makefile
 
   CleanupFunctionLogGroup:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub /aws/lambda/${CleanupFunction}
@@ -118,6 +126,8 @@ Resources:
 
 
   CleanupDeadLetterQueue:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Type: AWS::SQS::Queue
     Properties:
       QueueName: flow-in-motion-production-cleanup-dlq
@@ -153,6 +163,8 @@ Resources:
                 Resource: !GetAtt CleanupDeadLetterQueue.Arn
 
   CleanupSchedule:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: flow-in-motion-production-daily-cleanup

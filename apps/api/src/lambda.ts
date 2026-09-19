@@ -5,7 +5,7 @@ import type {
   Context,
 } from 'aws-lambda';
 import type { RequestListener } from 'node:http';
-import { createApp } from './create-app';
+import { loadDatabaseSecretEnvironment } from './config/load-database-secret';
 
 type LambdaHandler = (
   event: APIGatewayProxyEventV2,
@@ -15,6 +15,9 @@ type LambdaHandler = (
 let serverPromise: Promise<LambdaHandler> | undefined;
 
 async function bootstrapLambda(): Promise<LambdaHandler> {
+  await loadDatabaseSecretEnvironment();
+
+  const { createApp } = await import('./create-app');
   const app = await createApp();
 
   // Initialize Nest without opening a permanent TCP listener.

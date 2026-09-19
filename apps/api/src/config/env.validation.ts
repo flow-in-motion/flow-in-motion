@@ -12,6 +12,7 @@ export const envValidationSchema = Joi.object({
   APP_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),
+  DATABASE_SECRET_ARN: Joi.string().optional(),
 
   POSTGRES_HOST: Joi.string().required(),
   POSTGRES_PORT: Joi.number().integer().positive().required(),
