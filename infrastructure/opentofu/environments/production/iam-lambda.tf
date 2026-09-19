@@ -103,7 +103,7 @@ data "aws_iam_policy_document" "scheduler_assume_role" {
       test     = "ArnEquals"
       variable = "aws:SourceArn"
       values = [
-        "arn:${data.aws_partition.current.partition}:scheduler:${var.aws_region}:${data.aws_caller_identity.current.account_id}:schedule/default/${local.name_prefix}-daily-cleanup",
+        "arn:${data.aws_partition.current.partition}:scheduler:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:schedule-group/default"
       ]
     }
   }
