@@ -65,6 +65,18 @@ variable "github_repository" {
   default     = "flow-in-motion/flow-in-motion"
 }
 
+variable "github_organization_id" {
+  description = "Immutable GitHub organization ID used in OIDC subject claims."
+  type        = string
+  default     = "329796927"
+}
+
+variable "github_repository_id" {
+  description = "Immutable GitHub repository ID used in OIDC subject claims."
+  type        = string
+  default     = "1372431412"
+}
+
 variable "github_deployment_branch" {
   description = "GitHub branch permitted to deploy production."
   type        = string
