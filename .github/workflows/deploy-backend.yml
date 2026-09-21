@@ -31,6 +31,7 @@ jobs:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
       TF_VAR_lambda_package_path: ${{ github.workspace }}/.artifacts/lambda.zip
+      TF_VAR_amplify_test_origin: ${{ vars.AMPLIFY_TEST_ORIGIN }}
 
     steps:
       - name: Checkout tested commit
