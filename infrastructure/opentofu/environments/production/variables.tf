@@ -77,10 +77,10 @@ variable "github_repository_id" {
   default     = "1372431412"
 }
 
-variable "github_deployment_branch" {
-  description = "GitHub branch permitted to deploy production."
+variable "github_deployment_environment" {
+  description = "Protected GitHub environment permitted to deploy production."
   type        = string
-  default     = "main"
+  default     = "production"
 }
 
 variable "budget_notification_email" {
