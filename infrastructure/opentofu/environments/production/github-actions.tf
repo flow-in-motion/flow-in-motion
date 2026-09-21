@@ -85,6 +85,9 @@ data "aws_iam_policy_document" "github_deployment" {
       "iam:GetRolePolicy",
       "iam:DeleteRolePolicy",
       "iam:PassRole",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
+      "iam:ListRolePolicies",
     ]
 
     resources = [
@@ -110,6 +113,7 @@ data "aws_iam_policy_document" "github_deployment" {
       "route53:ChangeResourceRecordSets",
       "route53:GetHostedZone",
       "route53:ListResourceRecordSets",
+      "route53:ListTagsForResource",
     ]
 
     resources = [data.aws_route53_zone.primary.arn]
@@ -135,6 +139,7 @@ data "aws_iam_policy_document" "github_deployment" {
       "secretsmanager:TagResource",
       "secretsmanager:UntagResource",
       "secretsmanager:UpdateSecret",
+      "secretsmanager:GetResourcePolicy",
     ]
 
     resources = [aws_secretsmanager_secret.database.arn]
