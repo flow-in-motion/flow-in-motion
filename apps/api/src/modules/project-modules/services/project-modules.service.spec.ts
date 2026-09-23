@@ -263,6 +263,24 @@ describe('ProjectModulesService', () => {
   });
 
   describe('listActive', () => {
+    it('rejects oversized All requests instead of returning a truncated list', async () => {
+      repository.findVisibleActiveByTenant.mockResolvedValue({ data: [], totalItems: 5001 });
+      await expect(service.listActive('tenant-1', 'user-1', 1, 'all')).rejects.toThrow('All is limited');
+    });
+
+    it('returns every matching row in one bounded All response', async () => {
+      repository.findVisibleActiveByTenant.mockResolvedValue({ data: [], totalItems: 3 });
+      const result = await service.listActive('tenant-1', 'user-1', 7, 'all');
+      expect(result.meta).toEqual({ page: 1, pageSize: 5000, totalItems: 3, totalPages: 1 });
+      expect(repository.findVisibleActiveByTenant).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves server summary counts beyond the current page', async () => {
+      repository.findVisibleActiveByTenant.mockResolvedValue({ data: [], totalItems: 85, summary: { active: 34, review: 25 } });
+      const result = await service.listActive('tenant-1', 'user-1', 1, 20);
+      expect(result.summary).toEqual({ active: 34, review: 25 });
+    });
+
     it('returns a paginated list of visible active modules', async () => {
       repository.findVisibleActiveByTenant.mockResolvedValue({
         data: [
@@ -294,6 +312,7 @@ describe('ProjectModulesService', () => {
         20,
         20,
         'project-1',
+        undefined,
       );
 
       expect(result.data.map((module) => module.id)).toEqual([

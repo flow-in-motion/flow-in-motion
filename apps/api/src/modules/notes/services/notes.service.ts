@@ -10,6 +10,8 @@ import { ProjectModulesRepository } from '../../project-modules/repositories/pro
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
 import { NotesRepository } from '../repositories/notes.repository';
 import {
+  assertAllFits,
+  listPageSize,
   buildPaginationMeta,
   paginationOffset,
 } from '../../../common/pagination';
@@ -72,24 +74,32 @@ export class NotesService {
     tenantId: string,
     callerUserId: string,
     page: number,
-    pageSize: number,
+    pageSize: number | 'all',
     projectId?: string,
+    search?: string,
+    projectOnly = false,
   ) {
-    const offset = paginationOffset(page, pageSize);
+    const limit = listPageSize(pageSize);
+    const requestedPage = pageSize === 'all' ? 1 : page;
+    const offset = paginationOffset(requestedPage, limit);
 
     const { data, totalItems } = await this.repository.findVisibleByTenant(
       tenantId,
       callerUserId,
       offset,
-      pageSize,
+      limit,
       projectId,
+      search,
+      projectOnly,
     );
+
+    assertAllFits(pageSize, totalItems);
 
     const notesWithDisplayValues = await this.withDisplayValues(data);
 
     return {
       data: notesWithDisplayValues,
-      meta: buildPaginationMeta(page, pageSize, totalItems),
+      meta: buildPaginationMeta(requestedPage, limit, totalItems),
     };
   }
 

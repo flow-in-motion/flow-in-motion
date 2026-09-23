@@ -212,6 +212,24 @@ describe('TasksService', () => {
   });
 
   describe('list', () => {
+    it('rejects oversized All requests instead of returning a truncated list', async () => {
+      repository.findVisibleByTenant.mockResolvedValue({ data: [], totalItems: 5001 });
+      await expect(service.list('tenant-1', 'user-1', 1, 'all')).rejects.toThrow('All is limited');
+    });
+
+    it('returns every matching row in one bounded All response', async () => {
+      repository.findVisibleByTenant.mockResolvedValue({ data: [], totalItems: 3 });
+      const result = await service.list('tenant-1', 'user-1', 7, 'all');
+      expect(result.meta).toEqual({ page: 1, pageSize: 5000, totalItems: 3, totalPages: 1 });
+      expect(repository.findVisibleByTenant).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves server summary counts beyond the current page', async () => {
+      repository.findVisibleByTenant.mockResolvedValue({ data: [], totalItems: 85, summary: { open: 61 } });
+      const result = await service.list('tenant-1', 'user-1', 1, 20);
+      expect(result.summary).toEqual({ open: 61 });
+    });
+
     it('returns a paginated page of visible tasks', async () => {
       repository.findVisibleByTenant.mockResolvedValue({
         data: [
@@ -240,6 +258,8 @@ describe('TasksService', () => {
         20,
         20,
         'project-1',
+        undefined,
+        false,
       );
 
       expect(result.data.map((task) => task.id)).toEqual(['task-21']);
@@ -266,6 +286,8 @@ describe('TasksService', () => {
         0,
         20,
         undefined,
+        undefined,
+        false,
       );
 
       expect(result).toEqual({

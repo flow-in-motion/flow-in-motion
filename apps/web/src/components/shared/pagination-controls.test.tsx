@@ -4,6 +4,24 @@ import { describe, expect, it, vi } from "vitest";
 import { PaginationControls } from "./pagination-controls";
 
 describe("PaginationControls", () => {
+  it("keeps All selected as the total changes, including totals of 20", () => {
+    const onPageSizeChange = vi.fn();
+    const props = { page: 1, pageSize: 5000, totalPages: 1, onPageChange: vi.fn(), onPageSizeChange, selectedPageSize: "all" as const };
+    const { rerender } = render(<PaginationControls {...props} totalItems={3} />);
+    expect(screen.getByRole("combobox", { name: "Items per page" })).toHaveValue("all");
+    rerender(<PaginationControls {...props} totalItems={20} />);
+    expect(screen.getByRole("combobox", { name: "Items per page" })).toHaveValue("all");
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "50" } });
+    expect(onPageSizeChange).toHaveBeenCalledWith(50);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "all" } });
+    expect(onPageSizeChange).toHaveBeenLastCalledWith("all");
+  });
+
+  it("disables oversized All requests before they are sent", () => {
+    render(<PaginationControls page={1} pageSize={20} totalItems={5001} totalPages={251} onPageChange={vi.fn()} onPageSizeChange={vi.fn()} />);
+    expect(screen.getByRole("option", { name: "All (limit 5,000)" })).toBeDisabled();
+  });
+
   it("shows the current item range and changes pages", () => {
     const onPageChange = vi.fn();
 

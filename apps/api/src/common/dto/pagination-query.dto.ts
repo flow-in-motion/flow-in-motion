@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsUUID, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 
 export class PaginationQueryDto {
   @ApiPropertyOptional({ example: 1, minimum: 1, default: 1 })
@@ -9,6 +9,22 @@ export class PaginationQueryDto {
   @IsInt()
   @Min(1)
   page?: number = 1;
+
+  @ApiPropertyOptional({ oneOf: [{ type: 'integer', minimum: 1, maximum: 100 }, { type: 'string', enum: ['all'] }] })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => value === 'all' ? value : Number(value))
+  @ValidateIf((_object, value: unknown) => value !== 'all')
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize?: number | 'all';
+
+  @ApiPropertyOptional({ maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
+
 }
 
 /**
@@ -23,4 +39,10 @@ export class ProjectScopedPaginationQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   projectId?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => value === 'true' ? true : value === 'false' ? false : value)
+  @IsBoolean()
+  projectOnly?: boolean;
 }

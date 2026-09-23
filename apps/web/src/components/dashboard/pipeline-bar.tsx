@@ -54,21 +54,29 @@ export function PipelineBar({ stageIndex, stageCount }: PipelineBarProps) {
 }
 
 /** Stage labels positioned above the bars at their corresponding progress points. */
-export function PipelineStageRuler({ stages }: { stages: readonly string[] }) {
+export function PipelineStageRuler({
+  stages,
+  compact = false,
+}: {
+  stages: readonly string[];
+  compact?: boolean;
+}) {
   const lastIndex = stages.length - 1;
 
   return (
-    <div className="relative h-9 w-full text-[9px] font-medium uppercase tracking-wide text-primary/70">
+    <div className={cn("relative h-9 w-full font-medium uppercase text-primary/70", compact ? "text-[8px] tracking-tight" : "text-[9px] tracking-wide")}>
       {stages.map((stage, index) => (
         <span
           key={stage}
           className={cn(
-            "absolute top-0 w-28 whitespace-normal text-center leading-tight",
+            "absolute top-0 text-center leading-tight",
+            compact ? "truncate" : "w-28 whitespace-normal",
             index === 0 && "left-0 text-left",
             index === lastIndex && "right-0 text-right",
             index > 0 && index < lastIndex && "-translate-x-1/2",
           )}
-          style={index > 0 && index < lastIndex ? { left: `${stagePosition(index, stages.length)}%` } : undefined}
+          title={stage}
+          style={{ ...(compact ? { width: `${100 / Math.max(stages.length, 1)}%` } : {}), ...(index > 0 && index < lastIndex ? { left: `${stagePosition(index, stages.length)}%` } : {}) }}
         >
           {stage}
         </span>

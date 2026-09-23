@@ -76,14 +76,14 @@ vi.mock("@/api/hooks", async () => {
         meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 },
       },
     }),
-    useNotes: (tenantId: string, projectId?: string, page = 1) => {
+    useNotes: (tenantId: string, projectId?: string, page = 1, _enabled = true, options?: { search?: string }) => {
       hookMocks.useNotes(tenantId, projectId, page);
 
       const notes = useSyncExternalStore(store.subscribe, store.getNotes);
 
       return {
         data: {
-          data: notes,
+          data: notes.filter((note) => !options?.search || `${note.title ?? ""} ${note.content ?? ""}`.toLowerCase().includes(options.search.toLowerCase())),
           meta: {
             page,
             pageSize: 20,
@@ -243,7 +243,7 @@ describe("DailyNotesPage", () => {
     expect(projectTrigger).toBeDefined();
   });
 
-  it("filters the list by search text", () => {
+  it("filters the list using server search results", async () => {
     store.setNotes([
       ...store.getNotes(),
       {
@@ -268,7 +268,7 @@ describe("DailyNotesPage", () => {
     });
 
     expect(screen.getByRole("link", { name: "Reagent calibration" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Initial observations" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Initial observations" })).not.toBeInTheDocument());
   });
 
   it("shows the collaborators icon only for shared notes the current user owns", () => {

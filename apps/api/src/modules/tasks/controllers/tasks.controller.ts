@@ -48,14 +48,13 @@ export class TasksController {
   @ApiQuery({ name: 'projectId', required: false, type: String })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Get()
-  @Get()
   async list(
     @Param('tenantId') tenantId: string,
     @Req() req: AuthenticatedRequest,
     @Query() query: ProjectScopedPaginationQueryDto,
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
-    const pageSize = this.configService.get<number>('PAGE_SIZE', 20);
+    const pageSize = query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
 
     return this.tasksService.list(
       tenantId,
@@ -63,6 +62,8 @@ export class TasksController {
       query.page ?? 1,
       pageSize,
       query.projectId,
+      query.search?.trim() || undefined,
+      query.projectOnly ?? false,
     );
   }
 

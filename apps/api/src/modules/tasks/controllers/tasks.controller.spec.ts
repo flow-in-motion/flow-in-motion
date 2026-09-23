@@ -78,6 +78,8 @@ describe('TasksController', () => {
         2,
         50,
         'project-1',
+        undefined,
+        false,
       );
 
       expect(result).toBe(tasks);
@@ -106,6 +108,8 @@ describe('TasksController', () => {
         1,
         50,
         undefined,
+        undefined,
+        false,
       );
     });
   });

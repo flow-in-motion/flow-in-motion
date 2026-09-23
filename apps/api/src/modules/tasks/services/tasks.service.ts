@@ -10,6 +10,8 @@ import { TaskMembersRepository } from '../../task-members/repositories/task-memb
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
 import { TasksRepository } from '../repositories/tasks.repository';
 import {
+  assertAllFits,
+  listPageSize,
   buildPaginationMeta,
   paginationOffset,
 } from '../../../common/pagination';
@@ -72,25 +74,34 @@ export class TasksService {
     tenantId: string,
     callerUserId: string,
     page: number,
-    pageSize: number,
+    pageSize: number | 'all',
     projectId?: string,
+    search?: string,
+    projectOnly = false,
   ) {
-    const offset = paginationOffset(page, pageSize);
+    const limit = listPageSize(pageSize);
+    const requestedPage = pageSize === 'all' ? 1 : page;
+    const offset = paginationOffset(requestedPage, limit);
 
-    const { data: rows, totalItems } =
+    const { data: rows, totalItems, summary } =
       await this.repository.findVisibleByTenant(
         tenantId,
         callerUserId,
         offset,
-        pageSize,
+        limit,
         projectId,
+        search,
+        projectOnly,
       );
+
+    assertAllFits(pageSize, totalItems);
 
     const shaped = await this.withDisplayValues(rows);
 
     return {
       data: shaped,
-      meta: buildPaginationMeta(page, pageSize, totalItems),
+      summary,
+      meta: buildPaginationMeta(requestedPage, limit, totalItems),
     };
   }
 

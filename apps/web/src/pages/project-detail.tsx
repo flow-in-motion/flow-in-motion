@@ -1,3 +1,4 @@
+import { PaginationControls } from "@/components/shared/pagination-controls";
 import {
   useEffect,
   useState,
@@ -229,11 +230,15 @@ function ProjectModulesDetails({
 
 function ProjectTasksDetails({
   tasks,
+  pagination,
+  totalItems,
   onAddTask,
   onLinkExisting,
   onUnlinkTask,
 }: {
   tasks: ApiTask[];
+  pagination?: ReactNode;
+  totalItems?: number;
   onAddTask: () => void;
   onLinkExisting: () => void;
   onUnlinkTask: (task: ApiTask) => void;
@@ -241,7 +246,7 @@ function ProjectTasksDetails({
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle>Tasks ({tasks.length})</CardTitle>
+        <CardTitle>Tasks ({totalItems ?? tasks.length})</CardTitle>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={onLinkExisting}>
             <Link2 />
@@ -305,6 +310,7 @@ function ProjectTasksDetails({
             ))}
           </div>
         )}
+        {pagination}
       </CardContent>
     </Card>
   );
@@ -312,11 +318,15 @@ function ProjectTasksDetails({
 
 function ProjectNotesDetails({
   notes,
+  pagination,
+  totalItems,
   projectId,
   onLinkExisting,
   onUnlinkNote,
 }: {
   notes: ApiNote[];
+  pagination?: ReactNode;
+  totalItems?: number;
   projectId: string;
   onLinkExisting: () => void;
   onUnlinkNote: (note: ApiNote) => void;
@@ -324,7 +334,7 @@ function ProjectNotesDetails({
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle>Notes ({notes.length})</CardTitle>
+        <CardTitle>Notes ({totalItems ?? notes.length})</CardTitle>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={onLinkExisting}>
             <Link2 />
@@ -377,6 +387,7 @@ function ProjectNotesDetails({
             ))}
           </div>
         )}
+        {pagination}
       </CardContent>
     </Card>
   );
@@ -398,10 +409,13 @@ export default function ProjectDetailPage() {
   const generalProject = projectsQuery.data?.generalProject ?? null;
   const modulesQuery = useModules(tenantId, projectId);
   const modules = modulesQuery.data?.data ?? [];
-  const tasksQuery = useTasks(tenantId, projectId);
-  const tasks = tasksQuery.data?.data ?? [];
-  const notesQuery = useNotes(tenantId, projectId);
-  const notes = notesQuery.data?.data ?? [];
+  const [taskPage, setTaskPage] = useState(1);
+  const [notePage, setNotePage] = useState(1);
+  useEffect(() => { setTaskPage(1); setNotePage(1); }, [tenantId, projectId]);
+  const tasksQuery = useTasks(tenantId, projectId, taskPage, true, { projectOnly: true });
+  const tasks = (tasksQuery.data?.data ?? []).filter((task) => !task.moduleId);
+  const notesQuery = useNotes(tenantId, projectId, notePage, true, { projectOnly: true });
+  const notes = (notesQuery.data?.data ?? []).filter((note) => !note.moduleId);
   const membersQuery = useMembers(tenantId);
   const members = membersQuery.data?.data ?? [];
   const me = useMe();
@@ -1001,12 +1015,20 @@ export default function ProjectDetailPage() {
                 />
                 <ProjectTasksDetails
                   tasks={tasks}
+                  totalItems={tasksQuery.data?.meta.totalItems}
+                  pagination={tasksQuery.data && tasksQuery.data.meta.totalPages > 1 ? (
+                    <PaginationControls {...tasksQuery.data.meta} isPending={tasksQuery.isFetching} onPageChange={setTaskPage} compact />
+                  ) : null}
                   onAddTask={() => setIsAddTaskOpen(true)}
                   onLinkExisting={() => setIsLinkTasksOpen(true)}
                   onUnlinkTask={(task) => void handleUnlinkTask(task)}
                 />
                 <ProjectNotesDetails
                   notes={notes}
+                  totalItems={notesQuery.data?.meta.totalItems}
+                  pagination={notesQuery.data && notesQuery.data.meta.totalPages > 1 ? (
+                    <PaginationControls {...notesQuery.data.meta} isPending={notesQuery.isFetching} onPageChange={setNotePage} compact />
+                  ) : null}
                   projectId={project.id}
                   onLinkExisting={() => setIsLinkNotesOpen(true)}
                   onUnlinkNote={(note) => void handleUnlinkNote(note)}

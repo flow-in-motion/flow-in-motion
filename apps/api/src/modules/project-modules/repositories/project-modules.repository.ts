@@ -1,10 +1,13 @@
+import { searchPattern } from '../../../common/pagination';
 import { Injectable } from '@nestjs/common';
 import {
+  enumTable,
   moduleCollaborators,
   modules,
   projectCollaborators,
+  projects,
 } from '@research-tracker/migrations';
-import { and, desc, eq, exists, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, exists, ilike, isNull, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 
 @Injectable()
@@ -33,6 +36,7 @@ export class ProjectModulesRepository {
     offset: number,
     limit: number,
     projectId?: string,
+    search?: string,
   ) {
     const visibilityCondition = or(
       exists(
@@ -73,6 +77,23 @@ export class ProjectModulesRepository {
     if (projectId) {
       conditions.push(eq(modules.projectId, projectId));
     }
+    if (search) {
+      const pattern = searchPattern(search);
+      conditions.push(
+        or(
+          ilike(modules.shortTitle, pattern),
+          ilike(modules.title, pattern),
+          ilike(modules.description, pattern),
+          ilike(modules.abstract, pattern),
+          exists(
+            this.drizzle.db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(and(eq(projects.id, modules.projectId), ilike(projects.title, pattern))),
+          ),
+        )!,
+      );
+    }
 
     const whereCondition = and(...conditions);
 
@@ -88,6 +109,8 @@ export class ProjectModulesRepository {
       this.drizzle.db
         .select({
           count: sql<number>`count(*)::int`,
+          active: sql<number>`count(*) filter (where ${modules.statusId} in (select ${enumTable.id} from ${enumTable} where ${enumTable.category} = 'project_status' and ${enumTable.value} = 'Active'))::int`,
+          review: sql<number>`count(*) filter (where ${modules.pipelineStageId} in (select ${enumTable.id} from ${enumTable} where ${enumTable.category} = 'module_pipeline_stage' and ${enumTable.value} = 'Submitted, Under Review' and (${enumTable.tenantId} is null or ${enumTable.tenantId} = ${tenantId})))::int`,
         })
         .from(modules)
         .where(whereCondition),
@@ -96,6 +119,7 @@ export class ProjectModulesRepository {
     return {
       data,
       totalItems: countResult[0]?.count ?? 0,
+      summary: { active: countResult[0]?.active ?? 0, review: countResult[0]?.review ?? 0 },
     };
   }
 

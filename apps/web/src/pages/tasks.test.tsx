@@ -213,6 +213,13 @@ describe("TasksPage", () => {
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
   });
+  it("preserves server matches when the linked paper is outside the loaded paper page", async () => {
+    store.setTasks(store.getTasks().map((task) => ({ ...task, moduleId: "paper-outside-page", title: "Prepare draft" })));
+    render(<MemoryRouter><TasksPage /></MemoryRouter>);
+    fireEvent.change(screen.getByPlaceholderText("Search tasks…"), { target: { value: "quantum paper" } });
+    await waitFor(() => expect(screen.getByRole("link", { name: /Prepare draft/ })).toBeInTheDocument());
+  });
+
   it("returns to page 1 when the search changes", async () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;

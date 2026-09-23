@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
@@ -30,6 +31,7 @@ export interface PaginationMeta {
 export interface PaginatedResponse<T> {
   data: T[];
   meta: PaginationMeta;
+  summary?: { active?: number; review?: number; open?: number };
 }
 
 export interface Me {
@@ -322,6 +324,8 @@ export const apiKeys = {
     tenantId: string,
     projectId?: string,
     page = 1,
+    pageSize: number | "all" = 20,
+    search = "",
   ) =>
     [
       "api",
@@ -330,6 +334,8 @@ export const apiKeys = {
       "modules",
       projectId ?? "all",
       page,
+      pageSize,
+      search,
     ] as const,
   module: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", "detail", moduleId] as const,
@@ -344,6 +350,8 @@ export const apiKeys = {
     tenantId: string,
     projectId?: string,
     page = 1,
+    pageSize: number | "all" = 20,
+    search = "",
   ) =>
     [
       "api",
@@ -352,6 +360,8 @@ export const apiKeys = {
       "tasks",
       projectId ?? "all",
       page,
+      pageSize,
+      search,
     ] as const,
   task: (tenantId: string, taskId: string) =>
     ["api", "tenant", tenantId, "tasks", "detail", taskId] as const,
@@ -363,6 +373,8 @@ export const apiKeys = {
     tenantId: string,
     projectId?: string,
     page = 1,
+    pageSize: number | "all" = 20,
+    search = "",
   ) =>
     [
       "api",
@@ -371,6 +383,8 @@ export const apiKeys = {
       "notes",
       projectId ?? "all",
       page,
+      pageSize,
+      search,
     ] as const,
   note: (tenantId: string, noteId: string) =>
     ["api", "tenant", tenantId, "notes", "detail", noteId] as const,
@@ -1052,10 +1066,17 @@ export function useModules(
   projectId?: string,
   page = 1,
   enabled = true,
+  options?: { pageSize?: number | "all"; search?: string },
 ) {
+  const pageSize = options?.pageSize ?? 20;
+  const search = options?.search?.trim() ?? "";
   return useQuery({
-    queryKey: apiKeys.modules(tenantId, projectId, page),
+    queryKey: apiKeys.modules(tenantId, projectId, page, pageSize, search),
     enabled: Boolean(tenantId) && enabled,
+    // Keep the search field mounted while a new result page is loading.
+    // Never carry data across workspace boundaries.
+    placeholderData: (previous, query) => query?.queryKey[2] === tenantId && query.queryKey[4] === (projectId ?? "all") ? keepPreviousData(previous) : undefined,
+    retry: false,
     queryFn: async () =>
       responseData<PaginatedResponse<ApiModule>>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/modules", {
@@ -1066,9 +1087,13 @@ export function useModules(
             query: {
               ...(projectId ? { projectId } : {}),
               page,
+              pageSize,
+              ...(search ? { search } : {}),
             } as {
               projectId: string;
               page: number;
+              pageSize: number | "all";
+              search?: string;
             },
           },
         }),
@@ -1459,10 +1484,17 @@ export function useTasks(
   projectId?: string,
   page = 1,
   enabled = true,
+  options?: { pageSize?: number | "all"; search?: string; projectOnly?: boolean },
 ) {
+  const pageSize = options?.pageSize ?? 20;
+  const search = options?.search?.trim() ?? "";
   return useQuery({
-    queryKey: apiKeys.tasks(tenantId, projectId, page),
+    queryKey: [...apiKeys.tasks(tenantId, projectId, page, pageSize, search), options?.projectOnly ?? false],
     enabled: Boolean(tenantId) && enabled,
+    // Keep the search field mounted while a new result page is loading.
+    // Never carry data across workspace boundaries.
+    placeholderData: (previous, query) => query?.queryKey[2] === tenantId && query.queryKey[4] === (projectId ?? "all") && query.queryKey[8] === (options?.projectOnly ?? false) ? keepPreviousData(previous) : undefined,
+    retry: false,
     queryFn: async () =>
       responseData<PaginatedResponse<ApiTask>>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/tasks", {
@@ -1471,9 +1503,15 @@ export function useTasks(
             query: {
               ...(projectId ? { projectId } : {}),
               page,
+              pageSize,
+              ...(search ? { search } : {}),
+              ...(options?.projectOnly ? { projectOnly: true } : {}),
             } as {
               projectId: string;
               page: number;
+              pageSize: number | "all";
+              search?: string;
+              projectOnly?: boolean;
             },
           },
         }),
@@ -1718,10 +1756,17 @@ export function useNotes(
   projectId?: string,
   page = 1,
   enabled = true,
+  options?: { pageSize?: number | "all"; search?: string; projectOnly?: boolean },
 ) {
+  const pageSize = options?.pageSize ?? 20;
+  const search = options?.search?.trim() ?? "";
   return useQuery({
-    queryKey: apiKeys.notes(tenantId, projectId, page),
+    queryKey: [...apiKeys.notes(tenantId, projectId, page, pageSize, search), options?.projectOnly ?? false],
     enabled: Boolean(tenantId) && enabled,
+    // Keep the search field mounted while a new result page is loading.
+    // Never carry data across workspace boundaries.
+    placeholderData: (previous, query) => query?.queryKey[2] === tenantId && query.queryKey[4] === (projectId ?? "all") && query.queryKey[8] === (options?.projectOnly ?? false) ? keepPreviousData(previous) : undefined,
+    retry: false,
     queryFn: async () =>
       responseData<PaginatedResponse<ApiNote>>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/notes", {
@@ -1732,9 +1777,15 @@ export function useNotes(
             query: {
               ...(projectId ? { projectId } : {}),
               page,
+              pageSize,
+              ...(search ? { search } : {}),
+              ...(options?.projectOnly ? { projectOnly: true } : {}),
             } as {
               projectId: string;
               page: number;
+              pageSize: number | "all";
+              search?: string;
+              projectOnly?: boolean;
             },
           },
         }),

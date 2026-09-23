@@ -75,6 +75,7 @@ describe('ProjectModulesController', () => {
         2,
         20,
         'project-1',
+        undefined,
       );
 
       expect(result).toBe(response);
