@@ -74,7 +74,7 @@ export function PipelineOverviewTable() {
     stages.forEach((s, index) => map.set(s.value, index));
     return map;
   }, [stages]);
-  const pipelineWidth = compactPipeline ? "min(68vw, 760px)" : `${Math.max(1280, stageNames.length * 128)}px`;
+  const pipelineWidth = compactPipeline ? undefined : `${Math.max(1280, stageNames.length * 128)}px`;
 
   const taskCountByPaper = useMemo(() => {
     const counts = new Map<string, { completed: number; total: number }>();
@@ -181,17 +181,17 @@ export function PipelineOverviewTable() {
         </div>
       </CardHeader>
       <CardContent className="pt-[var(--card-padding)]">
-        <Table>
+        <Table className={compactPipeline ? "table-fixed" : undefined}>
           <TableHeader>
             <TableRow>
-              {columns.isColumnVisible("paper") ? <TableHead>Paper</TableHead> : null}
+              {columns.isColumnVisible("paper") ? <TableHead style={compactPipeline ? { width: "25%" } : undefined}>Paper</TableHead> : null}
               {columns.isColumnVisible("pipeline") ? (
                 <TableHead style={{ minWidth: pipelineWidth }}>
                   <PipelineStageRuler stages={stageNames} compact={compactPipeline} />
                 </TableHead>
               ) : null}
               {columns.isColumnVisible("completion") ? (
-                <TableHead>Progress</TableHead>
+                <TableHead style={compactPipeline ? { width: "15%" } : undefined}>Progress</TableHead>
               ) : null}
             </TableRow>
           </TableHeader>

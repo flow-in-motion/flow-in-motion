@@ -77,6 +77,7 @@ vi.mock("@/api/hooks", async () => {
       },
     }),
     useNotes: (tenantId: string, projectId?: string, page = 1, _enabled = true, options?: { search?: string }) => {
+      void _enabled;
       hookMocks.useNotes(tenantId, projectId, page);
 
       const notes = useSyncExternalStore(store.subscribe, store.getNotes);
