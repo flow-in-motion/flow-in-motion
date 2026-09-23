@@ -269,8 +269,9 @@ describe('ProjectModulesService', () => {
     });
 
     it('returns every matching row in one bounded All response', async () => {
-      repository.findVisibleActiveByTenant.mockResolvedValue({ data: [], totalItems: 3 });
+      repository.findVisibleActiveByTenant.mockResolvedValue({ data: [1, 2, 3].map((id) => ({ id: String(id), statusId: null, pipelineStageId: null, visibilityId: null, priorityId: null })), totalItems: 3 });
       const result = await service.listActive('tenant-1', 'user-1', 7, 'all');
+      expect(result.data.map((item) => item.id)).toEqual(['1', '2', '3']);
       expect(result.meta).toEqual({ page: 1, pageSize: 5000, totalItems: 3, totalPages: 1 });
       expect(repository.findVisibleActiveByTenant).toHaveBeenCalledTimes(1);
     });
