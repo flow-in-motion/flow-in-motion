@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Table2 } from "lucide-react";
+import { Maximize2, Table2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { useCurrentWorkspace, useModulePipelineStagePool, useModules, useTasks } from "@/api/hooks";
@@ -17,6 +17,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -54,7 +62,6 @@ export function PipelineOverviewTable() {
 
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("All");
-  const [compactPipeline, setCompactPipeline] = useState(true);
   const columns = useColumnVisibility(
     PIPELINE_COLUMNS.map((column) => column.id),
     "dashboard-pipeline",
@@ -74,7 +81,7 @@ export function PipelineOverviewTable() {
     stages.forEach((s, index) => map.set(s.value, index));
     return map;
   }, [stages]);
-  const pipelineWidth = compactPipeline ? undefined : `${Math.max(1280, stageNames.length * 128)}px`;
+  const pipelineWidth = `${Math.max(1280, stageNames.length * 128)}px`;
 
   const taskCountByPaper = useMemo(() => {
     const counts = new Map<string, { completed: number; total: number }>();
@@ -122,133 +129,180 @@ export function PipelineOverviewTable() {
     setStage("All");
   }
 
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <Table2 className="h-4 w-4 text-violet-600" />
-            Pipeline Paper Overview
-          </CardTitle>
-          <CardDescription>
-            Every paper&rsquo;s individual position on the pipeline, searchable and filterable by stage.
-          </CardDescription>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search paper…"
-            className="sm:max-w-xs"
-          />
-          <Select
-            value={stage}
-            onValueChange={setStage}
-          >
-            <SelectTrigger className="sm:w-44">
-              <SelectValue placeholder="Stage" />
-            </SelectTrigger>
-            <SelectContent>
-              {stageFilterOptions.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option === "All" ? "All stages" : option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setCompactPipeline((current) => !current)}
-          >
-            {compactPipeline ? "Expand pipeline" : "Fit pipeline"}
-          </Button>
-          <ColumnVisibilityMenu
-            columns={PIPELINE_COLUMNS}
-            visibleColumns={columns.visibleColumns}
-            onToggle={columns.toggleColumn}
-          />
-          {hasActiveFilters ? (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-            >
-              Clear filters
-            </button>
-          ) : null}
-        </div>
-      </CardHeader>
-      <CardContent className="pt-[var(--card-padding)]">
-        <Table className={compactPipeline ? "table-fixed" : undefined}>
-          <TableHeader>
+  // Both views reuse these filters and the already-loaded data.
+  const filterControls = (
+    <>
+      <Input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search paper…"
+        className="sm:max-w-xs"
+      />
+      <Select
+        value={stage}
+        onValueChange={setStage}
+      >
+        <SelectTrigger className="sm:w-44">
+          <SelectValue placeholder="Stage" />
+        </SelectTrigger>
+        <SelectContent>
+          {stageFilterOptions.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option === "All" ? "All stages" : option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <ColumnVisibilityMenu
+        columns={PIPELINE_COLUMNS}
+        visibleColumns={columns.visibleColumns}
+        onToggle={columns.toggleColumn}
+      />
+      {hasActiveFilters ? (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Clear filters
+        </button>
+      ) : null}
+    </>
+  );
+
+  function renderPipelineTable(enlarged = false) {
+    return (
+      <Table className={enlarged ? "table-fixed" : undefined}>
+        <TableHeader>
+          <TableRow>
+            {columns.isColumnVisible("paper") ? <TableHead style={enlarged ? { width: "16%" } : undefined}>Paper</TableHead> : null}
+            {columns.isColumnVisible("pipeline") ? (
+              <TableHead style={enlarged ? undefined : { minWidth: pipelineWidth }}>
+                {enlarged ? (
+                  <div
+                    className="grid py-3 font-medium uppercase text-primary/70"
+                    style={{ gridTemplateColumns: `repeat(${Math.max(stageNames.length, 1)}, minmax(0, 1fr))` }}
+                  >
+                    {stageNames.map((name) => (
+                      <div key={name} className="flex min-w-0 items-end justify-center px-0 xl:px-1">
+                        <span className="min-w-0 max-w-full break-words text-center text-[11px] leading-tight tracking-tight max-xl:[writing-mode:vertical-rl] max-xl:rotate-180">
+                          {name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : <PipelineStageRuler stages={stageNames} />}
+              </TableHead>
+            ) : null}
+            {columns.isColumnVisible("completion") ? (
+              <TableHead style={enlarged ? { width: "8%" } : undefined}>Progress</TableHead>
+            ) : null}
+          </TableRow>
+        </TableHeader>
+
+        <TableBody>
+          {filtered.length === 0 ? (
             <TableRow>
-              {columns.isColumnVisible("paper") ? <TableHead style={compactPipeline ? { width: "25%" } : undefined}>Paper</TableHead> : null}
-              {columns.isColumnVisible("pipeline") ? (
-                <TableHead style={{ minWidth: pipelineWidth }}>
-                  <PipelineStageRuler stages={stageNames} compact={compactPipeline} />
-                </TableHead>
-              ) : null}
-              {columns.isColumnVisible("completion") ? (
-                <TableHead style={compactPipeline ? { width: "15%" } : undefined}>Progress</TableHead>
-              ) : null}
+              <TableCell
+                colSpan={columns.visibleColumns.size}
+                className="h-24 text-center text-muted-foreground"
+              >
+                No papers match the current filters.
+              </TableCell>
             </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.visibleColumns.size}
-                  className="h-24 text-center text-muted-foreground"
-                >
-                  No papers match the current filters.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((row) => (
-                <TableRow key={row.id}>
-                  {columns.isColumnVisible("paper") ? (
-                    <TableCell
-                      className={cn("max-w-[220px] truncate font-medium")}
-                      title={row.name}
+          ) : (
+            filtered.map((row) => (
+              <TableRow key={row.id}>
+                {columns.isColumnVisible("paper") ? (
+                  <TableCell
+                    className={cn("max-w-[220px] truncate font-medium")}
+                    title={row.name}
+                  >
+                    <Link
+                      to={`/modules/${row.id}`}
+                      className="text-primary hover:underline"
                     >
-                      <Link
-                        to={`/modules/${row.id}`}
-                        className="text-primary hover:underline"
-                      >
-                        {row.name}
-                      </Link>
-                    </TableCell>
-                  ) : null}
+                      {row.name}
+                    </Link>
+                  </TableCell>
+                ) : null}
 
-                  {columns.isColumnVisible("pipeline") ? (
-                    <TableCell style={{ minWidth: pipelineWidth }}>
-                      {row.stageIndex === undefined ? (
-                        <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                          Unassigned — choose a stage in Papers
-                        </Badge>
-                      ) : (
+                {columns.isColumnVisible("pipeline") ? (
+                  <TableCell style={enlarged ? undefined : { minWidth: pipelineWidth }}>
+                    {row.stageIndex === undefined ? (
+                      <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                        Unassigned — choose a stage in Papers
+                      </Badge>
+                    ) : (
+                      <div style={enlarged ? { marginInline: `${50 / Math.max(stageNames.length, 1)}%` } : undefined}>
                         <PipelineBar
                           stageIndex={row.stageIndex}
                           stageCount={stageNames.length}
                         />
-                      )}
-                    </TableCell>
-                  ) : null}
+                      </div>
+                    )}
+                  </TableCell>
+                ) : null}
 
-                  {columns.isColumnVisible("completion") ? (
-                    <TableCell className="tabular-nums text-muted-foreground">
-                      {row.completion}%
-                    </TableCell>
-                  ) : null}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+                {columns.isColumnVisible("completion") ? (
+                  <TableCell className="tabular-nums text-muted-foreground">
+                    {row.completion}%
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    );
+  }
+
+  return (
+    <Dialog>
+      <Card className="overflow-hidden">
+        <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Table2 className="h-4 w-4 text-violet-600" />
+              Pipeline Paper Overview
+            </CardTitle>
+            <CardDescription>
+              Every paper&rsquo;s individual position on the pipeline, searchable and filterable by stage.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {filterControls}
+            <DialogTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label="Enlarge pipeline"
+                title="Enlarge pipeline"
+              >
+                <Maximize2 className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </DialogTrigger>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-[var(--card-padding)]">
+          {renderPipelineTable()}
+        </CardContent>
+      </Card>
+      <DialogContent className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none p-4 sm:p-6">
+        <DialogHeader className="shrink-0 pr-8">
+          <DialogTitle>Pipeline Paper Overview</DialogTitle>
+          <DialogDescription>
+            Every paper&rsquo;s individual position on the pipeline, searchable and filterable by stage.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          {filterControls}
+        </div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          {renderPipelineTable(true)}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
