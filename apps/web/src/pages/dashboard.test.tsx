@@ -187,10 +187,10 @@ describe("DashboardPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("menuitem", { name: /Add Paper/ })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /Add Note/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^Paper$/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^Note$/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("menuitem", { name: /Add Paper/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /^Paper$/ }));
     expect(screen.getByRole("dialog", { name: "Create a new paper" })).toBeInTheDocument();
   });
 
