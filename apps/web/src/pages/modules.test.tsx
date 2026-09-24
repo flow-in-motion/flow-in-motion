@@ -268,8 +268,8 @@ describe("ModulesPage", () => {
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
   });
-  it.each([
-    { count: 10, current: "Stage 3", hidden: [] as number[], expected: 30 },
+  it.each<{ count: number; current: string | null; hidden: number[]; expected: number }>([
+    { count: 10, current: "Stage 3", hidden: [], expected: 30 },
     { count: 10, current: "Stage 3", hidden: [1, 2, 8, 9, 10], expected: 20 },
     { count: 10, current: "Stage 10", hidden: [1, 2], expected: 100 },
     { count: 1, current: "Stage 1", hidden: [], expected: 100 },
