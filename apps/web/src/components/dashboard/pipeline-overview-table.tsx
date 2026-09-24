@@ -130,45 +130,60 @@ export function PipelineOverviewTable() {
   }
 
   // Both views reuse these filters and the already-loaded data.
-  const filterControls = (
-    <>
-      <Input
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search paper…"
-        className="sm:max-w-xs"
-      />
-      <Select
-        value={stage}
-        onValueChange={setStage}
-      >
-        <SelectTrigger className="sm:w-44">
-          <SelectValue placeholder="Stage" />
-        </SelectTrigger>
-        <SelectContent>
-          {stageFilterOptions.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option === "All" ? "All stages" : option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <ColumnVisibilityMenu
-        columns={PIPELINE_COLUMNS}
-        visibleColumns={columns.visibleColumns}
-        onToggle={columns.toggleColumn}
-      />
-      {hasActiveFilters ? (
-        <button
-          type="button"
-          onClick={clearFilters}
-          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+  function renderFilterControls(showExpand = false) {
+    return (
+      <>
+        <Input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search paper…"
+          className="sm:max-w-xs"
+        />
+        <Select
+          value={stage}
+          onValueChange={setStage}
         >
-          Clear filters
-        </button>
-      ) : null}
-    </>
-  );
+          <SelectTrigger className="sm:w-44">
+            <SelectValue placeholder="Stage" />
+          </SelectTrigger>
+          <SelectContent>
+            {stageFilterOptions.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option === "All" ? "All stages" : option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {showExpand ? (
+          <DialogTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label="Enlarge pipeline"
+              title="Enlarge pipeline"
+            >
+              <Maximize2 className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </DialogTrigger>
+        ) : null}
+        <ColumnVisibilityMenu
+          columns={PIPELINE_COLUMNS}
+          visibleColumns={columns.visibleColumns}
+          onToggle={columns.toggleColumn}
+        />
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </>
+    );
+  }
 
   function renderPipelineTable(enlarged = false) {
     return (
@@ -271,18 +286,7 @@ export function PipelineOverviewTable() {
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {filterControls}
-            <DialogTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-label="Enlarge pipeline"
-                title="Enlarge pipeline"
-              >
-                <Maximize2 className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            </DialogTrigger>
+            {renderFilterControls(true)}
           </div>
         </CardHeader>
         <CardContent className="pt-[var(--card-padding)]">
@@ -297,7 +301,7 @@ export function PipelineOverviewTable() {
           </DialogDescription>
         </DialogHeader>
         <div className="flex shrink-0 flex-wrap items-center gap-3">
-          {filterControls}
+          {renderFilterControls()}
         </div>
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           {renderPipelineTable(true)}
