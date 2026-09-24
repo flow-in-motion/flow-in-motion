@@ -11,7 +11,6 @@ import {
   useModulePipelineStagePool,
   useModules,
   useProjects,
-  useTasks,
   useTrackEvent,
   type ApiModule,
 } from "@/api/hooks";
@@ -76,8 +75,7 @@ function statusPillClass(status: string | null) {
   }
 }
 
-function ProgressCell({ completed, total }: { completed: number; total: number }) {
-  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+function ProgressCell({ percent }: { percent: number }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -100,8 +98,6 @@ export default function ModulesPage() {
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
   const generalProject = projectsQuery.data?.generalProject ?? null;
-  const tasksQuery = useTasks(tenantId);
-  const tasks = tasksQuery.data?.data ?? [];
   const stagesQuery = useModulePipelineStagePool(tenantId);
   const visibleStages = useMemo(
     () =>
@@ -156,17 +152,13 @@ export default function ModulesPage() {
     return map;
   }, [members]);
 
-  const taskCountByModule = useMemo(() => {
-    const counts = new Map<string, { completed: number; total: number }>();
-    for (const task of tasks) {
-      if (!task.moduleId) continue;
-      const entry = counts.get(task.moduleId) ?? { completed: 0, total: 0 };
-      entry.total += 1;
-      if (task.status === "Complete") entry.completed += 1;
-      counts.set(task.moduleId, entry);
-    }
-    return counts;
-  }, [tasks]);
+  const progressByStage = useMemo(
+    () => new Map(visibleStages.map((stageValue, index) => [
+      stageValue.value,
+      Math.round(((index + 1) / visibleStages.length) * 100),
+    ])),
+    [visibleStages],
+  );
 
   const projectName = useCallback((projectId: string | null) => {
     if (!projectId) return "Independent paper";
@@ -196,10 +188,8 @@ export default function ModulesPage() {
       case "status":
         return (MODULE_STATUS_ORDER[a.status ?? ""] ?? 99) - (MODULE_STATUS_ORDER[b.status ?? ""] ?? 99);
       case "progress": {
-        const aCounts = taskCountByModule.get(a.id) ?? { completed: 0, total: 0 };
-        const bCounts = taskCountByModule.get(b.id) ?? { completed: 0, total: 0 };
-        const aPercent = aCounts.total > 0 ? aCounts.completed / aCounts.total : 0;
-        const bPercent = bCounts.total > 0 ? bCounts.completed / bCounts.total : 0;
+        const aPercent = progressByStage.get(a.pipelineStage ?? "") ?? 0;
+        const bPercent = progressByStage.get(b.pipelineStage ?? "") ?? 0;
         return aPercent - bPercent;
       }
       case "stage":
@@ -221,7 +211,7 @@ export default function ModulesPage() {
       (a, b) => compareModules(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modules, search, status, stage, projectName, assigneeName, taskCountByModule, sortColumn, sortDirection]);
+  }, [modules, search, status, stage, projectName, assigneeName, progressByStage, sortColumn, sortDirection]);
 
   const hasActiveFilters = search !== "" || status !== "All" || stage !== "All";
 
@@ -473,8 +463,7 @@ export default function ModulesPage() {
                   ) : null}
                   {columns.isColumnVisible("progress") ? (
                     <ProgressCell
-                      completed={taskCountByModule.get(module.id)?.completed ?? 0}
-                      total={taskCountByModule.get(module.id)?.total ?? 0}
+                      percent={progressByStage.get(module.pipelineStage ?? "") ?? 0}
                     />
                   ) : null}
                   {columns.isColumnVisible("stage") ? (

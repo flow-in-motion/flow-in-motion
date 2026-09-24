@@ -268,6 +268,47 @@ describe("ModulesPage", () => {
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
   });
+  it.each([
+    { count: 10, current: "Stage 3", hidden: [] as number[], expected: 30 },
+    { count: 10, current: "Stage 3", hidden: [1, 2, 8, 9, 10], expected: 20 },
+    { count: 10, current: "Stage 10", hidden: [1, 2], expected: 100 },
+    { count: 1, current: "Stage 1", hidden: [], expected: 100 },
+    { count: 0, current: null, hidden: [], expected: 0 },
+    { count: 3, current: "Stage 2", hidden: [2], expected: 0 },
+  ])("uses selected stages for progress: $current, $expected%", ({ count, current, hidden, expected }) => {
+    const originalStages = fixtures.stageValues;
+    try {
+      fixtures.stageValues = Array.from({ length: count }, (_, index) => ({
+        ...originalStages[0],
+        id: `stage-${index + 1}`,
+        value: `Stage ${index + 1}`,
+        sortOrder: index + 1,
+        hidden: hidden.includes(index + 1),
+      })).reverse();
+      store.setModules(store.getModules().map((module) => ({ ...module, pipelineStage: current })));
+      render(<MemoryRouter><ModulesPage /></MemoryRouter>);
+
+      const percentage = screen.getByText(`${expected}%`);
+      expect(percentage.parentElement?.querySelector(".bg-primary")).toHaveStyle({ width: `${expected}%` });
+    } finally {
+      fixtures.stageValues = originalStages;
+    }
+  });
+
+  it("updates progress when selected stages are reordered", () => {
+    const originalStages = fixtures.stageValues;
+    try {
+      const { rerender } = render(<MemoryRouter><ModulesPage /></MemoryRouter>);
+      expect(screen.getByText("50%")).toBeInTheDocument();
+
+      fixtures.stageValues = originalStages.map((stage) => ({ ...stage, sortOrder: 3 - stage.sortOrder }));
+      rerender(<MemoryRouter><ModulesPage /></MemoryRouter>);
+      expect(screen.getByText("100%")).toBeInTheDocument();
+    } finally {
+      fixtures.stageValues = originalStages;
+    }
+  });
+
   it("requests the next modules page when Next is clicked", () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;
