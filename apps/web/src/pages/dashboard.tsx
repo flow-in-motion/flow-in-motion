@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   ListTodo,
   NotebookPen,
-  Plus,
   SlidersHorizontal,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
@@ -86,6 +85,14 @@ function buildSummary(counts: {
       to: "/projects",
     },
     {
+      label: "Active Papers",
+      description: "Active of all visible papers",
+      value: `${counts.activeModules} of ${counts.totalModules}`,
+      icon: FileStack,
+      tone: "emerald",
+      to: "/modules",
+    },
+    {
       label: "Open Tasks",
       description: "Open of all visible tasks",
       value: `${counts.openTasks} of ${counts.totalTasks}`,
@@ -100,14 +107,6 @@ function buildSummary(counts: {
       icon: FilePenLine,
       tone: "violet",
       to: "/pipeline",
-    },
-    {
-      label: "Active Papers",
-      description: "Active of all visible papers",
-      value: `${counts.activeModules} of ${counts.totalModules}`,
-      icon: FileStack,
-      tone: "emerald",
-      to: "/modules",
     },
   ];
 }
@@ -516,10 +515,6 @@ export default function DashboardPage() {
         description="A snapshot of research activity across projects, tasks, daily notes, and project files."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => setIsNewProjectOpen(true)}>
-              <Plus />
-              Add Project
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
@@ -528,21 +523,25 @@ export default function DashboardPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem onSelect={() => setIsNewProjectOpen(true)}>
+                  <FolderKanban />
+                  Project
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setIsNewTaskOpen(true)}>
                   <ListTodo />
-                  Add Task
+                  Task
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setIsNewModuleOpen(true)}>
                   <FileStack />
-                  Add Paper
+                  Paper
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setIsNewNoteOpen(true)}>
                   <NotebookPen />
-                  Add Note
+                  Note
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setIsNewConferenceOpen(true)}>
                   <FilePenLine />
-                  Add Conference
+                  Conference
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
