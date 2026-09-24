@@ -1,3 +1,4 @@
+import { useListSearch } from "@/hooks/use-list-search";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileStack, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -90,9 +91,10 @@ function ProgressCell({ completed, total }: { completed: number; total: number }
 export default function ModulesPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
-  const [page, setPage] = useState(1);
+  const { page, setPage, search, setSearch, requestSearch } = useListSearch();
+  const [pageSize, setPageSize] = useState<number | "all">(20);
 
-  const modulesQuery = useModules(tenantId, undefined, page);
+  const modulesQuery = useModules(tenantId, undefined, page, true, { pageSize, search: requestSearch });
   const modules = modulesQuery.data?.data ?? [];
   const paginationMeta = modulesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
@@ -121,7 +123,6 @@ export default function ModulesPage() {
   const archiveModule = useArchiveModule(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("All");
   const [stage, setStage] = useState<string>("All");
   const [sortColumn, setSortColumn] = useState<SortColumn>("module");
@@ -129,8 +130,8 @@ export default function ModulesPage() {
   useEffect(() => {
     setPage(1);
   }, [
+    setPage,
     tenantId,
-    search,
     status,
     stage,
     sortColumn,
@@ -211,18 +212,10 @@ export default function ModulesPage() {
   }
 
   const visibleModules = useMemo(() => {
-    const query = search.trim().toLowerCase();
     const filtered = modules.filter((module) => {
       if (status !== "All" && module.status !== status) return false;
       if (stage !== "All" && module.pipelineStage !== stage) return false;
-      const linkedProject = projectName(module.projectId);
-      return (
-        !query ||
-        paperDisplayTitle(module).toLowerCase().includes(query) ||
-        (module.title?.toLowerCase().includes(query) ?? false) ||
-        (module.description?.toLowerCase().includes(query) ?? false) ||
-        linkedProject.toLowerCase().includes(query)
-      );
+      return true;
     });
     return [...filtered].sort(
       (a, b) => compareModules(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
@@ -273,7 +266,7 @@ export default function ModulesPage() {
       <ErrorState
         title="Papers could not be loaded"
         description={modulesQuery.error.message}
-        onRetry={() => void modulesQuery.refetch()}
+        onRetry={() => pageSize === "all" ? setPageSize(20) : void modulesQuery.refetch()}
       />
     );
   }
@@ -517,10 +510,15 @@ export default function ModulesPage() {
             <PaginationControls
               page={paginationMeta.page}
               pageSize={paginationMeta.pageSize}
+              selectedPageSize={pageSize}
               totalItems={paginationMeta.totalItems}
               totalPages={paginationMeta.totalPages}
               isPending={modulesQuery.isFetching}
               onPageChange={setPage}
+              onPageSizeChange={(nextPageSize) => {
+                setPageSize(nextPageSize);
+                setPage(1);
+              }}
             />
           ) : null}
         </div>

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import TasksPage from "@/pages/tasks";
 const hookMocks = vi.hoisted(() => ({
   useTasks: vi.fn(),
+  search: vi.fn(),
   pagination: {
     totalItems: 1,
     totalPages: 1,
@@ -107,8 +108,12 @@ vi.mock("@/api/hooks", async () => {
       tenantId: string,
       projectId?: string,
       page = 1,
+      enabled = true,
+      options?: { search?: string },
     ) => {
+      void enabled;
       hookMocks.useTasks(tenantId, projectId, page);
+      hookMocks.search(options?.search);
     
       const tasks = useSyncExternalStore(
         store.subscribe,
@@ -210,9 +215,18 @@ describe("TasksPage", () => {
     fixtures.projects = [];
     fixtures.modules = [];
     hookMocks.useTasks.mockClear();
+    hookMocks.search.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
   });
+  it("preserves server matches when the linked paper is outside the loaded paper page", async () => {
+    store.setTasks(store.getTasks().map((task) => ({ ...task, moduleId: "paper-outside-page", title: "Prepare draft" })));
+    render(<MemoryRouter><TasksPage /></MemoryRouter>);
+    fireEvent.change(screen.getByPlaceholderText("Search tasks…"), { target: { value: "quantum paper" } });
+    await waitFor(() => expect(hookMocks.search).toHaveBeenLastCalledWith("quantum paper"));
+    expect(screen.getByRole("link", { name: "Prepare draft" })).toBeInTheDocument();
+  });
+
   it("returns to page 1 when the search changes", async () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;

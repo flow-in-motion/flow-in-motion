@@ -63,12 +63,13 @@ vi.mock("@/api/hooks", () => ({
   }),
   useTasks: () => ({
     data: {
+      summary: { open: 61 },
       data: [],
       meta: {
         page: 1,
         pageSize: 20,
-        totalItems: 0,
-        totalPages: 1,
+        totalItems: 85,
+        totalPages: 5,
       },
     },
     isPending: queryState.tasksPending,
@@ -77,7 +78,7 @@ vi.mock("@/api/hooks", () => ({
     refetch: queryState.tasksRefetch,
   }),
   useModules: () => ({
-    data: [],
+    data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 47, totalPages: 3 }, summary: { active: 34, review: 25 } },
     isPending: false,
     isError: false,
     error: null,
@@ -118,6 +119,13 @@ vi.mock("@/components/dashboard/conference-submissions-table", () => ({
 }));
 
 describe("DashboardPage", () => {
+  it("uses server totals even when the loaded page is empty", () => {
+    render(<MemoryRouter><DashboardPage /></MemoryRouter>);
+    expect(screen.getByText("34 of 47")).toBeInTheDocument();
+    expect(screen.getByText("61 of 85")).toBeInTheDocument();
+    expect(screen.getByText("25")).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     window.localStorage.clear();
     queryState.projectsPending = false;

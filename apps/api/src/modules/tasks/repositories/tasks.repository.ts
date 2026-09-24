@@ -1,6 +1,7 @@
+import { searchPattern } from '../../../common/pagination';
 import { Injectable } from '@nestjs/common';
-import { taskMembers, tasks } from '@research-tracker/migrations';
-import { and, desc, eq, exists, inArray, or, sql } from 'drizzle-orm';
+import { enumTable, modules, projects, taskMembers, tasks } from '@research-tracker/migrations';
+import { and, desc, eq, exists, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 
 @Injectable()
@@ -44,6 +45,8 @@ export class TasksRepository {
     offset: number,
     limit: number,
     projectId?: string,
+    search?: string,
+    projectOnly = false,
   ) {
     const accessCondition = or(
       eq(tasks.createdBy, callerUserId),
@@ -66,6 +69,33 @@ export class TasksRepository {
     if (projectId) {
       conditions.push(eq(tasks.projectId, projectId));
     }
+    if (projectOnly) conditions.push(isNull(tasks.moduleId));
+    if (search) {
+      const pattern = searchPattern(search);
+      conditions.push(or(
+          ilike(tasks.displayId, pattern),
+          ilike(tasks.title, pattern),
+          ilike(tasks.description, pattern),
+          ilike(tasks.workingWith, pattern),
+          exists(
+            this.drizzle.db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(and(eq(projects.id, tasks.projectId), ilike(projects.title, pattern))),
+          ),
+          exists(
+            this.drizzle.db
+              .select({ id: modules.id })
+              .from(modules)
+              .where(
+                and(
+                  eq(modules.id, tasks.moduleId),
+                  or(ilike(modules.shortTitle, pattern), ilike(modules.title, pattern)),
+                ),
+              ),
+          ),
+        )!);
+    }
 
     const whereCondition = and(...conditions);
 
@@ -79,7 +109,9 @@ export class TasksRepository {
         .offset(offset),
 
       this.drizzle.db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(*)::int`,
+          open: sql<number>`count(*) filter (where ${tasks.statusId} is null or ${tasks.statusId} not in (select ${enumTable.id} from ${enumTable} where ${enumTable.category} = 'task_status' and ${enumTable.value} = 'Complete'))::int`,
+        })
         .from(tasks)
         .where(whereCondition),
     ]);
@@ -87,6 +119,7 @@ export class TasksRepository {
     return {
       data,
       totalItems: countResult[0]?.count ?? 0,
+      summary: { open: countResult[0]?.open ?? 0 },
     };
   }
 

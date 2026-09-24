@@ -301,6 +301,19 @@ describe('NotesService', () => {
   });
 
   describe('list', () => {
+    it('rejects oversized All requests instead of returning a truncated list', async () => {
+      repository.findVisibleByTenant.mockResolvedValue({ data: [], totalItems: 5001 });
+      await expect(service.list('tenant-1', 'user-1', 1, 'all')).rejects.toThrow('All is limited');
+    });
+
+    it('returns every matching row in one bounded All response', async () => {
+      repository.findVisibleByTenant.mockResolvedValue({ data: [1, 2, 3].map((id) => ({ id: String(id), statusId: null, pipelineStageId: null, visibilityId: null, priorityId: null })), totalItems: 3 });
+      const result = await service.list('tenant-1', 'user-1', 7, 'all');
+      expect(result.data.map((item) => item.id)).toEqual(['1', '2', '3']);
+      expect(result.meta).toEqual({ page: 1, pageSize: 5000, totalItems: 3, totalPages: 1 });
+      expect(repository.findVisibleByTenant).toHaveBeenCalledTimes(1);
+    });
+
     it('returns a paginated list of visible notes', async () => {
       repository.findVisibleByTenant.mockResolvedValue({
         data: [
@@ -332,6 +345,8 @@ describe('NotesService', () => {
         20,
         20,
         'project-1',
+        undefined,
+        false,
       );
 
       expect(noteMembers.findByNoteIdsAndUser).not.toHaveBeenCalled();

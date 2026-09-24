@@ -54,7 +54,7 @@ export class NotesController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
 
-    const pageSize = this.configService.get<number>('PAGE_SIZE', 20);
+    const pageSize = query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
 
     return this.notesService.list(
       tenantId,
@@ -62,6 +62,8 @@ export class NotesController {
       query.page ?? 1,
       pageSize,
       query.projectId,
+      query.search?.trim() || undefined,
+      query.projectOnly ?? false,
     );
   }
 

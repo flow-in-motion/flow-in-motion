@@ -263,7 +263,6 @@ export default function DashboardPage() {
   const projects = projectsQuery.data?.data ?? [];
   const tasksQuery = useTasks(tenantId);
   const modulesQuery = useModules(tenantId);
-  const tasks = tasksQuery.data?.data ?? [];
   const modules = modulesQuery.data?.data ?? [];
   const me = useMe();
   const createProject = useCreateProject(tenantId);
@@ -307,19 +306,13 @@ export default function DashboardPage() {
         activeProjects: projects.filter((project) => project.status === "Active")
           .length,
         totalProjects: projects.length,
-        openTasks: tasks.filter(
-          (task) => task.status !== "Complete",
-        ).length,
-        totalTasks: tasks.length,
-        reviewStage: modules.filter(
-          (module) => module.pipelineStage === "Submitted, Under Review",
-        ).length,
-        activeModules: modules.filter(
-          (module) => module.status === "Active",
-        ).length,
-        totalModules: modules.length,
+        openTasks: tasksQuery.data?.summary?.open ?? 0,
+        totalTasks: tasksQuery.data?.meta.totalItems ?? 0,
+        reviewStage: modulesQuery.data?.summary?.review ?? 0,
+        activeModules: modulesQuery.data?.summary?.active ?? 0,
+        totalModules: modulesQuery.data?.meta.totalItems ?? 0,
       }),
-    [projects, tasks, modules],
+    [projects, tasksQuery.data, modulesQuery.data],
   );
   const visibleWidgets = new Set(
     layout.order.filter((id) => !layout.hidden.includes(id)),

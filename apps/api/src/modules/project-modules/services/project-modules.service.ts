@@ -12,6 +12,8 @@ import { TenantSequencesRepository } from '../../tenant-sequences/repositories/t
 import { ProjectModulesRepository } from '../repositories/project-modules.repository';
 import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 import {
+  assertAllFits,
+  listPageSize,
   buildPaginationMeta,
   paginationOffset,
 } from '../../../common/pagination';
@@ -62,19 +64,25 @@ export class ProjectModulesService {
     tenantId: string,
     callerUserId: string,
     page: number,
-    pageSize: number,
+    pageSize: number | 'all',
     projectId?: string,
+    search?: string,
   ) {
-    const offset = paginationOffset(page, pageSize);
+    const limit = listPageSize(pageSize);
+    const requestedPage = pageSize === 'all' ? 1 : page;
+    const offset = paginationOffset(requestedPage, limit);
 
-    const { data, totalItems } =
+    const { data, totalItems, summary } =
       await this.repository.findVisibleActiveByTenant(
         tenantId,
         callerUserId,
         offset,
-        pageSize,
+        limit,
         projectId,
+        search,
       );
+
+    assertAllFits(pageSize, totalItems);
 
     const modulesWithDisplayValues = await this.withDisplayValues(
       data,
@@ -83,7 +91,8 @@ export class ProjectModulesService {
 
     return {
       data: modulesWithDisplayValues,
-      meta: buildPaginationMeta(page, pageSize, totalItems),
+      summary,
+      meta: buildPaginationMeta(requestedPage, limit, totalItems),
     };
   }
 

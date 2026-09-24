@@ -9,6 +9,8 @@ interface PaginationControlsProps {
   isPending?: boolean;
   compact?: boolean;
   onPageChange: (page: number) => void;
+  selectedPageSize?: number | "all";
+  onPageSizeChange?: (pageSize: number | "all") => void;
 }
 
 export function PaginationControls({
@@ -19,6 +21,8 @@ export function PaginationControls({
   isPending = false,
   compact = false,
   onPageChange,
+  onPageSizeChange,
+  selectedPageSize,
 }: PaginationControlsProps) {
   if (totalItems === 0) {
     return null;
@@ -40,7 +44,27 @@ export function PaginationControls({
         Showing {firstItem}–{lastItem} of {totalItems}
       </p>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {onPageSizeChange ? (
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            Show
+            <select
+              aria-label="Items per page"
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+              value={String(selectedPageSize ?? pageSize)}
+              disabled={isPending}
+              onChange={(event) => {
+                const value = event.target.value;
+                onPageSizeChange(value === "all" ? "all" : Number(value));
+              }}
+            >
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="all" disabled={totalItems > 5000}>All{totalItems > 5000 ? " (limit 5,000)" : ""}</option>
+            </select>
+          </label>
+        ) : null}
         <Button
           type="button"
           variant="outline"

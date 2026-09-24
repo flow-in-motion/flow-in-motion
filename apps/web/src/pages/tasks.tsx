@@ -1,3 +1,4 @@
+import { useListSearch } from "@/hooks/use-list-search";
 import { useEffect, useMemo, useState } from "react";
 import { ListTodo, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -100,9 +101,10 @@ export default function TasksPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
 
-  const [page, setPage] = useState(1);
+  const { page, setPage, search, setSearch, requestSearch } = useListSearch();
+  const [pageSize, setPageSize] = useState<number | "all">(20);
 
-  const tasksQuery = useTasks(tenantId, undefined, page);
+  const tasksQuery = useTasks(tenantId, undefined, page, true, { pageSize, search: requestSearch });
   const tasks = tasksQuery.data?.data ?? [];
   const paginationMeta = tasksQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
@@ -120,7 +122,6 @@ export default function TasksPage() {
   const deleteTask = useDeleteTask(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("All");
   const [priority, setPriority] = useState<PriorityFilter>("All");
   const [sortColumn, setSortColumn] = useState<SortColumn>("due");
@@ -128,8 +129,8 @@ export default function TasksPage() {
   useEffect(() => {
     setPage(1);
   }, [
+    setPage,
     tenantId,
-    search,
     status,
     priority,
     sortColumn,
@@ -189,20 +190,9 @@ export default function TasksPage() {
   }
 
   const visibleTasks = useMemo(() => {
-    const query = search.trim().toLowerCase();
     const filtered = tasks.filter((task) => {
       if (status !== "All" && task.status !== status) return false;
       if (priority !== "All" && task.priority !== priority) return false;
-      if (
-        query &&
-        !(task.displayId?.toLowerCase().includes(query) ?? false) &&
-        !task.title.toLowerCase().includes(query) &&
-        !(task.description?.toLowerCase().includes(query) ?? false) &&
-        !linkTargetLabel(task).toLowerCase().includes(query) &&
-        !(task.workingWith?.toLowerCase().includes(query) ?? false)
-      ) {
-        return false;
-      }
       return true;
     });
     return [...filtered].sort(
@@ -249,7 +239,7 @@ export default function TasksPage() {
       <ErrorState
         title="Tasks could not be loaded"
         description={tasksQuery.error.message}
-        onRetry={() => void tasksQuery.refetch()}
+        onRetry={() => pageSize === "all" ? setPageSize(20) : void tasksQuery.refetch()}
       />
     );
   }
@@ -478,10 +468,15 @@ export default function TasksPage() {
             <PaginationControls
               page={paginationMeta.page}
               pageSize={paginationMeta.pageSize}
+              selectedPageSize={pageSize}
               totalItems={paginationMeta.totalItems}
               totalPages={paginationMeta.totalPages}
               isPending={tasksQuery.isFetching}
               onPageChange={setPage}
+              onPageSizeChange={(nextPageSize) => {
+                setPageSize(nextPageSize);
+                setPage(1);
+              }}
             />
           ) : null}
         </div>

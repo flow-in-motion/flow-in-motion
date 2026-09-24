@@ -1,3 +1,4 @@
+import { useListSearch } from "@/hooks/use-list-search";
 import { useEffect, useMemo, useState } from "react";
 import { NotebookPen, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -74,9 +75,10 @@ export default function DailyNotesPage() {
   const tenantId = workspace.data?.id ?? "";
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [page, setPage] = useState(1);
+  const { page, setPage, search, setSearch, requestSearch } = useListSearch();
+  const [pageSize, setPageSize] = useState<number | "all">(20);
 
-  const notesQuery = useNotes(tenantId, undefined, page);
+  const notesQuery = useNotes(tenantId, undefined, page, true, { pageSize, search: requestSearch });
   const notes = notesQuery.data?.data ?? [];
   const paginationMeta = notesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
@@ -96,13 +98,12 @@ export default function DailyNotesPage() {
   const deleteNote = useDeleteNote(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [search, setSearch] = useState("");
   const [visibility, setVisibility] = useState<VisibilityFilter>("All");
   const [sortColumn, setSortColumn] = useState<SortColumn>("created");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   useEffect(() => {
     setPage(1);
-  }, [tenantId, search, visibility, sortColumn, sortDirection]);
+  }, [setPage, tenantId, visibility, sortColumn, sortDirection]);
 
   useEffect(() => {
     if (searchParams.get("new") !== "true") return;
@@ -174,17 +175,8 @@ export default function DailyNotesPage() {
   }
 
   const visibleNotes = useMemo(() => {
-    const query = search.trim().toLowerCase();
     const filtered = notes.filter((note) => {
       if (visibility !== "All" && (note.visibility ?? "Private") !== visibility) return false;
-      if (
-        query &&
-        !(note.title?.toLowerCase().includes(query) ?? false) &&
-        !(note.content?.toLowerCase().includes(query) ?? false) &&
-        !linkTargetLabel(note).toLowerCase().includes(query)
-      ) {
-        return false;
-      }
       return true;
     });
     return [...filtered].sort(
@@ -231,7 +223,7 @@ export default function DailyNotesPage() {
       <ErrorState
         title="Notes could not be loaded"
         description={notesQuery.error.message}
-        onRetry={() => void notesQuery.refetch()}
+        onRetry={() => pageSize === "all" ? setPageSize(20) : void notesQuery.refetch()}
       />
     );
   }
@@ -438,10 +430,15 @@ export default function DailyNotesPage() {
             <PaginationControls
               page={paginationMeta.page}
               pageSize={paginationMeta.pageSize}
+              selectedPageSize={pageSize}
               totalItems={paginationMeta.totalItems}
               totalPages={paginationMeta.totalPages}
               isPending={notesQuery.isFetching}
               onPageChange={setPage}
+              onPageSizeChange={(nextPageSize) => {
+                setPageSize(nextPageSize);
+                setPage(1);
+              }}
             />
           ) : null}
         </div>

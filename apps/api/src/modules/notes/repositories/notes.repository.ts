@@ -1,6 +1,7 @@
+import { searchPattern } from '../../../common/pagination';
 import { Injectable } from '@nestjs/common';
-import { notes, noteMembers } from '@research-tracker/migrations';
-import { and, desc, eq, exists, inArray, or, sql } from 'drizzle-orm';
+import { modules, notes, noteMembers, projects } from '@research-tracker/migrations';
+import { and, desc, eq, exists, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 
 @Injectable()
@@ -44,6 +45,8 @@ export class NotesRepository {
     offset: number,
     limit: number,
     projectId?: string,
+    search?: string,
+    projectOnly = false,
   ) {
     const visibilityCondition = or(
       eq(notes.createdBy, callerUserId),
@@ -65,6 +68,31 @@ export class NotesRepository {
 
     if (projectId) {
       conditions.push(eq(notes.projectId, projectId));
+    }
+    if (projectOnly) conditions.push(isNull(notes.moduleId));
+    if (search) {
+      const pattern = searchPattern(search);
+      conditions.push(or(
+          ilike(notes.title, pattern),
+          ilike(notes.content, pattern),
+          exists(
+            this.drizzle.db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(and(eq(projects.id, notes.projectId), ilike(projects.title, pattern))),
+          ),
+          exists(
+            this.drizzle.db
+              .select({ id: modules.id })
+              .from(modules)
+              .where(
+                and(
+                  eq(modules.id, notes.moduleId),
+                  or(ilike(modules.shortTitle, pattern), ilike(modules.title, pattern)),
+                ),
+              ),
+          ),
+        )!);
     }
 
     const whereCondition = and(...conditions);

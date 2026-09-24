@@ -78,6 +78,8 @@ describe('NotesController', () => {
         2,
         20,
         'project-1',
+        undefined,
+        false,
       );
 
       expect(result).toBe(response);

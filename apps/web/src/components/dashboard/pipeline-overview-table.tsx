@@ -9,6 +9,7 @@ import {
 } from "@/components/dashboard/pipeline-bar";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -53,6 +54,7 @@ export function PipelineOverviewTable() {
 
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("All");
+  const [compactPipeline, setCompactPipeline] = useState(true);
   const columns = useColumnVisibility(
     PIPELINE_COLUMNS.map((column) => column.id),
     "dashboard-pipeline",
@@ -72,7 +74,7 @@ export function PipelineOverviewTable() {
     stages.forEach((s, index) => map.set(s.value, index));
     return map;
   }, [stages]);
-  const pipelineWidth = `${Math.max(1280, stageNames.length * 128)}px`;
+  const pipelineWidth = compactPipeline ? undefined : `${Math.max(1280, stageNames.length * 128)}px`;
 
   const taskCountByPaper = useMemo(() => {
     const counts = new Map<string, { completed: number; total: number }>();
@@ -154,6 +156,14 @@ export function PipelineOverviewTable() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setCompactPipeline((current) => !current)}
+          >
+            {compactPipeline ? "Expand pipeline" : "Fit pipeline"}
+          </Button>
           <ColumnVisibilityMenu
             columns={PIPELINE_COLUMNS}
             visibleColumns={columns.visibleColumns}
@@ -171,17 +181,17 @@ export function PipelineOverviewTable() {
         </div>
       </CardHeader>
       <CardContent className="pt-[var(--card-padding)]">
-        <Table>
+        <Table className={compactPipeline ? "table-fixed" : undefined}>
           <TableHeader>
             <TableRow>
-              {columns.isColumnVisible("paper") ? <TableHead>Paper</TableHead> : null}
+              {columns.isColumnVisible("paper") ? <TableHead style={compactPipeline ? { width: "25%" } : undefined}>Paper</TableHead> : null}
               {columns.isColumnVisible("pipeline") ? (
                 <TableHead style={{ minWidth: pipelineWidth }}>
-                  <PipelineStageRuler stages={stageNames} />
+                  <PipelineStageRuler stages={stageNames} compact={compactPipeline} />
                 </TableHead>
               ) : null}
               {columns.isColumnVisible("completion") ? (
-                <TableHead>Progress</TableHead>
+                <TableHead style={compactPipeline ? { width: "15%" } : undefined}>Progress</TableHead>
               ) : null}
             </TableRow>
           </TableHeader>
