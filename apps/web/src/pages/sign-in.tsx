@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const HIGHLIGHTS = [
-  { icon: FlaskConical, text: "Track every project from idea to acceptance" },
+  { icon: FlaskConical, text: "Track every project from idea to submission" },
   {
     icon: Users,
     text: "Share projects, papers, tasks, notes with collaborators",
@@ -33,7 +33,7 @@ const RESEARCH_FLOW = [
   { icon: FolderKanban, label: "Project" },
   { icon: FileText, label: "Paper" },
   { icon: MessagesSquare, label: "Review" },
-  { icon: CheckCircle2, label: "Published" },
+  { icon: CheckCircle2, label: "Submission" },
 ];
 
 export default function SignInPage() {
@@ -42,6 +42,7 @@ export default function SignInPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const returnTo =
@@ -86,7 +87,7 @@ export default function SignInPage() {
           </h1>
           <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground text-balance">
             One place to plan projects, assign tasks, organise notes, and follow
-            your pipeline from first idea to acceptance.
+            your pipeline from first idea to submission.
           </p>
 
           <div className="mt-8 rounded-2xl border border-primary/15 bg-card/75 p-5 shadow-[var(--shadow-md)] ring-1 ring-white/60 dark:ring-white/[0.03]">
@@ -182,12 +183,22 @@ export default function SignInPage() {
               </label>
               <Input
                 id="sign-in-password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
               />
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={showPassword}
+                  onChange={(event) => setShowPassword(event.target.checked)}
+                  aria-controls="sign-in-password"
+                  className="h-4 w-4 accent-primary"
+                />
+                Show password
+              </label>
             </div>
             <Button
               type="submit"

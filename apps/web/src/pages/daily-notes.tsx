@@ -64,6 +64,12 @@ function noteTitle(note: ApiNote) {
   return note.title || "Untitled note";
 }
 
+function notePreview(content: string | null) {
+  const words = content?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (words.length === 0) return "—";
+  return words.slice(0, 10).join(" ") + (words.length > 10 ? "…" : "");
+}
+
 function visibilityPillClass(visibility: string | null) {
   return visibility === "Shared"
     ? "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400"
@@ -384,8 +390,8 @@ export default function DailyNotesPage() {
                     </div>
                   ) : null}
                   {columns.isColumnVisible("content") ? (
-                    <span className="text-sm leading-5 text-muted-foreground">
-                      {note.content || "—"}
+                    <span className="min-w-0 truncate text-sm leading-5 text-muted-foreground">
+                      {notePreview(note.content)}
                     </span>
                   ) : null}
                   {columns.isColumnVisible("linkedTo") ? (
