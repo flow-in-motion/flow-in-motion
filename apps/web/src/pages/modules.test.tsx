@@ -476,7 +476,7 @@ describe("ModulesPage", () => {
     expect(screen.getByText("Review-stage paper")).toBeInTheDocument();
   });
 
-  it("shows a Progress column based on the paper's linked task completion", () => {
+  it("shows selected-stage progress even when linked task completion differs", () => {
     fixtures.tasks = [
       { id: "task-1", moduleId: "module-1", status: "Complete" },
       { id: "task-2", moduleId: "module-1", status: "To do" },
@@ -490,7 +490,8 @@ describe("ModulesPage", () => {
     );
 
     expect(screen.getByRole("button", { name: "Sort by Progress" })).toBeInTheDocument();
-    expect(screen.getByText("75%")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.queryByText("75%")).not.toBeInTheDocument();
   });
 
   it("sorts by column, toggling direction on repeated clicks", () => {
