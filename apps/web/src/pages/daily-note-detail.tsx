@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Unlink, X } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Unlink } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import {
@@ -368,8 +368,8 @@ export default function DailyNoteDetailPage() {
                 Follow up {formatPlainDate(note.followUpDate)}
               </Link>
             ) : null}
-            {form ? <Button type="button" variant="outline" onClick={cancelEditing}><X /> Cancel Editing</Button>
-              : <Button type="button" onClick={() => setForm(formValues(note))}><Pencil /> Edit Note</Button>}
+            {form ? null : (
+               <Button type="button" onClick={() => setForm(formValues(note))}><Pencil /> Edit Note</Button>)}
           </div>
         }
       />
