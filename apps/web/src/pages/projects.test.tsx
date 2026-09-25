@@ -254,7 +254,7 @@ describe("ProjectsPage", () => {
     expect(screen.getByText("Low")).toBeInTheDocument();
   });
 
-  it("shows General separately from the major projects table", () => {
+  it("shows General separately from the projects table", () => {
     renderPage();
   
     expect(
@@ -262,7 +262,7 @@ describe("ProjectsPage", () => {
     ).toBeInTheDocument();
   
     expect(
-      screen.getByRole("heading", { name: "Major projects" }),
+      screen.getByRole("heading", { name: "Projects", level: 2 }),
     ).toBeInTheDocument();
   
     const generalLink = screen.getByRole("link", {

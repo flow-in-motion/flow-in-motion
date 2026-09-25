@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Unlink, X } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Unlink } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import {
