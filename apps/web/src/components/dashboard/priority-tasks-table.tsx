@@ -91,7 +91,7 @@ export function PriorityTasksTable() {
         projectId: task.projectId,
         moduleId: task.moduleId,
         project: task.moduleId
-          ? (moduleById.get(task.moduleId) ?? "Unknown paper")
+          ? (moduleById.get(task.moduleId) ?? "Unknown module")
           : task.projectId
             ? (projectById.get(task.projectId) ?? "Unknown project")
             : "General",
@@ -217,7 +217,7 @@ export function PriorityTasksTable() {
                     <TableCell className="text-muted-foreground">
                       {row.moduleId ? (
                         <Link
-                          to={`/papers/${row.moduleId}`}
+                          to={`/modules/${row.moduleId}`}
                           className="text-primary hover:underline"
                         >
                           {row.project}

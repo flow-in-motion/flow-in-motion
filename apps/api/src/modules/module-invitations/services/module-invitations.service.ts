@@ -44,7 +44,7 @@ export class ModuleInvitationsService {
   ) {
     const module = await this.modulesRepository.findByIdGlobal(moduleId);
     if (!module) {
-      throw new NotFoundException('Paper not found');
+      throw new NotFoundException('Module not found');
     }
 
     const invitation = await this.repository.create({
@@ -155,7 +155,7 @@ export class ModuleInvitationsService {
       invitation.moduleId,
     );
     if (!module) {
-      throw new NotFoundException('Paper not found');
+      throw new NotFoundException('Module not found');
     }
 
     await this.collaboratorsRepository.create({

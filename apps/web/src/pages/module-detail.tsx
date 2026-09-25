@@ -144,7 +144,7 @@ function ModuleTasksDetails({
         </div>
       </CardHeader>
       <CardContent>{tasks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No tasks are linked to this paper.</p>
+        <p className="text-sm text-muted-foreground">No tasks are linked to this module.</p>
       ) : (
         <div className="grid gap-2">
           {tasks.map((task) => (
@@ -172,7 +172,7 @@ function ModuleTasksDetails({
                 <button
                   type="button"
                   onClick={() => onUnlinkTask(task)}
-                  aria-label={`Unlink ${task.title} from this paper`}
+                  aria-label={`Unlink ${task.title} from this module`}
                   title="Unlink"
                   className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
@@ -221,7 +221,7 @@ function ModuleNotesDetails({
         </div>
       </CardHeader>
       <CardContent>{notes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No notes are linked to this paper.</p>
+        <p className="text-sm text-muted-foreground">No notes are linked to this module.</p>
       ) : (
         <div className="grid gap-2">
           {notes.map((note) => (
@@ -236,7 +236,7 @@ function ModuleNotesDetails({
                 <button
                   type="button"
                   onClick={() => onUnlinkNote(note)}
-                  aria-label={`Unlink ${note.title} from this paper`}
+                  aria-label={`Unlink ${note.title} from this module`}
                   title="Unlink"
                   className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
@@ -255,6 +255,7 @@ function LinkedProjectCard({
   module,
   canChangeProject,
   availableProjects,
+  generalProject,
   linkedProject,
   isSaving,
   onChangeProject,
@@ -262,22 +263,49 @@ function LinkedProjectCard({
   module: ApiModule;
   canChangeProject: boolean;
   availableProjects: ApiProject[];
+  generalProject: ApiProject | null;
   linkedProject: { title?: string; isError: boolean };
   isSaving: boolean;
   onChangeProject: (projectId: string) => Promise<void>;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isIndependent, setIsIndependent] = useState(
+    module.projectId === null || module.projectId === generalProject?.id,
+  );
   const [projectId, setProjectId] = useState(module.projectId ?? "");
 
   function startEditing() {
+    setIsIndependent(
+      module.projectId === null || module.projectId === generalProject?.id,
+    );
     setProjectId(module.projectId ?? "");
     setIsEditing(true);
   }
 
   async function handleSave() {
-    if (!projectId) return;
-    await onChangeProject(projectId);
+    if (isIndependent) {
+      if (!generalProject) return;
+      await onChangeProject(generalProject.id);
+    } else {
+      if (!projectId) return;
+      await onChangeProject(projectId);
+    }
+  
     setIsEditing(false);
+  }
+
+  async function handleMoveToGeneral() {
+    if (!generalProject) return;
+  
+    if (
+      !window.confirm(
+        "Move this paper to General? It will be treated as an independent paper.",
+      )
+    ) {
+      return;
+    }
+  
+    await onChangeProject(generalProject.id);
   }
 
   return (
@@ -285,23 +313,59 @@ function LinkedProjectCard({
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <CardTitle>Linked project</CardTitle>
         {canChangeProject && !isEditing ? (
-          <Button variant="ghost" size="sm" onClick={startEditing}>
-            <Pencil />
-            Change project
-          </Button>
+          <div className="flex items-center gap-2">
+            {module.projectId &&
+            module.projectId !== generalProject?.id &&
+            generalProject ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void handleMoveToGeneral()}
+                disabled={isSaving}
+              >
+                <Unlink />
+                Move to General
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="sm" onClick={startEditing}>
+              <Pencil />
+              Change project
+            </Button>
+          </div>
         ) : null}
       </CardHeader>
       <CardContent>
         {isEditing ? (
           <div className="flex flex-col gap-3">
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger aria-label="Project"><SelectValue placeholder="Select a project" /></SelectTrigger>
-              <SelectContent>
-                {availableProjects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={isIndependent}
+                onChange={(event) => {
+                  setIsIndependent(event.target.checked);
+                  if (event.target.checked) setProjectId("");
+                }}
+                className="mt-0.5 h-4 w-4 accent-primary"
+              />
+              <span>
+              <span className="block text-sm font-medium">
+                Independent paper
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Independent papers are stored in the General project.
+              </span>
+              </span>
+            </label>
+            {!isIndependent ? (
+              <Select value={projectId} onValueChange={setProjectId}>
+                <SelectTrigger aria-label="Project"><SelectValue placeholder="Select a project" /></SelectTrigger>
+                <SelectContent>
+                  {availableProjects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)}>
                 Cancel
@@ -310,7 +374,10 @@ function LinkedProjectCard({
                 type="button"
                 size="sm"
                 onClick={() => void handleSave()}
-                disabled={isSaving || !projectId}
+                disabled={
+                  isSaving ||
+                  (isIndependent ? !generalProject : !projectId)
+                }
               >
                 {isSaving ? "Saving…" : "Save"}
               </Button>
@@ -324,7 +391,7 @@ function LinkedProjectCard({
             </span>
           </Link>
         ) : (
-          <p className="text-sm text-muted-foreground">This paper is not linked to a project.</p>
+          <p className="text-sm text-muted-foreground">This is an independent module.</p>
         )}
       </CardContent>
     </Card>
@@ -430,7 +497,7 @@ export default function ModuleDetailPage() {
   const tenantId = workspace.data?.id ?? "";
   const me = useMe();
 
-  // Papers are tenant-agnostic — a paper the caller collaborates on
+  // Modules are tenant-agnostic — a module the caller collaborates on
   // (directly, or via its linked project) must still open here (see
   // MyModulesController on the backend).
   const moduleQuery = useMyModule(moduleId);
@@ -455,6 +522,8 @@ export default function ModuleDetailPage() {
   // tenant's projects without full membership there (same boundary as the
   // collaborators section below).
   const projectsQuery = useProjects(tenantId, 1, sameTenant);
+  const generalProject = projectsQuery.data?.generalProject ?? null;
+
   const availableProjects = (projectsQuery.data?.data ?? []).filter(
     (project) => project.userId === me.data?.id,
   );
@@ -484,13 +553,13 @@ export default function ModuleDetailPage() {
   }, [module, openedRequestedEdit, searchParams]);
 
   if (workspace.isPending || moduleQuery.isPending) {
-    return <LoadingState title="Loading paper" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading module" className="min-h-[50vh]" />;
   }
 
   if (moduleQuery.isError) {
     return (
       <ErrorState
-        title="Paper could not be loaded"
+        title="Module could not be loaded"
         description={moduleQuery.error.message}
         onRetry={() => void moduleQuery.refetch()}
       />
@@ -500,11 +569,11 @@ export default function ModuleDetailPage() {
   if (!module) {
     return (
       <EmptyState
-        title="Paper not found"
-        description="This paper doesn't exist, or you don't have access to it."
+        title="Module not found"
+        description="This module doesn't exist, or you don't have access to it."
         action={
           <Button asChild variant="outline">
-            <Link to="/papers">Back to Papers</Link>
+            <Link to="/modules">Back to Modules</Link>
           </Button>
         }
       />
@@ -553,7 +622,7 @@ export default function ModuleDetailPage() {
   }
 
   async function handleUnlinkTask(task: ApiTask) {
-    if (!window.confirm(`Unlink "${task.title}" from this paper? The task itself won't be deleted.`)) {
+    if (!window.confirm(`Unlink "${task.title}" from this module? The task itself won't be deleted.`)) {
       return;
     }
     await updateTask.mutateAsync({
@@ -563,7 +632,7 @@ export default function ModuleDetailPage() {
   }
 
   async function handleUnlinkNote(note: ApiNote) {
-    if (!window.confirm(`Unlink "${note.title}" from this paper? The note itself won't be deleted.`)) {
+    if (!window.confirm(`Unlink "${note.title}" from this module? The note itself won't be deleted.`)) {
       return;
     }
     await updateNote.mutateAsync({
@@ -632,7 +701,7 @@ export default function ModuleDetailPage() {
     setForm(null);
     if (searchParams.get("edit") === "true") {
       if (location.key === "default") {
-        navigate(`/papers/${moduleId}`, { replace: true });
+        navigate(`/modules/${moduleId}`, { replace: true });
       } else {
         navigate(-1);
       }
@@ -680,7 +749,7 @@ export default function ModuleDetailPage() {
 
   return (
     <div className="page-stack">
-      <BackButton fallback="/papers" label="Back" />
+      <BackButton fallback="/modules" label="Back" />
 
       <PageHeading
         tone="violet"
@@ -692,7 +761,7 @@ export default function ModuleDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={module.status ?? "—"} />
             {form ? <Button type="button" variant="outline" onClick={cancelEditing}><X /> Cancel Editing</Button>
-              : <Button type="button" onClick={() => setForm(editableValues(module))}><Pencil /> Edit Paper</Button>}
+              : <Button type="button" onClick={() => setForm(editableValues(module))}><Pencil /> Edit Module</Button>}
           </div>
         }
       >
@@ -708,7 +777,7 @@ export default function ModuleDetailPage() {
       </PageHeading>
 
       {form ? <Card>
-        <CardHeader><CardTitle>Edit paper details</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Edit module details</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={(event) => void handleSave(event)} className="grid gap-6">
             <div className="grid gap-5 sm:grid-cols-2">
@@ -813,6 +882,7 @@ export default function ModuleDetailPage() {
                 module={module}
                 canChangeProject={sameTenant}
                 availableProjects={availableProjects}
+                generalProject={generalProject}
                 linkedProject={{
                   title: linkedProjectQuery.data?.title,
                   isError: linkedProjectQuery.isError,
@@ -870,14 +940,14 @@ export default function ModuleDetailPage() {
           {isCollaboratorsVisible ? (
             <Card id="module-collaborators-content">
               <CardHeader>
-                <CardTitle>Paper collaborators</CardTitle>
+                <CardTitle>Module collaborators</CardTitle>
               </CardHeader>
               <CardContent>
                 {sameTenant ? (
                   <div className="grid gap-4">
                     {module.projectId ? (
                       <p className="text-sm text-muted-foreground">
-                        Project collaborators already inherit access. You can also invite someone directly to this paper by email.
+                        Project collaborators already inherit access. You can also invite someone directly to this module by email.
                       </p>
                     ) : null}
                     <ModuleCollaboratorsManager
@@ -889,7 +959,7 @@ export default function ModuleDetailPage() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    This paper was shared with you from another workspace. Only members of that
+                    This module was shared with you from another workspace. Only members of that
                     workspace can manage who has access.
                   </p>
                 )}

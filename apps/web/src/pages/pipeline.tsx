@@ -108,7 +108,7 @@ interface PipelineItemRowProps {
 function ItemEditLink({ row }: { row: PipelineRow }) {
   return (
     <Link
-      to={`/papers/${row.id}?edit=true&from=pipeline`}
+      to={`/modules/${row.id}?edit=true&from=pipeline`}
       aria-label={`Edit ${row.title}`}
       title="Edit paper"
       className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -237,6 +237,7 @@ export default function PipelinePage() {
 
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
+  const generalProject = projectsQuery.data?.generalProject ?? null;
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
   const tasksQuery = useTasks(tenantId);
@@ -466,6 +467,7 @@ export default function PipelinePage() {
       onOpenChange={setIsNewPaperOpen}
       tenantId={tenantId}
       projects={projects}
+      generalProject={generalProject}
       members={members}
       onSave={handleCreateModule}
     />

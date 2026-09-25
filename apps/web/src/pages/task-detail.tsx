@@ -233,7 +233,7 @@ function LinkedWorkCard({
           </div>
         ) : task.moduleId ? (
           <div className="flex flex-col gap-2">
-            <Link to={`/papers/${task.moduleId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Link to={`/modules/${task.moduleId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
               <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? "Loading…"}</span>
             </Link>

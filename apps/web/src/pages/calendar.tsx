@@ -188,8 +188,8 @@ export default function CalendarPage() {
           kind: "module",
           title: paperDisplayTitle(module),
           dueDate: module.dueDate,
-          href: `/papers/${module.id}`,
-          meta: projectById.get(module.projectId)?.title ?? "Unknown project",
+          href: `/modules/${module.id}`,
+          meta: module.projectId ? (projectById.get(module.projectId)?.title ?? null) : "Independent paper",
         });
       }
     }

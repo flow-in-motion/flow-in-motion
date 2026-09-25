@@ -87,12 +87,9 @@ describe('WorkspacesService', () => {
 
     expect(drizzle.db.insert).toHaveBeenCalledTimes(3);
 
-    expect(projectsService.create).toHaveBeenCalledWith(
-      'user-1',
-      'tenant-1',
-      { title: 'General', status: 'Active' },
-      { isGeneral: true },
-    );
+    expect(projectsService.create).toHaveBeenCalledWith('user-1', 'tenant-1', {
+      title: 'General',
+    });
   });
 
   it('returns a paginated list of active workspaces available to the user', async () => {

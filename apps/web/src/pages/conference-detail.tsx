@@ -151,7 +151,7 @@ export default function ConferenceDetailPage() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Linked projects or papers</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Linked projects or modules/papers</CardTitle></CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {conference.projects.map((project) => (

@@ -134,7 +134,7 @@ export default function SettingsPage() {
 
   async function deleteWorkspace(workspaceId: string, name: string) {
     const confirmed = window.confirm(
-      `Permanently delete "${name}"? This deletes every project, paper, task, and note in it. This cannot be undone.`,
+      `Permanently delete "${name}"? This deletes every project, module, task, and note in it. This cannot be undone.`,
     );
     if (!confirmed) return;
     await deleteWorkspaceMutation.mutateAsync(workspaceId).catch(() => undefined);
