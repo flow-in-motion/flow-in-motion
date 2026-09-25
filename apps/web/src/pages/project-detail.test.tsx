@@ -105,12 +105,6 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useArchiveMyProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useArchiveProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useProjectArchiveImpact: () => ({
-    data: { papers: 0, tasks: 0, notes: 0 },
-    isPending: false,
-    isError: false,
-  }),
   useCreateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateModule: () => ({ mutateAsync: fixtures.updateModule, isPending: false }),

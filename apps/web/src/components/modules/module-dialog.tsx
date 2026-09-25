@@ -10,7 +10,6 @@ import {
   type ApiProject,
   type Membership,
   useMe,
-  useProjects,
 } from "@/api/hooks";
 import {
   LinkExistingField,
@@ -68,6 +67,7 @@ interface ModuleDialogProps {
   projects: ApiProject[];
   members: Membership[];
   module?: ApiModule | null;
+  generalProject?: ApiProject | null;
   /** Pre-links a new module to this project when the dialog is opened for creation. */
   initialProjectId?: string;
   /** Returns the saved module so newly-created papers can link existing tasks/notes to it. */
@@ -112,6 +112,7 @@ export function ModuleDialog({
   onOpenChange,
   tenantId,
   projects,
+  generalProject,
   members,
   module,
   initialProjectId,
@@ -128,8 +129,15 @@ export function ModuleDialog({
   const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
   const isEditing = Boolean(module);
   const me = useMe();
-  const allProjectsQuery = useProjects(tenantId, 1, open, "all");
-  const selectableProjects = allProjectsQuery.data?.data ?? projects;
+
+const generalProjectOption =
+  generalProject && generalProject.userId === me.data?.id
+    ? {
+        id: generalProject.id,
+        label: "Independent paper",
+        sublabel: "Stored in General",
+      }
+    : null;
 
   const tasksQuery = useTasks(tenantId, undefined, 1, open && !isEditing);
   const notesQuery = useNotes(tenantId, undefined, 1, open && !isEditing);
@@ -146,13 +154,16 @@ export function ModuleDialog({
     label: note.title,
     sublabel: note.moduleId ? "Linked to another paper" : "Unlinked",
   }));
-  const projectOptions = selectableProjects
-    .filter((project) => project.userId === me.data?.id)
-    .map((project) => ({
-      id: project.id,
-      label: project.title,
-      sublabel: "Project",
-    }));
+  const projectOptions = [
+    ...(generalProjectOption ? [generalProjectOption] : []),
+    ...projects
+      .filter((project) => project.userId === me.data?.id)
+      .map((project) => ({
+        id: project.id,
+        label: project.title,
+        sublabel: "Project",
+      })),
+  ];
 
   const visibleStages = useMemo(
     () =>
@@ -185,22 +196,25 @@ export function ModuleDialog({
       });
       setSelectedProject(
         module.projectId
-          ? (selectableProjects.find((project) => project.id === module.projectId)
-            ? { id: module.projectId, label: selectableProjects.find((project) => project.id === module.projectId)!.title }
+          ? (projects.find((project) => project.id === module.projectId)
+            ? { id: module.projectId, label: projects.find((project) => project.id === module.projectId)!.title }
             : { id: module.projectId, label: "Unknown project" })
           : null,
       );
     } else if (initialProjectId) {
       setForm({ ...INITIAL_FORM, projectId: initialProjectId });
-      const initialProject = selectableProjects.find((project) => project.id === initialProjectId);
+      const initialProject = projects.find((project) => project.id === initialProjectId);
       setSelectedProject(
         initialProject
           ? { id: initialProject.id, label: initialProject.title }
           : { id: initialProjectId, label: "Unknown project" },
       );
     } else {
-      setForm(INITIAL_FORM);
-      setSelectedProject(null);
+      setForm({
+        ...INITIAL_FORM,
+        projectId: generalProjectOption?.id ?? "",
+      });
+      setSelectedProject(generalProjectOption);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, module, initialProjectId]);
@@ -213,7 +227,9 @@ export function ModuleDialog({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedProject) {
-      setSaveError("Choose a project for this paper.");
+      setSaveError(
+        "Choose a project or select Independent paper.",
+      );
       return;
     }
     setIsSaving(true);
@@ -261,7 +277,7 @@ export function ModuleDialog({
       
       onOpenChange(false);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "The paper could not be saved.");
+      setSaveError(error instanceof Error ? error.message : "The module could not be saved.");
     } finally {
       setIsSaving(false);
     }
@@ -274,7 +290,7 @@ export function ModuleDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit paper" : "Create a new paper"}</DialogTitle>
           <DialogDescription>
-            Add the paper to one of your projects.
+            Add an independent paper or connect it to an existing project.
           </DialogDescription>
         </DialogHeader>
 
@@ -456,8 +472,8 @@ export function ModuleDialog({
                   emptyMessage="No matching projects."
                 />
                 <p className="text-xs text-muted-foreground">
-                  Choose the project this paper belongs to. The built-in project is available
-                  for papers that do not belong to another project.
+                  Select Independent paper to store this paper under General, or choose one of
+                  your projects.
                 </p>
               </FormField>
               <FormField label="Tasks" htmlFor="new-module-link-tasks">

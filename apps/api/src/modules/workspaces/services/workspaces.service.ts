@@ -69,12 +69,9 @@ export class WorkspacesService {
         target: workspaceContexts.userId,
         set: { tenantId: tenant.id, updatedAt: new Date() },
       });
-    await this.projectsService.create(
-      ownerUserId,
-      tenant.id,
-      { title: 'General', status: 'Active' },
-      { isGeneral: true },
-    );
+    await this.projectsService.create(ownerUserId, tenant.id, {
+      title: 'General',
+    });
     return { ...tenant, membershipRole: 'owner' as const };
   }
 

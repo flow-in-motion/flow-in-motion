@@ -33,7 +33,6 @@ type ModuleFixture = {
 
 type ProjectFixture = {
   id: string;
-  userId: string;
   title: string;
 };
 
@@ -107,14 +106,11 @@ vi.mock("@/api/hooks", async () => {
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
         },
-        data: [
-          { id: "project-general", userId: "user-owner", title: "General" },
-          ...fixtures.projects,
-        ],
+        data: fixtures.projects,
         meta: {
           page: 1,
           pageSize: 20,
-          totalItems: fixtures.projects.length + 1,
+          totalItems: fixtures.projects.length,
           totalPages: 1,
         },
       },
@@ -251,7 +247,7 @@ function baseModules(): ModuleFixture[] {
       id: "MOD-201",
       displayId: "MOD-201",
       tenantId: "workspace-1",
-      projectId: "project-general",
+      projectId: null,
       shortTitle: "Sample Preparation Protocol",
       title: "Sample Preparation Protocol",
       description: null,
@@ -302,14 +298,14 @@ describe("PipelinePage", () => {
 
     expect(screen.getByRole("link", { name: editLinkName })).toHaveAttribute(
       "href",
-      "/papers/MOD-201?edit=true&from=pipeline",
+      "/modules/MOD-201?edit=true&from=pipeline",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Columns" }));
 
     expect(screen.getByRole("link", { name: editLinkName })).toHaveAttribute(
       "href",
-      "/papers/MOD-201?edit=true&from=pipeline",
+      "/modules/MOD-201?edit=true&from=pipeline",
     );
   });
 
@@ -324,8 +320,6 @@ describe("PipelinePage", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
       target: { value: "New pipeline paper" },
     });
-    fireEvent.click(screen.getByPlaceholderText("Search projects by title"));
-    fireEvent.click(await screen.findByText("General"));
     fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
 
     await waitFor(() =>
@@ -427,7 +421,7 @@ describe("PipelinePage", () => {
   });
 
   it("filters papers by project", () => {
-    fixtures.projects = [{ id: "project-1", userId: "user-owner", title: "Genome Project" }];
+    fixtures.projects = [{ id: "project-1", title: "Genome Project" }];
     modules.set([
       ...baseModules(),
       {

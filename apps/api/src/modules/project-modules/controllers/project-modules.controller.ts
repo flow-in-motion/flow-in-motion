@@ -45,7 +45,7 @@ export class ProjectModulesController {
 
   @ApiOperation({
     summary:
-      'List active papers for a workspace, optionally filtered by project',
+      'List active modules for a workspace, optionally filtered by project',
   })
   @ApiQuery({ name: 'projectId', required: false })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
@@ -69,7 +69,7 @@ export class ProjectModulesController {
     );
   }
 
-  @ApiOperation({ summary: 'Get a single paper' })
+  @ApiOperation({ summary: 'Get a single module' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard, ModuleAccessGuard)
   @Get(':moduleId')
   async findOne(
@@ -82,7 +82,7 @@ export class ProjectModulesController {
   }
 
   @ApiOperation({
-    summary: 'Create a paper associated with a project',
+    summary: 'Create a module, optionally associated with a project',
   })
   @ApiResponse({ status: 201 })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
@@ -96,7 +96,7 @@ export class ProjectModulesController {
     return this.modulesService.create(tenantId, user.id, dto);
   }
 
-  @ApiOperation({ summary: 'Update a paper' })
+  @ApiOperation({ summary: 'Update a module' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard, ModuleAccessGuard)
   @Patch(':moduleId')
   async update(
@@ -109,7 +109,7 @@ export class ProjectModulesController {
     return this.modulesService.update(tenantId, moduleId, user.id, dto);
   }
 
-  @ApiOperation({ summary: 'Archive a paper (auto-deleted after 14 days)' })
+  @ApiOperation({ summary: 'Archive a module (auto-deleted after 14 days)' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard, ModuleAccessGuard)
   @Delete(':moduleId')
   async archive(

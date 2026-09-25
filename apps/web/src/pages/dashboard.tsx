@@ -90,7 +90,7 @@ function buildSummary(counts: {
       value: `${counts.activeModules} of ${counts.totalModules}`,
       icon: FileStack,
       tone: "emerald",
-      to: "/papers",
+      to: "/modules",
     },
     {
       label: "Open Tasks",
@@ -302,15 +302,16 @@ export default function DashboardPage() {
   const summary = useMemo(
     () =>
       buildSummary({
-        activeProjects: projectsQuery.data?.summary?.active ?? 0,
-        totalProjects: projectsQuery.data?.meta.totalItems ?? 0,
+        activeProjects: projects.filter((project) => project.status === "Active")
+          .length,
+        totalProjects: projects.length,
         openTasks: tasksQuery.data?.summary?.open ?? 0,
         totalTasks: tasksQuery.data?.meta.totalItems ?? 0,
         reviewStage: modulesQuery.data?.summary?.review ?? 0,
         activeModules: modulesQuery.data?.summary?.active ?? 0,
         totalModules: modulesQuery.data?.meta.totalItems ?? 0,
       }),
-    [projectsQuery.data, tasksQuery.data, modulesQuery.data],
+    [projects, tasksQuery.data, modulesQuery.data],
   );
   const visibleWidgets = new Set(
     layout.order.filter((id) => !layout.hidden.includes(id)),

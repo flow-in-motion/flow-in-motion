@@ -14,7 +14,7 @@ import { paperDisplayTitle } from "@/lib/paper-title";
 
 export type ConferenceSubmissionInput = ConferenceInput;
 
-const NO_LINK_LABEL = "No linked project or paper";
+const NO_LINK_LABEL = "No linked project or module/paper";
 
 interface LinkOption {
   key: string;
@@ -215,7 +215,7 @@ export function ConferenceSubmissionDialog({
             </Select>
           </FormField>
 
-          <FormField label="Linked project or paper" htmlFor="conference-link">
+          <FormField label="Linked project or module/paper" htmlFor="conference-link">
             <div
               className="relative"
               onBlur={(event) => {
@@ -235,7 +235,7 @@ export function ConferenceSubmissionDialog({
                   setLinkPickerOpen(true);
                 }}
                 onChange={(event) => setLinkQuery(event.target.value)}
-                placeholder="Search a project or paper…"
+                placeholder="Search a project, module or paper…"
                 autoComplete="off"
                 className="pl-9 pr-8"
               />
@@ -243,7 +243,7 @@ export function ConferenceSubmissionDialog({
                 <button
                   type="button"
                   onClick={() => selectLink("", NO_LINK_LABEL)}
-                  aria-label="Clear linked project or paper"
+                  aria-label="Clear linked project or module/paper"
                   className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
@@ -253,7 +253,7 @@ export function ConferenceSubmissionDialog({
                 <div
                   id="conference-link-options"
                   role="listbox"
-                  aria-label="Available projects and papers"
+                  aria-label="Available projects, modules and papers"
                   className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
                 >
                   <button

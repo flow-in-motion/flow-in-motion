@@ -80,7 +80,7 @@ export class TasksController {
   }
 
   @ApiOperation({
-    summary: 'Create a task, optionally associated with a project or paper',
+    summary: 'Create a task, optionally associated with a project and module',
   })
   @ApiResponse({ status: 201 })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)

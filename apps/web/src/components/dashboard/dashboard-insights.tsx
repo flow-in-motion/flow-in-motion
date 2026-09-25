@@ -110,7 +110,7 @@ export function StalledPapersCard() {
             {stalled.map((paper) => (
               <Link
                 key={paper.id}
-                to={`/papers/${paper.id}`}
+                to={`/modules/${paper.id}`}
                 aria-label={`${paper.title} — ${paper.days} ${paper.days === 1 ? "day" : "days"} in ${paper.stage}`}
                 className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-lg p-2 -m-2 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >

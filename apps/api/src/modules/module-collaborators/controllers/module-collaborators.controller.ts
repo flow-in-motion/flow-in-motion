@@ -38,7 +38,7 @@ export class ModuleCollaboratorsController {
     private readonly usersService: UsersService,
   ) {}
 
-  @ApiOperation({ summary: 'List collaborators on a paper' })
+  @ApiOperation({ summary: 'List collaborators on a module' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Get()
   async list(
@@ -50,7 +50,7 @@ export class ModuleCollaboratorsController {
     return this.service.list(tenantId, moduleId, user.id);
   }
 
-  @ApiOperation({ summary: 'Add a collaborator to a paper' })
+  @ApiOperation({ summary: 'Add a collaborator to a module' })
   @ApiResponse({ status: 201 })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Post()
@@ -74,7 +74,7 @@ export class ModuleCollaboratorsController {
     return this.service.updateRole(tenantId, moduleId, userId, dto.role);
   }
 
-  @ApiOperation({ summary: 'Remove a collaborator from a paper' })
+  @ApiOperation({ summary: 'Remove a collaborator from a module' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Delete(':userId')
   async remove(

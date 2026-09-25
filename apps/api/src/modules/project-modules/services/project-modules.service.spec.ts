@@ -349,24 +349,6 @@ describe('ProjectModulesService', () => {
       expect(repository.create).not.toHaveBeenCalled();
     });
 
-    it('rejects creating a paper in an archived project', async () => {
-      projectsRepository.findById.mockResolvedValue({
-        id: 'project-1',
-        tenantId: 'tenant-1',
-        userId: 'user-1',
-        archivedAt: new Date(),
-      });
-
-      await expect(
-        service.create('tenant-1', 'user-1', {
-          projectId: 'project-1',
-          shortTitle: 'New Paper',
-        }),
-      ).rejects.toThrow(NotFoundException);
-
-      expect(repository.create).not.toHaveBeenCalled();
-    });
-
     it("rejects creating a paper under another user's project", async () => {
       projectsRepository.findById.mockResolvedValue({
         id: 'project-1',

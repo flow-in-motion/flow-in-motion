@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, date, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, date, uniqueIndex } from 'drizzle-orm/pg-core';
 import { projects } from './projects';
 import { modules } from './modules';
 import { tenants } from './tenants';
@@ -28,13 +28,5 @@ export const notes = pgTable(
   },
   (table) => ({
     tenantDisplayIdKey: uniqueIndex('notes_tenant_id_display_id_key').on(table.tenantId, table.displayId),
-    tenantProjectIdx: index('notes_tenant_project_id_idx').on(
-      table.tenantId,
-      table.projectId,
-    ),
-    tenantModuleIdx: index('notes_tenant_module_id_idx').on(
-      table.tenantId,
-      table.moduleId,
-    ),
   }),
 );

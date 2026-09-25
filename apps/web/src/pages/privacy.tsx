@@ -29,13 +29,13 @@ export default function PrivacyPage() {
             department, phone number, and research interests.
           </li>
           <li>
-            Content you create: projects, papers, tasks, daily notes,
+            Content you create: projects, modules, tasks, daily notes,
             conference submissions, pipeline stages, and comments or
             descriptions attached to them.
           </li>
           <li>
             Workspace membership and collaboration data: who owns or
-            collaborates on a project or paper, and pending email invitations.
+            collaborates on a project or module, and pending email invitations.
           </li>
           <li>
             Basic product-usage events: which pages you visit and a small number
@@ -75,7 +75,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="5. Data retention">
         <p>
-          Archiving a project or paper keeps it recoverable for 14 days, after
+          Archiving a project or module keeps it recoverable for 14 days, after
           which it is permanently and automatically deleted. Account and profile
           data is retained for as long as your account is active.
         </p>

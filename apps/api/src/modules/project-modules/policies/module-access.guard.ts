@@ -26,7 +26,7 @@ export class ModuleAccessGuard implements CanActivate {
     const { tenantId, moduleId } = req.params;
 
     if (!tenantId || !moduleId) {
-      throw new ForbiddenException('Tenant and paper context are required');
+      throw new ForbiddenException('Tenant and module context are required');
     }
 
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
@@ -36,7 +36,7 @@ export class ModuleAccessGuard implements CanActivate {
       user.id,
     );
     if (!canAccess) {
-      throw new ForbiddenException('You do not have access to this paper');
+      throw new ForbiddenException('You do not have access to this module');
     }
 
     return true;

@@ -1,60 +1,18 @@
 import { searchPattern } from '../../../common/pagination';
 import { Injectable } from '@nestjs/common';
 import { modules, notes, noteMembers, projects } from '@research-tracker/migrations';
-import { and, desc, eq, exists, ilike, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, exists, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 
 @Injectable()
 export class NotesRepository {
   constructor(private readonly drizzle: DrizzleService) {}
 
-  private hasActiveParent() {
-    return or(
-      and(isNull(notes.projectId), isNull(notes.moduleId)),
-      and(
-        isNotNull(notes.projectId),
-        exists(
-          this.drizzle.db
-            .select({ id: projects.id })
-            .from(projects)
-            .where(
-              and(
-                eq(projects.id, notes.projectId),
-                isNull(projects.archivedAt),
-              ),
-            ),
-        ),
-      ),
-      and(
-        isNotNull(notes.moduleId),
-        exists(
-          this.drizzle.db
-            .select({ id: modules.id })
-            .from(modules)
-            .innerJoin(projects, eq(projects.id, modules.projectId))
-            .where(
-              and(
-                eq(modules.id, notes.moduleId),
-                isNull(modules.archivedAt),
-                isNull(projects.archivedAt),
-              ),
-            ),
-        ),
-      ),
-    )!;
-  }
-
   async findById(tenantId: string, noteId: string) {
     const [note] = await this.drizzle.db
       .select()
       .from(notes)
-      .where(
-        and(
-          eq(notes.tenantId, tenantId),
-          eq(notes.id, noteId),
-          this.hasActiveParent(),
-        ),
-      );
+      .where(and(eq(notes.tenantId, tenantId), eq(notes.id, noteId)));
     return note;
   }
 
@@ -64,7 +22,7 @@ export class NotesRepository {
     const [note] = await this.drizzle.db
       .select()
       .from(notes)
-      .where(and(eq(notes.id, noteId), this.hasActiveParent()));
+      .where(eq(notes.id, noteId));
     return note;
   }
 
@@ -73,15 +31,12 @@ export class NotesRepository {
     return this.drizzle.db
       .select()
       .from(notes)
-      .where(and(eq(notes.createdBy, userId), this.hasActiveParent()));
+      .where(eq(notes.createdBy, userId));
   }
 
   async findByIds(ids: string[]) {
     if (ids.length === 0) return [];
-    return this.drizzle.db
-      .select()
-      .from(notes)
-      .where(and(inArray(notes.id, ids), this.hasActiveParent()));
+    return this.drizzle.db.select().from(notes).where(inArray(notes.id, ids));
   }
 
   async findVisibleByTenant(
@@ -109,11 +64,7 @@ export class NotesRepository {
       ),
     );
 
-    const conditions = [
-      eq(notes.tenantId, tenantId),
-      this.hasActiveParent(),
-      visibilityCondition,
-    ];
+    const conditions = [eq(notes.tenantId, tenantId), visibilityCondition];
 
     if (projectId) {
       conditions.push(eq(notes.projectId, projectId));
@@ -121,8 +72,7 @@ export class NotesRepository {
     if (projectOnly) conditions.push(isNull(notes.moduleId));
     if (search) {
       const pattern = searchPattern(search);
-      conditions.push(
-        or(
+      conditions.push(or(
           ilike(notes.title, pattern),
           ilike(notes.content, pattern),
           exists(
@@ -142,8 +92,7 @@ export class NotesRepository {
                 ),
               ),
           ),
-        ),
-      );
+        )!);
     }
 
     const whereCondition = and(...conditions);

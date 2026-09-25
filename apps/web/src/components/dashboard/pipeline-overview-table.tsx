@@ -222,7 +222,7 @@ export function PipelineOverviewTable() {
                     title={row.name}
                   >
                     <Link
-                      to={`/papers/${row.id}`}
+                      to={`/modules/${row.id}`}
                       className="text-primary hover:underline"
                     >
                       {row.name}

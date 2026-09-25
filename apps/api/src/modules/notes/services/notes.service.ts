@@ -29,8 +29,9 @@ export class NotesService {
   /**
    * A note links to at most one of a project or a module, never both
    * independently supplied. When moduleId is given, the project is derived
-   * from the paper itself rather than trusted from the caller, keeping the
-   * note's project link consistent with its parent paper.
+   * from the module itself (which may be null, for an independent module)
+   * rather than trusted from the caller — this is what makes it possible to
+   * link a note to an independent module in the first place.
    */
   private async resolveLinkage(
     tenantId: string,
