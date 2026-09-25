@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { RequireAuth } from "@/auth/require-auth";
 import { RequireApiSession } from "@/auth/require-api-session";
@@ -13,6 +13,7 @@ const ProjectsPage = lazy(() => import("@/pages/projects"));
 const ModulesPage = lazy(() => import("@/pages/modules"));
 const ModuleDetailPage = lazy(() => import("@/pages/module-detail"));
 const ProjectDetailPage = lazy(() => import("@/pages/project-detail"));
+const ProjectArchivePage = lazy(() => import("@/pages/project-archive"));
 const TasksPage = lazy(() => import("@/pages/tasks"));
 const CalendarPage = lazy(() => import("@/pages/calendar"));
 const MindMapPage = lazy(() => import("@/pages/mind-map"));
@@ -54,6 +55,11 @@ function routePage(page: ReactNode) {
   );
 }
 
+function LegacyPaperRouteRedirect() {
+  const { moduleId } = useParams();
+  return <Navigate replace to={moduleId ? `/papers/${moduleId}` : "/papers"} />;
+}
+
 export default function App() {
   return (
     <>
@@ -80,8 +86,11 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route index element={routePage(<DashboardPage />)} />
               <Route path="projects" element={routePage(<ProjectsPage />)} />
-              <Route path="modules" element={routePage(<ModulesPage />)} />
-              <Route path="modules/:moduleId" element={routePage(<ModuleDetailPage />)} />
+              <Route path="projects/archive" element={routePage(<ProjectArchivePage />)} />
+              <Route path="papers" element={routePage(<ModulesPage />)} />
+              <Route path="papers/:moduleId" element={routePage(<ModuleDetailPage />)} />
+              <Route path="modules" element={<LegacyPaperRouteRedirect />} />
+              <Route path="modules/:moduleId" element={<LegacyPaperRouteRedirect />} />
               <Route
                 path="projects/:projectId"
                 element={routePage(<ProjectDetailPage />)}

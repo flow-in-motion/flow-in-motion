@@ -65,7 +65,7 @@ const fixtures = vi.hoisted(() => ({
     id: "module-1",
     displayId: "MOD-001",
     tenantId: "workspace-1",
-    projectId: null as string | null,
+    projectId: "project-general",
     shortTitle: "Literature synthesis",
     title: "Literature synthesis",
     description: null,
@@ -79,6 +79,11 @@ const fixtures = vi.hoisted(() => ({
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
   projects: [
+    {
+      id: "project-general",
+      userId: "user-owner",
+      title: "General",
+    },
     {
       id: "project-1",
       userId: "user-owner",
@@ -241,7 +246,7 @@ describe("ModuleDetailPage", () => {
   beforeEach(() => {
     fixtures.confetti.mockReset();
     fixtures.module.pipelineStage = "Concept";
-    fixtures.module.projectId = null;
+    fixtures.module.projectId = "project-general";
     fixtures.updateModule.mockReset();
     fixtures.updateModule.mockImplementation(
       async ({ input }: { input: Record<string, unknown> }) => {
@@ -271,9 +276,9 @@ describe("ModuleDetailPage", () => {
 
   function renderPage() {
     render(
-      <MemoryRouter initialEntries={["/modules/module-1"]}>
+      <MemoryRouter initialEntries={["/papers/module-1"]}>
         <Routes>
-          <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
+          <Route path="papers/:moduleId" element={<ModuleDetailPage />} />
         </Routes>
       </MemoryRouter>,
     );
@@ -282,7 +287,7 @@ describe("ModuleDetailPage", () => {
     renderPage();
   
     fireEvent.click(
-      screen.getByRole("button", { name: "Edit Module" }),
+      screen.getByRole("button", { name: "Edit Paper" }),
     );
   
     fireEvent.click(
@@ -321,11 +326,11 @@ describe("ModuleDetailPage", () => {
   it("returns to whatever page linked into edit mode when editing is cancelled", () => {
     render(
       <MemoryRouter
-        initialEntries={["/pipeline", "/modules/module-1?edit=true"]}
+        initialEntries={["/pipeline", "/papers/module-1?edit=true"]}
         initialIndex={1}
       >
         <Routes>
-          <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
+          <Route path="papers/:moduleId" element={<ModuleDetailPage />} />
           <Route path="pipeline" element={<h1>Pipeline</h1>} />
         </Routes>
       </MemoryRouter>,
@@ -340,9 +345,9 @@ describe("ModuleDetailPage", () => {
 
   it("falls back to the read-only module view when there is no previous page to return to", () => {
     render(
-      <MemoryRouter initialEntries={["/modules/module-1?edit=true"]}>
+      <MemoryRouter initialEntries={["/papers/module-1?edit=true"]}>
         <Routes>
-          <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
+          <Route path="papers/:moduleId" element={<ModuleDetailPage />} />
           <Route path="pipeline" element={<h1>Pipeline</h1>} />
         </Routes>
       </MemoryRouter>,
@@ -351,37 +356,34 @@ describe("ModuleDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel Editing" }));
 
     expect(
-      screen.getByRole("button", { name: "Edit Module" }),
+      screen.getByRole("button", { name: "Edit Paper" }),
     ).toBeInTheDocument();
   });
 
-  it("moves a paper to General when Independent paper is checked", async () => {
+  it("moves a paper to another selected project", async () => {
     fixtures.module.projectId = "project-1";
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Change project" }));
-    const checkbox = screen.getByRole("checkbox", { name: /Independent paper/ })
-    expect(checkbox).not.toBeChecked();
-
-    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole("combobox", { name: "Project" }));
+    fireEvent.click(screen.getByRole("option", { name: "Protein Folding Analysis" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith(
         expect.objectContaining({
           moduleId: "module-1",
-          input: { projectId: "project-general" },
+          input: { projectId: "project-2" },
         }),
       ),
     );
   });
 
-  it("blocks saving when Independent paper is unchecked without picking a project", () => {
-    fixtures.module.projectId = null;
+  it("blocks saving when no project is selected", () => {
+    fixtures.module.projectId = "";
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Change project" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Independent paper/ }));
 
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
@@ -411,14 +413,14 @@ describe("ModuleDetailPage", () => {
     );
   });
 
-  it("moves the paper to General via the quick action", async () => {
+  it("offers the built-in project as an ordinary project option", async () => {
     fixtures.module.projectId = "project-1";
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderPage();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Move to General" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Change project" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Project" }));
+    fireEvent.click(screen.getByRole("option", { name: "General" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith({
@@ -433,7 +435,7 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Unlink Extract references from this module" }),
+      screen.getByRole("button", { name: "Unlink Extract references from this paper" }),
     );
 
     await waitFor(() =>
@@ -449,7 +451,7 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Unlink Meeting notes from this module" }),
+      screen.getByRole("button", { name: "Unlink Meeting notes from this paper" }),
     );
 
     await waitFor(() =>
@@ -587,7 +589,7 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     expect(
-      screen.getByRole("heading", { name: "Module collaborators" }),
+      screen.getByRole("heading", { name: "Paper collaborators" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Hide collaborators" }),
@@ -596,7 +598,7 @@ describe("ModuleDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide collaborators" }));
 
     expect(
-      screen.queryByRole("heading", { name: "Module collaborators" }),
+      screen.queryByRole("heading", { name: "Paper collaborators" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show collaborators" }),
@@ -615,7 +617,7 @@ describe("ModuleDetailPage", () => {
 
     expect(screen.queryByText("Extract references")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Module collaborators" }),
+      screen.getByRole("heading", { name: "Paper collaborators" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show linked work" }),

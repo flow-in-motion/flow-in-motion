@@ -8,12 +8,12 @@ import {
 import {
   ChevronDown,
   ChevronUp,
+  Archive,
   FolderKanban,
   Link2,
   Pencil,
   Plus,
   Save,
-  Trash2,
   Unlink,
   Users,
   X,
@@ -27,7 +27,6 @@ import {
 } from "react-router-dom";
 
 import {
-  useArchiveMyProject,
   useCreateModule,
   useCreateTask,
   useCurrentWorkspace,
@@ -52,6 +51,7 @@ import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { LinkExistingDialog } from "@/components/shared/link-existing-dialog";
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
+import { ProjectArchiveDialog } from "@/components/projects/project-archive-dialog";
 import { BackButton } from "@/components/shared/back-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
@@ -176,7 +176,7 @@ function ProjectModulesDetails({
             Add paper
           </Button>
           <Button asChild variant="ghost" size="sm">
-            <Link to="/modules">View all</Link>
+            <Link to="/papers">View all</Link>
           </Button>
         </div>
       </CardHeader>
@@ -193,7 +193,7 @@ function ProjectModulesDetails({
                 className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
               >
                 <Link
-                  to={`/modules/${module.id}`}
+                  to={`/papers/${module.id}`}
                   className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -420,7 +420,6 @@ export default function ProjectDetailPage() {
   const members = membersQuery.data?.data ?? [];
   const me = useMe();
   const updateProject = useUpdateMyProject();
-  const archiveProject = useArchiveMyProject();
   const createTask = useCreateTask(tenantId);
   const createModule = useCreateModule(tenantId);
   const updateModule = useUpdateModule(tenantId);
@@ -434,6 +433,7 @@ export default function ProjectDetailPage() {
   const [isLinkModulesOpen, setIsLinkModulesOpen] = useState(false);
   const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
   const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   // Unfiltered lists are only fetched once their "link existing" dialog is
   // open, since they're just candidate pools for that picker.
@@ -503,18 +503,6 @@ export default function ProjectDetailPage() {
     }
   }
 
-  async function handleDeleteProject() {
-    if (
-      !window.confirm(
-        `Delete "${project!.title}"? It will be archived and permanently removed after 14 days.`,
-      )
-    ) {
-      return;
-    }
-    await archiveProject.mutateAsync(project!.id);
-    navigate("/projects");
-  }
-
   async function saveProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form) return;
@@ -582,7 +570,7 @@ export default function ProjectDetailPage() {
   
     if (
       !window.confirm(
-        `Move "${paperDisplayTitle(module)}" to General? It will become an independent paper.`,
+        `Move "${paperDisplayTitle(module)}" to ${generalProject.title}?`,
       )
     ) {
       return;
@@ -714,6 +702,16 @@ export default function ProjectDetailPage() {
         onConfirm={handleLinkModules}
       />
 
+      <ProjectArchiveDialog
+        open={isArchiveOpen}
+        onOpenChange={setIsArchiveOpen}
+        tenantId={tenantId}
+        project={project}
+        projects={projectsQuery.data?.data ?? []}
+        currentUserId={me.data?.id}
+        onArchived={() => navigate("/projects")}
+      />
+
       <LinkExistingDialog
         open={isLinkTasksOpen}
         onOpenChange={setIsLinkTasksOpen}
@@ -763,16 +761,17 @@ export default function ProjectDetailPage() {
               </Button>
             ) : (
               <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handleDeleteProject()}
-                  disabled={archiveProject.isPending}
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 />
-                  Delete Project
-                </Button>
+                {sameTenant && !project.isGeneral && me.data?.id === project.userId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsArchiveOpen(true)}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Archive />
+                    Archive Project
+                  </Button>
+                ) : null}
                 <Button type="button" onClick={beginEditing}>
                   <Pencil />
                   Edit Project

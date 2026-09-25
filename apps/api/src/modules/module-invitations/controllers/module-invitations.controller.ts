@@ -55,7 +55,7 @@ export class ModuleInvitationsController {
       );
     if (!membership) {
       throw new ForbiddenException(
-        'Only the module owner can manage invitations',
+        'Only the paper owner can manage invitations',
       );
     }
     const ownerRole = await this.enumRepository.findByCategoryAndValue(
@@ -64,14 +64,14 @@ export class ModuleInvitationsController {
     );
     if (!ownerRole || membership.roleId !== ownerRole.id) {
       throw new ForbiddenException(
-        'Only the module owner can manage invitations',
+        'Only the paper owner can manage invitations',
       );
     }
     return user;
   }
 
   @ApiOperation({
-    summary: 'List pending invitations for this module (owner only)',
+    summary: 'List pending invitations for this paper (owner only)',
   })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Get()

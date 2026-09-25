@@ -55,6 +55,6 @@ describe('ModuleAccessGuard', () => {
   it('rejects requests without complete module context', async () => {
     await expect(
       guard.canActivate(context({ tenantId: 'tenant-1' })),
-    ).rejects.toThrow('Tenant and module context are required');
+    ).rejects.toThrow('Tenant and paper context are required');
   });
 });

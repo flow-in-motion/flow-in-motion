@@ -150,7 +150,7 @@ describe("DailyNoteDetailPage", () => {
     expect(screen.getByText("Paper")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /Paper Assay optimization/ }),
-    ).toHaveAttribute("href", "/modules/module-1");
+    ).toHaveAttribute("href", "/papers/module-1");
 
     expect(screen.getByText("Parent project")).toBeInTheDocument();
     expect(

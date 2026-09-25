@@ -98,7 +98,6 @@ export default function ModulesPage() {
   const paginationMeta = modulesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
-  const generalProject = projectsQuery.data?.generalProject ?? null;
   const stagesQuery = useModulePipelineStagePool(tenantId);
   const visibleStages = useMemo(
     () =>
@@ -159,7 +158,7 @@ export default function ModulesPage() {
   );
 
   const projectName = useCallback((projectId: string | null) => {
-    if (!projectId) return "Independent paper";
+    if (!projectId) return "Unknown project";
     return projectById.get(projectId) ?? "Unknown project";
   }, [projectById]);
 
@@ -266,7 +265,7 @@ export default function ModulesPage() {
         icon={FileStack}
         eyebrow="Workflows"
         title="Papers"
-        description="Organise project-related or independent areas of work by status and assignee."
+        description="Organise papers by project, status and assignee."
         actions={<Button onClick={() => setIsNewModuleOpen(true)}>New Paper</Button>}
       />
 
@@ -275,7 +274,6 @@ export default function ModulesPage() {
         onOpenChange={setIsNewModuleOpen}
         tenantId={tenantId}
         projects={projects}
-        generalProject={generalProject}
         members={members}
         onSave={handleCreateModule}
       />
@@ -404,7 +402,7 @@ export default function ModulesPage() {
                         ) : null}
                         <div className="flex items-start gap-2">
                           <Link
-                            to={`/modules/${module.id}`}
+                            to={`/papers/${module.id}`}
                             className="font-semibold leading-tight text-foreground transition-colors hover:text-primary hover:underline"
                           >
                             {paperDisplayTitle(module)}
@@ -421,7 +419,7 @@ export default function ModulesPage() {
                             </button>
                           ) : null}
                           <Link
-                            to={`/modules/${module.id}?edit=true`}
+                            to={`/papers/${module.id}?edit=true`}
                             aria-label={`Edit ${paperDisplayTitle(module)}`}
                             title="Edit paper"
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -451,7 +449,7 @@ export default function ModulesPage() {
                         {projectName(module.projectId)}
                       </Link>
                     ) : (
-                      <span className="max-w-56 text-sm text-muted-foreground">Independent paper</span>
+                      <span className="max-w-56 text-sm text-muted-foreground">Unknown project</span>
                     )
                   ) : null}
                   {columns.isColumnVisible("status") ? (

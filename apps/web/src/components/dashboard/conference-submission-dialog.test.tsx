@@ -12,6 +12,7 @@ const genomeProject: ApiProject = {
   displayId: "PRJ-001",
   userId: "user-1",
   tenantId: "tenant-1",
+  isGeneral: false,
   title: "Genome Project",
   description: null,
   researchArea: null,
@@ -25,6 +26,8 @@ const genomeProject: ApiProject = {
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
   role: "owner",
+  paperCount: 0,
+  noteCount: 0,
 };
 
 const projectsWithOne: ApiProject[] = [genomeProject];
@@ -69,7 +72,7 @@ function endDateInput() {
 }
 
 function linkCombobox() {
-  return screen.getByRole("combobox", { name: "Linked project or module/paper" });
+  return screen.getByRole("combobox", { name: "Linked project or paper" });
 }
 
 describe("ConferenceSubmissionDialog", () => {
@@ -106,7 +109,7 @@ describe("ConferenceSubmissionDialog", () => {
     expect(endDateInput().value).toBe("2026-08-10");
   });
 
-  it("defaults the link field to No linked project or module/paper and submits with none selected", async () => {
+  it("defaults the link field to No linked project or paper and submits with none selected", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
       <ConferenceSubmissionDialog
@@ -118,7 +121,7 @@ describe("ConferenceSubmissionDialog", () => {
       />,
     );
 
-    expect(linkCombobox()).toHaveValue("No linked project or module/paper");
+    expect(linkCombobox()).toHaveValue("No linked project or paper");
 
     fireEvent.change(screen.getByRole("textbox", { name: /Acronym/ }), { target: { value: "ASM" } });
     fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), {
@@ -181,27 +184,6 @@ describe("ConferenceSubmissionDialog", () => {
     expect(linkCombobox()).toHaveValue("Draft manuscript");
   });
 
-  it("excludes independent modules (no parent project) from the picker", () => {
-    const independentModule = makeModule({
-      id: "module-independent",
-      title: "Standalone module",
-      projectId: null,
-    });
-    render(
-      <ConferenceSubmissionDialog
-        open
-        onOpenChange={vi.fn()}
-        projects={projectsWithOne}
-        modules={[independentModule]}
-        onSave={vi.fn()}
-      />,
-    );
-
-    fireEvent.focus(linkCombobox());
-
-    expect(screen.queryByRole("option", { name: /Standalone module/ })).not.toBeInTheDocument();
-  });
-
   it("filters the dropdown as you type", () => {
     const otherModule = makeModule({
       id: "module-2",
@@ -239,8 +221,8 @@ describe("ConferenceSubmissionDialog", () => {
     fireEvent.click(screen.getByRole("option", { name: /Genome Project/ }));
     expect(linkCombobox()).toHaveValue("Genome Project");
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear linked project or module/paper" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear linked project or paper" }));
 
-    expect(linkCombobox()).toHaveValue("No linked project or module/paper");
+    expect(linkCombobox()).toHaveValue("No linked project or paper");
   });
 });

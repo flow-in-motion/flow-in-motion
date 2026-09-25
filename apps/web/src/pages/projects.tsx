@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { FolderKanban, Pencil, Trash2, UserPlus } from "lucide-react";
+import { Archive, FolderKanban, Pencil, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
-  useArchiveProject,
   useCurrentWorkspace,
   useMe,
   useMembers,
-  useModules,
   useProjects,
-  useNotes,
   useCreateProject,
   useTrackEvent,
   type ApiProject,
@@ -23,6 +20,7 @@ import {
   type NewProjectInput,
 } from "@/components/projects/new-project-dialog";
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
+import { ProjectArchiveDialog } from "@/components/projects/project-archive-dialog";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,20 +114,15 @@ export default function ProjectsPage() {
   const [page, setPage] = useState(1);
 
   const projectsQuery = useProjects(tenantId, page);
-  const generalProject = projectsQuery.data?.generalProject ?? null;
   const paginationMeta = projectsQuery.data?.meta;
-  const modulesQuery = useModules(tenantId);
-  const modules = modulesQuery.data?.data ?? [];
-  const notesQuery = useNotes(tenantId);
-  const notes = notesQuery.data?.data ?? [];
   const me = useMe();
 
   const createProject = useCreateProject(tenantId);
-  const archiveProject = useArchiveProject(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [sharingProject, setSharingProject] = useState<ApiProject | null>(null);
+  const [archivingProject, setArchivingProject] = useState<ApiProject | null>(null);
   const membersQuery = useMembers(
     tenantId,
     1,
@@ -161,24 +154,6 @@ export default function ProjectsPage() {
     .map((column) => column.width)
     .join(" ");
 
-  const noteCountByProject = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const note of notes) {
-      if (!note.projectId) continue;
-      counts.set(note.projectId, (counts.get(note.projectId) ?? 0) + 1);
-    }
-    return counts;
-  }, [notes]);
-
-  const moduleCountByProject = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const module of modules) {
-      if (!module.projectId) continue;
-      counts.set(module.projectId, (counts.get(module.projectId) ?? 0) + 1);
-    }
-    return counts;
-  }, [modules]);
-
   function handleSort(column: SortColumn) {
     if (column === sortColumn) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -202,9 +177,9 @@ export default function ProjectsPage() {
       case "status":
         return (PROJECT_STATUS_ORDER[a.status ?? ""] ?? 99) - (PROJECT_STATUS_ORDER[b.status ?? ""] ?? 99);
       case "papers":
-        return (moduleCountByProject.get(a.id) ?? 0) - (moduleCountByProject.get(b.id) ?? 0);
+        return a.paperCount - b.paperCount;
       case "notes":
-        return (noteCountByProject.get(a.id) ?? 0) - (noteCountByProject.get(b.id) ?? 0);
+        return a.noteCount - b.noteCount;
       case "scheduled":
         return (a.scheduledFor ?? "").localeCompare(b.scheduledFor ?? "");
       case "due":
@@ -238,8 +213,6 @@ export default function ProjectsPage() {
     role,
     sortColumn,
     sortDirection,
-    moduleCountByProject,
-    noteCountByProject,
   ]);
 
   const hasActiveFilters = search !== "" || status !== "All" || role !== "All roles";
@@ -266,17 +239,6 @@ export default function ProjectsPage() {
     return project;
   }
 
-  async function handleDeleteProject(project: ApiProject) {
-    if (
-      !window.confirm(
-        `Delete "${project.title}"? It will be archived and permanently removed after 14 days.`,
-      )
-    ) {
-      return;
-    }
-    await archiveProject.mutateAsync(project.id);
-  }
-
   if (workspace.isPending || projectsQuery.isPending) {
     return <LoadingState title="Loading projects" className="min-h-[50vh]" />;
   }
@@ -298,7 +260,17 @@ export default function ProjectsPage() {
         eyebrow="Workflows"
         title="Projects"
         description="Track research work by stage, dates, collaborators and outstanding tasks."
-        actions={<Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline">
+              <Link to="/projects/archive">
+                <Archive />
+                Archive
+              </Link>
+            </Button>
+            <Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>
+          </div>
+        }
       />
 
       <NewProjectDialog
@@ -306,6 +278,16 @@ export default function ProjectsPage() {
         onOpenChange={setIsNewProjectOpen}
         tenantId={tenantId}
         onCreate={handleCreateProject}
+      />
+      <ProjectArchiveDialog
+        open={archivingProject !== null}
+        onOpenChange={(open) => {
+          if (!open) setArchivingProject(null);
+        }}
+        tenantId={tenantId}
+        project={archivingProject}
+        projects={projectsQuery.data?.data ?? []}
+        currentUserId={me.data?.id}
       />
       <Dialog
         open={sharingProject !== null}
@@ -332,98 +314,6 @@ export default function ProjectsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
-      {generalProject ? (
-        <section
-          aria-labelledby="general-project-heading"
-          className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card p-5"
-        >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <FolderKanban className="h-5 w-5" />
-              </span>
-
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                  General workspace
-                </p>
-
-                <Link
-                  id="general-project-heading"
-                  to={`/projects/${generalProject.id}`}
-                  className="mt-0.5 block text-lg font-semibold hover:text-primary hover:underline"
-                >
-                  {generalProject.title}
-                </Link>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Catch-all work that does not belong to a project.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-4 rounded-lg border bg-background/70 px-4 py-2">
-                <div>
-                  <p className="text-lg font-semibold tabular-nums">
-                    {moduleCountByProject.get(generalProject.id) ?? 0}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Papers</p>
-                </div>
-
-                <div className="h-8 w-px bg-border" />
-
-                <div>
-                  <p className="text-lg font-semibold tabular-nums">
-                    {noteCountByProject.get(generalProject.id) ?? 0}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Notes</p>
-                </div>
-              </div>
-
-              <Button asChild variant="outline" size="sm">
-                <Link to={`/projects/${generalProject.id}`}>
-                  View project
-                </Link>
-              </Button>
-
-              {generalProject.tenantId === tenantId ? (
-                <button
-                  type="button"
-                  onClick={() => setSharingProject(generalProject)}
-                  aria-label="Manage collaborators for General"
-                  title="Manage collaborators"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <UserPlus className="h-4 w-4" />
-                </button>
-              ) : null}
-
-              <Link
-                to={`/projects/${generalProject.id}?edit=true`}
-                aria-label="Edit General"
-                title="Edit project"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Pencil className="h-4 w-4" />
-              </Link>
-
-              {me.data?.id === generalProject.userId ? (
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteProject(generalProject)}
-                  aria-label="Delete General"
-                  title="Delete project"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
       <div>
         <h2 className="text-lg font-semibold">Projects</h2>
         <p className="text-sm text-muted-foreground">
@@ -545,15 +435,17 @@ export default function ProjectsPage() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteProject(project)}
-                          aria-label={`Delete ${project.title}`}
-                          title="Delete project"
-                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {me.data?.id === project.userId && !project.isGeneral ? (
+                          <button
+                            type="button"
+                            onClick={() => setArchivingProject(project)}
+                            aria-label={`Archive ${project.title}`}
+                            title="Archive project"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <Archive className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
                       </div>
                       <span className="max-w-md text-xs text-muted-foreground">
                         {project.description || project.researchArea || "No description"}
@@ -581,13 +473,13 @@ export default function ProjectsPage() {
 
                   {columns.isColumnVisible("papers") ? (
                     <span className="text-sm text-muted-foreground">
-                      {moduleCountByProject.get(project.id) ?? 0}
+                      {project.paperCount}
                     </span>
                   ) : null}
 
                   {columns.isColumnVisible("notes") ? (
                     <span className="text-sm text-muted-foreground">
-                      {noteCountByProject.get(project.id) ?? 0}
+                      {project.noteCount}
                     </span>
                   ) : null}
 

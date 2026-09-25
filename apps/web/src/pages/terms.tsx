@@ -12,7 +12,7 @@ export default function TermsPage() {
       <LegalSection title="1. About this service">
         <p>
           Research in Motion ("the Service") is a research project- and
-          task-tracking tool for research teams: projects, modules, tasks, daily
+          task-tracking tool for research teams: projects, papers, tasks, daily
           notes, conference submissions and pipeline stages, organised within a
           shared workspace.
         </p>
@@ -32,13 +32,13 @@ export default function TermsPage() {
           Content you create belongs to a workspace. Workspace owners can invite
           collaborators by email using a secure, single-use acceptance link, and
           can remove members or delete the workspace at any time. Removing a
-          workspace deletes every project, module, task and note inside it.
+          workspace deletes every project, paper, task and note inside it.
         </p>
       </LegalSection>
 
       <LegalSection title="4. Your content">
         <p>
-          You retain ownership of the project, task, module and note content you
+          You retain ownership of the project, task, paper and note content you
           enter. You're responsible for making sure you have the right to store
           and share anything you upload or type into the Service, and for not
           entering unlawful, infringing, or sensitive content that this Service
@@ -49,7 +49,7 @@ export default function TermsPage() {
 
       <LegalSection title="5. Deletion and retention">
         <p>
-          Archiving a project or module does not delete it immediately —
+          Archiving a project or paper does not delete it immediately —
           archived items are kept for 14 days so they can be restored, then
           permanently deleted on an automated schedule. After that window,
           deleted content cannot be recovered.

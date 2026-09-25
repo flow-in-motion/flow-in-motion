@@ -81,7 +81,7 @@ export class CreateModuleDto {
   @ApiProperty({
     format: 'uuid',
     description:
-      'The owned project this paper belongs to. Independent papers use the General project.',
+      'The owned project this paper belongs to.',
   })
   @IsUUID()
   projectId!: string;
@@ -110,7 +110,7 @@ export class CreateModuleDto {
   @ApiProperty({
     required: false,
     example: '2027-06-01',
-    description: 'Module due date in ISO date format',
+    description: 'Paper due date in ISO date format',
   })
   @IsOptional()
   @IsDateString()

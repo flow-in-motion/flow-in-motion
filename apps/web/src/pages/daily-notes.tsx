@@ -397,7 +397,7 @@ export default function DailyNotesPage() {
                   {columns.isColumnVisible("linkedTo") ? (
                     note.projectId || note.moduleId ? (
                       <Link
-                        to={note.moduleId ? `/modules/${note.moduleId}` : `/projects/${note.projectId}`}
+                        to={note.moduleId ? `/papers/${note.moduleId}` : `/projects/${note.projectId}`}
                         className="text-sm font-medium text-primary hover:underline"
                       >
                         {linkTargetLabel(note)}

@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, date, numeric, timestamp, uniqueIndex, AnyPgColumn } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, uuid, text, date, numeric, timestamp, uniqueIndex, index, boolean, AnyPgColumn } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { tenants } from './tenants';
 import { enumTable } from './enum';
@@ -14,6 +15,7 @@ export const projects = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
+    isGeneral: boolean('is_general').default(false).notNull(),
     title: text('title').notNull(),
     description: text('description'),
     researchArea: text('research_area'),
@@ -29,5 +31,13 @@ export const projects = pgTable(
   },
   (table) => ({
     tenantDisplayIdKey: uniqueIndex('projects_tenant_id_display_id_key').on(table.tenantId, table.displayId),
+    oneGeneralPerTenant: uniqueIndex('projects_one_general_per_tenant_key')
+      .on(table.tenantId)
+      .where(sql`${table.isGeneral} = true`),
+    tenantActiveCreatedIdx: index('projects_tenant_active_created_idx').on(
+      table.tenantId,
+      table.archivedAt,
+      table.createdAt,
+    ),
   }),
 );

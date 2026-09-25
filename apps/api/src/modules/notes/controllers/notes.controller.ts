@@ -80,7 +80,7 @@ export class NotesController {
   }
 
   @ApiOperation({
-    summary: 'Create a note, optionally associated with a project and module',
+    summary: 'Create a note, optionally associated with a project and paper',
   })
   @ApiResponse({ status: 201 })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)

@@ -337,7 +337,7 @@ describe("TasksPage", () => {
 
     expect(
       screen.getByRole("link", { name: "Assay optimization" }),
-    ).toHaveAttribute("href", "/modules/module-1");
+    ).toHaveAttribute("href", "/papers/module-1");
   });
 
   it("points to inviting collaborators after the task is created, instead of staging them", () => {

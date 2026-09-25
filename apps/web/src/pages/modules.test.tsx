@@ -120,11 +120,18 @@ vi.mock("@/api/hooks", async () => {
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
         },
-        data: fixtures.projects,
+        data: [
+          {
+            id: "project-general",
+            userId: "user-owner",
+            title: "General",
+          },
+          ...fixtures.projects,
+        ],
         meta: {
           page: 1,
           pageSize: 20,
-          totalItems: fixtures.projects.length,
+          totalItems: fixtures.projects.length + 1,
           totalPages: 1,
         },
       },
@@ -249,7 +256,7 @@ describe("ModulesPage", () => {
         id: "module-1",
         displayId: "MOD-001",
         tenantId: fixtures.tenantId,
-        projectId: null,
+        projectId: "project-general",
         shortTitle: "Literature synthesis",
         title: "Literature synthesis",
         description: "",
@@ -336,7 +343,7 @@ describe("ModulesPage", () => {
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
   
-  it("creates an independent module and shows it in the table", async () => {
+  it("creates a paper in the selected project and shows it in the table", async () => {
     render(
       <MemoryRouter>
         <ModulesPage />
@@ -351,14 +358,16 @@ describe("ModulesPage", () => {
       ),
     );
     fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
-      target: { value: "Independent literature synthesis" },
+      target: { value: "General literature synthesis" },
     });
+    fireEvent.click(screen.getByPlaceholderText("Search projects by title"));
+    fireEvent.click((await screen.findAllByText("General")).at(-1)!);
     fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
 
     await waitFor(() =>
-      expect(screen.getByText("Independent literature synthesis")).toBeInTheDocument(),
+      expect(screen.getByText("General literature synthesis")).toBeInTheDocument(),
     );
-    expect(screen.getAllByText("Independent paper").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("General").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Concept & Ideation").length).toBeGreaterThan(0);
   });
 
@@ -383,7 +392,7 @@ describe("ModulesPage", () => {
     );
 
     expect(screen.getByRole("link", { name: "Edit Literature synthesis" }))
-      .toHaveAttribute("href", "/modules/module-1?edit=true");
+      .toHaveAttribute("href", "/papers/module-1?edit=true");
   });
 
   it("archives a module", async () => {
