@@ -357,7 +357,7 @@ export default function ProjectsPage() {
                 </Link>
 
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Catch-all work that does not belong to a major project.
+                  Catch-all work that does not belong to a project.
                 </p>
               </div>
             </div>
@@ -425,7 +425,7 @@ export default function ProjectsPage() {
       ) : null}
 
       <div>
-        <h2 className="text-lg font-semibold">Major projects</h2>
+        <h2 className="text-lg font-semibold">Projects</h2>
         <p className="text-sm text-muted-foreground">
           Research projects with their own scope, schedule, and deliverables.
         </p>

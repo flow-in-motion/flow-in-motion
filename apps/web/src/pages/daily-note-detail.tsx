@@ -368,8 +368,8 @@ export default function DailyNoteDetailPage() {
                 Follow up {formatPlainDate(note.followUpDate)}
               </Link>
             ) : null}
-            {form ? <Button type="button" variant="outline" onClick={cancelEditing}><X /> Cancel Editing</Button>
-              : <Button type="button" onClick={() => setForm(formValues(note))}><Pencil /> Edit Note</Button>}
+            {form ? null : (
+               <Button type="button" onClick={() => setForm(formValues(note))}><Pencil /> Edit Note</Button>)}
           </div>
         }
       />

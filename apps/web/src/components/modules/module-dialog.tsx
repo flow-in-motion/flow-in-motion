@@ -161,7 +161,7 @@ const generalProjectOption =
       .map((project) => ({
         id: project.id,
         label: project.title,
-        sublabel: "Major project",
+        sublabel: "Project",
       })),
   ];
 
@@ -228,7 +228,7 @@ const generalProjectOption =
     event.preventDefault();
     if (!selectedProject) {
       setSaveError(
-        "Choose a major project or select Independent paper.",
+        "Choose a project or select Independent paper.",
       );
       return;
     }
@@ -334,7 +334,7 @@ const generalProjectOption =
               onChange={(event) =>
                 setForm((current) => ({ ...current, abstract: event.target.value }))
               }
-              placeholder="Add the paper's academic abstract"
+              placeholder="Add the paper's abstract"
               rows={5}
             />
           </FormField>
@@ -473,7 +473,7 @@ const generalProjectOption =
                 />
                 <p className="text-xs text-muted-foreground">
                   Select Independent paper to store this paper under General, or choose one of
-                  your major projects.
+                  your projects.
                 </p>
               </FormField>
               <FormField label="Tasks" htmlFor="new-module-link-tasks">
