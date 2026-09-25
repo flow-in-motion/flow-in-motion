@@ -334,7 +334,7 @@ const generalProjectOption =
               onChange={(event) =>
                 setForm((current) => ({ ...current, abstract: event.target.value }))
               }
-              placeholder="Add the paper's academic abstract"
+              placeholder="Add the paper's abstract"
               rows={5}
             />
           </FormField>
