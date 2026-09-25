@@ -95,7 +95,7 @@ describe("dashboard insight cards", () => {
       </MemoryRouter>,
     );
 
-    const paperLinks = screen.getAllByRole("link").filter((link) => link.getAttribute("href")?.startsWith("/modules/"));
+    const paperLinks = screen.getAllByRole("link").filter((link) => link.getAttribute("href")?.startsWith("/papers/"));
     expect(paperLinks[0]).toHaveTextContent("Long-stalled paper");
     expect(paperLinks[1]).toHaveTextContent("Recently moved paper");
     expect(screen.getByText("30 days")).toBeInTheDocument();

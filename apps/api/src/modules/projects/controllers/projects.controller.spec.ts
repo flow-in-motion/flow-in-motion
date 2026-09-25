@@ -124,6 +124,7 @@ describe('ProjectsController', () => {
         'tenant-1',
         'p1',
         'user-1',
+        { contentAction: 'archive' },
       );
       expect(result.warning).toBe('14 days');
     });

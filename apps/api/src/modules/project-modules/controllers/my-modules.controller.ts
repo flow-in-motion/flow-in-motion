@@ -25,9 +25,9 @@ interface AuthenticatedRequest extends Request {
 }
 
 /**
- * Tenant-agnostic view of modules the caller can access — a module linked
- * to a project the caller can access, or an independent module the caller
- * was explicitly added to as a collaborator, regardless of which workspace
+ * Tenant-agnostic view of papers the caller can access — a paper linked
+ * to a project the caller can access, or a paper the caller was explicitly
+ * added to as a collaborator, regardless of which workspace
  * it belongs to. Guarded by JwtAuthGuard only, not TenantMemberGuard,
  * mirroring MyProjectsController / MyTasksController.
  */
@@ -42,7 +42,7 @@ export class MyModulesController {
   ) {}
 
   @ApiOperation({
-    summary: 'List every module the caller can access, across all workspaces',
+    summary: 'List every paper the caller can access, across all workspaces',
   })
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -61,7 +61,7 @@ export class MyModulesController {
     );
   }
 
-  @ApiOperation({ summary: 'Get a single module the caller can access' })
+  @ApiOperation({ summary: 'Get a single paper the caller can access' })
   @UseGuards(JwtAuthGuard)
   @Get(':moduleId')
   async findOne(
@@ -72,7 +72,7 @@ export class MyModulesController {
     return this.modulesService.findOneForCaller(moduleId, user.id);
   }
 
-  @ApiOperation({ summary: 'Update a module the caller can access' })
+  @ApiOperation({ summary: 'Update a paper the caller can access' })
   @UseGuards(JwtAuthGuard)
   @Patch(':moduleId')
   async update(
@@ -84,7 +84,7 @@ export class MyModulesController {
     return this.modulesService.updateForCaller(moduleId, user.id, dto);
   }
 
-  @ApiOperation({ summary: 'Archive a module the caller can access' })
+  @ApiOperation({ summary: 'Archive a paper the caller can access' })
   @UseGuards(JwtAuthGuard)
   @Delete(':moduleId')
   async archive(

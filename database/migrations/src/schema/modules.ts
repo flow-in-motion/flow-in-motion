@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex, AnyPgColumn, date } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, uniqueIndex, index, AnyPgColumn, date } from 'drizzle-orm/pg-core';
 import { projects } from './projects';
 import { tenants } from './tenants';
 import { users } from './users';
@@ -10,6 +10,7 @@ export const modules = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     displayId: text('display_id'),
     projectId: uuid('project_id')
+      .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
     tenantId: uuid('tenant_id')
       .notNull()
@@ -33,5 +34,10 @@ export const modules = pgTable(
   },
   (table) => ({
     tenantDisplayIdKey: uniqueIndex('modules_tenant_id_display_id_key').on(table.tenantId, table.displayId),
+    tenantProjectActiveIdx: index('modules_tenant_project_active_idx').on(
+      table.tenantId,
+      table.projectId,
+      table.archivedAt,
+    ),
   }),
 );

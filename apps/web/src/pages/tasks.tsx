@@ -156,7 +156,7 @@ export default function TasksPage() {
   }, [modules]);
 
   function linkTargetLabel(task: ApiTask) {
-    if (task.moduleId) return moduleById.get(task.moduleId) ?? "Unknown module";
+    if (task.moduleId) return moduleById.get(task.moduleId) ?? "Unknown paper";
     if (task.projectId) return projectById.get(task.projectId) ?? "Unknown project";
     return "General";
   }
@@ -420,7 +420,7 @@ export default function TasksPage() {
                   {columns.isColumnVisible("project") ? (
                   task.projectId || task.moduleId ? (
                     <Link
-                      to={task.moduleId ? `/modules/${task.moduleId}` : `/projects/${task.projectId}`}
+                      to={task.moduleId ? `/papers/${task.moduleId}` : `/projects/${task.projectId}`}
                       className="text-sm font-medium text-primary hover:underline"
                     >
                       {linkTargetLabel(task)}

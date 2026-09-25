@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   BadRequestException,
   ForbiddenException,
@@ -31,11 +30,11 @@ export class ProjectModulesService {
   ) {}
 
   /**
-   * A module with a parent project inherits that project's visibility
+   * A paper inherits its parent project's visibility
    * (owner or project_collaborators — the owner is always inserted as a
    * collaborator at project-creation time, so a single collaborator check
-   * covers both). An independent module (no project) is only visible to its
-   * own module_collaborators.
+   * covers both). A direct paper collaborator also retains access through
+   * the paper's module_collaborators record.
    */
   private async canAccess(
     tenantId: string,
@@ -99,7 +98,7 @@ export class ProjectModulesService {
   async findOne(tenantId: string, moduleId: string, callerUserId: string) {
     const module = await this.repository.findById(tenantId, moduleId);
     if (!module || !(await this.canAccess(tenantId, module, callerUserId))) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
     const [shaped] = await this.withDisplayValues([module], callerUserId);
     return shaped;
@@ -136,7 +135,7 @@ export class ProjectModulesService {
   async findOneForCaller(moduleId: string, callerUserId: string) {
     const module = await this.repository.findByIdGlobal(moduleId);
     if (!module) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
     return this.findOne(module.tenantId, moduleId, callerUserId);
   }
@@ -148,7 +147,7 @@ export class ProjectModulesService {
   ) {
     const project = await this.projectsRepository.findById(tenantId, projectId);
 
-    if (!project) {
+    if (!project || project.archivedAt) {
       throw new NotFoundException('Project not found');
     }
 
@@ -213,7 +212,7 @@ export class ProjectModulesService {
     const module = await this.repository.create(createValues);
 
     if (!module) {
-      throw new NotFoundException('Failed to create module');
+      throw new NotFoundException('Failed to create paper');
     }
 
     if (!ownerRoleId) {
@@ -256,7 +255,7 @@ export class ProjectModulesService {
     if (Object.prototype.hasOwnProperty.call(input, 'projectId')) {
       if (!input.projectId) {
         throw new BadRequestException(
-          'A paper must belong to a project. Use the General project for independent papers.',
+          'A paper must belong to a project.',
         );
       }
 
@@ -298,7 +297,7 @@ export class ProjectModulesService {
     });
 
     if (!module) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
 
     const [shaped] = await this.withDisplayValues([module], callerUserId);
@@ -314,7 +313,7 @@ export class ProjectModulesService {
   ) {
     const module = await this.repository.findByIdGlobal(moduleId);
     if (!module) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
     return this.update(module.tenantId, moduleId, callerUserId, input);
   }
@@ -322,7 +321,7 @@ export class ProjectModulesService {
   async archive(tenantId: string, moduleId: string, callerUserId: string) {
     const existingModule = await this.repository.findById(tenantId, moduleId);
     if (!existingModule) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
     const ownerMembership =
       await this.collaboratorsRepository.findByModuleAndUser(
@@ -340,7 +339,7 @@ export class ProjectModulesService {
       ownerMembership.roleId !== ownerRole.id
     ) {
       throw new ForbiddenException(
-        'Only the module owner can archive this module',
+        'Only the paper owner can archive this paper',
       );
     }
 
@@ -360,14 +359,14 @@ export class ProjectModulesService {
       archivedStatusId,
     );
     if (!module) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
 
     const [shaped] = await this.withDisplayValues([module], callerUserId);
 
     return {
       module: shaped,
-      warning: `This module has been archived and will be permanently deleted in ${ARCHIVE_RETENTION_DAYS} days.`,
+      warning: `This paper has been archived and will be permanently deleted in ${ARCHIVE_RETENTION_DAYS} days.`,
     };
   }
 
@@ -375,7 +374,7 @@ export class ProjectModulesService {
   async archiveForCaller(moduleId: string, callerUserId: string) {
     const module = await this.repository.findByIdGlobal(moduleId);
     if (!module) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
     return this.archive(module.tenantId, moduleId, callerUserId);
   }

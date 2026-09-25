@@ -207,7 +207,7 @@ function BubbleRelationshipMap({
   const displayedNotes = visibleNotes.filter((note) => !isCollapsedDescendant(note.moduleId, note.projectId));
 
   const projectNodes: BubbleNode[] = visibleProjects.map((project) => ({ key: `project-${project.id}`, sourceId: project.id, kind: "project", title: project.title, href: `/projects/${project.id}` }));
-  const moduleNodes: BubbleNode[] = displayedModules.map((module) => ({ key: `module-${module.id}`, sourceId: module.id, kind: "module", title: paperDisplayTitle(module), href: `/modules/${module.id}` }));
+  const moduleNodes: BubbleNode[] = displayedModules.map((module) => ({ key: `module-${module.id}`, sourceId: module.id, kind: "module", title: paperDisplayTitle(module), href: `/papers/${module.id}` }));
   const leafNodes: BubbleNode[] = [
     ...displayedTasks.map((task) => ({ key: `task-${task.id}`, sourceId: task.id, kind: "task" as const, title: task.title, href: `/tasks/${task.id}` })),
     ...displayedNotes.map((note) => ({ key: `note-${note.id}`, sourceId: note.id, kind: "note" as const, title: note.title, href: `/daily-notes/${note.id}` })),
@@ -378,7 +378,7 @@ function ModuleBranch({
           >
             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
-          <Link to={`/modules/${module.id}`} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Link to={`/papers/${module.id}`} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white"><Boxes className="h-4 w-4" /></span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold hover:text-primary">{paperDisplayTitle(module)}</span>

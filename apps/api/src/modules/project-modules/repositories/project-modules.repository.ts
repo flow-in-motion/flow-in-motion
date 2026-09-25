@@ -18,7 +18,24 @@ export class ProjectModulesRepository {
     const [module] = await this.drizzle.db
       .select()
       .from(modules)
-      .where(and(eq(modules.tenantId, tenantId), eq(modules.id, moduleId)));
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          eq(modules.id, moduleId),
+          isNull(modules.archivedAt),
+          exists(
+            this.drizzle.db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(
+                and(
+                  eq(projects.id, modules.projectId),
+                  isNull(projects.archivedAt),
+                ),
+              ),
+          ),
+        ),
+      );
     return module;
   }
 
@@ -26,7 +43,23 @@ export class ProjectModulesRepository {
     const [module] = await this.drizzle.db
       .select()
       .from(modules)
-      .where(eq(modules.id, moduleId));
+      .where(
+        and(
+          eq(modules.id, moduleId),
+          isNull(modules.archivedAt),
+          exists(
+            this.drizzle.db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(
+                and(
+                  eq(projects.id, modules.projectId),
+                  isNull(projects.archivedAt),
+                ),
+              ),
+          ),
+        ),
+      );
     return module;
   }
 
@@ -71,6 +104,17 @@ export class ProjectModulesRepository {
     const conditions = [
       eq(modules.tenantId, tenantId),
       isNull(modules.archivedAt),
+      exists(
+        this.drizzle.db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(
+            and(
+              eq(projects.id, modules.projectId),
+              isNull(projects.archivedAt),
+            ),
+          ),
+      ),
       visibilityCondition,
     ];
 
@@ -91,7 +135,7 @@ export class ProjectModulesRepository {
               .from(projects)
               .where(and(eq(projects.id, modules.projectId), ilike(projects.title, pattern))),
           ),
-        )!,
+        ),
       );
     }
 
@@ -158,7 +202,21 @@ export class ProjectModulesRepository {
       ),
     );
 
-    const whereCondition = and(isNull(modules.archivedAt), visibilityCondition);
+    const whereCondition = and(
+      isNull(modules.archivedAt),
+      exists(
+        this.drizzle.db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(
+            and(
+              eq(projects.id, modules.projectId),
+              isNull(projects.archivedAt),
+            ),
+          ),
+      ),
+      visibilityCondition,
+    );
 
     const [data, countResult] = await Promise.all([
       this.drizzle.db
@@ -184,7 +242,7 @@ export class ProjectModulesRepository {
   }
 
   async create(values: {
-    projectId?: string;
+    projectId: string;
     tenantId: string;
     shortTitle: string;
     title?: string;
@@ -236,7 +294,7 @@ export class ProjectModulesRepository {
       backupJournal: string;
       targetConference: string;
       backupConference: string;
-      projectId: string | null;
+      projectId: string;
       statusId: string;
       pipelineStageId: string;
       pipelineStageChangedAt: Date;

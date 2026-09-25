@@ -47,7 +47,7 @@ export default function InvitationPage() {
     `Shared ${invitation.type}`;
   const destination = {
     project: `/projects/${invitation.projectId}`,
-    module: `/modules/${invitation.moduleId}`,
+    module: `/papers/${invitation.moduleId}`,
     task: `/tasks/${invitation.taskId}`,
     note: `/daily-notes/${invitation.noteId}`,
   }[invitation.type];

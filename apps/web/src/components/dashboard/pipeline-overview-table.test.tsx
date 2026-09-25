@@ -56,7 +56,7 @@ describe("PipelineOverviewTable popup", () => {
     expect(popup.getByRole("button", { name: "Columns" })).toBeVisible();
     const stageHeader = popup.getByRole("columnheader", { name: /Concept, Ideation/ });
     expect(Array.from(stageHeader.querySelectorAll("span"), (label) => label.textContent)).toEqual(stages);
-    expect(popup.getByRole("link", { name: "Example paper" })).toHaveAttribute("href", "/modules/paper-1");
+    expect(popup.getByRole("link", { name: "Example paper" })).toHaveAttribute("href", "/papers/paper-1");
 
     fireEvent.click(popup.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

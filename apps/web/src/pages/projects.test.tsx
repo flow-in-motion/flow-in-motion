@@ -14,6 +14,7 @@ const fixtures = vi.hoisted(() => ({
     displayId: "PRJ-101",
     userId: "user-owner",
     tenantId: "workspace-1",
+    isGeneral: false,
     title: "Enzyme Kinetics Inhibition Study Across Temperature Gradients",
     description: "A study of enzyme kinetics under varying temperature.",
     researchArea: "Biochemistry",
@@ -27,6 +28,8 @@ const fixtures = vi.hoisted(() => ({
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     role: "owner",
+    paperCount: 1,
+    noteCount: 1,
   },
   module: {
     id: "module-1",
@@ -156,6 +159,11 @@ vi.mock("@/api/hooks", () => ({
   }),
   useCreateProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useArchiveProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useProjectArchiveImpact: () => ({
+    data: { papers: 0, tasks: 0, notes: 0 },
+    isPending: false,
+    isError: false,
+  }),
   useTrackEvent: () => vi.fn(),
   useModules: () => ({
     data: {
@@ -217,7 +225,26 @@ function renderPage() {
 describe("ProjectsPage", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    fixtures.projects = [fixtures.project];
+    fixtures.project.paperCount = 1;
+    fixtures.project.noteCount = 1;
+    fixtures.projects = [
+      {
+        ...fixtures.project,
+        id: "PRJ-GENERAL",
+        displayId: "PRJ-0001",
+        title: "General",
+        description: null,
+        researchArea: null,
+        status: "Active",
+        importance: null,
+        scheduledFor: null,
+        dueDate: null,
+        isGeneral: true,
+        paperCount: 0,
+        noteCount: 0,
+      },
+      fixtures.project,
+    ];
     fixtures.modules = [fixtures.module];
     hookMocks.useProjects.mockClear();
     hookMocks.pagination.totalItems = 1;
@@ -254,12 +281,8 @@ describe("ProjectsPage", () => {
     expect(screen.getByText("Low")).toBeInTheDocument();
   });
 
-  it("shows General separately from the projects table", () => {
+  it("shows the built-in General project at the same level as other projects", () => {
     renderPage();
-  
-    expect(
-      screen.getByText("General workspace"),
-    ).toBeInTheDocument();
   
     expect(
       screen.getByRole("heading", { name: "Projects", level: 2 }),
@@ -273,10 +296,6 @@ describe("ProjectsPage", () => {
       "href",
       "/projects/PRJ-GENERAL",
     );
-  
-    // General is displayed in its dedicated section, not as an expandable
-    // project row in the Projects table.
-    expect(generalLink.closest('[role="button"]')).toBeNull();
   
     expect(
       screen.getByText(
@@ -345,10 +364,7 @@ describe("ProjectsPage", () => {
   });
 
   it("shows a Papers column with the linked paper count, and no Progress column", () => {
-    fixtures.modules = [
-      fixtures.module,
-      { ...fixtures.module, id: "module-2", displayId: "MOD-2", title: "Second paper" },
-    ];
+    fixtures.project.paperCount = 2;
     renderPage();
 
     expect(screen.getByRole("button", { name: "Sort by Papers" })).toBeInTheDocument();

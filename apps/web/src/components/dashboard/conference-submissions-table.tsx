@@ -43,7 +43,7 @@ const CONFERENCE_COLUMNS = [
   { id: "submissionDue", label: "Submission Due" },
   { id: "conferenceDates", label: "Conference Dates" },
   { id: "type", label: "Type" },
-  { id: "linkedProjects", label: "Linked Projects or Modules/Papers" },
+  { id: "linkedProjects", label: "Linked Projects or Papers" },
   { id: "actions", label: "Actions" },
 ] as const;
 
@@ -154,7 +154,7 @@ export function ConferenceSubmissionsTable({
               <Presentation className="h-4 w-4 text-cyan-600" />
               {showPast ? "Conference Submissions" : "Upcoming Conference Submissions"}
             </CardTitle>
-            <CardDescription>Submission deadlines, event dates, and linked projects or modules/papers.</CardDescription>
+            <CardDescription>Submission deadlines, event dates, and linked projects or papers.</CardDescription>
           </div>
           {dashboardView || hideCreateButton ? null : (
             <Button onClick={() => setIsCreateOpen(true)} disabled={ownedProjects.length === 0 || isLoading}>
@@ -187,7 +187,7 @@ export function ConferenceSubmissionsTable({
             {columns.isColumnVisible("submissionDue") ? <TableHead>Submission Due</TableHead> : null}
             {columns.isColumnVisible("conferenceDates") ? <TableHead>Conference Dates</TableHead> : null}
             {columns.isColumnVisible("type") ? <TableHead>Type</TableHead> : null}
-            {columns.isColumnVisible("linkedProjects") ? <TableHead>Linked Projects or Modules/Papers</TableHead> : null}
+            {columns.isColumnVisible("linkedProjects") ? <TableHead>Linked Projects or Papers</TableHead> : null}
             {columns.isColumnVisible("actions") ? <TableHead className="text-right">Actions</TableHead> : null}
           </TableRow></TableHeader>
           <TableBody>

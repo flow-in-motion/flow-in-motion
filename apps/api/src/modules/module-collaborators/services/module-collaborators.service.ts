@@ -76,13 +76,13 @@ export class ModuleCollaboratorsService {
 
   /**
    * The collaborator list is itself only visible to someone who can already
-   * see the module: for a project-scoped module, a collaborator on that
-   * project; for an independent module, an existing module collaborator.
+   * see the paper: for a project-scoped paper, a collaborator on that
+   * project, or an existing direct paper collaborator.
    */
   async list(tenantId: string, moduleId: string, callerUserId: string) {
     const module = await this.modulesRepository.findById(tenantId, moduleId);
     if (!module) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
 
     await this.ensureOwnerMembership(tenantId, moduleId, callerUserId);
@@ -103,7 +103,7 @@ export class ModuleCollaboratorsService {
           ),
         );
     if (!hasAccess) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
 
     const rows = await this.repository.findByModule(tenantId, moduleId);
@@ -113,7 +113,7 @@ export class ModuleCollaboratorsService {
   async add(tenantId: string, moduleId: string, userId: string, role: string) {
     const module = await this.modulesRepository.findById(tenantId, moduleId);
     if (!module) {
-      throw new NotFoundException('Module not found');
+      throw new NotFoundException('Paper not found');
     }
 
     const existing = await this.repository.findByModuleAndUser(
@@ -123,7 +123,7 @@ export class ModuleCollaboratorsService {
     );
     if (existing) {
       throw new ConflictException(
-        'This user is already a collaborator on this module',
+        'This user is already a collaborator on this paper',
       );
     }
 
@@ -158,7 +158,7 @@ export class ModuleCollaboratorsService {
       roleId,
     );
     if (!row) {
-      throw new NotFoundException('Collaborator not found on this module');
+      throw new NotFoundException('Collaborator not found on this paper');
     }
     const [shaped] = await this.withDisplayValues([row]);
     return shaped;
@@ -167,7 +167,7 @@ export class ModuleCollaboratorsService {
   async remove(tenantId: string, moduleId: string, userId: string) {
     const row = await this.repository.delete(tenantId, moduleId, userId);
     if (!row) {
-      throw new NotFoundException('Collaborator not found on this module');
+      throw new NotFoundException('Collaborator not found on this paper');
     }
     return row;
   }

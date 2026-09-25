@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { ProjectsRepository } from '../repositories/projects.repository';
 import { EnumRepository } from '../../enum/repositories/enum.repository';
@@ -15,6 +15,11 @@ describe('ProjectsService', () => {
     create: jest.Mock;
     update: jest.Mock;
     archive: jest.Mock;
+    archiveImpact: jest.Mock;
+    findArchivedByTenant: jest.Mock;
+    moveContentsToProject: jest.Mock;
+    restore: jest.Mock;
+    permanentlyDelete: jest.Mock;
     findAccessiblePageByUser: jest.Mock;
   };
   let enumRepository: {
@@ -36,6 +41,11 @@ describe('ProjectsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       archive: jest.fn(),
+      archiveImpact: jest.fn(),
+      findArchivedByTenant: jest.fn(),
+      moveContentsToProject: jest.fn(),
+      restore: jest.fn(),
+      permanentlyDelete: jest.fn(),
       findAccessiblePageByUser: jest.fn(),
     };
     enumRepository = {
@@ -208,12 +218,9 @@ describe('ProjectsService', () => {
         statusId: null,
         importanceId: null,
       });
-      enumRepository.findByCategoryAndValue.mockResolvedValue({
-        id: 'archived-status-id',
-      });
       repository.archive.mockResolvedValue({
         id: 'project-1',
-        statusId: 'archived-status-id',
+        statusId: null,
         importanceId: null,
       });
 
@@ -222,7 +229,6 @@ describe('ProjectsService', () => {
       expect(repository.archive).toHaveBeenCalledWith(
         'tenant-1',
         'project-1',
-        'archived-status-id',
       );
     });
 
@@ -235,7 +241,7 @@ describe('ProjectsService', () => {
   });
 
   describe('listActive', () => {
-    it('returns General separately from the paginated major projects', async () => {
+    it('returns the built-in project as an ordinary row and also exposes it for compatibility', async () => {
       repository.findGeneralByTenant.mockResolvedValue({
         id: 'project-general',
         title: 'General',
@@ -247,6 +253,13 @@ describe('ProjectsService', () => {
       repository.findActiveByTenant.mockResolvedValue({
         data: [
           {
+            id: 'project-general',
+            title: 'General',
+            userId: 'user-1',
+            statusId: null,
+            importanceId: null,
+          },
+          {
             id: 'project-1',
             title: 'Project One',
             userId: 'user-1',
@@ -254,7 +267,8 @@ describe('ProjectsService', () => {
             importanceId: null,
           },
         ],
-        totalItems: 1,
+        totalItems: 2,
+        summary: { active: 1 },
       });
 
       collaboratorsRepository.findByProjectIdsAndUser.mockResolvedValue(
@@ -281,12 +295,17 @@ describe('ProjectsService', () => {
         }),
       );
 
-      expect(result.data.map((project) => project.id)).toEqual(['project-1']);
+      expect(result.data.map((project) => project.id)).toEqual([
+        'project-general',
+        'project-1',
+      ]);
+
+      expect(result.summary).toEqual({ active: 1 });
 
       expect(result.meta).toEqual({
         page: 1,
         pageSize: 20,
-        totalItems: 1,
+        totalItems: 2,
         totalPages: 1,
       });
     });
@@ -386,19 +405,16 @@ describe('ProjectsService', () => {
   });
 
   describe('archive', () => {
-    it('resolves the Archived status and sets archivedAt, returning a warning', async () => {
+    it('archives the project with its contents hidden and returns a warning', async () => {
       repository.findById.mockResolvedValue({
         id: 'project-1',
         userId: 'user-1',
         statusId: null,
         importanceId: null,
       });
-      enumRepository.findByCategoryAndValue.mockResolvedValue({
-        id: 'archived-status-id',
-      });
       repository.archive.mockResolvedValue({
         id: 'project-1',
-        statusId: 'archived-status-id',
+        statusId: null,
         importanceId: null,
       });
 
@@ -407,9 +423,55 @@ describe('ProjectsService', () => {
       expect(repository.archive).toHaveBeenCalledWith(
         'tenant-1',
         'project-1',
-        'archived-status-id',
       );
       expect(result.warning).toContain('14 days');
+    });
+
+    it('moves linked content before archiving when a destination is chosen', async () => {
+      repository.findById
+        .mockResolvedValueOnce({
+          id: 'project-1',
+          userId: 'user-1',
+          isGeneral: false,
+          archivedAt: null,
+        })
+        .mockResolvedValueOnce({
+          id: 'project-2',
+          userId: 'user-1',
+          archivedAt: null,
+        });
+      repository.archive.mockResolvedValue({
+        id: 'project-1',
+        userId: 'user-1',
+        statusId: null,
+        importanceId: null,
+      });
+
+      await service.archive('tenant-1', 'project-1', 'user-1', {
+        contentAction: 'move',
+        destinationProjectId: 'project-2',
+      });
+
+      expect(repository.moveContentsToProject).toHaveBeenCalledWith(
+        'tenant-1',
+        'project-1',
+        'project-2',
+      );
+      expect(repository.archive).toHaveBeenCalledWith('tenant-1', 'project-1');
+    });
+
+    it('does not allow the built-in project to be archived', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'project-general',
+        userId: 'user-1',
+        isGeneral: true,
+        archivedAt: null,
+      });
+
+      await expect(
+        service.archive('tenant-1', 'project-general', 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.archive).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException if the project does not exist', async () => {

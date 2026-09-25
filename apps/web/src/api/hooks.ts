@@ -106,6 +106,7 @@ export interface ApiProject {
   displayId: string | null;
   userId: string;
   tenantId: string;
+  isGeneral: boolean;
   title: string;
   description: string | null;
   researchArea: string | null;
@@ -120,6 +121,8 @@ export interface ApiProject {
   updatedAt: string;
   /** The calling user's collaborator role on this project, if any. */
   role: string | null;
+  paperCount: number;
+  noteCount: number;
 }
 
 export interface ApiCollaborator {
@@ -139,7 +142,7 @@ export interface ApiModule {
   id: string;
   displayId: string | null;
   tenantId: string;
-  projectId: string | null;
+  projectId: string;
   /** The working name used day-to-day, often before a formal title exists. Prefer this for display. */
   shortTitle: string | null;
   /** The formal title, often added later in the process. */
@@ -305,10 +308,14 @@ export const apiKeys = {
     ] as const,
   projects: (tenantId: string) =>
     ["api", "tenant", tenantId, "projects"] as const,
-  projectsPage: (tenantId: string, page = 1) =>
-    ["api", "tenant", tenantId, "projects", page] as const,
+  projectsPage: (tenantId: string, page = 1, pageSize: number | "all" = 20) =>
+    ["api", "tenant", tenantId, "projects", page, pageSize] as const,
   project: (tenantId: string, projectId: string) =>
     ["api", "tenant", tenantId, "projects", projectId] as const,
+  archivedProjects: (tenantId: string) =>
+    ["api", "tenant", tenantId, "projects", "archive"] as const,
+  projectArchiveImpact: (tenantId: string, projectId: string) =>
+    ["api", "tenant", tenantId, "projects", projectId, "archive-impact"] as const,
   projectCollaborators: (tenantId: string, projectId: string) =>
     [
       "api",
@@ -725,21 +732,35 @@ export type UpdateProjectInput = Partial<CreateProjectInput>;
 export interface ProjectsPageResponse
   extends PaginatedResponse<ApiProject> {
   generalProject: ApiProject | null;
+  summary: { active: number };
+}
+
+export interface ProjectArchiveImpact {
+  papers: number;
+  tasks: number;
+  notes: number;
+}
+
+export interface ArchiveProjectInput {
+  projectId: string;
+  contentAction: "archive" | "move";
+  destinationProjectId?: string;
 }
 export function useProjects(
   tenantId: string,
   page = 1,
   enabled = true,
+  pageSize: number | "all" = 20,
 ) {
   return useQuery({
-    queryKey: apiKeys.projectsPage(tenantId, page),
+    queryKey: apiKeys.projectsPage(tenantId, page, pageSize),
     enabled: Boolean(tenantId) && enabled,
     queryFn: async () =>
       responseData<ProjectsPageResponse>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/projects", {
           params: {
             path: { tenantId },
-            query: { page } as never,
+            query: { page, pageSize } as never,
           },
         }),
       ),
@@ -824,18 +845,83 @@ export function useUpdateProject(tenantId: string) {
 export function useArchiveProject(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (projectId: string) =>
-      responseData<{ project: ApiProject; warning: string }>(
-        await apiClient.DELETE(
-          "/api/v1/tenant/{tenantId}/projects/{projectId}",
-          {
-            params: { path: { tenantId, projectId } },
-          },
-        ),
+    mutationFn: ({ projectId, ...input }: ArchiveProjectInput) =>
+      apiJson<{ project: ApiProject; warning: string }>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/projects/${encodeURIComponent(projectId)}/archive`,
+        { method: "POST", body: JSON.stringify(input) },
+      ),
+    async onSuccess(_result, input) {
+      queryClient.removeQueries({
+        queryKey: apiKeys.project(tenantId, input.projectId),
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: apiKeys.projects(tenantId) }),
+        queryClient.invalidateQueries({ queryKey: apiKeys.archivedProjects(tenantId) }),
+        invalidateResourceEverywhere(queryClient, "modules"),
+        invalidateResourceEverywhere(queryClient, "tasks"),
+        invalidateResourceEverywhere(queryClient, "notes"),
+      ]);
+    },
+  });
+}
+
+export function useProjectArchiveImpact(
+  tenantId: string,
+  projectId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: apiKeys.projectArchiveImpact(tenantId, projectId),
+    enabled: Boolean(tenantId && projectId) && enabled,
+    queryFn: () =>
+      apiJson<ProjectArchiveImpact>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/projects/${encodeURIComponent(projectId)}/archive-impact`,
+      ),
+  });
+}
+
+export function useArchivedProjects(tenantId: string) {
+  return useQuery({
+    queryKey: apiKeys.archivedProjects(tenantId),
+    enabled: Boolean(tenantId),
+    queryFn: () =>
+      apiJson<ApiProject[]>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/projects/archive/items`,
+      ),
+  });
+}
+
+export function useRestoreProject(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: string) =>
+      apiJson<ApiProject>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/projects/${encodeURIComponent(projectId)}/restore`,
+        { method: "POST" },
+      ),
+    async onSuccess() {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: apiKeys.projects(tenantId) }),
+        queryClient.invalidateQueries({ queryKey: apiKeys.archivedProjects(tenantId) }),
+        invalidateResourceEverywhere(queryClient, "modules"),
+        invalidateResourceEverywhere(queryClient, "tasks"),
+        invalidateResourceEverywhere(queryClient, "notes"),
+      ]);
+    },
+  });
+}
+
+export function usePermanentlyDeleteProject(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: string) =>
+      apiJson<{ message: string }>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/projects/${encodeURIComponent(projectId)}/permanent`,
+        { method: "DELETE" },
       ),
     async onSuccess() {
       await queryClient.invalidateQueries({
-        queryKey: apiKeys.projects(tenantId),
+        queryKey: apiKeys.archivedProjects(tenantId),
       });
     },
   });
@@ -1041,7 +1127,7 @@ export function useCreateFeedback(tenantId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Modules
+// Papers (the stable API resource name remains modules)
 // ---------------------------------------------------------------------------
 
 export interface CreateModuleInput {

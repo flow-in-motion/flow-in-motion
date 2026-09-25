@@ -63,7 +63,7 @@ describe("MindMapPage", () => {
     render(<MemoryRouter><MindMapPage /></MemoryRouter>);
 
     expect(screen.getByRole("link", { name: /Climate study/ })).toHaveAttribute("href", "/projects/project-1");
-    expect(screen.getByRole("link", { name: /Fieldwork/ })).toHaveAttribute("href", "/modules/module-1");
+    expect(screen.getByRole("link", { name: /Fieldwork/ })).toHaveAttribute("href", "/papers/module-1");
     expect(screen.getByRole("link", { name: /Calibrate sensors/ })).toHaveAttribute("href", "/tasks/task-1");
     expect(screen.getByRole("link", { name: /Site observation/ })).toHaveAttribute("href", "/daily-notes/note-1");
   });
@@ -90,7 +90,7 @@ describe("MindMapPage", () => {
 
     expect(screen.getByRole("group", { name: "Bubble relationship map" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Project: Climate study" })).toHaveAttribute("href", "/projects/project-1");
-    expect(screen.getByRole("link", { name: "Paper: Fieldwork" })).toHaveAttribute("href", "/modules/module-1");
+    expect(screen.getByRole("link", { name: "Paper: Fieldwork" })).toHaveAttribute("href", "/papers/module-1");
     expect(screen.getByRole("link", { name: "Task: Calibrate sensors" })).toHaveAttribute("href", "/tasks/task-1");
     expect(screen.getByRole("link", { name: "Note: Site observation" })).toHaveAttribute("href", "/daily-notes/note-1");
   });
