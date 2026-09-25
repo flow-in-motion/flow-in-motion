@@ -269,6 +269,24 @@ describe("PipelinePage", () => {
     fixtures.confetti.mockReset();
   });
 
+  it("uses the selected stage order for percentages in both pipeline views", () => {
+    stages.set(Array.from({ length: 15 }, (_, index) => ({
+      ...baseStages()[0]!,
+      id: `stage-${index + 1}`,
+      value: `Stage ${index + 1}`,
+      sortOrder: index,
+      hidden: index < 5,
+    })).reverse());
+    modules.set([{ ...baseModules()[0]!, pipelineStage: "Stage 8" }]);
+    render(<MemoryRouter><PipelinePage /></MemoryRouter>);
+    expect(screen.getByText("30%")).toBeVisible();
+    expect(screen.getByText("0 outstanding")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+    expect(screen.getByText("30%")).toBeVisible();
+    expect(screen.getByText("0 outstanding")).toBeVisible();
+  });
+
   it("provides a paper edit action in both flow and column views", () => {
     render(
       <MemoryRouter>
@@ -377,6 +395,7 @@ describe("PipelinePage", () => {
     await waitFor(() =>
       expect(within(targetStage).getByText(title)).toBeInTheDocument(),
     );
+    expect(within(targetStage).getByText("50%")).toBeVisible();
   });
 
   it("also allows a paper's stage to be changed without dragging", async () => {
@@ -398,6 +417,7 @@ describe("PipelinePage", () => {
     await waitFor(() =>
       expect(within(targetStage).getByText(title)).toBeInTheDocument(),
     );
+    expect(within(targetStage).getByText("100%")).toBeVisible();
   });
 
   it("filters papers by project", () => {

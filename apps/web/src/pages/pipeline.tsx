@@ -24,6 +24,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -272,6 +273,7 @@ export default function PipelinePage() {
     stages.forEach((stage, index) => map.set(stage.value, index));
     return map;
   }, [stages]);
+  const progressByStage = useMemo(() => buildPaperProgressByStage(stages), [stages]);
 
   const taskCountByModule = useMemo(() => {
     const counts = new Map<string, { completed: number; total: number }>();
@@ -335,12 +337,12 @@ export default function PipelinePage() {
           status: module.status,
           assignee: assigneeLabel,
           projectId: module.projectId,
-          completion: counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0,
+          completion: progressByStage.get(module.pipelineStage ?? "") ?? 0,
           outstanding: counts.total - counts.completed,
           stageIndex: module.pipelineStage ? stageIndexByValue.get(module.pipelineStage) : undefined,
         };
       }),
-    [modules, taskCountByModule, stageIndexByValue, memberNameById, me.data?.id],
+    [modules, taskCountByModule, progressByStage, stageIndexByValue, memberNameById, me.data?.id],
   );
 
   const unassignedCount = moduleRows.filter((row) => row.stageIndex === undefined).length;

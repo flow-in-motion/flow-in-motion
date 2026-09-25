@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Maximize2, Table2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { useCurrentWorkspace, useModulePipelineStagePool, useModules, useTasks } from "@/api/hooks";
+import { useCurrentWorkspace, useModulePipelineStagePool, useModules } from "@/api/hooks";
 import {
   PipelineBar,
   PipelineStageRuler,
@@ -42,6 +42,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 
@@ -56,8 +57,6 @@ export function PipelineOverviewTable() {
   const tenantId = workspace.data?.id ?? "";
   const modulesQuery = useModules(tenantId);
   const papers = modulesQuery.data?.data ?? [];
-  const tasksQuery = useTasks(tenantId);
-  const tasks = tasksQuery.data?.data ?? [];
   const pipelineStagesQuery = useModulePipelineStagePool(tenantId);
 
   const [search, setSearch] = useState("");
@@ -83,22 +82,11 @@ export function PipelineOverviewTable() {
   }, [stages]);
   const pipelineWidth = `${Math.max(1280, stageNames.length * 128)}px`;
 
-  const taskCountByPaper = useMemo(() => {
-    const counts = new Map<string, { completed: number; total: number }>();
-    for (const task of tasks) {
-      if (!task.moduleId) continue;
-      const entry = counts.get(task.moduleId) ?? { completed: 0, total: 0 };
-      entry.total += 1;
-      if (task.status === "Complete") entry.completed += 1;
-      counts.set(task.moduleId, entry);
-    }
-    return counts;
-  }, [tasks]);
+  const progressByStage = useMemo(() => buildPaperProgressByStage(stages), [stages]);
 
   const paperRows = useMemo(
     () =>
       papers.map((paper) => {
-          const counts = taskCountByPaper.get(paper.id) ?? { completed: 0, total: 0 };
           const stageIndex = paper.pipelineStage
             ? stageIndexByValue.get(paper.pipelineStage)
             : undefined;
@@ -106,10 +94,10 @@ export function PipelineOverviewTable() {
             id: paper.id,
             name: paperDisplayTitle(paper),
             stageIndex,
-            completion: counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0,
+            completion: progressByStage.get(paper.pipelineStage ?? "") ?? 0,
           };
         }),
-    [papers, taskCountByPaper, stageIndexByValue],
+    [papers, progressByStage, stageIndexByValue],
   );
 
   const filtered = useMemo(() => {
