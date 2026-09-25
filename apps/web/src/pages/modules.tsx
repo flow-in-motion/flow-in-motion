@@ -18,6 +18,7 @@ import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-m
 import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
 import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
@@ -153,10 +154,7 @@ export default function ModulesPage() {
   }, [members]);
 
   const progressByStage = useMemo(
-    () => new Map(visibleStages.map((stageValue, index) => [
-      stageValue.value,
-      Math.round(((index + 1) / visibleStages.length) * 100),
-    ])),
+    () => buildPaperProgressByStage(visibleStages),
     [visibleStages],
   );
 
