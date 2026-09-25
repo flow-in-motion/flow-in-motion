@@ -61,8 +61,8 @@ importers:
         specifier: ^8.3.0
         version: 8.3.0
       joi:
-        specifier: ^18.2.3
-        version: 18.2.3
+        specifier: ^18.2.5
+        version: 18.2.5
       jwks-rsa:
         specifier: ^3.2.0
         version: 3.2.0(supports-color@10.2.2)
@@ -4497,8 +4497,8 @@ packages:
     resolution: {integrity: sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==}
     hasBin: true
 
-  joi@18.2.3:
-    resolution: {integrity: sha512-N5A3KTWQpPWT4ExxxPlUx7WmykGXRzhNidWhV41d6Abu9YfI2NyWCJuxdPnslJCPWtbRpSVOWSnSS6GakLM/Rg==}
+  joi@18.2.5:
+    resolution: {integrity: sha512-+gEA7rLfaNWx9JzawWPrPetSZwT16NUqHtECDgjyAJreXcs4TM7tx2Pa+VVJJK0YHM83ybrVdaT6UekHH50FJQ==}
     engines: {node: '>= 20'}
 
   jose@4.15.9:
@@ -10640,7 +10640,7 @@ snapshots:
 
   jiti@1.21.7: {}
 
-  joi@18.2.3:
+  joi@18.2.5:
     dependencies:
       '@hapi/address': 5.1.1
       '@hapi/formula': 3.0.2
