@@ -17,6 +17,10 @@ import {
   buildPaginationMeta,
   paginationOffset,
 } from '../../../common/pagination';
+import type {
+  ModuleSortField,
+  SortDirection,
+} from '../dto/list-modules-query.dto';
 const ARCHIVE_RETENTION_DAYS = 14;
 
 @Injectable()
@@ -67,6 +71,8 @@ export class ProjectModulesService {
     pageSize: number | 'all',
     projectId?: string,
     search?: string,
+    sortBy?: ModuleSortField,
+    sortDirection?: SortDirection,
   ) {
     const limit = listPageSize(pageSize);
     const requestedPage = pageSize === 'all' ? 1 : page;
@@ -80,6 +86,8 @@ export class ProjectModulesService {
         limit,
         projectId,
         search,
+        sortBy,
+        sortDirection,
       );
 
     assertAllFits(pageSize, totalItems);

@@ -330,6 +330,8 @@ export const apiKeys = {
     page = 1,
     pageSize: number | "all" = 20,
     search = "",
+    sortBy: ModuleSortField = "dateAdded",
+    sortDirection: SortDirection = "desc",
   ) =>
     [
       "api",
@@ -340,6 +342,8 @@ export const apiKeys = {
       page,
       pageSize,
       search,
+      sortBy,
+      sortDirection,
     ] as const,
   module: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", "detail", moduleId] as const,
@@ -1071,18 +1075,35 @@ export interface CreateModuleInput {
   assignedToUserId?: string;
 }
 export type UpdateModuleInput = Partial<CreateModuleInput>;
+export type ModuleSortField = "dateAdded" | "alphabetical" | "progress";
+export type SortDirection = "asc" | "desc";
 
 export function useModules(
   tenantId: string,
   projectId?: string,
   page = 1,
   enabled = true,
-  options?: { pageSize?: number | "all"; search?: string },
+  options?: {
+    pageSize?: number | "all";
+    search?: string;
+    sortBy?: ModuleSortField;
+    sortDirection?: SortDirection;
+  },
 ) {
   const pageSize = options?.pageSize ?? 20;
   const search = options?.search?.trim() ?? "";
+  const sortBy = options?.sortBy ?? "dateAdded";
+  const sortDirection = options?.sortDirection ?? "desc";
   return useQuery({
-    queryKey: apiKeys.modules(tenantId, projectId, page, pageSize, search),
+    queryKey: apiKeys.modules(
+      tenantId,
+      projectId,
+      page,
+      pageSize,
+      search,
+      sortBy,
+      sortDirection,
+    ),
     enabled: Boolean(tenantId) && enabled,
     // Keep the search field mounted while a new result page is loading.
     // Never carry data across workspace boundaries.
@@ -1100,11 +1121,15 @@ export function useModules(
               page,
               pageSize,
               ...(search ? { search } : {}),
+              sortBy,
+              sortDirection,
             } as {
               projectId: string;
               page: number;
               pageSize: number | "all";
               search?: string;
+              sortBy: ModuleSortField;
+              sortDirection: SortDirection;
             },
           },
         }),

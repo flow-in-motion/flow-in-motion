@@ -43,6 +43,26 @@ describe('list query scope and summaries', () => {
     expect(count.params).toContain('user-a');
   });
 
+  it('sorts papers before pagination by display title or effective pipeline progress', async () => {
+    const { queries, service } = setup();
+    const repository = new ProjectModulesRepository(service);
+
+    await repository.findVisibleActiveByTenant(
+      'tenant-a', 'user-a', 0, 20, undefined, undefined, 'alphabetical', 'asc',
+    );
+    await repository.findVisibleActiveByTenant(
+      'tenant-a', 'user-a', 0, 20, undefined, undefined, 'progress', 'desc',
+    );
+
+    const pageQueries = queries.filter((query) => query.sql.includes('limit'));
+    expect(pageQueries).toHaveLength(2);
+    expect(pageQueries[0]!.sql).toContain('btrim');
+    expect(pageQueries[0]!.sql).toContain('order by');
+    expect(pageQueries[1]!.sql).toContain('effective.sort_order');
+    expect(pageQueries[1]!.sql).toContain('effective.hidden');
+    expect(pageQueries[1]!.sql).toContain('order by');
+  });
+
   it('counts open tasks including unset statuses without another query', async () => {
     const { queries, service } = setup();
     await new TasksRepository(service).findVisibleByTenant('tenant-a', 'user-a', 0, 20);

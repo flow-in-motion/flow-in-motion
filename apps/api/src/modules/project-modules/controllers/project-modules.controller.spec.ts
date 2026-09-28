@@ -76,9 +76,32 @@ describe('ProjectModulesController', () => {
         20,
         'project-1',
         undefined,
+        undefined,
+        undefined,
       );
 
       expect(result).toBe(response);
+    });
+
+    it('forwards the requested paper sort and direction', async () => {
+      modulesService.listActive.mockResolvedValue({ data: [] });
+
+      await controller.list('tenant-1', req, {
+        page: 1,
+        sortBy: 'progress',
+        sortDirection: 'asc',
+      });
+
+      expect(modulesService.listActive).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+        1,
+        20,
+        undefined,
+        undefined,
+        'progress',
+        'asc',
+      );
     });
   });
 

@@ -39,6 +39,21 @@ describe("list request costs and scope", () => {
     expect(get.mock.calls.map((call) => call[1].params.query.pageSize)).toEqual(["all", "all"]);
   });
 
+  it("sends paper sorting through the existing paginated request", async () => {
+    const { result } = renderHook(() => useModules("tenant-a", undefined, 1, true, {
+      sortBy: "progress",
+      sortDirection: "asc",
+    }), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls[0][1].params.query).toEqual(expect.objectContaining({
+      page: 1,
+      pageSize: 20,
+      sortBy: "progress",
+      sortDirection: "asc",
+    }));
+  });
+
   it("sends project scope and does not show old workspace data on a switch", async () => {
     const { result, rerender } = renderHook(({ tenant }) => useTasks(tenant, "project-a", 1, true, { projectOnly: true }), { wrapper, initialProps: { tenant: "tenant-a" } });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

@@ -28,7 +28,7 @@ import { ProjectModulesService } from '../services/project-modules.service';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { ModuleAccessGuard } from '../policies/module-access.guard';
 import { ConfigService } from '@nestjs/config';
-import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { ListModulesQueryDto } from '../dto/list-modules-query.dto';
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
 }
@@ -53,7 +53,7 @@ export class ProjectModulesController {
   async list(
     @Param('tenantId') tenantId: string,
     @Req() req: AuthenticatedRequest,
-    @Query() query: ProjectScopedPaginationQueryDto,
+    @Query() query: ListModulesQueryDto,
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
 
@@ -66,6 +66,8 @@ export class ProjectModulesController {
       pageSize,
       query.projectId,
       query.search?.trim() || undefined,
+      query.sortBy,
+      query.sortDirection,
     );
   }
 

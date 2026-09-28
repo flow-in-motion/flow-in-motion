@@ -1,8 +1,14 @@
 import { useMemo, useState } from "react";
-import { Maximize2, Table2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Maximize2, Table2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { useCurrentWorkspace, useModulePipelineStagePool, useModules } from "@/api/hooks";
+import {
+  useCurrentWorkspace,
+  useModulePipelineStagePool,
+  useModules,
+  type ModuleSortField,
+  type SortDirection,
+} from "@/api/hooks";
 import {
   PipelineBar,
   PipelineStageRuler,
@@ -52,10 +58,21 @@ const PIPELINE_COLUMNS = [
   { id: "completion", label: "Progress" },
 ] as const;
 
+const PAPER_SORT_OPTIONS: readonly { value: ModuleSortField; label: string }[] = [
+  { value: "dateAdded", label: "Date added" },
+  { value: "alphabetical", label: "Alphabetical" },
+  { value: "progress", label: "Progress" },
+];
+
 export function PipelineOverviewTable() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
-  const modulesQuery = useModules(tenantId);
+  const [sortBy, setSortBy] = useState<ModuleSortField>("dateAdded");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const modulesQuery = useModules(tenantId, undefined, 1, true, {
+    sortBy,
+    sortDirection,
+  });
   const papers = modulesQuery.data?.data ?? [];
   const pipelineStagesQuery = useModulePipelineStagePool(tenantId);
 
@@ -93,6 +110,7 @@ export function PipelineOverviewTable() {
           return {
             id: paper.id,
             name: paperDisplayTitle(paper),
+            createdAt: paper.createdAt ?? "",
             stageIndex,
             completion: progressByStage.get(paper.pipelineStage ?? "") ?? 0,
           };
@@ -102,19 +120,35 @@ export function PipelineOverviewTable() {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return paperRows.filter((row) => {
+    const matching = paperRows.filter((row) => {
       const rowStage = row.stageIndex === undefined ? "Unassigned" : stageNames[row.stageIndex];
       if (stage !== "All" && rowStage !== stage) return false;
       if (query && !row.name.toLowerCase().includes(query)) return false;
       return true;
     });
-  }, [paperRows, search, stage, stageNames]);
+    const multiplier = sortDirection === "asc" ? 1 : -1;
+    return [...matching].sort((a, b) => {
+      const comparison = sortBy === "alphabetical"
+        ? a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true })
+        : sortBy === "progress"
+          ? a.completion - b.completion
+          : a.createdAt.localeCompare(b.createdAt);
+      return comparison !== 0
+        ? comparison * multiplier
+        : a.id.localeCompare(b.id) * multiplier;
+    });
+  }, [paperRows, search, sortBy, sortDirection, stage, stageNames]);
 
   const hasActiveFilters = search !== "" || stage !== "All";
 
   function clearFilters() {
     setSearch("");
     setStage("All");
+  }
+
+  function changeSort(nextSort: ModuleSortField) {
+    setSortBy(nextSort);
+    setSortDirection(nextSort === "alphabetical" ? "asc" : "desc");
   }
 
   // Both views reuse these filters and the already-loaded data.
@@ -142,6 +176,32 @@ export function PipelineOverviewTable() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={sortBy} onValueChange={(value) => changeSort(value as ModuleSortField)}>
+          <SelectTrigger className="sm:w-40" aria-label="Sort papers by">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            {PAPER_SORT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setSortDirection((current) => current === "asc" ? "desc" : "asc")}
+          aria-label={`Reverse sort order (currently ${sortDirection === "asc" ? "ascending" : "descending"})`}
+          title="Reverse sort order"
+        >
+          {sortDirection === "asc" ? (
+            <ArrowUp className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <ArrowDown className="h-4 w-4" aria-hidden="true" />
+          )}
+        </Button>
         {showExpand ? (
           <DialogTrigger asChild>
             <Button

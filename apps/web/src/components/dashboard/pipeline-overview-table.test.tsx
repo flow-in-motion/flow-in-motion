@@ -16,12 +16,25 @@ const fixtures = vi.hoisted(() => ({
   hidden: [] as string[],
   reversed: false,
   currentStage: "Drafting & Writing" as string | null,
+  papers: null as null | Array<{
+    id: string;
+    title: string;
+    shortTitle: string | null;
+    pipelineStage: string | null;
+    createdAt: string;
+  }>,
 }));
 
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({ data: { id: "workspace-1" } }),
-  useModules: () => ({ data: { data: [
-    { id: "paper-1", title: "Example paper", shortTitle: null, pipelineStage: fixtures.currentStage },
+  useModules: () => ({ data: { data: fixtures.papers ?? [
+    {
+      id: "paper-1",
+      title: "Example paper",
+      shortTitle: null,
+      pipelineStage: fixtures.currentStage,
+      createdAt: "2026-09-01T00:00:00.000Z",
+    },
   ] } }),
   useTasks: () => ({ data: { data: [
     { id: "task-1", moduleId: "paper-1", status: "Complete" },
@@ -40,6 +53,51 @@ describe("PipelineOverviewTable popup", () => {
     fixtures.hidden = [];
     fixtures.reversed = false;
     fixtures.currentStage = "Drafting & Writing";
+    fixtures.papers = null;
+  });
+
+  it("sorts by date, alphabet, or progress and reverses the selected order", () => {
+    fixtures.papers = [
+      {
+        id: "paper-c",
+        title: "Charlie",
+        shortTitle: null,
+        pipelineStage: "Concept, Ideation",
+        createdAt: "2026-09-01T00:00:00.000Z",
+      },
+      {
+        id: "paper-a",
+        title: "Alpha",
+        shortTitle: null,
+        pipelineStage: "Complete",
+        createdAt: "2026-09-03T00:00:00.000Z",
+      },
+      {
+        id: "paper-b",
+        title: "Beta",
+        shortTitle: null,
+        pipelineStage: "Data Analysis",
+        createdAt: "2026-09-02T00:00:00.000Z",
+      },
+    ];
+
+    render(<MemoryRouter><PipelineOverviewTable /></MemoryRouter>);
+    const paperNames = () => screen.getAllByRole("link")
+      .filter((link) => link.getAttribute("href")?.startsWith("/modules/"))
+      .map((link) => link.textContent);
+
+    expect(paperNames()).toEqual(["Alpha", "Beta", "Charlie"]);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort papers by" }));
+    fireEvent.click(screen.getByRole("option", { name: "Alphabetical" }));
+    expect(paperNames()).toEqual(["Alpha", "Beta", "Charlie"]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Reverse sort order/ }));
+    expect(paperNames()).toEqual(["Charlie", "Beta", "Alpha"]);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Sort papers by" }));
+    fireEvent.click(screen.getByRole("option", { name: "Progress" }));
+    expect(paperNames()).toEqual(["Alpha", "Beta", "Charlie"]);
   });
 
   it("preserves every stage, the Columns control, and the Progress percentage column", async () => {
