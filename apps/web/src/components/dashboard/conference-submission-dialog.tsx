@@ -37,6 +37,12 @@ const INITIAL_FORM: ConferenceSubmissionInput = {
   endDate: "", submissionType: "Abstract", projectIds: [],
 };
 
+function nextDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + 1));
+  return date.toISOString().slice(0, 10);
+}
+
 function FormField({ label, htmlFor, required, children }: {
   label: string; htmlFor: string; required?: boolean; children: ReactNode;
 }) {
@@ -192,7 +198,9 @@ export function ConferenceSubmissionDialog({
                   setForm((current) => ({
                     ...current,
                     startDate: value,
-                    endDate: current.endDate || value,
+                    endDate: value && (!current.endDate || current.endDate <= value)
+                      ? nextDate(value)
+                      : current.endDate,
                   }))
                 } />
             </FormField>

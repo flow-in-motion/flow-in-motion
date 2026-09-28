@@ -73,7 +73,7 @@ function linkCombobox() {
 }
 
 describe("ConferenceSubmissionDialog", () => {
-  it("defaults the end date to the start date just entered when end date is empty", () => {
+  it("defaults the end date to the day after the start date just entered", () => {
     render(
       <ConferenceSubmissionDialog
         open
@@ -86,7 +86,23 @@ describe("ConferenceSubmissionDialog", () => {
 
     fireEvent.change(startDateInput(), { target: { value: "2026-08-05" } });
 
-    expect(endDateInput().value).toBe("2026-08-05");
+    expect(endDateInput().value).toBe("2026-08-06");
+  });
+
+  it("carries the default end date into the next month", () => {
+    render(
+      <ConferenceSubmissionDialog
+        open
+        onOpenChange={vi.fn()}
+        projects={projects}
+        modules={modules}
+        onSave={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(startDateInput(), { target: { value: "2027-12-31" } });
+
+    expect(endDateInput().value).toBe("2028-01-01");
   });
 
   it("does not override an end date the user already picked", () => {
