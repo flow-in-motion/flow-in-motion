@@ -412,7 +412,7 @@ export default function TasksPage() {
                   ) : null}
 
                   {columns.isColumnVisible("description") ? (
-                  <span className="text-sm leading-5 text-muted-foreground">
+                  <span className="line-clamp-3 min-w-0 text-sm leading-5 text-muted-foreground">
                     {task.description || "—"}
                   </span>
                   ) : null}
