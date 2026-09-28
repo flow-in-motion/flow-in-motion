@@ -7,8 +7,12 @@ import {
   projectCollaborators,
   projects,
 } from '@research-tracker/migrations';
-import { and, desc, eq, exists, ilike, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, exists, ilike, isNull, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
+import type {
+  ModuleSortField,
+  SortDirection,
+} from '../dto/list-modules-query.dto';
 
 @Injectable()
 export class ProjectModulesRepository {
@@ -37,6 +41,8 @@ export class ProjectModulesRepository {
     limit: number,
     projectId?: string,
     search?: string,
+    sortBy: ModuleSortField = 'dateAdded',
+    sortDirection: SortDirection = 'desc',
   ) {
     const visibilityCondition = or(
       exists(
@@ -96,13 +102,35 @@ export class ProjectModulesRepository {
     }
 
     const whereCondition = and(...conditions);
+    const direction = sortDirection === 'asc' ? asc : desc;
+    const paperTitle = sql<string>`lower(coalesce(nullif(btrim(${modules.shortTitle}), ''), nullif(btrim(${modules.title}), ''), 'Untitled paper'))`;
+    // A paper can still reference a global stage after the workspace customises
+    // its stage order. Resolve by stage value and prefer the tenant's effective
+    // row so this order matches the progress percentage shown in the UI.
+    const progressOrder = sql<number>`coalesce((
+      select case when effective.hidden then -1 else effective.sort_order end
+      from "enum" effective
+      where effective.category = 'module_pipeline_stage'
+        and effective.value = (
+          select assigned.value from "enum" assigned
+          where assigned.id = ${modules.pipelineStageId}
+        )
+        and (effective.tenant_id = ${tenantId} or effective.tenant_id is null)
+      order by (effective.tenant_id = ${tenantId}) desc
+      limit 1
+    ), -1)`;
+    const orderBy = sortBy === 'alphabetical'
+      ? [direction(paperTitle), direction(modules.createdAt), direction(modules.id)]
+      : sortBy === 'progress'
+        ? [direction(progressOrder), direction(modules.createdAt), direction(modules.id)]
+        : [direction(modules.createdAt), direction(modules.id)];
 
     const [data, countResult] = await Promise.all([
       this.drizzle.db
         .select()
         .from(modules)
         .where(whereCondition)
-        .orderBy(desc(modules.createdAt), desc(modules.id))
+        .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
 

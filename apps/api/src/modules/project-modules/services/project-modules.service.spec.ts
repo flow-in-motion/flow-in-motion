@@ -314,6 +314,8 @@ describe('ProjectModulesService', () => {
         20,
         'project-1',
         undefined,
+        undefined,
+        undefined,
       );
 
       expect(result.data.map((module) => module.id)).toEqual([
