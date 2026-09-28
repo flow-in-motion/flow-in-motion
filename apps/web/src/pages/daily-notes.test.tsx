@@ -38,6 +38,8 @@ const store = vi.hoisted(() => {
 });
 const hookMocks = vi.hoisted(() => ({
   useNotes: vi.fn(),
+  useModules: vi.fn(),
+  useProjects: vi.fn(),
   pagination: {
     totalItems: 1,
     totalPages: 1,
@@ -46,8 +48,14 @@ const hookMocks = vi.hoisted(() => ({
 
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
-  projects: [{ id: "project-1", title: "Genome Project" }],
-  modules: [{ id: "module-1", title: "Assay optimization" }],
+  projects: [
+    { id: "project-1", title: "Genome Project", displayId: "PRJ-001" },
+    { id: "project-21", title: "Remote Telco Project", displayId: "PRJ-021" },
+  ],
+  modules: [
+    { id: "module-1", shortTitle: "Assay optimization", title: "Assay optimization" },
+    { id: "module-21", shortTitle: "Remote paper match", title: "Remote paper match", displayId: "PAP-021" },
+  ],
 }));
 
 const deleteNoteMock = vi.hoisted(() => vi.fn());
@@ -69,13 +77,56 @@ vi.mock("@/api/hooks", async () => {
     useUserSearch: () => ({ data: [], isPending: false, isError: false }),
     useNoteMembers: () => ({ data: [], isPending: false }),
     useRemoveNoteMember: () => ({ mutate: vi.fn(), isPending: false }),
-    useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
-    useModules: () => ({
-      data: {
-        data: fixtures.modules,
-        meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 },
-      },
-    }),
+    useProjects: (
+      tenantId: string,
+      page = 1,
+      enabled = true,
+      options?: { pageSize?: number | "all"; search?: string },
+    ) => {
+      hookMocks.useProjects(tenantId, page, enabled, options);
+      const search = options?.search?.toLowerCase();
+      const data = !enabled
+        ? []
+        : search
+          ? fixtures.projects.filter((project) =>
+              project.title.toLowerCase().includes(search),
+            )
+          : fixtures.projects.slice(0, 1);
+      return {
+        data: {
+          data,
+          generalProject: null,
+          meta: { page: 1, pageSize: options?.pageSize ?? 20, totalItems: data.length, totalPages: 1 },
+        },
+        isPending: false,
+        isFetching: false,
+        isError: false,
+      };
+    },
+    useModules: (
+      tenantId: string,
+      projectId?: string,
+      page = 1,
+      enabled = true,
+      options?: { pageSize?: number | "all"; search?: string },
+    ) => {
+      hookMocks.useModules(tenantId, projectId, page, enabled, options);
+      const search = options?.search?.toLowerCase();
+      const data = !enabled
+        ? []
+        : search
+          ? fixtures.modules.filter((module) =>
+              `${module.shortTitle} ${module.title}`.toLowerCase().includes(search),
+            )
+          : fixtures.modules.slice(0, 1);
+      return {
+        data: {
+          data,
+          meta: { page: 1, pageSize: options?.pageSize ?? 20, totalItems: data.length, totalPages: 1 },
+        },
+        isFetching: false,
+      };
+    },
     useNotes: (tenantId: string, projectId?: string, page = 1, _enabled = true, options?: { search?: string }) => {
       void _enabled;
       hookMocks.useNotes(tenantId, projectId, page);
@@ -137,6 +188,8 @@ function renderPage(initialEntries: string[] = ["/daily-notes"]) {
 describe("DailyNotesPage", () => {
   beforeEach(() => {
     hookMocks.useNotes.mockClear();
+    hookMocks.useModules.mockClear();
+    hookMocks.useProjects.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
     deleteNoteMock.mockReset();
@@ -203,13 +256,60 @@ describe("DailyNotesPage", () => {
     );
   });
 
-  it("shows a project-select field when the Project link target is chosen", () => {
+  it("shows a project search field when the Project link target is chosen", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "New Note" }));
     fireEvent.click(screen.getByRole("button", { name: "Project" }));
 
-    expect(screen.getByText("Select a project")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Search all projects…")).toBeInTheDocument();
+  });
+
+  it("searches all projects before pagination when linking a new note", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "New Note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Project" }));
+    const projectSearch = screen.getByPlaceholderText("Search all projects…");
+    fireEvent.focus(projectSearch);
+    fireEvent.change(projectSearch, { target: { value: "Remote" } });
+
+    await waitFor(() =>
+      expect(hookMocks.useProjects).toHaveBeenCalledWith(
+        fixtures.tenantId,
+        1,
+        true,
+        { pageSize: "all", search: "Remote" },
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("option", { name: /Remote Telco Project/ }));
+    expect(screen.getByDisplayValue("Remote Telco Project")).toBeInTheDocument();
+  });
+
+  it("searches all papers before pagination when linking a new note", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "New Note" }));
+    fireEvent.click(screen.getByRole("button", { name: "Paper" }));
+    const paperSearch = screen.getByPlaceholderText("Search all papers…");
+    fireEvent.focus(paperSearch);
+    fireEvent.change(paperSearch, {
+      target: { value: "Remote" },
+    });
+
+    await waitFor(() =>
+      expect(hookMocks.useModules).toHaveBeenCalledWith(
+        fixtures.tenantId,
+        undefined,
+        1,
+        true,
+        { pageSize: "all", search: "Remote" },
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("option", { name: /Remote paper match/ }));
+    expect(screen.getByDisplayValue("Remote paper match")).toBeInTheDocument();
   });
 
   it("points to inviting collaborators after the note is created, instead of staging them", () => {
@@ -238,10 +338,7 @@ describe("DailyNotesPage", () => {
 
     expect(screen.getByRole("dialog", { name: "Create a new note" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
-    const projectTrigger = screen
-      .getAllByRole("combobox")
-      .find((el) => el.textContent?.includes("Genome Project"));
-    expect(projectTrigger).toBeDefined();
+    expect(screen.getByDisplayValue("Genome Project")).toBeInTheDocument();
   });
 
   it("filters the list using server search results", async () => {

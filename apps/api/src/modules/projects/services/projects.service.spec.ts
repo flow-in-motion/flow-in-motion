@@ -272,6 +272,7 @@ describe('ProjectsService', () => {
         'tenant-1',
         0,
         20,
+        undefined,
       );
 
       expect(result.generalProject).toEqual(
@@ -286,6 +287,46 @@ describe('ProjectsService', () => {
       expect(result.meta).toEqual({
         page: 1,
         pageSize: 20,
+        totalItems: 1,
+        totalPages: 1,
+      });
+    });
+
+    it('searches the full project set before pagination', async () => {
+      repository.findActiveByTenant.mockResolvedValue({
+        data: [
+          {
+            id: 'project-21',
+            title: 'Remote Telco Project',
+            userId: 'user-1',
+            statusId: null,
+            importanceId: null,
+          },
+        ],
+        totalItems: 1,
+      });
+      collaboratorsRepository.findByProjectIdsAndUser.mockResolvedValue(
+        new Map([['project-21', { roleId: 'role-owner' }]]),
+      );
+
+      const result = await service.listActive(
+        'tenant-1',
+        'user-1',
+        2,
+        'all',
+        'telco',
+      );
+
+      expect(repository.findActiveByTenant).toHaveBeenCalledWith(
+        'tenant-1',
+        0,
+        5000,
+        'telco',
+      );
+      expect(result.data.map((project) => project.id)).toEqual(['project-21']);
+      expect(result.meta).toEqual({
+        page: 1,
+        pageSize: 5000,
         totalItems: 1,
         totalPages: 1,
       });

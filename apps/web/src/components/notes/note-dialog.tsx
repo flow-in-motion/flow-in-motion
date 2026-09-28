@@ -1,6 +1,7 @@
+import { Search, X } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import { type ApiModule, type ApiProject } from "@/api/hooks";
+import { type ApiModule, type ApiProject, useModules, useProjects } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
@@ -45,6 +46,7 @@ export interface NoteFormInput {
 interface NoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  tenantId: string;
   projects: ApiProject[];
   modules: ApiModule[];
   /** Pre-links a new note to this project when the dialog is opened. */
@@ -93,6 +95,7 @@ function linkTargetPillClass(selected: boolean) {
 export function NoteDialog({
   open,
   onOpenChange,
+  tenantId,
   projects,
   modules,
   initialProjectId,
@@ -102,18 +105,98 @@ export function NoteDialog({
   const [form, setForm] = useState<NoteFormInput>(INITIAL_FORM);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [projectSearch, setProjectSearch] = useState("");
+  const [projectRequestSearch, setProjectRequestSearch] = useState("");
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [selectedProjectLabel, setSelectedProjectLabel] = useState("");
+  const [paperSearch, setPaperSearch] = useState("");
+  const [paperRequestSearch, setPaperRequestSearch] = useState("");
+  const [paperPickerOpen, setPaperPickerOpen] = useState(false);
+  const [selectedPaperLabel, setSelectedPaperLabel] = useState("");
+  const initialPaper = modules.find((module) => module.id === initialModuleId);
+  const initialPaperLabel = initialPaper ? paperDisplayTitle(initialPaper) : "";
+  const initialProject = projects.find((project) => project.id === initialProjectId);
+  const initialProjectLabel = initialProject?.title ?? "";
+
+  const projectSearchQuery = useProjects(
+    tenantId,
+    1,
+    open && form.linkTarget === "project" && projectPickerOpen && projectRequestSearch.length > 0,
+    { pageSize: "all", search: projectRequestSearch },
+  );
+  const projectResults = [
+    ...(projectSearchQuery.data?.generalProject &&
+    projectSearchQuery.data.generalProject.title
+      .toLowerCase()
+      .includes(projectRequestSearch.toLowerCase())
+      ? [projectSearchQuery.data.generalProject]
+      : []),
+    ...(projectSearchQuery.data?.data ?? []),
+  ];
+  const normalizedProjectSearch = projectSearch.trim();
+  const isWaitingForProjectSearch =
+    normalizedProjectSearch !== projectRequestSearch || projectSearchQuery.isFetching;
+
+  const paperSearchQuery = useModules(
+    tenantId,
+    undefined,
+    1,
+    open && form.linkTarget === "module" && paperPickerOpen && paperRequestSearch.length > 0,
+    { pageSize: "all", search: paperRequestSearch },
+  );
+  const paperResults = paperSearchQuery.data?.data ?? [];
+  const normalizedPaperSearch = paperSearch.trim();
+  const isWaitingForPaperSearch =
+    normalizedPaperSearch !== paperRequestSearch || paperSearchQuery.isFetching;
 
   useEffect(() => {
     if (!open) return;
     if (initialModuleId) {
       setForm({ ...INITIAL_FORM, linkTarget: "module", moduleId: initialModuleId });
+      setSelectedPaperLabel(initialPaperLabel);
     } else if (initialProjectId) {
       setForm({ ...INITIAL_FORM, linkTarget: "project", projectId: initialProjectId });
+      setSelectedProjectLabel(initialProjectLabel);
+      setSelectedPaperLabel("");
     } else {
       setForm(INITIAL_FORM);
+      setSelectedProjectLabel("");
+      setSelectedPaperLabel("");
     }
+    setProjectSearch("");
+    setProjectRequestSearch("");
+    setProjectPickerOpen(false);
+    setPaperSearch("");
+    setPaperRequestSearch("");
+    setPaperPickerOpen(false);
     setSaveError(null);
-  }, [open, initialProjectId, initialModuleId]);
+  }, [open, initialProjectId, initialModuleId, initialPaperLabel, initialProjectLabel]);
+
+  useEffect(() => {
+    if (!open || form.linkTarget !== "project" || !projectPickerOpen) {
+      setProjectRequestSearch("");
+      return;
+    }
+    if (!normalizedProjectSearch) {
+      setProjectRequestSearch("");
+      return;
+    }
+    const timer = window.setTimeout(() => setProjectRequestSearch(normalizedProjectSearch), 300);
+    return () => window.clearTimeout(timer);
+  }, [form.linkTarget, normalizedProjectSearch, open, projectPickerOpen]);
+
+  useEffect(() => {
+    if (!open || form.linkTarget !== "module" || !paperPickerOpen) {
+      setPaperRequestSearch("");
+      return;
+    }
+    if (!normalizedPaperSearch) {
+      setPaperRequestSearch("");
+      return;
+    }
+    const timer = window.setTimeout(() => setPaperRequestSearch(normalizedPaperSearch), 300);
+    return () => window.clearTimeout(timer);
+  }, [form.linkTarget, normalizedPaperSearch, open, paperPickerOpen]);
 
   function setLinkTarget(linkTarget: LinkTargetType) {
     setForm((prev) => ({
@@ -122,6 +205,32 @@ export function NoteDialog({
       projectId: linkTarget === "project" ? prev.projectId : "",
       moduleId: linkTarget === "module" ? prev.moduleId : "",
     }));
+    if (linkTarget !== "module") {
+      setPaperSearch("");
+      setPaperRequestSearch("");
+      setPaperPickerOpen(false);
+      setSelectedPaperLabel("");
+    }
+    if (linkTarget !== "project") {
+      setProjectSearch("");
+      setProjectRequestSearch("");
+      setProjectPickerOpen(false);
+      setSelectedProjectLabel("");
+    }
+  }
+
+  function selectProject(project: ApiProject) {
+    setForm((prev) => ({ ...prev, projectId: project.id }));
+    setSelectedProjectLabel(project.title);
+    setProjectSearch("");
+    setProjectPickerOpen(false);
+  }
+
+  function selectPaper(module: ApiModule) {
+    setForm((prev) => ({ ...prev, moduleId: module.id }));
+    setSelectedPaperLabel(paperDisplayTitle(module));
+    setPaperSearch("");
+    setPaperPickerOpen(false);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -184,35 +293,169 @@ export function NoteDialog({
 
           {form.linkTarget === "project" ? (
             <FormField label="Project" htmlFor="note-project" required>
-              <Select
-                value={form.projectId}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, projectId: value }))}
-                required
+              <div
+                className="relative"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setProjectPickerOpen(false);
+                }}
               >
-                <SelectTrigger id="note-project"><SelectValue placeholder="Select a project" /></SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="note-project"
+                  role="combobox"
+                  aria-expanded={projectPickerOpen}
+                  aria-controls="note-project-results"
+                  aria-autocomplete="list"
+                  value={projectPickerOpen ? projectSearch : selectedProjectLabel}
+                  onFocus={() => {
+                    setProjectSearch("");
+                    setProjectPickerOpen(true);
+                  }}
+                  onChange={(event) => {
+                    setProjectSearch(event.target.value);
+                    setForm((prev) => ({ ...prev, projectId: "" }));
+                    setSelectedProjectLabel("");
+                  }}
+                  placeholder="Search all projects…"
+                  autoComplete="off"
+                  className="pl-9 pr-8"
+                />
+                {!projectPickerOpen && form.projectId ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => ({ ...prev, projectId: "" }));
+                      setSelectedProjectLabel("");
+                      setProjectSearch("");
+                    }}
+                    aria-label="Clear selected project"
+                    className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+                {projectPickerOpen ? (
+                  <div
+                    id="note-project-results"
+                    role="listbox"
+                    aria-label="Project search results"
+                    className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+                  >
+                    {!normalizedProjectSearch ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        Type to search all projects.
+                      </p>
+                    ) : isWaitingForProjectSearch ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        Searching all projects…
+                      </p>
+                    ) : projectResults.length ? (
+                      projectResults.map((project) => (
+                        <button
+                          key={project.id}
+                          type="button"
+                          role="option"
+                          aria-selected={form.projectId === project.id}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => selectProject(project)}
+                          className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                        >
+                          <span className="text-sm font-medium">{project.title}</span>
+                          {project.displayId ? (
+                            <span className="text-xs text-muted-foreground">{project.displayId}</span>
+                          ) : null}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">No projects found.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </FormField>
           ) : null}
 
           {form.linkTarget === "module" ? (
             <FormField label="Paper" htmlFor="note-module" required>
-              <Select
-                value={form.moduleId}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, moduleId: value }))}
-                required
+              <div
+                className="relative"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setPaperPickerOpen(false);
+                }}
               >
-                <SelectTrigger id="note-module"><SelectValue placeholder="Select a paper" /></SelectTrigger>
-                <SelectContent>
-                  {modules.map((module) => (
-                    <SelectItem key={module.id} value={module.id}>{paperDisplayTitle(module)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="note-module"
+                  role="combobox"
+                  aria-expanded={paperPickerOpen}
+                  aria-controls="note-paper-results"
+                  aria-autocomplete="list"
+                  value={paperPickerOpen ? paperSearch : selectedPaperLabel}
+                  onFocus={() => {
+                    setPaperSearch("");
+                    setPaperPickerOpen(true);
+                  }}
+                  onChange={(event) => {
+                    setPaperSearch(event.target.value);
+                    setForm((prev) => ({ ...prev, moduleId: "" }));
+                    setSelectedPaperLabel("");
+                  }}
+                  placeholder="Search all papers…"
+                  autoComplete="off"
+                  className="pl-9 pr-8"
+                />
+                {!paperPickerOpen && form.moduleId ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => ({ ...prev, moduleId: "" }));
+                      setSelectedPaperLabel("");
+                      setPaperSearch("");
+                    }}
+                    aria-label="Clear selected paper"
+                    className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+                {paperPickerOpen ? (
+                  <div
+                    id="note-paper-results"
+                    role="listbox"
+                    aria-label="Paper search results"
+                    className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+                  >
+                    {!normalizedPaperSearch ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        Type to search all papers.
+                      </p>
+                    ) : isWaitingForPaperSearch ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        Searching all papers…
+                      </p>
+                    ) : paperResults.length ? (
+                      paperResults.map((module) => (
+                        <button
+                          key={module.id}
+                          type="button"
+                          role="option"
+                          aria-selected={form.moduleId === module.id}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => selectPaper(module)}
+                          className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                        >
+                          <span className="text-sm font-medium">{paperDisplayTitle(module)}</span>
+                          {module.displayId ? (
+                            <span className="text-xs text-muted-foreground">{module.displayId}</span>
+                          ) : null}
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">No papers found.</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </FormField>
           ) : null}
 

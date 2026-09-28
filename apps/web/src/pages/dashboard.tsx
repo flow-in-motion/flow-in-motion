@@ -578,6 +578,7 @@ export default function DashboardPage() {
       <NoteDialog
         open={isNewNoteOpen}
         onOpenChange={setIsNewNoteOpen}
+        tenantId={tenantId}
         projects={projects}
         modules={modules}
         onSave={handleCreateNote}

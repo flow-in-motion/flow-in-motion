@@ -305,8 +305,12 @@ export const apiKeys = {
     ] as const,
   projects: (tenantId: string) =>
     ["api", "tenant", tenantId, "projects"] as const,
-  projectsPage: (tenantId: string, page = 1) =>
-    ["api", "tenant", tenantId, "projects", page] as const,
+  projectsPage: (
+    tenantId: string,
+    page = 1,
+    pageSize: number | "all" = 20,
+    search = "",
+  ) => ["api", "tenant", tenantId, "projects", page, pageSize, search] as const,
   project: (tenantId: string, projectId: string) =>
     ["api", "tenant", tenantId, "projects", projectId] as const,
   projectCollaborators: (tenantId: string, projectId: string) =>
@@ -730,16 +734,23 @@ export function useProjects(
   tenantId: string,
   page = 1,
   enabled = true,
+  options?: { pageSize?: number | "all"; search?: string },
 ) {
+  const pageSize = options?.pageSize ?? 20;
+  const search = options?.search?.trim() ?? "";
   return useQuery({
-    queryKey: apiKeys.projectsPage(tenantId, page),
+    queryKey: apiKeys.projectsPage(tenantId, page, pageSize, search),
     enabled: Boolean(tenantId) && enabled,
     queryFn: async () =>
       responseData<ProjectsPageResponse>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/projects", {
           params: {
             path: { tenantId },
-            query: { page } as never,
+            query: {
+              page,
+              pageSize,
+              ...(search ? { search } : {}),
+            } as never,
           },
         }),
       ),
