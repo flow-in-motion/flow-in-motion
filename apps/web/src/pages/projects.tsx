@@ -23,6 +23,7 @@ import {
   type NewProjectInput,
 } from "@/components/projects/new-project-dialog";
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
+import { SearchInput } from "@/components/shared/search-input";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -433,9 +433,11 @@ export default function ProjectsPage() {
       
       <div className="surface-toolbar flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
-          <Input
+          <SearchInput
             value={search}
             onChange={(event) => setSearch(event.target.value)}
+            onClear={() => setSearch("")}
+            clearLabel="Clear project search"
             placeholder="Search projects…"
             className="sm:max-w-xs"
           />
