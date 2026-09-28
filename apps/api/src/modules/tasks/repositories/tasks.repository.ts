@@ -76,7 +76,6 @@ export class TasksRepository {
           ilike(tasks.displayId, pattern),
           ilike(tasks.title, pattern),
           ilike(tasks.description, pattern),
-          ilike(tasks.workingWith, pattern),
           exists(
             this.drizzle.db
               .select({ id: projects.id })
