@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { projectCollaborators, projects } from '@research-tracker/migrations';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
+import { searchPattern } from '../../../common/pagination';
 
 @Injectable()
 export class ProjectsRepository {
@@ -91,12 +92,30 @@ export class ProjectsRepository {
     };
   }
 
-  async findActiveByTenant(tenantId: string, offset: number, limit: number) {
-    const whereCondition = and(
+  async findActiveByTenant(
+    tenantId: string,
+    offset: number,
+    limit: number,
+    search?: string,
+  ) {
+    const conditions = [
       eq(projects.tenantId, tenantId),
       isNull(projects.archivedAt),
       sql`lower(btrim(${projects.title})) <> 'general'`,
-    );
+    ];
+
+    if (search) {
+      const pattern = searchPattern(search);
+      conditions.push(
+        or(
+          ilike(projects.title, pattern),
+          ilike(projects.description, pattern),
+          ilike(projects.researchArea, pattern),
+        )!,
+      );
+    }
+
+    const whereCondition = and(...conditions);
 
     const [data, countResult] = await Promise.all([
       this.drizzle.db

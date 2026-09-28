@@ -55,8 +55,27 @@ describe('ProjectsController', () => {
         'user-1',
         1,
         20,
+        undefined,
       );
       expect(result).toBe(projects);
+    });
+
+    it('forwards an all-items project search to the service', async () => {
+      projectsService.listActive.mockResolvedValue({ data: [] });
+
+      await controller.list('tenant-1', req, {
+        page: 3,
+        pageSize: 'all',
+        search: '  telco  ',
+      });
+
+      expect(projectsService.listActive).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+        3,
+        'all',
+        'telco',
+      );
     });
   });
 

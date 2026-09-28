@@ -27,6 +27,7 @@ import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guar
 import { ProjectAccessGuard } from '../policies/project-access.guard';
 import { ConfigService } from '@nestjs/config';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { listPageSize } from '../../../common/pagination';
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
 }
@@ -52,12 +53,14 @@ export class ProjectsController {
     @Query() query: PaginationQueryDto,
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
-    const pageSize = this.configService.get<number>('PAGE_SIZE', 20);
+    const pageSize =
+      query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
     return this.projectsService.listActive(
       tenantId,
       user.id,
       query.page ?? 1,
-      pageSize,
+      pageSize === 'all' ? 'all' : listPageSize(pageSize),
+      query.search?.trim() || undefined,
     );
   }
 

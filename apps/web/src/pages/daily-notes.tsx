@@ -248,6 +248,7 @@ export default function DailyNotesPage() {
       <NoteDialog
         open={isNewNoteOpen}
         onOpenChange={setIsNewNoteOpen}
+        tenantId={tenantId}
         projects={projects}
         modules={modules}
         initialProjectId={newNoteInitialProjectId}

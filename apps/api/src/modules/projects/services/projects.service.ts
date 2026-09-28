@@ -8,7 +8,9 @@ import { ProjectCollaboratorsRepository } from '../../project-collaborators/repo
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
 import { ProjectsRepository } from '../repositories/projects.repository';
 import {
+  assertAllFits,
   buildPaginationMeta,
+  listPageSize,
   paginationOffset,
 } from '../../../common/pagination';
 
@@ -27,14 +29,19 @@ export class ProjectsService {
     tenantId: string,
     callerUserId: string,
     page: number,
-    pageSize: number,
+    pageSize: number | 'all',
+    search?: string,
   ) {
-    const offset = paginationOffset(page, pageSize);
+    const limit = listPageSize(pageSize);
+    const requestedPage = pageSize === 'all' ? 1 : page;
+    const offset = paginationOffset(requestedPage, limit);
 
     const [{ data: rows, totalItems }, generalRow] = await Promise.all([
-      this.repository.findActiveByTenant(tenantId, offset, pageSize),
+      this.repository.findActiveByTenant(tenantId, offset, limit, search),
       this.repository.findGeneralByTenant(tenantId),
     ]);
+
+    assertAllFits(pageSize, totalItems);
 
     const rowsToShape = generalRow ? [generalRow, ...rows] : rows;
     const shaped = await this.withDisplayValues(rowsToShape, callerUserId);
@@ -42,7 +49,7 @@ export class ProjectsService {
     return {
       generalProject: generalRow ? (shaped[0] ?? null) : null,
       data: generalRow ? shaped.slice(1) : shaped,
-      meta: buildPaginationMeta(page, pageSize, totalItems),
+      meta: buildPaginationMeta(requestedPage, limit, totalItems),
     };
   }
 
