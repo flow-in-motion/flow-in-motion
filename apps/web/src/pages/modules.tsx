@@ -21,6 +21,7 @@ import { paperDisplayTitle } from "@/lib/paper-title";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { SearchInput } from "@/components/shared/search-input";
 import { PageHeading } from "@/components/typography/heading";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -317,9 +317,11 @@ export default function ModulesPage() {
       ) : null}
 
       <div className="surface-toolbar flex flex-wrap items-center gap-3">
-        <Input
+        <SearchInput
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          onClear={() => setSearch("")}
+          clearLabel="Clear paper search"
           placeholder="Search papers…"
           className="sm:max-w-xs"
         />

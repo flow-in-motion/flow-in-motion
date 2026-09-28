@@ -20,6 +20,7 @@ import { NoteDialog, type NoteFormInput } from "@/components/notes/note-dialog";
 import { NoteMembersManager } from "@/components/notes/note-members";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { SearchInput } from "@/components/shared/search-input";
 import { PageHeading } from "@/components/typography/heading";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +32,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -281,9 +281,11 @@ export default function DailyNotesPage() {
       </Dialog>
 
       <div className="surface-toolbar flex flex-wrap items-center gap-3">
-        <Input
+        <SearchInput
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          onClear={() => setSearch("")}
+          clearLabel="Clear note search"
           placeholder="Search notes…"
           className="sm:max-w-xs"
         />
