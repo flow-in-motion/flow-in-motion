@@ -52,4 +52,22 @@ describe('list query scope and summaries', () => {
     expect(count.sql).toContain('not in');
     expect(count.sql).toContain('Complete');
   });
+
+  it('does not apply text search to the UUID task assignee column', async () => {
+    const { queries, service } = setup();
+    await new TasksRepository(service).findVisibleByTenant(
+      'tenant-a',
+      'user-a',
+      0,
+      20,
+      undefined,
+      'task search',
+    );
+
+    expect(queries).toHaveLength(2);
+    for (const query of queries) {
+      expect(query.sql).toContain('ilike');
+      expect(query.sql).not.toMatch(/"working_with"\\s+ilike/i);
+    }
+  });
 });
