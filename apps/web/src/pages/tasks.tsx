@@ -51,7 +51,15 @@ const PRIORITY_FILTERS = ["All", "Low", "Medium", "High", "Critical"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type PriorityFilter = (typeof PRIORITY_FILTERS)[number];
 
-type SortColumn = "task" | "description" | "project" | "status" | "priority" | "due" | "est";
+type SortColumn =
+  | "task"
+  | "description"
+  | "project"
+  | "status"
+  | "priority"
+  | "due"
+  | "est"
+  | "created";
 type SortDirection = "asc" | "desc";
 
 const TASK_COLUMNS = [
@@ -62,6 +70,7 @@ const TASK_COLUMNS = [
   { id: "priority", label: "Priority", width: "110px" },
   { id: "due", label: "Due", width: "110px" },
   { id: "est", label: "Est.", width: "80px" },
+  { id: "created", label: "Created", width: "150px" },
 ] as const;
 
 const STATUS_ORDER: Record<string, number> = { "To do": 0, Underway: 1, Waiting: 2, Complete: 3 };
@@ -186,6 +195,8 @@ export default function TasksPage() {
         return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
       case "est":
         return Number(a.estimatedHours ?? 0) - Number(b.estimatedHours ?? 0);
+      case "created":
+        return a.createdAt.localeCompare(b.createdAt);
     }
   }
 
@@ -460,6 +471,12 @@ export default function TasksPage() {
                   {columns.isColumnVisible("est") ? (
                   <span className="text-sm tabular-nums text-muted-foreground">
                     {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
+                  </span>
+                  ) : null}
+
+                  {columns.isColumnVisible("created") ? (
+                  <span className="text-sm tabular-nums text-muted-foreground">
+                    {formatListDate(task.createdAt)}
                   </span>
                   ) : null}
                 </div>

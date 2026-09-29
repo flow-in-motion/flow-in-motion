@@ -301,6 +301,17 @@ describe("TasksPage", () => {
     expect(screen.getByRole("button", { name: "Choose due date" })).toBeInTheDocument();
   });
 
+  it("shows the automatically recorded creation date in a sortable column", () => {
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("button", { name: "Sort by Created" })).toBeInTheDocument();
+    expect(screen.getByText("01/01/2026")).toBeInTheDocument();
+  });
+
   it("links a task attached to a project-linked paper to the paper, not its parent project", () => {
     // The backend denormalizes a module-linked task's projectId to the
     // module's parent project, so both fields are set here — the "Linked
