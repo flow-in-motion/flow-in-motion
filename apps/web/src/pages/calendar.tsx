@@ -208,27 +208,34 @@ export default function CalendarPage() {
     }
     if (activeFilter === null || activeFilter === "conference") {
       for (const conference of conferences) {
-        rows.push({
-          id: `${conference.id}-submission`,
-          kind: "conference",
-          title: `${conference.name} — submission deadline`,
-          dueDate: conference.submissionDue,
-          href: `/conferences/${conference.id}`,
-          meta: "Submission deadline",
-        });
-        for (
-          let date = new Date(`${conference.startDate}T00:00:00`);
-          date <= new Date(`${conference.endDate}T00:00:00`);
-          date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
-        ) {
+        if (conference.submissionDue) {
           rows.push({
-            id: `${conference.id}-event-${dateKey(date.getFullYear(), date.getMonth(), date.getDate())}`,
+            id: `${conference.id}-submission`,
             kind: "conference",
-            title: conference.name,
-            dueDate: dateKey(date.getFullYear(), date.getMonth(), date.getDate()),
+            title: `${conference.name} — submission deadline`,
+            dueDate: conference.submissionDue,
             href: `/conferences/${conference.id}`,
-            meta: conference.location,
+            meta: "Submission deadline",
           });
+        }
+
+        const eventStart = conference.startDate ?? conference.endDate;
+        const eventEnd = conference.endDate ?? conference.startDate;
+        if (eventStart && eventEnd) {
+          for (
+            let date = new Date(`${eventStart}T00:00:00`);
+            date <= new Date(`${eventEnd}T00:00:00`);
+            date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+          ) {
+            rows.push({
+              id: `${conference.id}-event-${dateKey(date.getFullYear(), date.getMonth(), date.getDate())}`,
+              kind: "conference",
+              title: conference.name,
+              dueDate: dateKey(date.getFullYear(), date.getMonth(), date.getDate()),
+              href: `/conferences/${conference.id}`,
+              meta: conference.location,
+            });
+          }
         }
       }
     }

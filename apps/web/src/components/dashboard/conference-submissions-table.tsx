@@ -110,14 +110,18 @@ export function ConferenceSubmissionsTable({
     const query = search.trim().toLowerCase();
     return [...(conferences)]
       .filter((row) => {
-        if (!showPast && row.daysRemaining < 0) return false;
+        if (!showPast && row.daysRemaining !== null && row.daysRemaining < 0) return false;
         if (type !== "All" && row.submissionType !== type) return false;
         if (!matchesDeadline(row.daysRemaining, deadline)) return false;
         return !query || row.name.toLowerCase().includes(query) ||
-          row.acronym.toLowerCase().includes(query) || row.location.toLowerCase().includes(query) ||
+          row.acronym?.toLowerCase().includes(query) || row.location?.toLowerCase().includes(query) ||
           row.projects.some((project) => project.title.toLowerCase().includes(query));
       })
-      .sort((a, b) => a.submissionDue.localeCompare(b.submissionDue));
+      .sort((a, b) => {
+        if (a.submissionDue === null && b.submissionDue !== null) return 1;
+        if (a.submissionDue !== null && b.submissionDue === null) return -1;
+        return (a.submissionDue ?? "").localeCompare(b.submissionDue ?? "");
+      });
   }, [conferences, deadline, search, showPast, type]);
 
   const hasActiveFilters = search !== "" || type !== "All" || deadline !== "All";
@@ -157,7 +161,7 @@ export function ConferenceSubmissionsTable({
             <CardDescription>Submission deadlines, event dates, and linked projects or modules/papers.</CardDescription>
           </div>
           {dashboardView || hideCreateButton ? null : (
-            <Button onClick={() => setIsCreateOpen(true)} disabled={ownedProjects.length === 0 || isLoading}>
+            <Button onClick={() => setIsCreateOpen(true)} disabled={isLoading}>
               <Plus /> New Conference
             </Button>
           )}
@@ -177,7 +181,6 @@ export function ConferenceSubmissionsTable({
           {hasActiveFilters ? <button type="button" onClick={() => { setSearch(""); setType("All"); setDeadline("All"); }}
             className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Clear filters</button> : null}
         </div>
-        {!dashboardView && !hideCreateButton && ownedProjects.length === 0 && !isLoading ? <p className="text-sm text-muted-foreground">Create or own a project before adding a conference.</p> : null}
         {actionError ? <p role="alert" className="text-sm text-destructive">{actionError}</p> : null}
       </CardHeader>
       <CardContent className="pt-[var(--card-padding)]">
@@ -198,8 +201,8 @@ export function ConferenceSubmissionsTable({
                 const canManage = row.ownerUserId === meQuery.data?.id;
                 return <TableRow key={row.id}>
                   {columns.isColumnVisible("conference") ? <TableCell><div className="flex items-center gap-3">
-                    <span className="flex h-9 min-w-9 items-center justify-center rounded-md bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{row.acronym}</span>
-                    <div className="flex flex-col"><Link to={`/conferences/${row.id}`} className="font-semibold hover:text-primary hover:underline">{row.name}</Link><span className="text-xs text-muted-foreground">{row.location}</span></div>
+                    {row.acronym ? <span className="flex h-9 min-w-9 items-center justify-center rounded-md bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">{row.acronym}</span> : null}
+                    <div className="flex flex-col"><Link to={`/conferences/${row.id}`} className="font-semibold hover:text-primary hover:underline">{row.name}</Link><span className="text-xs text-muted-foreground">{row.location ?? "—"}</span></div>
                   </div></TableCell> : null}
                   {columns.isColumnVisible("submissionDue") ? <TableCell><div className="flex flex-col"><span className="font-medium">{formatDate(row.submissionDue)}</span>
                     <span className={cn("text-xs", urgencyClass(row.daysRemaining))}>{urgencyLabel(row.daysRemaining)}</span></div></TableCell> : null}

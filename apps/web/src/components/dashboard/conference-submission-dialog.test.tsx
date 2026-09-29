@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ConferenceSubmissionDialog } from "@/components/dashboard/conference-submission-dialog";
@@ -73,6 +73,43 @@ function linkCombobox() {
 }
 
 describe("ConferenceSubmissionDialog", () => {
+  it("requires only the conference name and submits blank details as null", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ConferenceSubmissionDialog
+        open
+        onOpenChange={vi.fn()}
+        projects={projects}
+        modules={modules}
+        onSave={onSave}
+      />,
+    );
+
+    const nameInput = screen.getByRole("textbox", { name: /Conference name/ });
+    expect(nameInput).toBeRequired();
+    expect(screen.getByRole("textbox", { name: /Acronym/ })).not.toBeRequired();
+    expect(screen.getByRole("textbox", { name: /Location/ })).not.toBeRequired();
+    expect(nativeDateInputFor("conference-submission-due")).not.toBeRequired();
+    expect(startDateInput()).not.toBeRequired();
+    expect(endDateInput()).not.toBeRequired();
+
+    fireEvent.change(nameInput, { target: { value: "XYZ, London, 2027" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith({
+        acronym: null,
+        name: "XYZ, London, 2027",
+        location: null,
+        submissionDue: null,
+        startDate: null,
+        endDate: null,
+        submissionType: null,
+        projectIds: [],
+      }),
+    );
+  });
+
   it("defaults the end date to the day after the start date just entered", () => {
     render(
       <ConferenceSubmissionDialog

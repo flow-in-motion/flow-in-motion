@@ -22,13 +22,13 @@ import {
         .notNull()
         .references(() => users.id, { onDelete: 'restrict' }),
   
-      acronym: text('acronym').notNull(),
+      acronym: text('acronym'),
       name: text('name').notNull(),
-      location: text('location').notNull(),
+      location: text('location'),
   
-      submissionDue: date('submission_due').notNull(),
-      startDate: date('start_date').notNull(),
-      endDate: date('end_date').notNull(),
+      submissionDue: date('submission_due'),
+      startDate: date('start_date'),
+      endDate: date('end_date'),
   
       submissionType: text('submission_type'),
   
@@ -47,4 +47,3 @@ import {
       ),
     }),
   );
-  

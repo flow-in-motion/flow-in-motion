@@ -205,27 +205,27 @@ export interface ApiConference {
   id: string;
   tenantId: string;
   ownerUserId: string;
-  acronym: string;
+  acronym: string | null;
   name: string;
-  location: string;
-  submissionDue: string;
-  startDate: string;
-  endDate: string;
+  location: string | null;
+  submissionDue: string | null;
+  startDate: string | null;
+  endDate: string | null;
   submissionType: string | null;
-  daysRemaining: number;
+  daysRemaining: number | null;
   projects: ApiConferenceProject[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ConferenceInput {
-  acronym: string;
   name: string;
-  location: string;
-  submissionDue: string;
-  startDate: string;
-  endDate: string;
-  submissionType?: string;
+  acronym?: string | null;
+  location?: string | null;
+  submissionDue?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  submissionType?: string | null;
   projectIds: string[];
 }
 

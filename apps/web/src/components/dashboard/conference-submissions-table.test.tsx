@@ -8,14 +8,14 @@ type ConferenceFixture = {
   id: string;
   tenantId: string;
   ownerUserId: string;
-  acronym: string;
+  acronym: string | null;
   name: string;
-  location: string;
-  submissionDue: string;
-  startDate: string;
-  endDate: string;
+  location: string | null;
+  submissionDue: string | null;
+  startDate: string | null;
+  endDate: string | null;
   submissionType: string | null;
-  daysRemaining: number;
+  daysRemaining: number | null;
   projects: Array<{ id: string; displayId: string; title: string }>;
   createdAt: string;
   updatedAt: string;
@@ -97,19 +97,19 @@ vi.mock("@/api/hooks", async () => {
           id: "conference-new",
           tenantId: fixtures.tenantId,
           ownerUserId: fixtures.userId,
-          acronym: input.acronym as string,
+          acronym: (input.acronym as string | null | undefined) ?? null,
           name: input.name as string,
-          location: input.location as string,
-          submissionDue: input.submissionDue as string,
-          startDate: input.startDate as string,
-          endDate: input.endDate as string,
-          submissionType: input.submissionType as string,
-          daysRemaining: 90,
-          projects: [{
-            id: fixtures.project.id,
-            displayId: fixtures.project.displayId,
-            title: fixtures.project.title,
-          }],
+          location: (input.location as string | null | undefined) ?? null,
+          submissionDue: (input.submissionDue as string | null | undefined) ?? null,
+          startDate: (input.startDate as string | null | undefined) ?? null,
+          endDate: (input.endDate as string | null | undefined) ?? null,
+          submissionType: (input.submissionType as string | null | undefined) ?? null,
+          daysRemaining: input.submissionDue ? 90 : null,
+          projects: (input.projectIds as string[] | undefined)?.length ? [{
+              id: fixtures.project.id,
+              displayId: fixtures.project.displayId,
+              title: fixtures.project.title,
+            }] : [],
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
         };

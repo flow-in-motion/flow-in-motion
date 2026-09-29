@@ -21,10 +21,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-function formatDate(iso: string) {
+function formatDate(iso: string | null) {
+  if (!iso) return "—";
   const [year, month, day] = iso.split("-").map(Number);
   return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric" })
     .format(new Date(year, month - 1, day));
+}
+
+function formatDateRange(startDate: string | null, endDate: string | null) {
+  if (!startDate) return formatDate(endDate);
+  if (!endDate || startDate === endDate) return formatDate(startDate);
+  return `${formatDate(startDate)} – ${formatDate(endDate)}`;
 }
 
 function DetailItem({ label, children }: { label: string; children: ReactNode }) {
@@ -36,7 +43,8 @@ function DetailItem({ label, children }: { label: string; children: ReactNode })
   );
 }
 
-function deadlineLabel(daysRemaining: number) {
+function deadlineLabel(daysRemaining: number | null) {
+  if (daysRemaining === null) return "No deadline added.";
   if (daysRemaining < 0) return `${Math.abs(daysRemaining)} day${daysRemaining === -1 ? "" : "s"} overdue`;
   if (daysRemaining === 0) return "Due today";
   return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining`;
@@ -85,6 +93,12 @@ export default function ConferenceDetailPage() {
   }
 
   const canManage = conference.ownerUserId === meQuery.data?.id;
+  const knownDates = conference.startDate || conference.endDate
+    ? formatDateRange(conference.startDate, conference.endDate)
+    : null;
+  const headingDescription = [conference.location, knownDates]
+    .filter(Boolean)
+    .join(" · ") || undefined;
 
   async function update(input: ConferenceSubmissionInput) {
     await updateConference.mutateAsync({ conferenceId, input });
@@ -109,9 +123,9 @@ export default function ConferenceDetailPage() {
       <PageHeading
         icon={Presentation}
         tone="rose"
-        eyebrow={conference.acronym}
+        eyebrow={conference.acronym ?? undefined}
         title={conference.name}
-        description={`${conference.location} · ${formatDate(conference.startDate)} – ${formatDate(conference.endDate)}`}
+        description={headingDescription}
         actions={canManage ? <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setIsEditing(true)}><Pencil /> Edit Conference</Button>
           <Button variant="destructive" onClick={() => void remove()}><Trash2 /> Delete Conference</Button>
@@ -133,18 +147,18 @@ export default function ConferenceDetailPage() {
         <Card>
           <CardHeader><CardTitle>Conference overview</CardTitle></CardHeader>
           <CardContent className="grid gap-5 text-sm sm:grid-cols-2">
-            <DetailItem label="Location"><span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" />{conference.location}</span></DetailItem>
+            <DetailItem label="Location"><span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" />{conference.location ?? "—"}</span></DetailItem>
             <DetailItem label="Submission type"><Badge variant="outline">{conference.submissionType ?? "—"}</Badge></DetailItem>
             <DetailItem label="Conference starts"><span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4 text-muted-foreground" />{formatDate(conference.startDate)}</span></DetailItem>
             <DetailItem label="Conference ends">{formatDate(conference.endDate)}</DetailItem>
           </CardContent>
         </Card>
 
-        <Card className={conference.daysRemaining <= 7 ? "border-rose-300 dark:border-rose-900" : undefined}>
+        <Card className={conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "border-rose-300 dark:border-rose-900" : undefined}>
           <CardHeader><CardTitle>Submission deadline</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{formatDate(conference.submissionDue)}</p>
-            <p className={conference.daysRemaining <= 7 ? "mt-2 text-sm font-medium text-destructive" : "mt-2 text-sm text-muted-foreground"}>
+            <p className={conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "mt-2 text-sm font-medium text-destructive" : "mt-2 text-sm text-muted-foreground"}>
               {deadlineLabel(conference.daysRemaining)}
             </p>
           </CardContent>
@@ -154,7 +168,9 @@ export default function ConferenceDetailPage() {
           <CardHeader><CardTitle>Linked projects or modules/papers</CardTitle></CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {conference.projects.map((project) => (
+              {conference.projects.length === 0 ? (
+                <span className="text-sm text-muted-foreground">—</span>
+              ) : conference.projects.map((project) => (
                 <Link key={project.id} to={`/projects/${project.id}`}
                   className="rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:border-primary/40 hover:bg-accent">
                   {project.displayId ? <span className="font-mono text-xs text-muted-foreground">{project.displayId}</span> : null}
