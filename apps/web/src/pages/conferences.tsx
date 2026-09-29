@@ -150,9 +150,11 @@ export default function ConferencesPage() {
       case "conference":
         return a.name.localeCompare(b.name);
       case "submissionDue":
-        return a.submissionDue.localeCompare(b.submissionDue);
+        return (a.submissionDue ?? "").localeCompare(b.submissionDue ?? "");
       case "conferenceDates":
-        return a.startDate.localeCompare(b.startDate);
+        return (a.startDate ?? a.endDate ?? "").localeCompare(
+          b.startDate ?? b.endDate ?? "",
+        );
       case "type":
         return (a.submissionType ?? "").localeCompare(b.submissionType ?? "");
       case "linkedProjects":
@@ -168,14 +170,26 @@ export default function ConferencesPage() {
       return (
         !query ||
         conference.name.toLowerCase().includes(query) ||
-        conference.acronym.toLowerCase().includes(query) ||
-        conference.location.toLowerCase().includes(query) ||
+        conference.acronym?.toLowerCase().includes(query) ||
+        conference.location?.toLowerCase().includes(query) ||
         conference.projects.some((project) => project.title.toLowerCase().includes(query))
       );
     });
-    return [...filtered].sort(
-      (a, b) => compareConferences(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
-    );
+    return [...filtered].sort((a, b) => {
+      const aDate = sortColumn === "submissionDue"
+        ? a.submissionDue
+        : sortColumn === "conferenceDates"
+          ? a.startDate ?? a.endDate
+          : undefined;
+      const bDate = sortColumn === "submissionDue"
+        ? b.submissionDue
+        : sortColumn === "conferenceDates"
+          ? b.startDate ?? b.endDate
+          : undefined;
+      if (aDate === null && bDate !== null) return 1;
+      if (aDate !== null && bDate === null) return -1;
+      return compareConferences(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conferences, search, type, deadline, sortColumn, sortDirection]);
 
@@ -232,7 +246,7 @@ export default function ConferencesPage() {
         title="Conferences"
         description="Manage conference deadlines, event dates, submission types, and linked research projects."
         actions={
-          <Button onClick={() => setIsCreateOpen(true)} disabled={ownedProjects.length === 0}>
+          <Button onClick={() => setIsCreateOpen(true)}>
             New Conference
           </Button>
         }
@@ -255,10 +269,6 @@ export default function ConferencesPage() {
         conference={editingConference}
         onSave={handleUpdateConference}
       />
-
-      {ownedProjects.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Create or own a project before adding a conference.</p>
-      ) : null}
 
       {actionError ? (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
@@ -346,9 +356,11 @@ export default function ConferencesPage() {
                   >
                     {columns.isColumnVisible("conference") ? (
                       <div className="flex items-start gap-3">
-                        <span className="flex h-9 min-w-9 items-center justify-center rounded-md bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
-                          {conference.acronym}
-                        </span>
+                        {conference.acronym ? (
+                          <span className="flex h-9 min-w-9 items-center justify-center rounded-md bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                            {conference.acronym}
+                          </span>
+                        ) : null}
                         <div className="flex flex-col gap-0.5">
                           <div className="flex items-start gap-2">
                             <Link
@@ -381,7 +393,7 @@ export default function ConferencesPage() {
                               </>
                             ) : null}
                           </div>
-                          <span className="text-xs text-muted-foreground">{conference.location}</span>
+                          <span className="text-xs text-muted-foreground">{conference.location ?? "—"}</span>
                         </div>
                       </div>
                     ) : null}

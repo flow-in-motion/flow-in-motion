@@ -63,6 +63,15 @@ const fixtures = vi.hoisted(() => {
         startDate: dueDate,
         endDate: dueDate,
       },
+      {
+        id: "conference-partial",
+        acronym: null,
+        name: "Conference details pending",
+        location: null,
+        submissionDue: null,
+        startDate: null,
+        endDate: null,
+      },
     ],
     tasks: [
       {
@@ -286,6 +295,18 @@ describe("CalendarPage", () => {
     expect(screen.getAllByRole("link", { name: "Research launch" })).not.toHaveLength(0);
     expect(screen.getAllByRole("link", { name: "Analysis module" })).not.toHaveLength(0);
     expect(screen.getAllByRole("link", { name: "Submit ethics application" })).not.toHaveLength(0);
+  });
+
+  it("does not create invalid calendar entries for a conference with no dates", () => {
+    render(
+      <MemoryRouter>
+        <CalendarPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Conferences/ }));
+
+    expect(screen.queryByRole("link", { name: "Conference details pending" })).not.toBeInTheDocument();
   });
 
   it("supports month navigation and returning to today", () => {

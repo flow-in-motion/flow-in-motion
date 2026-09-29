@@ -55,6 +55,9 @@ function renderPage() {
 
 describe("ConferencesPage", () => {
   beforeEach(() => {
+    fixtures.projects = [
+      { id: "project-1", title: "Genome Sequencing Study", userId: "user-owner", role: "owner" },
+    ];
     fixtures.conferences = [
       {
         id: "conf-1",
@@ -133,6 +136,36 @@ describe("ConferencesPage", () => {
     });
 
     expect(screen.getByText("No conferences match the current filters.")).toBeInTheDocument();
+  });
+
+  it("shows a name-only conference and allows creating one without a project", () => {
+    fixtures.projects = [];
+    fixtures.conferences = [
+      {
+        id: "conf-partial",
+        tenantId: "workspace-1",
+        ownerUserId: "user-owner",
+        acronym: null,
+        name: "XYZ, London, 2027",
+        location: null,
+        submissionDue: null,
+        startDate: null,
+        endDate: null,
+        submissionType: null,
+        daysRemaining: null,
+        projects: [],
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+
+    renderPage();
+
+    expect(screen.getByRole("link", { name: "XYZ, London, 2027" })).toBeInTheDocument();
+    const createButton = screen.getByRole("button", { name: "New Conference" });
+    expect(createButton).toBeEnabled();
+    fireEvent.click(createButton);
+    expect(screen.getByRole("heading", { name: "Add a conference" })).toBeInTheDocument();
   });
 
   it("deletes a conference after confirmation", async () => {

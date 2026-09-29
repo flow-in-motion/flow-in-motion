@@ -45,6 +45,36 @@ describe('ConferencesService', () => {
   };
 
   describe('create', () => {
+    it('creates a conference when only its name is supplied', async () => {
+      repository.create.mockResolvedValue({
+        id: 'conference-1',
+        submissionDue: null,
+      });
+
+      const result = await service.create(tenantId, callerUserId, {
+        name: 'XYZ, London, 2027',
+        projectIds: [],
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        {
+          tenantId,
+          ownerUserId: callerUserId,
+          acronym: null,
+          name: 'XYZ, London, 2027',
+          location: null,
+          submissionDue: null,
+          startDate: null,
+          endDate: null,
+          submissionType: undefined,
+        },
+        [],
+      );
+      expect(result).toEqual(
+        expect.objectContaining({ daysRemaining: null, projects: [] }),
+      );
+    });
+
     it('creates a conference with no linked projects without validating ownership', async () => {
       repository.create.mockResolvedValue({ id: 'conference-1' });
 
@@ -109,6 +139,37 @@ describe('ConferencesService', () => {
         [],
       );
     });
+
+    it('allows optional dates to be cleared', async () => {
+      repository.findVisibleById.mockResolvedValue({
+        id: 'conference-1',
+        ownerUserId: callerUserId,
+        submissionDue: baseInput.submissionDue,
+        startDate: baseInput.startDate,
+        endDate: baseInput.endDate,
+      });
+      repository.update.mockResolvedValue({
+        id: 'conference-1',
+        submissionDue: null,
+      });
+
+      await service.update(tenantId, 'conference-1', callerUserId, {
+        submissionDue: null,
+        startDate: null,
+        endDate: null,
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        tenantId,
+        'conference-1',
+        expect.objectContaining({
+          submissionDue: null,
+          startDate: null,
+          endDate: null,
+        }),
+        undefined,
+      );
+    });
   });
 
   describe('list', () => {
@@ -168,6 +229,20 @@ describe('ConferencesService', () => {
         totalItems: 45,
         totalPages: 3,
       });
+    });
+
+    it('returns no deadline countdown when a conference has no deadline', async () => {
+      repository.findVisiblePageByUser.mockResolvedValue({
+        data: [{ id: 'conference-1', submissionDue: null }],
+        totalItems: 1,
+      });
+      repository.findLinkedProjectsForConferences.mockResolvedValue(new Map());
+
+      const result = await service.list('tenant-1', 'user-1', 1, 20);
+
+      expect(result.data[0]).toEqual(
+        expect.objectContaining({ daysRemaining: null }),
+      );
     });
   });
 });

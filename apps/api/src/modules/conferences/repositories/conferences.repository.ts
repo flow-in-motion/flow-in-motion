@@ -12,23 +12,23 @@ import { DrizzleService } from '../../../db/drizzle.service';
 interface CreateConferenceValues {
   tenantId: string;
   ownerUserId: string;
-  acronym: string;
+  acronym: string | null;
   name: string;
-  location: string;
-  submissionDue: string;
-  startDate: string;
-  endDate: string;
-  submissionType?: string;
+  location: string | null;
+  submissionDue: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  submissionType?: string | null;
 }
 
 interface UpdateConferenceValues {
-  acronym?: string;
+  acronym?: string | null;
   name?: string;
-  location?: string;
-  submissionDue?: string;
-  startDate?: string;
-  endDate?: string;
-  submissionType?: string;
+  location?: string | null;
+  submissionDue?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  submissionType?: string | null;
 }
 
 @Injectable()

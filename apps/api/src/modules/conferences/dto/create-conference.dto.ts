@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayUnique,
   IsArray,
@@ -10,10 +10,11 @@ import {
 } from 'class-validator';
 
 export class CreateConferenceDto {
-  @ApiProperty({ example: 'ASM' })
+  @ApiPropertyOptional({ example: 'ASM', nullable: true })
+  @IsOptional()
   @IsString()
   @Length(2, 20)
-  acronym!: string;
+  acronym?: string | null;
 
   @ApiProperty({
     example: 'Australasian Society for Microbiology Conference 2027',
@@ -22,28 +23,32 @@ export class CreateConferenceDto {
   @Length(2, 200)
   name!: string;
 
-  @ApiProperty({ example: 'Sydney, Australia' })
+  @ApiPropertyOptional({ example: 'Sydney, Australia', nullable: true })
+  @IsOptional()
   @IsString()
   @Length(2, 200)
-  location!: string;
+  location?: string | null;
 
-  @ApiProperty({ example: '2026-08-01' })
+  @ApiPropertyOptional({ example: '2026-08-01', nullable: true })
+  @IsOptional()
   @IsDateString()
-  submissionDue!: string;
+  submissionDue?: string | null;
 
-  @ApiProperty({ example: '2027-06-04' })
+  @ApiPropertyOptional({ example: '2027-06-04', nullable: true })
+  @IsOptional()
   @IsDateString()
-  startDate!: string;
+  startDate?: string | null;
 
-  @ApiProperty({ example: '2027-06-08' })
+  @ApiPropertyOptional({ example: '2027-06-08', nullable: true })
+  @IsOptional()
   @IsDateString()
-  endDate!: string;
+  endDate?: string | null;
 
-  @ApiProperty({ required: false, example: 'Abstract' })
+  @ApiPropertyOptional({ example: 'Abstract', nullable: true })
   @IsOptional()
   @IsString()
   @Length(2, 100)
-  submissionType?: string;
+  submissionType?: string | null;
 
   @ApiProperty({
     type: [String],

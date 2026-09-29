@@ -82,6 +82,10 @@ export class ConferencesService {
     callerUserId: string,
     input: CreateConferenceDto,
   ) {
+    const name = input.name.trim();
+    if (!name) {
+      throw new BadRequestException('Conference name is required');
+    }
     this.validateDates(input.startDate, input.endDate);
 
     await this.validateProjectOwnership(
@@ -94,13 +98,13 @@ export class ConferencesService {
       {
         tenantId,
         ownerUserId: callerUserId,
-        acronym: input.acronym.trim(),
-        name: input.name.trim(),
-        location: input.location.trim(),
-        submissionDue: input.submissionDue,
-        startDate: input.startDate,
-        endDate: input.endDate,
-        submissionType: input.submissionType?.trim(),
+        acronym: trimOptional(input.acronym) ?? null,
+        name,
+        location: trimOptional(input.location) ?? null,
+        submissionDue: input.submissionDue ?? null,
+        startDate: input.startDate ?? null,
+        endDate: input.endDate ?? null,
+        submissionType: trimOptional(input.submissionType),
       },
       input.projectIds,
     );
@@ -142,8 +146,14 @@ export class ConferencesService {
       );
     }
 
-    const startDate = input.startDate ?? existing.startDate;
-    const endDate = input.endDate ?? existing.endDate;
+    if (input.name !== undefined && !input.name.trim()) {
+      throw new BadRequestException('Conference name is required');
+    }
+
+    const startDate =
+      input.startDate === undefined ? existing.startDate : input.startDate;
+    const endDate =
+      input.endDate === undefined ? existing.endDate : input.endDate;
 
     this.validateDates(startDate, endDate);
 
@@ -159,13 +169,13 @@ export class ConferencesService {
       tenantId,
       conferenceId,
       {
-        acronym: input.acronym?.trim(),
+        acronym: trimOptional(input.acronym),
         name: input.name?.trim(),
-        location: input.location?.trim(),
+        location: trimOptional(input.location),
         submissionDue: input.submissionDue,
         startDate: input.startDate,
         endDate: input.endDate,
-        submissionType: input.submissionType?.trim(),
+        submissionType: trimOptional(input.submissionType),
       },
       input.projectIds,
     );
@@ -264,8 +274,11 @@ export class ConferencesService {
    *
    * ISO date strings use YYYY-MM-DD, so direct comparison is safe here.
    */
-  private validateDates(startDate: string, endDate: string) {
-    if (endDate < startDate) {
+  private validateDates(
+    startDate: string | null | undefined,
+    endDate: string | null | undefined,
+  ) {
+    if (startDate && endDate && endDate < startDate) {
       throw new BadRequestException(
         'Conference end date cannot be before its start date',
       );
@@ -280,7 +293,7 @@ export class ConferencesService {
   private async withResponseValues<
     T extends {
       id: string;
-      submissionDue: string;
+      submissionDue: string | null;
     },
   >(tenantId: string, conference: T) {
     const projects = await this.repository.findLinkedProjects(
@@ -296,7 +309,8 @@ export class ConferencesService {
   }
 }
 
-function calculateDaysRemaining(submissionDue: string) {
+function calculateDaysRemaining(submissionDue: string | null) {
+  if (!submissionDue) return null;
   const dueDate = new Date(`${submissionDue}T00:00:00.000Z`);
   const today = new Date();
 
@@ -305,4 +319,9 @@ function calculateDaysRemaining(submissionDue: string) {
   return Math.ceil(
     (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
   );
+}
+
+function trimOptional(value: string | null | undefined) {
+  if (value === undefined) return undefined;
+  return value?.trim() || null;
 }
