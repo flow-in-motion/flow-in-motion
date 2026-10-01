@@ -425,19 +425,19 @@ describe("ModulesPage", () => {
     expect(screen.getByRole("link", { name: "Genome Project" })).toBeInTheDocument();
   });
 
-  it("opens collaborator management directly from the modules table", () => {
+  it("keeps collaborator management inside the paper edit page", () => {
     render(
       <MemoryRouter>
         <ModulesPage />
       </MemoryRouter>,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Manage collaborators for Literature synthesis" }),
-    );
-
-    expect(screen.getByRole("heading", { name: "Paper collaborators" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Collaborator email" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Manage collaborators for Literature synthesis" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Edit Literature synthesis" }),
+    ).toHaveAttribute("href", "/modules/module-1?edit=true");
   });
 
   it("filters the table by pipeline stage", () => {
