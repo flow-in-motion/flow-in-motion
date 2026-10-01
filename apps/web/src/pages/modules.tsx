@@ -1,6 +1,6 @@
 import { useListSearch } from "@/hooks/use-list-search";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileStack, Pencil, Trash2, UserPlus } from "lucide-react";
+import { FileStack, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
@@ -16,7 +16,6 @@ import {
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
-import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { ErrorState } from "@/components/shared/error-state";
@@ -26,13 +25,6 @@ import { PageHeading } from "@/components/typography/heading";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -108,13 +100,8 @@ export default function ModulesPage() {
     [stagesQuery.data],
   );
   const [isNewModuleOpen, setIsNewModuleOpen] = useState(false);
-  const [sharingModule, setSharingModule] = useState<ApiModule | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const workspaceMembers = useMembers(
-    tenantId,
-    1,
-    isNewModuleOpen || sharingModule !== null,
-  );
+  const workspaceMembers = useMembers(tenantId, 1, isNewModuleOpen);
   const members = workspaceMembers.data?.data ?? [];
   const createModule = useCreateModule(tenantId);
   const archiveModule = useArchiveModule(tenantId);
@@ -240,7 +227,6 @@ export default function ModulesPage() {
     setActionError(null);
     try {
       await archiveModule.mutateAsync(module.id);
-      setSharingModule((current) => (current?.id === module.id ? null : current));
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The paper could not be archived.");
     }
@@ -279,36 +265,6 @@ export default function ModulesPage() {
         members={members}
         onSave={handleCreateModule}
       />
-      <Dialog
-        open={sharingModule !== null}
-        onOpenChange={(open) => {
-          if (!open) setSharingModule(null);
-        }}
-      >
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Paper collaborators</DialogTitle>
-            <DialogDescription>
-              Invite collaborators to {sharingModule ? paperDisplayTitle(sharingModule) : "this paper"} by email and manage pending access.
-            </DialogDescription>
-          </DialogHeader>
-          {sharingModule ? (
-            sharingModule.tenantId === tenantId ? (
-              <ModuleCollaboratorsManager
-                tenantId={tenantId}
-                moduleId={sharingModule.id}
-                moduleTitle={paperDisplayTitle(sharingModule)}
-                members={members}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                This paper belongs to another workspace. Only its owner can manage collaborators.
-              </p>
-            )
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
       {actionError ? (
         <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <span>{actionError}</span>
@@ -411,17 +367,6 @@ export default function ModulesPage() {
                           >
                             {paperDisplayTitle(module)}
                           </Link>
-                          {module.tenantId === tenantId ? (
-                            <button
-                              type="button"
-                              aria-label={`Manage collaborators for ${paperDisplayTitle(module)}`}
-                              title="Manage collaborators"
-                              onClick={() => setSharingModule(module)}
-                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                              <UserPlus className="h-3.5 w-3.5" />
-                            </button>
-                          ) : null}
                           <Link
                             to={`/modules/${module.id}?edit=true`}
                             aria-label={`Edit ${paperDisplayTitle(module)}`}
