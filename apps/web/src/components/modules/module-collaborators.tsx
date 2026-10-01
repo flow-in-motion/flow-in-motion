@@ -14,6 +14,39 @@ interface ModuleCollaboratorsManagerProps {
   members: Membership[];
 }
 
+interface ModuleCollaboratorsSummaryProps {
+  tenantId: string;
+  moduleId: string;
+}
+
+export function ModuleCollaboratorsSummary({
+  tenantId,
+  moduleId,
+}: ModuleCollaboratorsSummaryProps) {
+  const collaboratorsQuery = useModuleCollaborators(tenantId, moduleId);
+
+  if (collaboratorsQuery.isPending) {
+    return <span className="text-muted-foreground">Loading…</span>;
+  }
+
+  const collaborators = collaboratorsQuery.data ?? [];
+
+  if (collaborators.length === 0) {
+    return <span className="text-muted-foreground">None added</span>;
+  }
+
+  return (
+    <span className="inline-flex flex-wrap gap-x-3 gap-y-1">
+      {collaborators.map((collaborator) => (
+        <span key={collaborator.id}>
+          {collaborator.displayName}
+          {collaborator.affiliation ? ` · ${collaborator.affiliation}` : ""}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function ModuleCollaboratorsManager({
   tenantId,
   moduleId,

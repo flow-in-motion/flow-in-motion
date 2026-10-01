@@ -13,6 +13,30 @@ const fixtures = vi.hoisted(() => ({
   createSubmission: vi.fn(),
   updateSubmission: vi.fn(),
   deleteSubmission: vi.fn(),
+  collaborators: [
+    {
+      id: "collaborator-owner",
+      tenantId: "workspace-1",
+      userId: "user-owner",
+      role: "Owner",
+      displayName: "Avi Researcher",
+      email: "owner@example.com",
+      affiliation: "University of Melbourne",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "collaborator-editor",
+      tenantId: "workspace-1",
+      userId: "user-editor",
+      role: "Editor",
+      displayName: "Sam Lee",
+      email: "sam@example.com",
+      affiliation: "CSIRO",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
+  ],
   submissions: [] as Array<{
     id: string;
     tenantId: string;
@@ -212,7 +236,7 @@ vi.mock("@/api/hooks", () => ({
     },
     isPending: false,
   }),
-  useModuleCollaborators: () => ({ data: [], isPending: false }),
+  useModuleCollaborators: () => ({ data: fixtures.collaborators, isPending: false }),
   useRemoveModuleCollaborator: () => ({ mutate: vi.fn(), isPending: false }),
   useCollaboratorInvitations: () => ({
     data: [],
@@ -583,24 +607,19 @@ describe("ModuleDetailPage", () => {
     );
   });
 
-  it("shows collaborators expanded by default, with an option to hide them", () => {
+  it("shows a compact collaborator summary and manages collaborators only while editing", () => {
     renderPage();
 
-    expect(
-      screen.getByRole("heading", { name: "Module collaborators" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Hide collaborators" }),
-    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Collaborators")).toBeInTheDocument();
+    expect(screen.getByText("Avi Researcher · University of Melbourne")).toBeInTheDocument();
+    expect(screen.getByText("Sam Lee · CSIRO")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add collaborator" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide collaborators" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Module" }));
 
-    expect(
-      screen.queryByRole("heading", { name: "Module collaborators" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Show collaborators" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("heading", { name: "Collaborators" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add collaborator" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Collaborator email" })).toBeInTheDocument();
   });
 
   it("shows linked work expanded by default, with an option to hide it", () => {
@@ -614,9 +633,7 @@ describe("ModuleDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide linked work" }));
 
     expect(screen.queryByText("Extract references")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Module collaborators" }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Avi Researcher · University of Melbourne")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show linked work" }),
     ).toHaveAttribute("aria-expanded", "false");

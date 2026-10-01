@@ -28,7 +28,10 @@ import {
   type ApiTask,
   useMe,
 } from "@/api/hooks";
-import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
+import {
+  ModuleCollaboratorsManager,
+  ModuleCollaboratorsSummary,
+} from "@/components/modules/module-collaborators";
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
@@ -99,7 +102,7 @@ function splitEntries(value: string | null) {
   return (value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
 }
 
-function HeaderStat({ label, value }: { label: string; value: string }) {
+function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-2.5 py-1 text-xs">
       <span className="font-medium text-muted-foreground">{label}</span>
@@ -536,7 +539,6 @@ export default function ModuleDetailPage() {
   const [form, setForm] = useState<EditableModule | null>(null);
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
-  const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
   const [isSubmissionHistoryVisible, setIsSubmissionHistoryVisible] = useState(true);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
@@ -772,14 +774,20 @@ export default function ModuleDetailPage() {
             <HeaderStat label="Pipeline stage" value={module.pipelineStage ?? "Unassigned"} />
             <HeaderStat label="Due" value={formatDate(module.dueDate)} />
             <HeaderStat label="Assigned to" value={assignee?.displayName ?? "Unassigned"} />
+            <HeaderStat
+              label="Collaborators"
+              value={sameTenant ? (
+                <ModuleCollaboratorsSummary tenantId={tenantId} moduleId={module.id} />
+              ) : "Shared from another workspace"}
+            />
           </div>
         ) : null}
       </PageHeading>
 
       {form ? <Card>
         <CardHeader><CardTitle>Edit module details</CardTitle></CardHeader>
-        <CardContent>
-          <form onSubmit={(event) => void handleSave(event)} className="grid gap-6">
+        <CardContent className="grid gap-6">
+          <form id="edit-module-details-form" onSubmit={(event) => void handleSave(event)}>
             <div className="grid gap-5 sm:grid-cols-2">
               <FormField label="Short title" htmlFor="edit-module-short-title"><Input id="edit-module-short-title" value={form.shortTitle} onChange={(event) => setForm({ ...form, shortTitle: event.target.value })} placeholder="The working name you'll refer to this paper by" required autoFocus /></FormField>
               <FormField label="Formal title" htmlFor="edit-module-title"><Input id="edit-module-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Add once the paper has a formal title" /></FormField>
@@ -798,12 +806,34 @@ export default function ModuleDetailPage() {
               <FormField label="Assigned to" htmlFor="edit-module-assignee"><Select value={form.assignedToUserId || "__unassigned__"} onValueChange={(value) => setForm({ ...form, assignedToUserId: value === "__unassigned__" ? "" : value })}><SelectTrigger id="edit-module-assignee"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__unassigned__">Unassigned</SelectItem>{(members).map((member) => <SelectItem key={member.userId} value={member.userId}>{member.displayName}</SelectItem>)}</SelectContent></Select></FormField>
             </div>
             {updateModule.isError ? (
-              <p role="alert" className="text-sm text-destructive">
+              <p role="alert" className="mt-6 text-sm text-destructive">
                 {updateModule.error.message}
               </p>
             ) : null}
-            <div className="flex justify-end gap-3 border-t pt-5"><Button type="button" variant="outline" onClick={cancelEditing}>Cancel</Button><Button type="submit" disabled={updateModule.isPending}><Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}</Button></div>
           </form>
+          {sameTenant ? (
+            <div className="grid gap-4 border-t pt-5">
+              <div>
+                <h2 className="text-base font-semibold">Collaborators</h2>
+                {module.projectId ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Project collaborators already inherit access. You can also invite someone directly to this paper by email.
+                  </p>
+                ) : null}
+              </div>
+              <ModuleCollaboratorsManager
+                tenantId={tenantId}
+                moduleId={module.id}
+                moduleTitle={paperDisplayTitle(module)}
+                members={members}
+              />
+            </div>
+          ) : (
+            <p className="border-t pt-5 text-sm text-muted-foreground">
+              This paper was shared with you from another workspace. Only members of that workspace can manage who has access.
+            </p>
+          )}
+          <div className="flex justify-end gap-3 border-t pt-5"><Button type="button" variant="outline" onClick={cancelEditing}>Cancel</Button><Button type="submit" form="edit-module-details-form" disabled={updateModule.isPending}><Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}</Button></div>
         </CardContent>
       </Card> : null}
 
@@ -928,45 +958,6 @@ export default function ModuleDetailPage() {
             ) : null}
           </section>
         ) : null}
-
-        <section aria-labelledby="module-collaborators-heading">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 id="module-collaborators-heading" className="text-lg font-semibold">Collaborators</h2>
-            <Button variant="outline" size="sm" aria-expanded={isCollaboratorsVisible} aria-controls="module-collaborators-content" onClick={() => setIsCollaboratorsVisible((visible) => !visible)}>
-              {isCollaboratorsVisible ? <ChevronUp /> : <ChevronDown />}
-              {isCollaboratorsVisible ? "Hide collaborators" : "Show collaborators"}
-            </Button>
-          </div>
-          {isCollaboratorsVisible ? (
-            <Card id="module-collaborators-content">
-              <CardHeader>
-                <CardTitle>Module collaborators</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {sameTenant ? (
-                  <div className="grid gap-4">
-                    {module.projectId ? (
-                      <p className="text-sm text-muted-foreground">
-                        Project collaborators already inherit access. You can also invite someone directly to this module by email.
-                      </p>
-                    ) : null}
-                    <ModuleCollaboratorsManager
-                      tenantId={tenantId}
-                      moduleId={module.id}
-                      moduleTitle={paperDisplayTitle(module)}
-                      members={members}
-                    />
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    This module was shared with you from another workspace. Only members of that
-                    workspace can manage who has access.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-        </section>
 
         <SubmissionDialog
           open={isSubmissionDialogOpen}
