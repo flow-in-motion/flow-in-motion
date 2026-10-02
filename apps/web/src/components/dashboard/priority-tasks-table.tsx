@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useCurrentWorkspace, useModules, useProjects, useTasks } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import { priorityBadgeClass } from "@/components/dashboard/priority-badge-styles";
+import { SortableHeader } from "@/components/shared/sortable-header";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -43,6 +44,8 @@ const TASK_COLUMNS = [
 const PRIORITY_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 type PriorityFilter = (typeof PRIORITY_FILTERS)[number];
+type SortColumn = (typeof TASK_COLUMNS)[number]["id"];
+type SortDirection = "asc" | "desc";
 
 function formatDueDate(iso: string | null) {
   if (!iso) return "—";
@@ -65,6 +68,8 @@ export function PriorityTasksTable() {
 
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState<PriorityFilter>("All");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("priority");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const columns = useColumnVisibility(
     TASK_COLUMNS.map((column) => column.id),
     "dashboard-priority-tasks",
@@ -96,21 +101,16 @@ export function PriorityTasksTable() {
             ? (projectById.get(task.projectId) ?? "Unknown project")
             : "General",
         task: task.title,
+        dueDate: task.dueDate,
         due: formatDueDate(task.dueDate),
         overdue: Boolean(task.dueDate && task.dueDate < today),
         priority: task.priority,
-      }))
-      .sort((a, b) => {
-        const priorityDiff =
-          (PRIORITY_ORDER[a.priority ?? ""] ?? 99) - (PRIORITY_ORDER[b.priority ?? ""] ?? 99);
-        if (priorityDiff !== 0) return priorityDiff;
-        return a.due.localeCompare(b.due);
-      });
+      }));
   }, [tasks, projectById, moduleById, today]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return rows.filter((row) => {
+    const matchingRows = rows.filter((row) => {
       if (priority !== "All" && row.priority !== priority) return false;
       if (
         query &&
@@ -121,13 +121,50 @@ export function PriorityTasksTable() {
       }
       return true;
     });
-  }, [rows, search, priority]);
+
+    return [...matchingRows].sort((a, b) => {
+      let comparison = 0;
+      switch (sortColumn) {
+        case "task":
+          comparison = a.task.localeCompare(b.task);
+          break;
+        case "project":
+          comparison = a.project.localeCompare(b.project);
+          break;
+        case "due":
+          if (!a.dueDate && !b.dueDate) comparison = 0;
+          else if (!a.dueDate) return 1;
+          else if (!b.dueDate) return -1;
+          else comparison = a.dueDate.localeCompare(b.dueDate);
+          break;
+        case "priority":
+          if (!a.priority && !b.priority) comparison = 0;
+          else if (!a.priority) return 1;
+          else if (!b.priority) return -1;
+          else comparison =
+            (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99);
+          break;
+      }
+
+      const directed = comparison * (sortDirection === "asc" ? 1 : -1);
+      return directed || a.task.localeCompare(b.task);
+    });
+  }, [rows, search, priority, sortColumn, sortDirection]);
 
   const hasActiveFilters = search !== "" || priority !== "All";
 
   function clearFilters() {
     setSearch("");
     setPriority("All");
+  }
+
+  function handleSort(column: SortColumn) {
+    if (column === sortColumn) {
+      setSortDirection((current) => current === "asc" ? "desc" : "asc");
+      return;
+    }
+    setSortColumn(column);
+    setSortDirection("asc");
   }
 
   return (
@@ -184,10 +221,19 @@ export function PriorityTasksTable() {
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.isColumnVisible("task") ? <TableHead>Task</TableHead> : null}
-              {columns.isColumnVisible("project") ? <TableHead>Project</TableHead> : null}
-              {columns.isColumnVisible("due") ? <TableHead>Due</TableHead> : null}
-              {columns.isColumnVisible("priority") ? <TableHead>Priority</TableHead> : null}
+              {TASK_COLUMNS.filter((column) =>
+                columns.isColumnVisible(column.id)
+              ).map((column) => (
+                <TableHead key={column.id}>
+                  <SortableHeader
+                    label={column.label}
+                    column={column.id}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                  />
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
