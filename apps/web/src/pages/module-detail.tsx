@@ -761,9 +761,8 @@ export default function ModuleDetailPage() {
         description={module.description || "Review and update the paper's status and planning details."}
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <StatusBadge status={module.status ?? "—"} />
             {form ? <Button type="button" variant="outline" onClick={cancelEditing}><X /> Cancel Editing</Button>
-              : <Button type="button" onClick={() => setForm(editableValues(module))}><Pencil /> Edit Module</Button>}
+              : <Button type="button" onClick={() => setForm(editableValues(module))}><Pencil /> Edit Paper</Button>}
           </div>
         }
       >
