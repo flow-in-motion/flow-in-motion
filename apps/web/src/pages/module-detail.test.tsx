@@ -306,7 +306,7 @@ describe("ModuleDetailPage", () => {
     renderPage();
   
     fireEvent.click(
-      screen.getByRole("button", { name: "Edit Module" }),
+      screen.getByRole("button", { name: "Edit Paper" }),
     );
   
     fireEvent.click(
@@ -375,7 +375,7 @@ describe("ModuleDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel Editing" }));
 
     expect(
-      screen.getByRole("button", { name: "Edit Module" }),
+      screen.getByRole("button", { name: "Edit Paper" }),
     ).toBeInTheDocument();
   });
 
@@ -615,7 +615,7 @@ describe("ModuleDetailPage", () => {
     expect(screen.getByText("Sam Lee · CSIRO")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add collaborator" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit Module" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
 
     expect(screen.getByRole("heading", { name: "Collaborators" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add collaborator" })).toBeInTheDocument();
