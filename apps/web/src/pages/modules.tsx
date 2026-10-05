@@ -15,7 +15,10 @@ import {
   type ApiModule,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
-import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
+import {
+  ModuleDialog,
+  type ModuleFormInput,
+} from "@/components/modules/module-dialog";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { ErrorState } from "@/components/shared/error-state";
@@ -37,7 +40,13 @@ import { formatListDate, isOverdue } from "@/lib/list-format";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
-const STATUS_FILTERS = ["All", "Active", "Review", "Stalled", "Complete"] as const;
+const STATUS_FILTERS = [
+  "All",
+  "Active",
+  "Review",
+  "Stalled",
+  "Complete",
+] as const;
 const MODULE_COLUMNS = [
   { id: "module", label: "Paper", width: "minmax(280px,2fr)" },
   { id: "project", label: "Project", width: "180px" },
@@ -52,7 +61,12 @@ type StatusFilter = (typeof STATUS_FILTERS)[number];
 type SortColumn = (typeof MODULE_COLUMNS)[number]["id"];
 type SortDirection = "asc" | "desc";
 
-const MODULE_STATUS_ORDER: Record<string, number> = { Active: 0, Review: 1, Stalled: 2, Complete: 3 };
+const MODULE_STATUS_ORDER: Record<string, number> = {
+  Active: 0,
+  Review: 1,
+  Stalled: 2,
+  Complete: 3,
+};
 
 function statusPillClass(status: string | null) {
   switch (status) {
@@ -72,7 +86,10 @@ function ProgressCell({ percent }: { percent: number }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
+        <div
+          className="h-full rounded-full bg-primary"
+          style={{ width: `${percent}%` }}
+        />
       </div>
       <span className="text-xs text-muted-foreground">{percent}%</span>
     </div>
@@ -85,7 +102,10 @@ export default function ModulesPage() {
   const { page, setPage, search, setSearch, requestSearch } = useListSearch();
   const [pageSize, setPageSize] = useState<number | "all">(20);
 
-  const modulesQuery = useModules(tenantId, undefined, page, true, { pageSize, search: requestSearch });
+  const modulesQuery = useModules(tenantId, undefined, page, true, {
+    pageSize,
+    search: requestSearch,
+  });
   const modules = modulesQuery.data?.data ?? [];
   const paginationMeta = modulesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
@@ -113,15 +133,11 @@ export default function ModulesPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   useEffect(() => {
     setPage(1);
-  }, [
-    setPage,
-    tenantId,
-    status,
-    stage,
-    sortColumn,
-    sortDirection,
-  ]);
-  const columns = useColumnVisibility(MODULE_COLUMNS.map((column) => column.id), "modules");
+  }, [setPage, tenantId, status, stage, sortColumn, sortDirection]);
+  const columns = useColumnVisibility(
+    MODULE_COLUMNS.map((column) => column.id),
+    "modules",
+  );
   const gridTemplate = MODULE_COLUMNS.filter((column) =>
     columns.visibleColumns.has(column.id),
   )
@@ -130,9 +146,17 @@ export default function ModulesPage() {
 
   const projectById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const project of projects) map.set(project.id, project.title);
+
+    for (const project of projects) {
+      map.set(project.id, project.title);
+    }
+
+    if (generalProject) {
+      map.set(generalProject.id, generalProject.title);
+    }
+
     return map;
-  }, [projects]);
+  }, [projects, generalProject]);
 
   const memberById = useMemo(() => {
     const map = new Map<string, string>();
@@ -145,15 +169,21 @@ export default function ModulesPage() {
     [visibleStages],
   );
 
-  const projectName = useCallback((projectId: string | null) => {
-    if (!projectId) return "Independent paper";
-    return projectById.get(projectId) ?? "Unknown project";
-  }, [projectById]);
+  const projectName = useCallback(
+    (projectId: string | null) => {
+      if (!projectId) return "Independent paper";
+      return projectById.get(projectId) ?? "Unknown project";
+    },
+    [projectById],
+  );
 
-  const assigneeName = useCallback((userId: string | null) => {
-    if (!userId) return "Unassigned";
-    return memberById.get(userId) ?? "Unknown member";
-  }, [memberById]);
+  const assigneeName = useCallback(
+    (userId: string | null) => {
+      if (!userId) return "Unassigned";
+      return memberById.get(userId) ?? "Unknown member";
+    },
+    [memberById],
+  );
 
   function handleSort(column: SortColumn) {
     if (column === sortColumn) {
@@ -171,7 +201,10 @@ export default function ModulesPage() {
       case "project":
         return projectName(a.projectId).localeCompare(projectName(b.projectId));
       case "status":
-        return (MODULE_STATUS_ORDER[a.status ?? ""] ?? 99) - (MODULE_STATUS_ORDER[b.status ?? ""] ?? 99);
+        return (
+          (MODULE_STATUS_ORDER[a.status ?? ""] ?? 99) -
+          (MODULE_STATUS_ORDER[b.status ?? ""] ?? 99)
+        );
       case "progress": {
         const aPercent = progressByStage.get(a.pipelineStage ?? "") ?? 0;
         const bPercent = progressByStage.get(b.pipelineStage ?? "") ?? 0;
@@ -182,7 +215,9 @@ export default function ModulesPage() {
       case "due":
         return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
       case "assignee":
-        return assigneeName(a.assignedToUserId).localeCompare(assigneeName(b.assignedToUserId));
+        return assigneeName(a.assignedToUserId).localeCompare(
+          assigneeName(b.assignedToUserId),
+        );
     }
   }
 
@@ -193,10 +228,21 @@ export default function ModulesPage() {
       return true;
     });
     return [...filtered].sort(
-      (a, b) => compareModules(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
+      (a, b) =>
+        compareModules(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modules, search, status, stage, projectName, assigneeName, progressByStage, sortColumn, sortDirection]);
+  }, [
+    modules,
+    search,
+    status,
+    stage,
+    projectName,
+    assigneeName,
+    progressByStage,
+    sortColumn,
+    sortDirection,
+  ]);
 
   const hasActiveFilters = search !== "" || status !== "All" || stage !== "All";
 
@@ -221,14 +267,22 @@ export default function ModulesPage() {
   }
 
   async function archive(module: ApiModule) {
-    if (!window.confirm(`Archive "${paperDisplayTitle(module)}"? It will be permanently deleted after 14 days.`)) {
+    if (
+      !window.confirm(
+        `Archive "${paperDisplayTitle(module)}"? It will be permanently deleted after 14 days.`,
+      )
+    ) {
       return;
     }
     setActionError(null);
     try {
       await archiveModule.mutateAsync(module.id);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "The paper could not be archived.");
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The paper could not be archived.",
+      );
     }
   }
 
@@ -240,7 +294,9 @@ export default function ModulesPage() {
       <ErrorState
         title="Papers could not be loaded"
         description={modulesQuery.error.message}
-        onRetry={() => pageSize === "all" ? setPageSize(20) : void modulesQuery.refetch()}
+        onRetry={() =>
+          pageSize === "all" ? setPageSize(20) : void modulesQuery.refetch()
+        }
       />
     );
   }
@@ -253,7 +309,9 @@ export default function ModulesPage() {
         eyebrow="Workflows"
         title="Papers"
         description="Organise project-related or independent areas of work by status and assignee."
-        actions={<Button onClick={() => setIsNewModuleOpen(true)}>New Paper</Button>}
+        actions={
+          <Button onClick={() => setIsNewModuleOpen(true)}>New Paper</Button>
+        }
       />
 
       <ModuleDialog
@@ -266,9 +324,18 @@ export default function ModulesPage() {
         onSave={handleCreateModule}
       />
       {actionError ? (
-        <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
           <span>{actionError}</span>
-          <button type="button" className="font-medium underline" onClick={() => setActionError(null)}>Dismiss</button>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
         </div>
       ) : null}
 
@@ -281,8 +348,13 @@ export default function ModulesPage() {
           placeholder="Search papers…"
           className="sm:max-w-xs"
         />
-        <Select value={status} onValueChange={(value) => setStatus(value as StatusFilter)}>
-          <SelectTrigger className="sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+        <Select
+          value={status}
+          onValueChange={(value) => setStatus(value as StatusFilter)}
+        >
+          <SelectTrigger className="sm:w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
           <SelectContent>
             {STATUS_FILTERS.map((option) => (
               <SelectItem key={option} value={option}>
@@ -292,7 +364,9 @@ export default function ModulesPage() {
           </SelectContent>
         </Select>
         <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="sm:w-48" aria-label="Stage"><SelectValue placeholder="Stage" /></SelectTrigger>
+          <SelectTrigger className="sm:w-48" aria-label="Stage">
+            <SelectValue placeholder="Stage" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All stages</SelectItem>
             {visibleStages.map((stageValue) => (
@@ -358,7 +432,9 @@ export default function ModulesPage() {
                     <div className="flex items-start gap-2">
                       <div className="flex flex-col gap-0.5">
                         {module.displayId ? (
-                          <span className="font-mono text-[11px] text-muted-foreground">{module.displayId}</span>
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {module.displayId}
+                          </span>
                         ) : null}
                         <div className="flex items-start gap-2">
                           <Link
@@ -394,21 +470,31 @@ export default function ModulesPage() {
                   ) : null}
                   {columns.isColumnVisible("project") ? (
                     module.projectId ? (
-                      <Link to={`/projects/${module.projectId}`} className="max-w-56 text-sm font-medium text-primary hover:underline">
+                      <Link
+                        to={`/projects/${module.projectId}`}
+                        className="max-w-56 text-sm font-medium text-primary hover:underline"
+                      >
                         {projectName(module.projectId)}
                       </Link>
                     ) : (
-                      <span className="max-w-56 text-sm text-muted-foreground">Independent paper</span>
+                      <span className="max-w-56 text-sm text-muted-foreground">
+                        Independent paper
+                      </span>
                     )
                   ) : null}
                   {columns.isColumnVisible("status") ? (
-                    <Badge variant="outline" className={statusPillClass(module.status)}>
+                    <Badge
+                      variant="outline"
+                      className={statusPillClass(module.status)}
+                    >
                       {module.status ?? "—"}
                     </Badge>
                   ) : null}
                   {columns.isColumnVisible("progress") ? (
                     <ProgressCell
-                      percent={progressByStage.get(module.pipelineStage ?? "") ?? 0}
+                      percent={
+                        progressByStage.get(module.pipelineStage ?? "") ?? 0
+                      }
                     />
                   ) : null}
                   {columns.isColumnVisible("stage") ? (
@@ -416,7 +502,7 @@ export default function ModulesPage() {
                       {module.pipelineStage ?? "Unassigned"}
                     </span>
                   ) : null}
-                  
+
                   {columns.isColumnVisible("due") ? (
                     <span
                       className={cn(
@@ -432,7 +518,8 @@ export default function ModulesPage() {
                   {columns.isColumnVisible("assignee") ? (
                     <span className="text-sm text-muted-foreground">
                       {module.assignedToUserId
-                        ? (memberById.get(module.assignedToUserId) ?? "Unknown member")
+                        ? (memberById.get(module.assignedToUserId) ??
+                          "Unknown member")
                         : "Unassigned"}
                     </span>
                   ) : null}

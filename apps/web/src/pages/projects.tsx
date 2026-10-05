@@ -46,8 +46,20 @@ import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
-const STATUS_FILTERS = ["All", "Active", "Review", "Stalled", "Complete"] as const;
-const ROLE_FILTERS = ["All roles", "owner", "collaborator", "supervisor", "lead"] as const;
+const STATUS_FILTERS = [
+  "All",
+  "Active",
+  "Review",
+  "Stalled",
+  "Complete",
+] as const;
+const ROLE_FILTERS = [
+  "All roles",
+  "owner",
+  "collaborator",
+  "supervisor",
+  "lead",
+] as const;
 
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type RoleFilter = (typeof ROLE_FILTERS)[number];
@@ -66,8 +78,18 @@ const PROJECT_COLUMNS = [
 type SortColumn = (typeof PROJECT_COLUMNS)[number]["id"];
 type SortDirection = "asc" | "desc";
 
-const PROJECT_STATUS_ORDER: Record<string, number> = { Active: 0, Review: 1, Stalled: 2, Complete: 3 };
-const PROJECT_IMPORTANCE_ORDER: Record<string, number> = { Low: 0, Medium: 1, High: 2, Critical: 3 };
+const PROJECT_STATUS_ORDER: Record<string, number> = {
+  Active: 0,
+  Review: 1,
+  Stalled: 2,
+  Complete: 3,
+};
+const PROJECT_IMPORTANCE_ORDER: Record<string, number> = {
+  Low: 0,
+  Medium: 1,
+  High: 2,
+  Critical: 3,
+};
 
 function priorityPillClass(priority: string | null) {
   switch (priority) {
@@ -109,7 +131,6 @@ function rolePillClass(role: string | null) {
   }
 }
 
-
 export default function ProjectsPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
@@ -130,11 +151,7 @@ export default function ProjectsPage() {
 
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [sharingProject, setSharingProject] = useState<ApiProject | null>(null);
-  const membersQuery = useMembers(
-    tenantId,
-    1,
-    sharingProject !== null,
-  );
+  const membersQuery = useMembers(tenantId, 1, sharingProject !== null);
   const members = membersQuery.data?.data ?? [];
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("All");
@@ -143,14 +160,7 @@ export default function ProjectsPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   useEffect(() => {
     setPage(1);
-  }, [
-    tenantId,
-    search,
-    status,
-    role,
-    sortColumn,
-    sortDirection,
-  ]);
+  }, [tenantId, search, status, role, sortColumn, sortDirection]);
   const columns = useColumnVisibility(
     PROJECT_COLUMNS.map((column) => column.id),
     "projects",
@@ -200,11 +210,20 @@ export default function ProjectsPage() {
           (PROJECT_IMPORTANCE_ORDER[b.importance ?? ""] ?? 99)
         );
       case "status":
-        return (PROJECT_STATUS_ORDER[a.status ?? ""] ?? 99) - (PROJECT_STATUS_ORDER[b.status ?? ""] ?? 99);
+        return (
+          (PROJECT_STATUS_ORDER[a.status ?? ""] ?? 99) -
+          (PROJECT_STATUS_ORDER[b.status ?? ""] ?? 99)
+        );
       case "papers":
-        return (moduleCountByProject.get(a.id) ?? 0) - (moduleCountByProject.get(b.id) ?? 0);
+        return (
+          (moduleCountByProject.get(a.id) ?? 0) -
+          (moduleCountByProject.get(b.id) ?? 0)
+        );
       case "notes":
-        return (noteCountByProject.get(a.id) ?? 0) - (noteCountByProject.get(b.id) ?? 0);
+        return (
+          (noteCountByProject.get(a.id) ?? 0) -
+          (noteCountByProject.get(b.id) ?? 0)
+        );
       case "scheduled":
         return (a.scheduledFor ?? "").localeCompare(b.scheduledFor ?? "");
       case "due":
@@ -213,7 +232,10 @@ export default function ProjectsPage() {
   }
 
   const visibleProjects = useMemo(() => {
-    const rows = projectsQuery.data?.data ?? [];
+    const rows = [
+      ...(generalProject ? [generalProject] : []),
+      ...(projectsQuery.data?.data ?? []),
+    ];
     const query = search.trim().toLowerCase();
     const filtered = rows.filter((project) => {
       if (status !== "All" && project.status !== status) return false;
@@ -228,11 +250,13 @@ export default function ProjectsPage() {
       return true;
     });
     return [...filtered].sort(
-      (a, b) => compareProjects(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
+      (a, b) =>
+        compareProjects(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     projectsQuery.data,
+    generalProject,
     search,
     status,
     role,
@@ -242,7 +266,8 @@ export default function ProjectsPage() {
     noteCountByProject,
   ]);
 
-  const hasActiveFilters = search !== "" || status !== "All" || role !== "All roles";
+  const hasActiveFilters =
+    search !== "" || status !== "All" || role !== "All roles";
 
   function clearFilters() {
     setSearch("");
@@ -298,7 +323,9 @@ export default function ProjectsPage() {
         eyebrow="Workflows"
         title="Projects"
         description="Track research work by stage, dates, collaborators and outstanding tasks."
-        actions={<Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>}
+        actions={
+          <Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>
+        }
       />
 
       <NewProjectDialog
@@ -317,7 +344,8 @@ export default function ProjectsPage() {
           <DialogHeader>
             <DialogTitle>Project collaborators</DialogTitle>
             <DialogDescription>
-              Invite collaborators to {sharingProject?.title ?? "this project"} by email and manage pending access.
+              Invite collaborators to {sharingProject?.title ?? "this project"}{" "}
+              by email and manage pending access.
             </DialogDescription>
           </DialogHeader>
           {sharingProject ? (
@@ -332,97 +360,6 @@ export default function ProjectsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
-      {generalProject ? (
-        <section
-          aria-labelledby="general-project-heading"
-          className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card p-5"
-        >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <FolderKanban className="h-5 w-5" />
-              </span>
-
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                  General workspace
-                </p>
-
-                <Link
-                  id="general-project-heading"
-                  to={`/projects/${generalProject.id}`}
-                  className="mt-0.5 block text-lg font-semibold hover:text-primary hover:underline"
-                >
-                  {generalProject.title}
-                </Link>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Catch-all work that does not belong to a project.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-4 rounded-lg border bg-background/70 px-4 py-2">
-                <div>
-                  <p className="text-lg font-semibold tabular-nums">
-                    {moduleCountByProject.get(generalProject.id) ?? 0}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Papers</p>
-                </div>
-
-                <div className="h-8 w-px bg-border" />
-
-                <div>
-                  <p className="text-lg font-semibold tabular-nums">
-                    {noteCountByProject.get(generalProject.id) ?? 0}
-                  </p>
-                  <p className="text-xs text-muted-foreground">Notes</p>
-                </div>
-              </div>
-
-              <Button asChild variant="outline" size="sm">
-                <Link to={`/projects/${generalProject.id}`}>
-                  View project
-                </Link>
-              </Button>
-
-              {generalProject.tenantId === tenantId ? (
-                <button
-                  type="button"
-                  onClick={() => setSharingProject(generalProject)}
-                  aria-label="Manage collaborators for General"
-                  title="Manage collaborators"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <UserPlus className="h-4 w-4" />
-                </button>
-              ) : null}
-
-              <Link
-                to={`/projects/${generalProject.id}?edit=true`}
-                aria-label="Edit General"
-                title="Edit project"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Pencil className="h-4 w-4" />
-              </Link>
-
-              {me.data?.id === generalProject.userId ? (
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteProject(generalProject)}
-                  aria-label="Delete General"
-                  title="Delete project"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
 
       <div>
         <h2 className="text-lg font-semibold">Projects</h2>
@@ -430,7 +367,7 @@ export default function ProjectsPage() {
           Research projects with their own scope, schedule, and deliverables.
         </p>
       </div>
-      
+
       <div className="surface-toolbar flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           <SearchInput
@@ -441,7 +378,10 @@ export default function ProjectsPage() {
             placeholder="Search projects…"
             className="sm:max-w-xs"
           />
-          <Select value={status} onValueChange={(value) => setStatus(value as StatusFilter)}>
+          <Select
+            value={status}
+            onValueChange={(value) => setStatus(value as StatusFilter)}
+          >
             <SelectTrigger className="sm:w-40">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -453,14 +393,19 @@ export default function ProjectsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={role} onValueChange={(value) => setRole(value as RoleFilter)}>
+          <Select
+            value={role}
+            onValueChange={(value) => setRole(value as RoleFilter)}
+          >
             <SelectTrigger className="sm:w-40">
               <SelectValue placeholder="Role" />
             </SelectTrigger>
             <SelectContent>
               {ROLE_FILTERS.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {option === "All roles" ? option : option.replace(/^\w/, (c) => c.toUpperCase())}
+                  {option === "All roles"
+                    ? option
+                    : option.replace(/^\w/, (c) => c.toUpperCase())}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -558,25 +503,36 @@ export default function ProjectsPage() {
                         </button>
                       </div>
                       <span className="max-w-md text-xs text-muted-foreground">
-                        {project.description || project.researchArea || "No description"}
+                        {project.description ||
+                          project.researchArea ||
+                          "No description"}
                       </span>
                     </div>
                   ) : null}
 
                   {columns.isColumnVisible("role") ? (
-                    <Badge variant="outline" className={rolePillClass(project.role)}>
+                    <Badge
+                      variant="outline"
+                      className={rolePillClass(project.role)}
+                    >
                       {project.role ?? "—"}
                     </Badge>
                   ) : null}
 
                   {columns.isColumnVisible("importance") ? (
-                    <Badge variant="outline" className={priorityPillClass(project.importance)}>
+                    <Badge
+                      variant="outline"
+                      className={priorityPillClass(project.importance)}
+                    >
                       {project.importance ?? "—"}
                     </Badge>
                   ) : null}
 
                   {columns.isColumnVisible("status") ? (
-                    <Badge variant="outline" className={statusPillClass(project.status)}>
+                    <Badge
+                      variant="outline"
+                      className={statusPillClass(project.status)}
+                    >
                       {project.status ?? "—"}
                     </Badge>
                   ) : null}
@@ -603,7 +559,10 @@ export default function ProjectsPage() {
                     <span
                       className={cn(
                         "text-sm tabular-nums",
-                        isOverdue(project.dueDate, project.status === "Complete")
+                        isOverdue(
+                          project.dueDate,
+                          project.status === "Complete",
+                        )
                           ? "font-semibold text-destructive"
                           : "text-muted-foreground",
                       )}

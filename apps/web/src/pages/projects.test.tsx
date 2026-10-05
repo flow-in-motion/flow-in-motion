@@ -84,7 +84,13 @@ const hookMocks = vi.hoisted(() => ({
 
 vi.mock("@/api/client", () => ({
   apiClient: {
-    POST: vi.fn().mockResolvedValue({ data: {}, error: undefined, response: new Response() }),
+    POST: vi
+      .fn()
+      .mockResolvedValue({
+        data: {},
+        error: undefined,
+        response: new Response(),
+      }),
   },
 }));
 
@@ -106,13 +112,13 @@ vi.mock("@/api/hooks", () => ({
       displayName: "Avi Researcher",
     },
   }),
-  useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
-  useProjects: (
-    tenantId: string,
-    page = 1,
-  ) => {
+  useCurrentWorkspace: () => ({
+    data: { id: fixtures.tenantId },
+    isPending: false,
+  }),
+  useProjects: (tenantId: string, page = 1) => {
     hookMocks.useProjects(tenantId, page);
-  
+
     return {
       data: {
         generalProject: {
@@ -221,26 +227,23 @@ describe("ProjectsPage", () => {
     fixtures.modules = [fixtures.module];
     hookMocks.useProjects.mockClear();
     hookMocks.pagination.totalItems = 1;
-    hookMocks.pagination.totalPages = 1;    
+    hookMocks.pagination.totalPages = 1;
   });
   it("requests the next projects page when Next is clicked", () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;
-  
+
     renderPage();
-  
-    expect(hookMocks.useProjects).toHaveBeenCalledWith(
-      fixtures.tenantId,
-      1,
-    );
-  
+
+    expect(hookMocks.useProjects).toHaveBeenCalledWith(fixtures.tenantId, 1);
+
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  
+
     expect(hookMocks.useProjects).toHaveBeenLastCalledWith(
       fixtures.tenantId,
       2,
     );
-  
+
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
   it("provides a direct edit action for each project row", () => {
@@ -254,30 +257,17 @@ describe("ProjectsPage", () => {
     expect(screen.getByText("Low")).toBeInTheDocument();
   });
 
-  it("shows General separately from the projects table", () => {
+  it("shows General together with the other projects", () => {
     renderPage();
-  
-    expect(
-      screen.getByText("General workspace"),
-    ).toBeInTheDocument();
-  
-    expect(
-      screen.getByRole("heading", { name: "Projects", level: 2 }),
-    ).toBeInTheDocument();
-  
+
+    expect(screen.queryByText("General workspace")).not.toBeInTheDocument();
+
     const generalLink = screen.getByRole("link", {
       name: "General",
     });
-  
-    expect(generalLink).toHaveAttribute(
-      "href",
-      "/projects/PRJ-GENERAL",
-    );
-  
-    // General is displayed in its dedicated section, not as an expandable
-    // project row in the Projects table.
-    expect(generalLink.closest('[role="button"]')).toBeNull();
-  
+
+    expect(generalLink).toHaveAttribute("href", "/projects/PRJ-GENERAL");
+
     expect(
       screen.getByText(
         "Enzyme Kinetics Inhibition Study Across Temperature Gradients",
@@ -294,9 +284,13 @@ describe("ProjectsPage", () => {
       }),
     );
 
-    expect(screen.getByRole("heading", { name: "Project collaborators" })).toBeInTheDocument();
     expect(
-      screen.getByText("Collaborators for Enzyme Kinetics Inhibition Study Across Temperature Gradients"),
+      screen.getByRole("heading", { name: "Project collaborators" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Collaborators for Enzyme Kinetics Inhibition Study Across Temperature Gradients",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -317,15 +311,23 @@ describe("ProjectsPage", () => {
     expect(
       screen.getByRole("button", { name: "Choose scheduled for date" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose due date" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Choose due date" }),
+    ).toBeInTheDocument();
   });
 
   it("directs project sharing to the post-creation invitation flow", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "New Project" }));
-    expect(screen.queryByRole("combobox", { name: "Collaborators" })).not.toBeInTheDocument();
-    expect(screen.getByText(/After creating the project, open it to invite collaborators by email/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Collaborators" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /After creating the project, open it to invite collaborators by email/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows linked paper/note counts and a description line directly in the row, without needing to expand", () => {
@@ -335,10 +337,16 @@ describe("ProjectsPage", () => {
       name: "Enzyme Kinetics Inhibition Study Across Temperature Gradients",
     });
     expect(projectLink).toHaveAttribute("href", "/projects/PRJ-101");
-    expect(screen.queryByRole("button", { name: /expand/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /expand/i }),
+    ).not.toBeInTheDocument();
 
     const projectRow = projectLink.closest(".grid") as HTMLElement;
-    expect(within(projectRow).getByText("A study of enzyme kinetics under varying temperature.")).toBeInTheDocument();
+    expect(
+      within(projectRow).getByText(
+        "A study of enzyme kinetics under varying temperature.",
+      ),
+    ).toBeInTheDocument();
 
     const columnValues = within(projectRow).getAllByText("1");
     expect(columnValues.length).toBeGreaterThanOrEqual(2);
@@ -347,12 +355,21 @@ describe("ProjectsPage", () => {
   it("shows a Papers column with the linked paper count, and no Progress column", () => {
     fixtures.modules = [
       fixtures.module,
-      { ...fixtures.module, id: "module-2", displayId: "MOD-2", title: "Second paper" },
+      {
+        ...fixtures.module,
+        id: "module-2",
+        displayId: "MOD-2",
+        title: "Second paper",
+      },
     ];
     renderPage();
 
-    expect(screen.getByRole("button", { name: "Sort by Papers" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Sort by Progress" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Papers" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Sort by Progress" }),
+    ).not.toBeInTheDocument();
 
     const projectLink = screen.getByRole("link", {
       name: "Enzyme Kinetics Inhibition Study Across Temperature Gradients",
@@ -363,9 +380,27 @@ describe("ProjectsPage", () => {
 
   it("sorts by column, toggling direction on repeated clicks", () => {
     fixtures.projects = [
-      { ...fixtures.project, id: "PRJ-C", displayId: "PRJ-C", title: "Charlie project", dueDate: "2026-08-03" },
-      { ...fixtures.project, id: "PRJ-A", displayId: "PRJ-A", title: "Alpha project", dueDate: "2026-08-01" },
-      { ...fixtures.project, id: "PRJ-B", displayId: "PRJ-B", title: "Bravo project", dueDate: "2026-08-02" },
+      {
+        ...fixtures.project,
+        id: "PRJ-C",
+        displayId: "PRJ-C",
+        title: "Charlie project",
+        dueDate: "2026-08-03",
+      },
+      {
+        ...fixtures.project,
+        id: "PRJ-A",
+        displayId: "PRJ-A",
+        title: "Alpha project",
+        dueDate: "2026-08-01",
+      },
+      {
+        ...fixtures.project,
+        id: "PRJ-B",
+        displayId: "PRJ-B",
+        title: "Bravo project",
+        dueDate: "2026-08-02",
+      },
     ];
     renderPage();
 
@@ -374,16 +409,30 @@ describe("ProjectsPage", () => {
         .getAllByRole("link")
         .map((el) => el.textContent)
         .filter((text): text is string =>
-          ["Alpha project", "Bravo project", "Charlie project"].includes(text ?? ""),
+          ["Alpha project", "Bravo project", "Charlie project"].includes(
+            text ?? "",
+          ),
         );
 
     // Default sort is by Due Date, ascending.
-    expect(titleOrder()).toEqual(["Alpha project", "Bravo project", "Charlie project"]);
+    expect(titleOrder()).toEqual([
+      "Alpha project",
+      "Bravo project",
+      "Charlie project",
+    ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Project" }));
-    expect(titleOrder()).toEqual(["Alpha project", "Bravo project", "Charlie project"]);
+    expect(titleOrder()).toEqual([
+      "Alpha project",
+      "Bravo project",
+      "Charlie project",
+    ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Project" }));
-    expect(titleOrder()).toEqual(["Charlie project", "Bravo project", "Alpha project"]);
+    expect(titleOrder()).toEqual([
+      "Charlie project",
+      "Bravo project",
+      "Alpha project",
+    ]);
   });
 });
