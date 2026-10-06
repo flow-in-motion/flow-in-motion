@@ -31,7 +31,11 @@ const store = vi.hoisted(() => {
   const listeners = new Set<() => void>();
   return {
     useMe: () => ({
-      data: { id: "user-owner", displayName: "Avi Researcher", email: "owner@example.com" },
+      data: {
+        id: "user-owner",
+        displayName: "Avi Researcher",
+        email: "owner@example.com",
+      },
     }),
     getModules: () => modules,
     setModules: (next: ModuleFixture[]) => {
@@ -59,7 +63,11 @@ const fixtures = vi.hoisted(() => ({
     userId: string;
     title: string;
   }>,
-  tasks: [] as Array<{ id: string; moduleId: string | null; status: string | null }>,
+  tasks: [] as Array<{
+    id: string;
+    moduleId: string | null;
+    status: string | null;
+  }>,
   members: [
     {
       id: "membership-owner",
@@ -70,21 +78,48 @@ const fixtures = vi.hoisted(() => ({
     },
   ],
   stageValues: [
-    { id: "stage-1", tenantId: null, category: "module_pipeline_stage", value: "Concept & Ideation", sortOrder: 1, hidden: false, createdAt: "", updatedAt: "" },
-    { id: "stage-2", tenantId: null, category: "module_pipeline_stage", value: "Literature Review", sortOrder: 2, hidden: false, createdAt: "", updatedAt: "" },
+    {
+      id: "stage-1",
+      tenantId: null,
+      category: "module_pipeline_stage",
+      value: "Concept & Ideation",
+      sortOrder: 1,
+      hidden: false,
+      createdAt: "",
+      updatedAt: "",
+    },
+    {
+      id: "stage-2",
+      tenantId: null,
+      category: "module_pipeline_stage",
+      value: "Literature Review",
+      sortOrder: 2,
+      hidden: false,
+      createdAt: "",
+      updatedAt: "",
+    },
   ],
 }));
 
 vi.mock("@/api/client", () => ({
   apiClient: {
-    POST: vi.fn().mockResolvedValue({ data: {}, error: undefined, response: new Response() }),
+    POST: vi
+      .fn()
+      .mockResolvedValue({
+        data: {},
+        error: undefined,
+        response: new Response(),
+      }),
   },
 }));
 
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore: useStore } = await import("react");
   return {
-    useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
+    useCurrentWorkspace: () => ({
+      data: { id: fixtures.tenantId },
+      isPending: false,
+    }),
     useTrackEvent: () => vi.fn(),
     useMe: store.useMe,
     useMembers: () => ({
@@ -134,28 +169,29 @@ vi.mock("@/api/hooks", async () => {
     useTasks: () => ({
       data: {
         data: fixtures.tasks,
-        meta: { page: 1, pageSize: 20, totalItems: fixtures.tasks.length, totalPages: 1 },
+        meta: {
+          page: 1,
+          pageSize: 20,
+          totalItems: fixtures.tasks.length,
+          totalPages: 1,
+        },
       },
       isPending: false,
     }),
     useNotes: () => ({
-      data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } },
+      data: {
+        data: [],
+        meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 },
+      },
       isPending: false,
     }),
     useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useModules: (
-      tenantId: string,
-      projectId?: string,
-      page = 1,
-    ) => {
+    useModules: (tenantId: string, projectId?: string, page = 1) => {
       hookMocks.useModules(tenantId, projectId, page);
 
-      const moduleRows = useStore(
-        store.subscribe,
-        store.getModules,
-      );
-    
+      const moduleRows = useStore(store.subscribe, store.getModules);
+
       return {
         data: {
           data: moduleRows,
@@ -179,7 +215,11 @@ vi.mock("@/api/hooks", async () => {
           ? [{ id: "role-owner", value: "Owner" }]
           : [],
     }),
-    useModulePipelineStagePool: () => ({ data: fixtures.stageValues, isPending: false, isError: false }),
+    useModulePipelineStagePool: () => ({
+      data: fixtures.stageValues,
+      isPending: false,
+      isError: false,
+    }),
     useCreateModule: () => ({
       mutateAsync: vi.fn(async (input: Record<string, unknown>) => {
         const modules = store.getModules();
@@ -194,7 +234,8 @@ vi.mock("@/api/hooks", async () => {
           status: (input.status as string | undefined) ?? "Active",
           pipelineStage: (input.pipelineStage as string | undefined) ?? null,
           dueDate: (input.dueDate as string | undefined) ?? null,
-          assignedToUserId: (input.assignedToUserId as string | undefined) ?? null,
+          assignedToUserId:
+            (input.assignedToUserId as string | undefined) ?? null,
           archivedAt: null,
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
@@ -205,10 +246,18 @@ vi.mock("@/api/hooks", async () => {
     }),
     useUpdateModule: () => ({
       mutateAsync: vi.fn(
-        async ({ moduleId, input }: { moduleId: string; input: Record<string, unknown> }) => {
-          const updated = store.getModules().map((item) =>
-            item.id === moduleId ? { ...item, ...input } : item,
-          );
+        async ({
+          moduleId,
+          input,
+        }: {
+          moduleId: string;
+          input: Record<string, unknown>;
+        }) => {
+          const updated = store
+            .getModules()
+            .map((item) =>
+              item.id === moduleId ? { ...item, ...input } : item,
+            );
           store.setModules(updated);
           return updated.find((item) => item.id === moduleId);
         },
@@ -216,28 +265,48 @@ vi.mock("@/api/hooks", async () => {
     }),
     useArchiveModule: () => ({
       mutateAsync: vi.fn(async (moduleId: string) => {
-        store.setModules(store.getModules().filter((item) => item.id !== moduleId));
+        store.setModules(
+          store.getModules().filter((item) => item.id !== moduleId),
+        );
       }),
     }),
     useModuleCollaborators: () => ({
-      data: [{
-        id: "collaborator-owner",
-        tenantId: fixtures.tenantId,
-        userId: "user-owner",
-        roleId: "role-owner",
-        role: "Owner",
-        displayName: "Avi Researcher",
-        email: "owner@example.com",
-        createdAt: "",
-        updatedAt: "",
-      }],
+      data: [
+        {
+          id: "collaborator-owner",
+          tenantId: fixtures.tenantId,
+          userId: "user-owner",
+          roleId: "role-owner",
+          role: "Owner",
+          displayName: "Avi Researcher",
+          email: "owner@example.com",
+          createdAt: "",
+          updatedAt: "",
+        },
+      ],
       isPending: false,
     }),
     useRemoveModuleCollaborator: () => ({ mutate: vi.fn(), isPending: false }),
-    useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
-    useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+    useCollaboratorInvitations: () => ({
+      data: [],
+      isPending: false,
+      isError: false,
+    }),
+    useCreateDraftInvitation: () => ({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
+    useSendInvitation: () => ({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
+    useRevokeCollaboratorInvitation: () => ({
+      mutate: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
     useUserSearch: () => ({ data: [], isPending: false, isError: false }),
   };
 });
@@ -268,41 +337,70 @@ describe("ModulesPage", () => {
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
   });
-  it.each<{ count: number; current: string | null; hidden: number[]; expected: number }>([
+  it.each<{
+    count: number;
+    current: string | null;
+    hidden: number[];
+    expected: number;
+  }>([
     { count: 10, current: "Stage 3", hidden: [], expected: 30 },
     { count: 10, current: "Stage 3", hidden: [1, 2, 8, 9, 10], expected: 20 },
     { count: 10, current: "Stage 10", hidden: [1, 2], expected: 100 },
     { count: 1, current: "Stage 1", hidden: [], expected: 100 },
     { count: 0, current: null, hidden: [], expected: 0 },
     { count: 3, current: "Stage 2", hidden: [2], expected: 0 },
-  ])("uses selected stages for progress: $current, $expected%", ({ count, current, hidden, expected }) => {
-    const originalStages = fixtures.stageValues;
-    try {
-      fixtures.stageValues = Array.from({ length: count }, (_, index) => ({
-        ...originalStages[0],
-        id: `stage-${index + 1}`,
-        value: `Stage ${index + 1}`,
-        sortOrder: index + 1,
-        hidden: hidden.includes(index + 1),
-      })).reverse();
-      store.setModules(store.getModules().map((module) => ({ ...module, pipelineStage: current })));
-      render(<MemoryRouter><ModulesPage /></MemoryRouter>);
+  ])(
+    "uses selected stages for progress: $current, $expected%",
+    ({ count, current, hidden, expected }) => {
+      const originalStages = fixtures.stageValues;
+      try {
+        fixtures.stageValues = Array.from({ length: count }, (_, index) => ({
+          ...originalStages[0],
+          id: `stage-${index + 1}`,
+          value: `Stage ${index + 1}`,
+          sortOrder: index + 1,
+          hidden: hidden.includes(index + 1),
+        })).reverse();
+        store.setModules(
+          store
+            .getModules()
+            .map((module) => ({ ...module, pipelineStage: current })),
+        );
+        render(
+          <MemoryRouter>
+            <ModulesPage />
+          </MemoryRouter>,
+        );
 
-      const percentage = screen.getByText(`${expected}%`);
-      expect(percentage.parentElement?.querySelector(".bg-primary")).toHaveStyle({ width: `${expected}%` });
-    } finally {
-      fixtures.stageValues = originalStages;
-    }
-  });
+        const percentage = screen.getByText(`${expected}%`);
+        expect(
+          percentage.parentElement?.querySelector(".bg-primary"),
+        ).toHaveStyle({ width: `${expected}%` });
+      } finally {
+        fixtures.stageValues = originalStages;
+      }
+    },
+  );
 
   it("updates progress when selected stages are reordered", () => {
     const originalStages = fixtures.stageValues;
     try {
-      const { rerender } = render(<MemoryRouter><ModulesPage /></MemoryRouter>);
+      const { rerender } = render(
+        <MemoryRouter>
+          <ModulesPage />
+        </MemoryRouter>,
+      );
       expect(screen.getByText("50%")).toBeInTheDocument();
 
-      fixtures.stageValues = originalStages.map((stage) => ({ ...stage, sortOrder: 3 - stage.sortOrder }));
-      rerender(<MemoryRouter><ModulesPage /></MemoryRouter>);
+      fixtures.stageValues = originalStages.map((stage) => ({
+        ...stage,
+        sortOrder: 3 - stage.sortOrder,
+      }));
+      rerender(
+        <MemoryRouter>
+          <ModulesPage />
+        </MemoryRouter>,
+      );
       expect(screen.getByText("100%")).toBeInTheDocument();
     } finally {
       fixtures.stageValues = originalStages;
@@ -312,30 +410,48 @@ describe("ModulesPage", () => {
   it("requests the next modules page when Next is clicked", () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;
-  
+
     render(
       <MemoryRouter>
         <ModulesPage />
       </MemoryRouter>,
     );
-  
+
     expect(hookMocks.useModules).toHaveBeenCalledWith(
       fixtures.tenantId,
       undefined,
       1,
     );
-  
+
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  
+
     expect(hookMocks.useModules).toHaveBeenLastCalledWith(
       fixtures.tenantId,
       undefined,
       2,
     );
-  
+
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
-  
+
+  it("shows General for a paper assigned to the General project", () => {
+    store.setModules(
+      store.getModules().map((module) => ({
+        ...module,
+        projectId: "project-general",
+      })),
+    );
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("General")).toBeInTheDocument();
+    expect(screen.queryByText("Unknown project")).not.toBeInTheDocument();
+  });
+
   it("creates an independent module and shows it in the table", async () => {
     render(
       <MemoryRouter>
@@ -344,11 +460,13 @@ describe("ModulesPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
-    expect(screen.getByRole("textbox", { name: /Description/ })).not.toBeRequired();
+    expect(
+      screen.getByRole("textbox", { name: /Description/ }),
+    ).not.toBeRequired();
     await waitFor(() =>
-      expect(screen.getByRole("combobox", { name: /Pipeline stage/ })).toHaveTextContent(
-        "Concept & Ideation",
-      ),
+      expect(
+        screen.getByRole("combobox", { name: /Pipeline stage/ }),
+      ).toHaveTextContent("Concept & Ideation"),
     );
     fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
       target: { value: "Independent literature synthesis" },
@@ -356,7 +474,9 @@ describe("ModulesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
 
     await waitFor(() =>
-      expect(screen.getByText("Independent literature synthesis")).toBeInTheDocument(),
+      expect(
+        screen.getByText("Independent literature synthesis"),
+      ).toBeInTheDocument(),
     );
     expect(screen.getAllByText("Independent paper").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Concept & Ideation").length).toBeGreaterThan(0);
@@ -382,8 +502,9 @@ describe("ModulesPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("link", { name: "Edit Literature synthesis" }))
-      .toHaveAttribute("href", "/modules/module-1?edit=true");
+    expect(
+      screen.getByRole("link", { name: "Edit Literature synthesis" }),
+    ).toHaveAttribute("href", "/modules/module-1?edit=true");
   });
 
   it("archives a module", async () => {
@@ -394,16 +515,22 @@ describe("ModulesPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Archive Literature synthesis" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Archive Literature synthesis" }),
+    );
     expect(confirm).toHaveBeenCalled();
 
     await waitFor(() =>
-      expect(screen.queryByText("Literature synthesis")).not.toBeInTheDocument(),
+      expect(
+        screen.queryByText("Literature synthesis"),
+      ).not.toBeInTheDocument(),
     );
   });
 
   it("allows a module to be linked to a project", async () => {
-    fixtures.projects = [{ id: "project-1", userId: "user-owner", title: "Genome Project" }];
+    fixtures.projects = [
+      { id: "project-1", userId: "user-owner", title: "Genome Project" },
+    ];
     render(
       <MemoryRouter>
         <ModulesPage />
@@ -415,14 +542,20 @@ describe("ModulesPage", () => {
       target: { value: "Linked paper" },
     });
 
-    const projectSearch = screen.getByPlaceholderText("Search projects by title");
+    const projectSearch = screen.getByPlaceholderText(
+      "Search projects by title",
+    );
     fireEvent.click(projectSearch);
     fireEvent.click(await screen.findByText("Genome Project"));
 
     fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
 
-    await waitFor(() => expect(screen.getByText("Linked paper")).toBeInTheDocument());
-    expect(screen.getByRole("link", { name: "Genome Project" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("Linked paper")).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("link", { name: "Genome Project" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps collaborator management inside the paper edit page", () => {
@@ -433,7 +566,9 @@ describe("ModulesPage", () => {
     );
 
     expect(
-      screen.queryByRole("button", { name: "Manage collaborators for Literature synthesis" }),
+      screen.queryByRole("button", {
+        name: "Manage collaborators for Literature synthesis",
+      }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Edit Literature synthesis" }),
@@ -489,7 +624,9 @@ describe("ModulesPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("button", { name: "Sort by Progress" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Progress" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("50%")).toBeInTheDocument();
     expect(screen.queryByText("75%")).not.toBeInTheDocument();
   });
@@ -556,13 +693,23 @@ describe("ModulesPage", () => {
         .getAllByRole("link")
         .map((el) => el.textContent)
         .filter((text): text is string =>
-          ["Alpha module", "Bravo module", "Charlie module"].includes(text ?? ""),
+          ["Alpha module", "Bravo module", "Charlie module"].includes(
+            text ?? "",
+          ),
         );
 
-    expect(titleOrder()).toEqual(["Alpha module", "Bravo module", "Charlie module"]);
+    expect(titleOrder()).toEqual([
+      "Alpha module",
+      "Bravo module",
+      "Charlie module",
+    ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Paper" }));
-    expect(titleOrder()).toEqual(["Charlie module", "Bravo module", "Alpha module"]);
+    expect(titleOrder()).toEqual([
+      "Charlie module",
+      "Bravo module",
+      "Alpha module",
+    ]);
   });
 
   it("points to inviting collaborators after the paper is created, instead of staging them", () => {
@@ -574,7 +721,9 @@ describe("ModulesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
 
-    expect(screen.queryByLabelText("Collaborator email")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Collaborator email"),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(
         "After creating the paper, open it to invite collaborators by email using a secure acceptance link.",
