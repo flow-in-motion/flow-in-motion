@@ -335,6 +335,8 @@ describe('ProjectModulesService', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
       );
 
       expect(result.data.map((module) => module.id)).toEqual([
@@ -348,6 +350,39 @@ describe('ProjectModulesService', () => {
         totalItems: 45,
         totalPages: 3,
       });
+    });
+
+    it('passes status and stage filters to the repository before pagination', async () => {
+      repository.findVisibleActiveByTenant.mockResolvedValue({
+        data: [],
+        totalItems: 0,
+      });
+
+      await service.listActive(
+        'tenant-1',
+        'user-1',
+        1,
+        20,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        ['Complete', 'Stalled'],
+        ['Literature Review', 'Submitted, Under Review'],
+      );
+
+      expect(repository.findVisibleActiveByTenant).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+        0,
+        20,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        ['Complete', 'Stalled'],
+        ['Literature Review', 'Submitted, Under Review'],
+      );
     });
   });
 

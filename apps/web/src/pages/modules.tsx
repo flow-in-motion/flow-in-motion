@@ -1,6 +1,13 @@
 import { useListSearch } from "@/hooks/use-list-search";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileStack, Pencil, Trash2 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import { ChevronDown, FileStack, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
@@ -30,19 +37,18 @@ import { PageHeading } from "@/components/typography/heading";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { formatListDate, isOverdue } from "@/lib/list-format";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
-const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
 const MODULE_COLUMNS = [
   { id: "module", label: "Paper", width: "minmax(280px,2fr)" },
   { id: "project", label: "Project", width: "180px" },
@@ -53,9 +59,76 @@ const MODULE_COLUMNS = [
   { id: "assignee", label: "Assigned To", width: "150px" },
 ] as const;
 
-type StatusFilter = (typeof STATUS_FILTERS)[number];
 type SortColumn = (typeof MODULE_COLUMNS)[number]["id"];
 type SortDirection = "asc" | "desc";
+
+interface MultiSelectFilterProps {
+  options: readonly string[];
+  selected: ReadonlySet<string>;
+  pluralLabel: string;
+  triggerClassName: string;
+  onToggle: (value: string) => void;
+  onClear: () => void;
+}
+
+function MultiSelectFilter({
+  options,
+  selected,
+  pluralLabel,
+  triggerClassName,
+  onToggle,
+  onClear,
+}: MultiSelectFilterProps) {
+  const triggerLabel =
+    selected.size === 0
+      ? `All ${pluralLabel}`
+      : selected.size === 1
+        ? [...selected][0]
+        : `${selected.size} ${pluralLabel}`;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("justify-between gap-2", triggerClassName)}
+          aria-label={`Filter by ${pluralLabel}`}
+        >
+          <span className="truncate">{triggerLabel}</span>
+          <ChevronDown
+            className="h-4 w-4 shrink-0 opacity-50"
+            aria-hidden="true"
+          />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="max-h-72 min-w-64 overflow-y-auto"
+      >
+        <DropdownMenuCheckboxItem
+          checked={selected.size === 0}
+          onSelect={(event) => event.preventDefault()}
+          onCheckedChange={onClear}
+        >
+          All {pluralLabel}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator />
+        {options.map((option) => (
+          <DropdownMenuCheckboxItem
+            key={option}
+            checked={selected.has(option)}
+            onSelect={(event) => event.preventDefault()}
+            onCheckedChange={() => onToggle(option)}
+          >
+            {option}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 const MODULE_STATUS_ORDER: Record<string, number> = {
   Active: 0,
@@ -98,9 +171,18 @@ export default function ModulesPage() {
   const { page, setPage, search, setSearch, requestSearch } = useListSearch();
   const [pageSize, setPageSize] = useState<number | "all">(20);
 
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [selectedStages, setSelectedStages] = useState<Set<string>>(
+    () => new Set(),
+  );
+
   const modulesQuery = useModules(tenantId, undefined, page, true, {
     pageSize,
     search: requestSearch,
+    statuses: [...selectedStatuses],
+    stages: [...selectedStages],
   });
   const modules = modulesQuery.data?.data ?? [];
   const paginationMeta = modulesQuery.data?.meta;
@@ -124,13 +206,18 @@ export default function ModulesPage() {
   const archiveModule = useArchiveModule(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [status, setStatus] = useState<StatusFilter>("All");
-  const [stage, setStage] = useState<string>("All");
   const [sortColumn, setSortColumn] = useState<SortColumn>("module");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   useEffect(() => {
     setPage(1);
-  }, [setPage, tenantId, status, stage, sortColumn, sortDirection]);
+  }, [
+    setPage,
+    tenantId,
+    selectedStatuses,
+    selectedStages,
+    sortColumn,
+    sortDirection,
+  ]);
   const columns = useColumnVisibility(
     MODULE_COLUMNS.map((column) => column.id),
     "modules",
@@ -220,8 +307,18 @@ export default function ModulesPage() {
 
   const visibleModules = useMemo(() => {
     const filtered = modules.filter((module) => {
-      if (status !== "All" && module.status !== status) return false;
-      if (stage !== "All" && module.pipelineStage !== stage) return false;
+      if (
+        selectedStatuses.size > 0 &&
+        !selectedStatuses.has(module.status ?? "")
+      ) {
+        return false;
+      }
+      if (
+        selectedStages.size > 0 &&
+        !selectedStages.has(module.pipelineStage ?? "")
+      ) {
+        return false;
+      }
       return true;
     });
     return [...filtered].sort(
@@ -232,8 +329,8 @@ export default function ModulesPage() {
   }, [
     modules,
     search,
-    status,
-    stage,
+    selectedStatuses,
+    selectedStages,
     projectName,
     assigneeName,
     progressByStage,
@@ -241,7 +338,20 @@ export default function ModulesPage() {
     sortDirection,
   ]);
 
-  const hasActiveFilters = search !== "" || status !== "All" || stage !== "All";
+  const hasActiveFilters =
+    search !== "" || selectedStatuses.size > 0 || selectedStages.size > 0;
+
+  function toggleSelected(
+    setter: Dispatch<SetStateAction<Set<string>>>,
+    value: string,
+  ) {
+    setter((current) => {
+      const next = new Set(current);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  }
 
   async function handleCreateModule(input: ModuleFormInput) {
     const module = await createModule.mutateAsync({
@@ -345,34 +455,22 @@ export default function ModulesPage() {
           placeholder="Search papers…"
           className="sm:max-w-xs"
         />
-        <Select
-          value={status}
-          onValueChange={(value) => setStatus(value as StatusFilter)}
-        >
-          <SelectTrigger className="sm:w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_FILTERS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option === "All" ? "All statuses" : option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={stage} onValueChange={setStage}>
-          <SelectTrigger className="sm:w-48" aria-label="Stage">
-            <SelectValue placeholder="Stage" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All stages</SelectItem>
-            {visibleStages.map((stageValue) => (
-              <SelectItem key={stageValue.id} value={stageValue.value}>
-                {stageValue.value}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelectFilter
+          options={STATUS_OPTIONS}
+          selected={selectedStatuses}
+          pluralLabel="statuses"
+          triggerClassName="sm:w-40"
+          onToggle={(value) => toggleSelected(setSelectedStatuses, value)}
+          onClear={() => setSelectedStatuses(new Set())}
+        />
+        <MultiSelectFilter
+          options={visibleStages.map((stageValue) => stageValue.value)}
+          selected={selectedStages}
+          pluralLabel="stages"
+          triggerClassName="sm:w-48"
+          onToggle={(value) => toggleSelected(setSelectedStages, value)}
+          onClear={() => setSelectedStages(new Set())}
+        />
         <ColumnVisibilityMenu
           columns={MODULE_COLUMNS}
           visibleColumns={columns.visibleColumns}
@@ -383,8 +481,8 @@ export default function ModulesPage() {
             type="button"
             onClick={() => {
               setSearch("");
-              setStatus("All");
-              setStage("All");
+              setSelectedStatuses(new Set());
+              setSelectedStages(new Set());
             }}
             className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >

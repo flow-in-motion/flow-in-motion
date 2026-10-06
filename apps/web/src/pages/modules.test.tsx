@@ -50,6 +50,7 @@ const store = vi.hoisted(() => {
 });
 const hookMocks = vi.hoisted(() => ({
   useModules: vi.fn(),
+  useModulesOptions: vi.fn(),
   updateModule: vi.fn(),
   pagination: {
     totalItems: 1,
@@ -186,8 +187,16 @@ vi.mock("@/api/hooks", async () => {
     }),
     useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
     useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useModules: (tenantId: string, projectId?: string, page = 1) => {
+    useModules: (
+      tenantId: string,
+      projectId?: string,
+      page = 1,
+      _enabled = true,
+      options?: Record<string, unknown>,
+    ) => {
+      void _enabled;
       hookMocks.useModules(tenantId, projectId, page);
+      hookMocks.useModulesOptions(options);
 
       const moduleRows = useStore(store.subscribe, store.getModules);
 
@@ -317,6 +326,7 @@ describe("ModulesPage", () => {
     fixtures.projects = [];
     fixtures.tasks = [];
     hookMocks.useModules.mockClear();
+    hookMocks.useModulesOptions.mockClear();
     hookMocks.updateModule.mockReset();
     hookMocks.updateModule.mockImplementation(
       async ({
@@ -608,18 +618,48 @@ describe("ModulesPage", () => {
     ).toHaveAttribute("href", "/modules/module-1?edit=true");
   });
 
-  it("filters the table by pipeline stage", () => {
+  it("filters by multiple statuses and stages before pagination", async () => {
+    const originalStages = fixtures.stageValues;
+    fixtures.stageValues = [
+      ...originalStages,
+      {
+        ...originalStages[0],
+        id: "stage-3",
+        value: "Submitted, Under Review",
+        sortOrder: 3,
+      },
+    ];
     store.setModules([
-      ...store.getModules(),
+      {
+        ...store.getModules()[0],
+        status: "Complete",
+        pipelineStage: "Literature Review",
+      },
       {
         id: "module-2",
         displayId: "MOD-002",
         tenantId: fixtures.tenantId,
         projectId: null,
-        shortTitle: "Review-stage paper",
-        title: "Review-stage paper",
+        shortTitle: "Stalled concept paper",
+        title: "Stalled concept paper",
         description: "",
-        status: "Active",
+        status: "Stalled",
+        pipelineStage: "Concept & Ideation",
+        dueDate: null,
+        assignedToUserId: null,
+        archivedAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "module-3",
+        displayId: "MOD-003",
+        tenantId: fixtures.tenantId,
+        projectId: null,
+        shortTitle: "Review literature paper",
+        title: "Review literature paper",
+        description: "",
+        status: "Review",
         pipelineStage: "Literature Review",
         dueDate: null,
         assignedToUserId: null,
@@ -627,21 +667,82 @@ describe("ModulesPage", () => {
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
       },
+      {
+        id: "module-4",
+        displayId: "MOD-004",
+        tenantId: fixtures.tenantId,
+        projectId: null,
+        shortTitle: "Stalled submitted paper",
+        title: "Stalled submitted paper",
+        description: "",
+        status: "Stalled",
+        pipelineStage: "Submitted, Under Review",
+        dueDate: null,
+        assignedToUserId: null,
+        archivedAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
     ]);
-    render(
-      <MemoryRouter>
-        <ModulesPage />
-      </MemoryRouter>,
-    );
+    try {
+      render(
+        <MemoryRouter>
+          <ModulesPage />
+        </MemoryRouter>,
+      );
 
-    expect(screen.getByText("Literature synthesis")).toBeInTheDocument();
-    expect(screen.getByText("Review-stage paper")).toBeInTheDocument();
+      fireEvent.keyDown(
+        screen.getByRole("button", { name: "Filter by statuses" }),
+        { key: "Enter" },
+      );
+      fireEvent.click(
+        screen.getByRole("menuitemcheckbox", { name: "Complete" }),
+      );
+      fireEvent.click(
+        screen.getByRole("menuitemcheckbox", { name: "Stalled" }),
+      );
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByRole("menu")).not.toBeInTheDocument(),
+      );
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Stage" }));
-    fireEvent.click(screen.getByRole("option", { name: "Literature Review" }));
+      fireEvent.keyDown(
+        screen.getByRole("button", { name: "Filter by stages" }),
+        { key: "Enter" },
+      );
+      fireEvent.click(
+        screen.getByRole("menuitemcheckbox", { name: "Literature Review" }),
+      );
+      fireEvent.click(
+        screen.getByRole("menuitemcheckbox", { name: "Concept & Ideation" }),
+      );
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
-    expect(screen.queryByText("Literature synthesis")).not.toBeInTheDocument();
-    expect(screen.getByText("Review-stage paper")).toBeInTheDocument();
+      expect(screen.getByText("Literature synthesis")).toBeInTheDocument();
+      expect(screen.getByText("Stalled concept paper")).toBeInTheDocument();
+      expect(screen.queryByText("Review literature paper")).not.toBeInTheDocument();
+      expect(screen.queryByText("Stalled submitted paper")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Filter by statuses" }),
+      ).toHaveTextContent("2 statuses");
+      expect(
+        screen.getByRole("button", { name: "Filter by stages" }),
+      ).toHaveTextContent("2 stages");
+
+      await waitFor(() =>
+        expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            statuses: expect.arrayContaining(["Complete", "Stalled"]),
+            stages: expect.arrayContaining([
+              "Literature Review",
+              "Concept & Ideation",
+            ]),
+          }),
+        ),
+      );
+    } finally {
+      fixtures.stageValues = originalStages;
+    }
   });
 
   it("shows selected-stage progress even when linked task completion differs", () => {

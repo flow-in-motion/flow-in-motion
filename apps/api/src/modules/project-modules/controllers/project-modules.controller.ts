@@ -69,6 +69,8 @@ export class ProjectModulesController {
       query.search?.trim() || undefined,
       query.sortBy,
       query.sortDirection,
+      query.statuses,
+      query.stages,
     );
   }
 
