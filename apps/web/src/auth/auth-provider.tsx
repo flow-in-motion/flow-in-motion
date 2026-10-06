@@ -1,4 +1,4 @@
-import type { AuthError, Session, User } from "@supabase/supabase-js";
+import type { AuthError, EmailOtpType, Session, User } from "@supabase/supabase-js";
 import {
   createContext,
   useCallback,
@@ -24,6 +24,16 @@ interface AuthContextValue {
     password: string,
     returnTo?: string,
   ): Promise<{ requiresEmailConfirmation: boolean }>;
+  /**
+   * Verifies the token_hash from a confirmation, invitation, or recovery
+   * email and establishes a session from it. Supabase's own `/auth/v1/verify`
+   * redirect link requires the project's API key to be present, which a
+   * plain browser navigation from an email client can't supply — so
+   * confirmation emails must link back to this app with a token_hash
+   * instead, and the app completes verification here via supabase-js
+   * (which attaches the API key automatically).
+   */
+  confirmEmail(tokenHash: string, type: EmailOtpType): Promise<void>;
   signOut(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
@@ -106,6 +116,23 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const confirmEmail = useCallback(
+    async (tokenHash: string, type: EmailOtpType) => {
+      setError(null);
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: tokenHash,
+        type,
+      });
+      if (verifyError) {
+        const nextError = toError(verifyError)!;
+        setError(nextError);
+        throw nextError;
+      }
+      setSession(data.session);
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     setError(null);
     const { error: signOutError } = await supabase.auth.signOut();
@@ -154,12 +181,14 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       error,
       signInWithPassword,
       signUpWithPassword,
+      confirmEmail,
       signOut,
       sendPasswordReset,
       updatePassword,
       clearError: () => setError(null),
     }),
     [
+      confirmEmail,
       error,
       isLoading,
       isSessionExpired,

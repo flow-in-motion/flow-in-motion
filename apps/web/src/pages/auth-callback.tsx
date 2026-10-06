@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { AlertTriangle, KeyRound, LoaderCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "@/auth/auth-provider";
 import { AuthScreenBackground } from "@/components/layout/auth-screen-background";
@@ -9,16 +10,33 @@ import { Input } from "@/components/ui/input";
 import { Heading } from "@/components/typography/heading";
 
 /**
- * Supabase invitation and recovery links finish their PKCE exchange here.
- * These flows require the user to choose a password before entering the app.
+ * Supabase invitation and recovery links finish their exchange here. Some
+ * link to this app with a token_hash (verified below via supabase-js,
+ * which attaches the project's API key automatically — unlike a plain
+ * browser navigation to Supabase's own /auth/v1/verify URL, which 500s
+ * without one); others arrive already carrying a PKCE code or session that
+ * supabase-js's detectSessionInUrl picks up on its own. Either way, these
+ * flows require the user to choose a password before entering the app.
  */
 export default function AuthCallbackPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tokenHash = searchParams.get("token_hash");
+  const otpType = searchParams.get("type") as EmailOtpType | null;
+  const [hasAttemptedVerification, setHasAttemptedVerification] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string>();
+
+  useEffect(() => {
+    if (!tokenHash || !otpType || hasAttemptedVerification) return;
+    setHasAttemptedVerification(true);
+    void auth.confirmEmail(tokenHash, otpType).catch(() => {
+      // auth.error already carries a user-facing message for the view below.
+    });
+  }, [auth, hasAttemptedVerification, otpType, tokenHash]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
