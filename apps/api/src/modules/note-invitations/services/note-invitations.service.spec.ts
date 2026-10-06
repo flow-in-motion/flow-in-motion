@@ -154,9 +154,8 @@ describe('NoteInvitationsService', () => {
 
     it('creates a note member and marks the invitation accepted', async () => {
       repository.findByToken.mockResolvedValue(pendingInvitation);
-      notesRepository.findByIdGlobal.mockResolvedValue({
-        id: 'note-1',
-        tenantId: 'tenant-1',
+      drizzle.db.execute.mockResolvedValue({
+        rows: [{ tenant_id: 'tenant-1' }],
       });
       repository.markAccepted.mockResolvedValue({
         ...pendingInvitation,
@@ -164,6 +163,7 @@ describe('NoteInvitationsService', () => {
       });
 
       await service.accept('raw-token', 'user-2', 'collaborator@example.com');
+      expect(drizzle.db.execute).toHaveBeenCalledTimes(1);
 
       expect(noteMembersRepository.create).toHaveBeenCalledWith({
         tenantId: 'tenant-1',

@@ -141,13 +141,19 @@ export class NoteInvitationsService {
       );
     }
 
-    const note = await this.notesRepository.findByIdGlobal(invitation.noteId);
-    if (!note) {
+    const tenantResult = await this.drizzle.db.execute(
+      sql`SELECT find_note_tenant_for_invitation(${invitation.noteId}) AS tenant_id`,
+    );
+    const tenantId =
+      (tenantResult.rows[0] as { tenant_id: string | null } | undefined)
+        ?.tenant_id ?? null;
+
+    if (!tenantId) {
       throw new NotFoundException('Note not found');
     }
 
     await this.noteMembersRepository.create({
-      tenantId: note.tenantId,
+      tenantId,
       noteId: invitation.noteId,
       userId,
     });

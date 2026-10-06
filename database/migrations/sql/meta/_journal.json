@@ -330,6 +330,13 @@
       "when": 1791251305858,
       "tag": "0062_invitation_title_lookup_helpers",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1791260246664,
+      "tag": "0063_invitation_entity_tenant_lookup_helpers",
+      "breakpoints": true
     }
   ]
 }

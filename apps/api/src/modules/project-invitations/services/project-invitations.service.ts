@@ -152,17 +152,19 @@ export class ProjectInvitationsService {
       throw new NotFoundException(`Unknown project role: "${invitation.role}"`);
     }
 
-    const projectResult = await this.drizzle.db.execute(
-      sql`SELECT * FROM find_project_by_id_for_invitation(${invitation.projectId})`,
+    const tenantResult = await this.drizzle.db.execute(
+      sql`SELECT find_project_tenant_for_invitation(${invitation.projectId}) AS tenant_id`,
     );
-    const projectRow = projectResult.rows[0] as
-      { tenant_id: string } | undefined;
-    if (!projectRow?.tenant_id) {
+    const tenantId =
+      (tenantResult.rows[0] as { tenant_id: string | null } | undefined)
+        ?.tenant_id ?? null;
+
+    if (!tenantId) {
       throw new NotFoundException('Project not found');
     }
 
     await this.collaboratorsRepository.create({
-      tenantId: projectRow.tenant_id,
+      tenantId,
       projectId: invitation.projectId,
       userId,
       roleId: roleId.id,
