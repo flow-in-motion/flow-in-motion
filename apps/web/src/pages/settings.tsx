@@ -7,6 +7,7 @@ import {
   Building2,
   CheckCircle2,
   Crown,
+  KeyRound,
   LayoutTemplate,
   Mail,
   Map,
@@ -32,6 +33,7 @@ import {
   useUpdateMe,
   useWorkspaces,
 } from "@/api/hooks";
+import { useAuth } from "@/auth/auth-provider";
 import { PaperStageSettings } from "@/components/settings/paper-stage-settings";
 import { WorkspaceMembers } from "@/components/settings/workspace-members";
 import { ErrorState } from "@/components/shared/error-state";
@@ -46,6 +48,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -67,8 +77,29 @@ const workspaceSchema = z.object({
 
 type WorkspaceForm = z.infer<typeof workspaceSchema>;
 
+const passwordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password."),
+    newPassword: z
+      .string()
+      .min(12, "Use at least 12 characters for your new password."),
+    confirmPassword: z.string().min(1, "Confirm your new password."),
+  })
+  .refine((values) => values.newPassword === values.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "The new passwords do not match.",
+  })
+  .refine((values) => values.currentPassword !== values.newPassword, {
+    path: ["newPassword"],
+    message: "Choose a password different from your current password.",
+  });
+
+type PasswordForm = z.infer<typeof passwordSchema>;
+type PasswordStep = "current" | "new";
+
 export default function SettingsPage() {
   const location = useLocation();
+  const auth = useAuth();
   const me = useMe();
   const workspace = useCurrentWorkspace();
   const workspaces = useWorkspaces();
@@ -77,11 +108,23 @@ export default function SettingsPage() {
   const createWorkspaceMutation = useCreateWorkspace();
   const deleteWorkspaceMutation = useDeleteWorkspace();
   const workspaceForm = useForm<WorkspaceForm>({ defaultValues: { name: "" } });
+  const passwordForm = useForm<PasswordForm>({
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
   const designTheme = useDesignTheme();
   const colorTheme = useColorTheme();
   const appearanceTheme = useAppearanceTheme();
   const textSize = useTextSize();
   const updateProfile = useUpdateMe();
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordStep, setPasswordStep] = useState<PasswordStep>("current");
+  const [passwordSubmitError, setPasswordSubmitError] = useState<string | null>(null);
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [profile, setProfile] = useState({
     displayName: "",
     jobTitle: "",
@@ -126,6 +169,78 @@ export default function SettingsPage() {
       .mutateAsync(parsed.data.name)
       .then(() => workspaceForm.reset())
       .catch(() => undefined);
+  }
+
+  function resetPasswordDialog() {
+    passwordForm.reset();
+    passwordForm.clearErrors();
+    setPasswordStep("current");
+    setPasswordSubmitError(null);
+  }
+
+  function openPasswordDialog() {
+    resetPasswordDialog();
+    setPasswordUpdated(false);
+    setPasswordDialogOpen(true);
+  }
+
+  function handlePasswordDialogOpenChange(open: boolean) {
+    if (!open && isPasswordSubmitting) return;
+    setPasswordDialogOpen(open);
+    if (!open) resetPasswordDialog();
+  }
+
+  async function submitCurrentPassword(values: PasswordForm) {
+    passwordForm.clearErrors();
+    setPasswordSubmitError(null);
+
+    if (!values.currentPassword) {
+      passwordForm.setError("currentPassword", {
+        message: "Enter your current password.",
+      });
+      return;
+    }
+
+    setIsPasswordSubmitting(true);
+    try {
+      await auth.verifyCurrentPassword(values.currentPassword);
+      setPasswordStep("new");
+    } catch (error) {
+      setPasswordSubmitError(
+        error instanceof Error ? error.message : "Your current password could not be verified.",
+      );
+    } finally {
+      setIsPasswordSubmitting(false);
+    }
+  }
+
+  async function submitPasswordChange(values: PasswordForm) {
+    passwordForm.clearErrors();
+    setPasswordSubmitError(null);
+
+    const parsed = passwordSchema.safeParse(values);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        const field = issue.path[0] as keyof PasswordForm | undefined;
+        if (field) passwordForm.setError(field, { message: issue.message });
+      }
+      return;
+    }
+
+    setIsPasswordSubmitting(true);
+    try {
+      await auth.updatePassword(parsed.data.newPassword);
+      setPasswordDialogOpen(false);
+      passwordForm.reset();
+      setPasswordStep("current");
+      setPasswordUpdated(true);
+    } catch (error) {
+      setPasswordSubmitError(
+        error instanceof Error ? error.message : "Your password could not be changed.",
+      );
+    } finally {
+      setIsPasswordSubmitting(false);
+    }
   }
 
   async function switchToWorkspace(workspaceId: string) {
@@ -389,6 +504,156 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-primary" />
+                Change password
+              </CardTitle>
+              <CardDescription>
+                Confirm your current password, then choose a new password with at least 12
+                characters.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              {passwordUpdated ? (
+                <p
+                  role="status"
+                  className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Password changed successfully.
+                </p>
+              ) : null}
+              <Button type="button" className="w-fit" onClick={openPasswordDialog}>
+                <KeyRound className="h-4 w-4" />
+                Change password
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Dialog open={passwordDialogOpen} onOpenChange={handlePasswordDialogOpenChange}>
+            <DialogContent className="max-w-sm">
+              {passwordStep === "current" ? (
+                <form
+                  className="grid gap-5"
+                  onSubmit={passwordForm.handleSubmit(submitCurrentPassword)}
+                >
+                  <DialogHeader>
+                    <DialogTitle>Confirm current password</DialogTitle>
+                    <DialogDescription>
+                      Enter your current password before choosing a new one.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-2">
+                    <label htmlFor="current-password" className="text-sm font-medium">
+                      Current password
+                    </label>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      {...passwordForm.register("currentPassword")}
+                    />
+                    {passwordForm.formState.errors.currentPassword ? (
+                      <p role="alert" className="text-xs text-destructive">
+                        {passwordForm.formState.errors.currentPassword.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  {passwordSubmitError ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {passwordSubmitError}
+                    </p>
+                  ) : null}
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isPasswordSubmitting}
+                      onClick={() => handlePasswordDialogOpenChange(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isPasswordSubmitting}>
+                      {isPasswordSubmitting ? "Checking…" : "Continue"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              ) : (
+                <form
+                  className="grid gap-5"
+                  onSubmit={passwordForm.handleSubmit(submitPasswordChange)}
+                >
+                  <DialogHeader>
+                    <DialogTitle>Choose a new password</DialogTitle>
+                    <DialogDescription>
+                      Use at least 12 characters and enter the same password twice.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-2">
+                    <label htmlFor="settings-new-password" className="text-sm font-medium">
+                      New password
+                    </label>
+                    <Input
+                      id="settings-new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      required
+                      {...passwordForm.register("newPassword")}
+                    />
+                    {passwordForm.formState.errors.newPassword ? (
+                      <p role="alert" className="text-xs text-destructive">
+                        {passwordForm.formState.errors.newPassword.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-2">
+                    <label htmlFor="settings-confirm-password" className="text-sm font-medium">
+                      Confirm new password
+                    </label>
+                    <Input
+                      id="settings-confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      minLength={12}
+                      required
+                      {...passwordForm.register("confirmPassword")}
+                    />
+                    {passwordForm.formState.errors.confirmPassword ? (
+                      <p role="alert" className="text-xs text-destructive">
+                        {passwordForm.formState.errors.confirmPassword.message}
+                      </p>
+                    ) : null}
+                  </div>
+                  {passwordSubmitError ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {passwordSubmitError}
+                    </p>
+                  ) : null}
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isPasswordSubmitting}
+                      onClick={() => {
+                        passwordForm.clearErrors();
+                        setPasswordSubmitError(null);
+                        setPasswordStep("current");
+                      }}
+                    >
+                      Back
+                    </Button>
+                    <Button type="submit" disabled={isPasswordSubmitting}>
+                      {isPasswordSubmitting ? "Saving…" : "Save new password"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
 
           <Card>
             <CardHeader>
