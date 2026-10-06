@@ -1001,6 +1001,44 @@ export function useAddProjectCollaborator(tenantId: string, projectId: string) {
   });
 }
 
+export function useUpdateProjectCollaboratorRole(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      userId,
+      role,
+    }: {
+      projectId: string;
+      userId: string;
+      role: string;
+    }) =>
+      responseData<ApiCollaborator>(
+        await apiClient.PATCH(
+          "/api/v1/tenant/{tenantId}/projects/{projectId}/collaborators/{userId}",
+          {
+            params: { path: { tenantId, projectId, userId } },
+            body: { role },
+          },
+        ),
+      ),
+    async onSuccess(_collaborator, { projectId }) {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.projectCollaborators(tenantId, projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.project(tenantId, projectId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.projects(tenantId),
+        }),
+        queryClient.invalidateQueries({ queryKey: myProjectsKey }),
+      ]);
+    },
+  });
+}
+
 export function useRemoveProjectCollaborator(
   tenantId: string,
   projectId: string,

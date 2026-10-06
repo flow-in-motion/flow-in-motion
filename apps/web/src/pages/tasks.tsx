@@ -11,19 +11,20 @@ import {
   useMembers,
   useModules,
   useTasks,
+  useUpdateTask,
   useProjects,
   useTrackEvent,
   type ApiTask,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import { ErrorState } from "@/components/shared/error-state";
+import { InlineFieldSelect } from "@/components/shared/inline-field-select";
 import { LoadingState } from "@/components/shared/loading-state";
 import { SearchInput } from "@/components/shared/search-input";
 import { PageHeading } from "@/components/typography/heading";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { TaskMembersManager } from "@/components/tasks/task-members";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,8 +46,10 @@ import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
-const STATUS_FILTERS = ["All", "To do", "Underway", "Waiting", "Complete"] as const;
-const PRIORITY_FILTERS = ["All", "Low", "Medium", "High", "Critical"] as const;
+const STATUS_OPTIONS = ["To do", "Underway", "Waiting", "Complete"] as const;
+const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
+const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
+const PRIORITY_FILTERS = ["All", ...PRIORITY_OPTIONS] as const;
 
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type PriorityFilter = (typeof PRIORITY_FILTERS)[number];
@@ -122,12 +125,14 @@ export default function TasksPage() {
   const modules = modulesQuery.data?.data ?? [];
 
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [sharingTask, setSharingTask] = useState<ApiTask | null>(null);
   const me = useMe();
   const membersQuery = useMembers(tenantId, 1, sharingTask !== null);
   const members = membersQuery.data?.data ?? [];
 
   const createTask = useCreateTask(tenantId);
+  const updateTask = useUpdateTask(tenantId);
   const deleteTask = useDeleteTask(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
@@ -274,6 +279,21 @@ export default function TasksPage() {
         modules={modules}
         onSave={handleCreateTask}
       />
+      {actionError ? (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       <Dialog
         open={sharingTask !== null}
         onOpenChange={(open) => {
@@ -444,15 +464,47 @@ export default function TasksPage() {
                   ) : null}
 
                   {columns.isColumnVisible("status") ? (
-                  <Badge variant="outline" className={statusPillClass(task.status)}>
-                    {task.status ?? "—"}
-                  </Badge>
+                  <InlineFieldSelect
+                    value={task.status}
+                    options={STATUS_OPTIONS}
+                    fieldLabel="status"
+                    itemLabel={task.title}
+                    valueClassName={statusPillClass}
+                    onChange={async (nextStatus) => {
+                      setActionError(null);
+                      await updateTask.mutateAsync({
+                        taskId: task.id,
+                        input: { status: nextStatus },
+                      });
+                    }}
+                    onError={(message) =>
+                      setActionError(
+                        `Could not update the status for “${task.title}”. ${message}`,
+                      )
+                    }
+                  />
                   ) : null}
 
                   {columns.isColumnVisible("priority") ? (
-                  <Badge variant="outline" className={priorityPillClass(task.priority)}>
-                    {task.priority ?? "—"}
-                  </Badge>
+                  <InlineFieldSelect
+                    value={task.priority}
+                    options={PRIORITY_OPTIONS}
+                    fieldLabel="priority"
+                    itemLabel={task.title}
+                    valueClassName={priorityPillClass}
+                    onChange={async (nextPriority) => {
+                      setActionError(null);
+                      await updateTask.mutateAsync({
+                        taskId: task.id,
+                        input: { priority: nextPriority },
+                      });
+                    }}
+                    onError={(message) =>
+                      setActionError(
+                        `Could not update the priority for “${task.title}”. ${message}`,
+                      )
+                    }
+                  />
                   ) : null}
 
                   {columns.isColumnVisible("due") ? (

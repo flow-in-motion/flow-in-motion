@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import TasksPage from "@/pages/tasks";
 const hookMocks = vi.hoisted(() => ({
   useTasks: vi.fn(),
+  updateTask: vi.fn(),
   search: vi.fn(),
   pagination: {
     totalItems: 1,
@@ -163,15 +164,7 @@ vi.mock("@/api/hooks", async () => {
       }),
     }),
     useUpdateTask: () => ({
-      mutateAsync: vi.fn(
-        async ({ taskId, input }: { taskId: string; input: Record<string, unknown> }) => {
-          const updated = store.getTasks().map((item) =>
-            item.id === taskId ? { ...item, ...input } : item,
-          );
-          store.setTasks(updated);
-          return updated.find((item) => item.id === taskId);
-        },
-      ),
+      mutateAsync: hookMocks.updateTask,
     }),
     useDeleteTask: () => ({
       mutateAsync: vi.fn(async (taskId: string) => {
@@ -215,6 +208,24 @@ describe("TasksPage", () => {
     fixtures.projects = [];
     fixtures.modules = [];
     hookMocks.useTasks.mockClear();
+    hookMocks.updateTask.mockReset();
+    hookMocks.updateTask.mockImplementation(
+      async ({
+        taskId,
+        input,
+      }: {
+        taskId: string;
+        input: Record<string, unknown>;
+      }) => {
+        const updated = store
+          .getTasks()
+          .map((item) =>
+            item.id === taskId ? { ...item, ...input } : item,
+          );
+        store.setTasks(updated);
+        return updated.find((item) => item.id === taskId);
+      },
+    );
     hookMocks.search.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
@@ -299,6 +310,50 @@ describe("TasksPage", () => {
     expect(dueDate).toHaveAttribute("placeholder", "DD/MM/YYYY");
     expect(dueDate).not.toBeRequired();
     expect(screen.getByRole("button", { name: "Choose due date" })).toBeInTheDocument();
+  });
+
+  it("changes a task status directly from its list row", async () => {
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change status for Submit interim safety report to IRB",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Underway" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateTask).toHaveBeenCalledWith({
+        taskId: "task-1",
+        input: { status: "Underway" },
+      }),
+    );
+  });
+
+  it("changes task priority directly from its list row", async () => {
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change priority for Submit interim safety report to IRB",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "High" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateTask).toHaveBeenCalledWith({
+        taskId: "task-1",
+        input: { priority: "High" },
+      }),
+    );
   });
 
   it("shows the automatically recorded creation date in a sortable column", () => {
