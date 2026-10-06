@@ -36,6 +36,7 @@ interface AuthContextValue {
   confirmEmail(tokenHash: string, type: EmailOtpType): Promise<void>;
   signOut(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
+  verifyCurrentPassword(currentPassword: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
   clearError(): void;
 }
@@ -167,6 +168,22 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const verifyCurrentPassword = useCallback(
+    async (currentPassword: string) => {
+      const email = session?.user.email;
+      if (!email) {
+        const nextError = new Error(
+          "Your signed-in account does not have an email address.",
+        );
+        setError(nextError);
+        throw nextError;
+      }
+
+      await signInWithPassword(email, currentPassword);
+    },
+    [session?.user.email, signInWithPassword],
+  );
+
   const isSessionExpired = Boolean(
     session?.expires_at && session.expires_at * 1000 <= Date.now(),
   );
@@ -184,6 +201,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       confirmEmail,
       signOut,
       sendPasswordReset,
+      verifyCurrentPassword,
       updatePassword,
       clearError: () => setError(null),
     }),
@@ -198,6 +216,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       signUpWithPassword,
       signOut,
       updatePassword,
+      verifyCurrentPassword,
     ],
   );
 

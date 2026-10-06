@@ -22,6 +22,15 @@ const mockMe = {
 const mockSwitchWorkspace = vi.fn();
 const mockCreateWorkspace = vi.fn();
 const mockDeleteWorkspace = vi.fn();
+const mockVerifyCurrentPassword = vi.fn();
+const mockUpdatePassword = vi.fn();
+
+vi.mock("@/auth/auth-provider", () => ({
+  useAuth: () => ({
+    verifyCurrentPassword: mockVerifyCurrentPassword,
+    updatePassword: mockUpdatePassword,
+  }),
+}));
 
 vi.mock("@/api/hooks", () => ({
   useMe: () => ({
@@ -163,6 +172,8 @@ describe("SettingsPage", () => {
     mockSwitchWorkspace.mockReset().mockResolvedValue({ id: "workspace-1" });
     mockCreateWorkspace.mockReset().mockResolvedValue({ id: "workspace-2" });
     mockDeleteWorkspace.mockReset().mockResolvedValue({ id: "workspace-1" });
+    mockVerifyCurrentPassword.mockReset().mockResolvedValue(undefined);
+    mockUpdatePassword.mockReset().mockResolvedValue(undefined);
   });
 
   it("scrolls straight to the paper pipeline stages section when linked in with a hash", () => {
@@ -257,6 +268,97 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByRole("option", { name: "Violet" }));
 
     expect(mockSetColorTheme).toHaveBeenCalledWith("violet");
+  });
+
+  it("changes the signed-in user's password through the two-step dialog", async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Confirm current password" }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "current-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() =>
+      expect(mockVerifyCurrentPassword).toHaveBeenCalledWith("current-password"),
+    );
+    expect(
+      screen.getByRole("heading", { name: "Choose a new password" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "new-secure-password" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "new-secure-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save new password" }));
+
+    await waitFor(() =>
+      expect(mockUpdatePassword).toHaveBeenCalledWith("new-secure-password"),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Password changed successfully.",
+    );
+    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
+  });
+
+  it("does not change the password when the new passwords do not match", async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "current-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await screen.findByRole("heading", { name: "Choose a new password" });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "new-secure-password" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "different-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save new password" }));
+
+    expect(
+      await screen.findByText("The new passwords do not match."),
+    ).toBeInTheDocument();
+    expect(mockUpdatePassword).not.toHaveBeenCalled();
+  });
+
+  it("keeps the first password dialog open when the current password is wrong", async () => {
+    mockVerifyCurrentPassword.mockRejectedValueOnce(new Error("Invalid login credentials"));
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "wrong-password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText("Invalid login credentials")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Confirm current password" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
   });
 
   it("shows the workspace list and creates a new workspace, all from Settings", async () => {
