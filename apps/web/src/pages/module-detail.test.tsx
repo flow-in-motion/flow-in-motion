@@ -618,7 +618,7 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     expect(
-      screen.getByRole("heading", { name: "Paper collaborators" }),
+      screen.getByRole("heading", { name: "Collaborators on this paper" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add collaborator" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Collaborator email" })).toBeInTheDocument();
@@ -629,7 +629,7 @@ describe("ModuleDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide collaborators" }));
 
     expect(
-      screen.queryByRole("heading", { name: "Paper collaborators" }),
+      screen.queryByRole("heading", { name: "Collaborators on this paper" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show collaborators" }),

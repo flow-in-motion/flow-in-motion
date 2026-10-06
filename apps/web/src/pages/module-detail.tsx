@@ -931,7 +931,7 @@ export default function ModuleDetailPage() {
           {isCollaboratorsVisible ? (
             <Card id="module-collaborators-content">
               <CardHeader>
-                <CardTitle>Paper collaborators</CardTitle>
+                <CardTitle>Collaborators on this paper</CardTitle>
                 {module.projectId ? (
                   <p className="text-sm text-muted-foreground">
                     Project collaborators already inherit access. You can also invite someone directly to this paper by email.
