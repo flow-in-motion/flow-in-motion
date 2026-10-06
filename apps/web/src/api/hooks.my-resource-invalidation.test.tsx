@@ -11,6 +11,10 @@ vi.mock("@/api/client", async () => {
       PATCH: vi.fn().mockResolvedValue({ data: { id: "resource-1", title: "Updated" } }),
       DELETE: vi.fn().mockResolvedValue({ data: { id: "resource-1", warning: "" } }),
     },
+    authenticatedJson: vi.fn().mockResolvedValue({
+      project: { id: "resource-1" },
+      warning: "",
+    }),
   };
 });
 
@@ -62,7 +66,10 @@ describe("'My*' mutations invalidate the matching tenant-scoped list", () => {
     const { result } = renderHook(() => useArchiveMyProject(), {
       wrapper: wrapperFor(queryClient),
     });
-    await result.current.mutateAsync("resource-1");
+    await result.current.mutateAsync({
+      projectId: "resource-1",
+      mode: "archive_contents",
+    });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(queryClient.getQueryState(apiKeys.projects(tenantId))?.isInvalidated).toBe(true);

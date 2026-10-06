@@ -9,6 +9,7 @@ import { TasksRepository } from './repositories/tasks.repository';
 import { TasksService } from './services/tasks.service';
 import { TenantSequencesModule } from '../tenant-sequences/tenant-sequences.module';
 import { MembershipsModule } from '../memberships/memberships.module';
+import { ProjectsModule } from '../projects/project.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { MembershipsModule } from '../memberships/memberships.module';
     TenantSequencesModule,
     forwardRef(() => TaskMembersModule),
     ProjectModulesModule,
+    ProjectsModule,
     MembershipsModule,
   ],
   controllers: [TasksController, MyTasksController],

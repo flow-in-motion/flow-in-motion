@@ -35,6 +35,7 @@ import {
   useMembers,
   useModules,
   useMyProject,
+  useMyProjectArchiveImpact,
   useNotes,
   useTasks,
   useTrackEvent,
@@ -52,6 +53,7 @@ import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { LinkExistingDialog } from "@/components/shared/link-existing-dialog";
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
+import { ArchiveProjectDialog } from "@/components/projects/archive-project-dialog";
 import { BackButton } from "@/components/shared/back-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
@@ -421,6 +423,8 @@ export default function ProjectDetailPage() {
   const me = useMe();
   const updateProject = useUpdateMyProject();
   const archiveProject = useArchiveMyProject();
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const archiveImpact = useMyProjectArchiveImpact(projectId, isArchiveOpen);
   const createTask = useCreateTask(tenantId);
   const createModule = useCreateModule(tenantId);
   const updateModule = useUpdateModule(tenantId);
@@ -501,18 +505,6 @@ export default function ProjectDetailPage() {
         navigate(-1);
       }
     }
-  }
-
-  async function handleDeleteProject() {
-    if (
-      !window.confirm(
-        `Delete "${project!.title}"? It will be archived and permanently removed after 14 days.`,
-      )
-    ) {
-      return;
-    }
-    await archiveProject.mutateAsync(project!.id);
-    navigate("/projects");
   }
 
   async function saveProject(event: FormEvent<HTMLFormElement>) {
@@ -679,6 +671,17 @@ export default function ProjectDetailPage() {
     <div className="page-stack">
       <BackButton fallback="/projects" label="Back" />
 
+      <ArchiveProjectDialog
+        open={isArchiveOpen}
+        onOpenChange={setIsArchiveOpen}
+        project={project}
+        impact={archiveImpact.data}
+        impactPending={archiveImpact.isPending}
+        onArchive={(input) => archiveProject.mutateAsync(input)}
+        isPending={archiveProject.isPending}
+        onArchived={() => navigate("/projects")}
+      />
+
       <TaskDialog
         open={isAddTaskOpen}
         onOpenChange={setIsAddTaskOpen}
@@ -766,7 +769,7 @@ export default function ProjectDetailPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => void handleDeleteProject()}
+                  onClick={() => setIsArchiveOpen(true)}
                   disabled={archiveProject.isPending}
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 >

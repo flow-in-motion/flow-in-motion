@@ -1,11 +1,16 @@
 // apps/api/src/modules/notes/services/notes.service.spec.ts
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { NotesService } from './notes.service';
 import { NotesRepository } from '../repositories/notes.repository';
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { NoteMembersRepository } from '../../note-members/repositories/note-members.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
+import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 
 describe('NotesService', () => {
   let service: NotesService;
@@ -41,6 +46,7 @@ describe('NotesService', () => {
   let modulesRepository: {
     findById: jest.Mock;
   };
+  let projectsRepository: { findById: jest.Mock };
 
   beforeEach(() => {
     repository = {
@@ -81,6 +87,7 @@ describe('NotesService', () => {
     modulesRepository = {
       findById: jest.fn(),
     };
+    projectsRepository = { findById: jest.fn() };
 
     service = new NotesService(
       repository as unknown as NotesRepository,
@@ -88,6 +95,7 @@ describe('NotesService', () => {
       sequences as unknown as TenantSequencesRepository,
       noteMembers as unknown as NoteMembersRepository,
       modulesRepository as unknown as ProjectModulesRepository,
+      projectsRepository as unknown as ProjectsRepository,
     );
   });
 
@@ -143,6 +151,18 @@ describe('NotesService', () => {
           moduleId: 'module-1',
         }),
       );
+    });
+
+    it('rejects a direct link to an archived or unknown project', async () => {
+      projectsRepository.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.create('tenant-1', 'user-1', {
+          title: 'Meeting Notes',
+          projectId: 'archived-project',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.create).not.toHaveBeenCalled();
     });
   });
 
@@ -302,15 +322,34 @@ describe('NotesService', () => {
 
   describe('list', () => {
     it('rejects oversized All requests instead of returning a truncated list', async () => {
-      repository.findVisibleByTenant.mockResolvedValue({ data: [], totalItems: 5001 });
-      await expect(service.list('tenant-1', 'user-1', 1, 'all')).rejects.toThrow('All is limited');
+      repository.findVisibleByTenant.mockResolvedValue({
+        data: [],
+        totalItems: 5001,
+      });
+      await expect(
+        service.list('tenant-1', 'user-1', 1, 'all'),
+      ).rejects.toThrow('All is limited');
     });
 
     it('returns every matching row in one bounded All response', async () => {
-      repository.findVisibleByTenant.mockResolvedValue({ data: [1, 2, 3].map((id) => ({ id: String(id), statusId: null, pipelineStageId: null, visibilityId: null, priorityId: null })), totalItems: 3 });
+      repository.findVisibleByTenant.mockResolvedValue({
+        data: [1, 2, 3].map((id) => ({
+          id: String(id),
+          statusId: null,
+          pipelineStageId: null,
+          visibilityId: null,
+          priorityId: null,
+        })),
+        totalItems: 3,
+      });
       const result = await service.list('tenant-1', 'user-1', 7, 'all');
       expect(result.data.map((item) => item.id)).toEqual(['1', '2', '3']);
-      expect(result.meta).toEqual({ page: 1, pageSize: 5000, totalItems: 3, totalPages: 1 });
+      expect(result.meta).toEqual({
+        page: 1,
+        pageSize: 5000,
+        totalItems: 3,
+        totalPages: 1,
+      });
       expect(repository.findVisibleByTenant).toHaveBeenCalledTimes(1);
     });
 

@@ -7,6 +7,7 @@ import {
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { NoteMembersRepository } from '../../note-members/repositories/note-members.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
+import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
 import { NotesRepository } from '../repositories/notes.repository';
 import {
@@ -24,6 +25,7 @@ export class NotesService {
     private readonly sequences: TenantSequencesRepository,
     private readonly noteMembers: NoteMembersRepository,
     private readonly modulesRepository: ProjectModulesRepository,
+    private readonly projectsRepository: ProjectsRepository,
   ) {}
 
   /**
@@ -46,6 +48,15 @@ export class NotesService {
         throw new BadRequestException('Unknown moduleId');
       }
       return { projectId: module.projectId, moduleId: module.id };
+    }
+    if (input.projectId) {
+      const project = await this.projectsRepository.findById(
+        tenantId,
+        input.projectId,
+      );
+      if (!project) {
+        throw new BadRequestException('Unknown or archived projectId');
+      }
     }
     return { projectId: input.projectId ?? null, moduleId: null };
   }

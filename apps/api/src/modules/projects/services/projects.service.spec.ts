@@ -15,6 +15,7 @@ describe('ProjectsService', () => {
     create: jest.Mock;
     update: jest.Mock;
     archive: jest.Mock;
+    moveContents: jest.Mock;
     findAccessiblePageByUser: jest.Mock;
   };
   let enumRepository: {
@@ -36,6 +37,7 @@ describe('ProjectsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       archive: jest.fn(),
+      moveContents: jest.fn(),
       findAccessiblePageByUser: jest.fn(),
     };
     enumRepository = {
@@ -208,22 +210,15 @@ describe('ProjectsService', () => {
         statusId: null,
         importanceId: null,
       });
-      enumRepository.findByCategoryAndValue.mockResolvedValue({
-        id: 'archived-status-id',
-      });
       repository.archive.mockResolvedValue({
         id: 'project-1',
-        statusId: 'archived-status-id',
+        statusId: null,
         importanceId: null,
       });
 
       await service.archiveForCaller('project-1', 'user-1');
 
-      expect(repository.archive).toHaveBeenCalledWith(
-        'tenant-1',
-        'project-1',
-        'archived-status-id',
-      );
+      expect(repository.archive).toHaveBeenCalledWith('tenant-1', 'project-1');
     });
 
     it('throws NotFoundException when the project does not exist in any tenant', async () => {
@@ -427,30 +422,57 @@ describe('ProjectsService', () => {
   });
 
   describe('archive', () => {
-    it('resolves the Archived status and sets archivedAt, returning a warning', async () => {
+    it('archives without overwriting status and returns a warning', async () => {
       repository.findById.mockResolvedValue({
         id: 'project-1',
         userId: 'user-1',
-        statusId: null,
+        statusId: 'stalled-status-id',
         importanceId: null,
-      });
-      enumRepository.findByCategoryAndValue.mockResolvedValue({
-        id: 'archived-status-id',
       });
       repository.archive.mockResolvedValue({
         id: 'project-1',
-        statusId: 'archived-status-id',
+        statusId: 'stalled-status-id',
         importanceId: null,
       });
 
       const result = await service.archive('tenant-1', 'project-1', 'user-1');
 
-      expect(repository.archive).toHaveBeenCalledWith(
+      expect(repository.archive).toHaveBeenCalledWith('tenant-1', 'project-1');
+      expect(enumRepository.findByCategoryAndValue).not.toHaveBeenCalled();
+      expect(result.warning).toContain('14 days');
+    });
+
+    it('moves linked work to another owned active project before archiving', async () => {
+      repository.findById
+        .mockResolvedValueOnce({
+          id: 'project-1',
+          userId: 'user-1',
+          statusId: null,
+          importanceId: null,
+        })
+        .mockResolvedValueOnce({
+          id: 'project-2',
+          userId: 'user-1',
+          statusId: null,
+          importanceId: null,
+        });
+      repository.archive.mockResolvedValue({
+        id: 'project-1',
+        statusId: null,
+        importanceId: null,
+      });
+
+      await service.archive('tenant-1', 'project-1', 'user-1', {
+        mode: 'move_contents',
+        destinationProjectId: 'project-2',
+      });
+
+      expect(repository.moveContents).toHaveBeenCalledWith(
         'tenant-1',
         'project-1',
-        'archived-status-id',
+        'project-2',
       );
-      expect(result.warning).toContain('14 days');
+      expect(repository.archive).toHaveBeenCalledWith('tenant-1', 'project-1');
     });
 
     it('throws NotFoundException if the project does not exist', async () => {

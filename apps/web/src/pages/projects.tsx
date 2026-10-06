@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { FolderKanban, Pencil, Trash2, UserPlus } from "lucide-react";
+import { Archive, FolderKanban, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
   useArchiveProject,
+  useProjectArchiveImpact,
   useCurrentWorkspace,
   useMe,
   useMembers,
@@ -26,6 +27,7 @@ import {
   type NewProjectInput,
 } from "@/components/projects/new-project-dialog";
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
+import { ArchiveProjectDialog } from "@/components/projects/archive-project-dialog";
 import { SearchInput } from "@/components/shared/search-input";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { Button } from "@/components/ui/button";
@@ -146,7 +148,13 @@ export default function ProjectsPage() {
 
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [archivingProject, setArchivingProject] = useState<ApiProject | null>(null);
   const [sharingProject, setSharingProject] = useState<ApiProject | null>(null);
+  const archiveImpact = useProjectArchiveImpact(
+    tenantId,
+    archivingProject?.id ?? "",
+    archivingProject !== null,
+  );
   const membersQuery = useMembers(tenantId, 1, sharingProject !== null);
   const members = membersQuery.data?.data ?? [];
   const [search, setSearch] = useState("");
@@ -287,15 +295,8 @@ export default function ProjectsPage() {
     return project;
   }
 
-  async function handleDeleteProject(project: ApiProject) {
-    if (
-      !window.confirm(
-        `Delete "${project.title}"? It will be archived and permanently removed after 14 days.`,
-      )
-    ) {
-      return;
-    }
-    await archiveProject.mutateAsync(project.id);
+  function handleDeleteProject(project: ApiProject) {
+    setArchivingProject(project);
   }
 
   if (workspace.isPending || projectsQuery.isPending) {
@@ -320,7 +321,15 @@ export default function ProjectsPage() {
         title="Projects"
         description="Track research work by stage, dates, collaborators and outstanding tasks."
         actions={
-          <Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button asChild variant="outline">
+              <Link to="/projects/archive">
+                <Archive />
+                Archive
+              </Link>
+            </Button>
+            <Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>
+          </div>
         }
       />
 
@@ -345,6 +354,17 @@ export default function ProjectsPage() {
           </button>
         </div>
       ) : null}
+      <ArchiveProjectDialog
+        open={archivingProject !== null}
+        onOpenChange={(open) => {
+          if (!open) setArchivingProject(null);
+        }}
+        project={archivingProject}
+        impact={archiveImpact.data}
+        impactPending={archiveImpact.isPending}
+        onArchive={(input) => archiveProject.mutateAsync(input)}
+        isPending={archiveProject.isPending}
+      />
       <Dialog
         open={sharingProject !== null}
         onOpenChange={(open) => {
@@ -371,7 +391,6 @@ export default function ProjectsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
-
       <div>
         <h2 className="text-lg font-semibold">Projects</h2>
         <p className="text-sm text-muted-foreground">
@@ -505,7 +524,7 @@ export default function ProjectsPage() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => void handleDeleteProject(project)}
+                          onClick={() => handleDeleteProject(project)}
                           aria-label={`Delete ${project.title}`}
                           title="Delete project"
                           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

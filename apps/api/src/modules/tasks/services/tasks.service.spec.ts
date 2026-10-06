@@ -1,11 +1,16 @@
 // apps/api/src/modules/tasks/services/tasks.service.spec.ts
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { TasksRepository } from '../repositories/tasks.repository';
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
 import { TaskMembersRepository } from '../../task-members/repositories/task-members.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
+import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 
 describe('TasksService', () => {
   let service: TasksService;
@@ -32,6 +37,7 @@ describe('TasksService', () => {
     findTaskIdsByUser: jest.Mock;
   };
   let modulesRepository: { findById: jest.Mock };
+  let projectsRepository: { findById: jest.Mock };
 
   beforeEach(() => {
     repository = {
@@ -59,6 +65,7 @@ describe('TasksService', () => {
       findTaskIdsByUser: jest.fn().mockResolvedValue([]),
     };
     modulesRepository = { findById: jest.fn() };
+    projectsRepository = { findById: jest.fn() };
 
     service = new TasksService(
       repository as unknown as TasksRepository,
@@ -66,6 +73,7 @@ describe('TasksService', () => {
       sequences as unknown as TenantSequencesRepository,
       taskMembers as unknown as TaskMembersRepository,
       modulesRepository as unknown as ProjectModulesRepository,
+      projectsRepository as unknown as ProjectsRepository,
     );
   });
 
@@ -133,6 +141,21 @@ describe('TasksService', () => {
           moduleId: 'module-1',
         }),
       );
+    });
+
+    it('rejects a direct link to an archived or unknown project', async () => {
+      enumRepository.findByCategoryAndValue.mockResolvedValue({
+        id: 'enum-id',
+      });
+      projectsRepository.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.create('tenant-1', 'user-1', {
+          title: 'New Task',
+          projectId: 'archived-project',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.create).not.toHaveBeenCalled();
     });
   });
 
@@ -213,20 +236,43 @@ describe('TasksService', () => {
 
   describe('list', () => {
     it('rejects oversized All requests instead of returning a truncated list', async () => {
-      repository.findVisibleByTenant.mockResolvedValue({ data: [], totalItems: 5001 });
-      await expect(service.list('tenant-1', 'user-1', 1, 'all')).rejects.toThrow('All is limited');
+      repository.findVisibleByTenant.mockResolvedValue({
+        data: [],
+        totalItems: 5001,
+      });
+      await expect(
+        service.list('tenant-1', 'user-1', 1, 'all'),
+      ).rejects.toThrow('All is limited');
     });
 
     it('returns every matching row in one bounded All response', async () => {
-      repository.findVisibleByTenant.mockResolvedValue({ data: [1, 2, 3].map((id) => ({ id: String(id), statusId: null, pipelineStageId: null, visibilityId: null, priorityId: null })), totalItems: 3 });
+      repository.findVisibleByTenant.mockResolvedValue({
+        data: [1, 2, 3].map((id) => ({
+          id: String(id),
+          statusId: null,
+          pipelineStageId: null,
+          visibilityId: null,
+          priorityId: null,
+        })),
+        totalItems: 3,
+      });
       const result = await service.list('tenant-1', 'user-1', 7, 'all');
       expect(result.data.map((item) => item.id)).toEqual(['1', '2', '3']);
-      expect(result.meta).toEqual({ page: 1, pageSize: 5000, totalItems: 3, totalPages: 1 });
+      expect(result.meta).toEqual({
+        page: 1,
+        pageSize: 5000,
+        totalItems: 3,
+        totalPages: 1,
+      });
       expect(repository.findVisibleByTenant).toHaveBeenCalledTimes(1);
     });
 
     it('preserves server summary counts beyond the current page', async () => {
-      repository.findVisibleByTenant.mockResolvedValue({ data: [], totalItems: 85, summary: { open: 61 } });
+      repository.findVisibleByTenant.mockResolvedValue({
+        data: [],
+        totalItems: 85,
+        summary: { open: 61 },
+      });
       const result = await service.list('tenant-1', 'user-1', 1, 20);
       expect(result.summary).toEqual({ open: 61 });
     });

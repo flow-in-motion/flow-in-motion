@@ -247,11 +247,7 @@ describe('ProjectModulesService', () => {
 
       await service.archiveForCaller('module-1', 'user-1');
 
-      expect(repository.archive).toHaveBeenCalledWith(
-        'tenant-1',
-        'module-1',
-        'archived-status-id',
-      );
+      expect(repository.archive).toHaveBeenCalledWith('tenant-1', 'module-1');
     });
 
     it('throws NotFoundException when the module does not exist in any tenant', async () => {
@@ -264,20 +260,43 @@ describe('ProjectModulesService', () => {
 
   describe('listActive', () => {
     it('rejects oversized All requests instead of returning a truncated list', async () => {
-      repository.findVisibleActiveByTenant.mockResolvedValue({ data: [], totalItems: 5001 });
-      await expect(service.listActive('tenant-1', 'user-1', 1, 'all')).rejects.toThrow('All is limited');
+      repository.findVisibleActiveByTenant.mockResolvedValue({
+        data: [],
+        totalItems: 5001,
+      });
+      await expect(
+        service.listActive('tenant-1', 'user-1', 1, 'all'),
+      ).rejects.toThrow('All is limited');
     });
 
     it('returns every matching row in one bounded All response', async () => {
-      repository.findVisibleActiveByTenant.mockResolvedValue({ data: [1, 2, 3].map((id) => ({ id: String(id), statusId: null, pipelineStageId: null, visibilityId: null, priorityId: null })), totalItems: 3 });
+      repository.findVisibleActiveByTenant.mockResolvedValue({
+        data: [1, 2, 3].map((id) => ({
+          id: String(id),
+          statusId: null,
+          pipelineStageId: null,
+          visibilityId: null,
+          priorityId: null,
+        })),
+        totalItems: 3,
+      });
       const result = await service.listActive('tenant-1', 'user-1', 7, 'all');
       expect(result.data.map((item) => item.id)).toEqual(['1', '2', '3']);
-      expect(result.meta).toEqual({ page: 1, pageSize: 5000, totalItems: 3, totalPages: 1 });
+      expect(result.meta).toEqual({
+        page: 1,
+        pageSize: 5000,
+        totalItems: 3,
+        totalPages: 1,
+      });
       expect(repository.findVisibleActiveByTenant).toHaveBeenCalledTimes(1);
     });
 
     it('preserves server summary counts beyond the current page', async () => {
-      repository.findVisibleActiveByTenant.mockResolvedValue({ data: [], totalItems: 85, summary: { active: 34, review: 25 } });
+      repository.findVisibleActiveByTenant.mockResolvedValue({
+        data: [],
+        totalItems: 85,
+        summary: { active: 34, review: 25 },
+      });
       const result = await service.listActive('tenant-1', 'user-1', 1, 20);
       expect(result.summary).toEqual({ active: 34, review: 25 });
     });
@@ -789,11 +808,11 @@ describe('ProjectModulesService', () => {
   });
 
   describe('archive', () => {
-    it('resolves the Archived status and sets archivedAt, returning a warning', async () => {
+    it('archives without overwriting status and returns a warning', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
-        statusId: null,
+        statusId: 'stalled-status-id',
       });
       collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
         roleId: 'owner-role-id',
@@ -804,21 +823,18 @@ describe('ProjectModulesService', () => {
             id:
               category === 'project_role' && value === 'Owner'
                 ? 'owner-role-id'
-                : 'archived-status-id',
+                : 'unexpected-status-id',
           }),
       );
       repository.archive.mockResolvedValue({
         id: 'module-1',
-        statusId: 'archived-status-id',
+        statusId: 'stalled-status-id',
       });
 
       const result = await service.archive('tenant-1', 'module-1', 'user-1');
 
-      expect(repository.archive).toHaveBeenCalledWith(
-        'tenant-1',
-        'module-1',
-        'archived-status-id',
-      );
+      expect(repository.archive).toHaveBeenCalledWith('tenant-1', 'module-1');
+      expect(enumRepository.findByCategoryAndValue).toHaveBeenCalledTimes(1);
       expect(result.warning).toContain('14 days');
     });
 

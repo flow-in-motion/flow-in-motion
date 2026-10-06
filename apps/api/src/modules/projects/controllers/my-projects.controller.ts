@@ -6,6 +6,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Req,
   UseGuards,
   Query,
@@ -16,6 +17,7 @@ import type { AuthenticatedPrincipal } from '../../auth/jwt.strategy';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { UsersService } from '../../users/users.service';
 import { UpdateProjectDto } from '../dto/update-project.dto';
+import { ArchiveProjectDto } from '../dto/archive-project.dto';
 import { ProjectsService } from '../services/projects.service';
 import { ConfigService } from '@nestjs/config';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
@@ -73,6 +75,17 @@ export class MyProjectsController {
     return this.projectsService.findOneForCaller(projectId, user.id);
   }
 
+  @ApiOperation({ summary: 'Count content affected by archiving a project' })
+  @UseGuards(JwtAuthGuard)
+  @Get(':projectId/archive-impact')
+  async archiveImpact(
+    @Param('projectId') projectId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.projectsService.archiveImpactForCaller(projectId, user.id);
+  }
+
   @ApiOperation({ summary: 'Update a project the caller can access' })
   @UseGuards(JwtAuthGuard)
   @Patch(':projectId')
@@ -94,5 +107,23 @@ export class MyProjectsController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.projectsService.archiveForCaller(projectId, user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Archive a project and archive or move its contents',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Post(':projectId/archive')
+  async archiveWithOptions(
+    @Param('projectId') projectId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ArchiveProjectDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.projectsService.archiveForCallerWithOptions(
+      projectId,
+      user.id,
+      dto,
+    );
   }
 }

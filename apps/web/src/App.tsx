@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/shared/loading-state";
 
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const ProjectsPage = lazy(() => import("@/pages/projects"));
+const ProjectsArchivePage = lazy(() => import("@/pages/projects-archive"));
 const ModulesPage = lazy(() => import("@/pages/modules"));
 const ModuleDetailPage = lazy(() => import("@/pages/module-detail"));
 const ProjectDetailPage = lazy(() => import("@/pages/project-detail"));
@@ -84,6 +85,7 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route index element={routePage(<DashboardPage />)} />
               <Route path="projects" element={routePage(<ProjectsPage />)} />
+              <Route path="projects/archive" element={routePage(<ProjectsArchivePage />)} />
               <Route path="modules" element={routePage(<ModulesPage />)} />
               <Route path="modules/:moduleId" element={routePage(<ModuleDetailPage />)} />
               <Route
