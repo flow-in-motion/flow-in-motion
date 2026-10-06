@@ -151,15 +151,19 @@ export class ModuleInvitationsService {
       throw new NotFoundException(`Unknown project role: "${invitation.role}"`);
     }
 
-    const module = await this.modulesRepository.findByIdGlobal(
-      invitation.moduleId,
+    const tenantResult = await this.drizzle.db.execute(
+      sql`SELECT find_module_tenant_for_invitation(${invitation.moduleId}) AS tenant_id`,
     );
-    if (!module) {
+    const tenantId =
+      (tenantResult.rows[0] as { tenant_id: string | null } | undefined)
+        ?.tenant_id ?? null;
+
+    if (!tenantId) {
       throw new NotFoundException('Module not found');
     }
 
     await this.collaboratorsRepository.create({
-      tenantId: module.tenantId,
+      tenantId,
       moduleId: invitation.moduleId,
       userId,
       roleId: roleId.id,
