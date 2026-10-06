@@ -1,10 +1,17 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CollaboratorRoster } from "@/components/sharing/collaborator-roster";
-import type { ApiInvitation } from "@/api/hooks";
+import type {
+  ApiInvitation,
+  ApiUserSearchResult,
+} from "@/api/hooks";
+
 
 const invitations = vi.hoisted(() => ({ current: [] as ApiInvitation[] }));
+const userSearchResults = vi.hoisted(() => ({
+  current: [] as ApiUserSearchResult[],
+}));
 const sendInvitationMutate = vi.hoisted(() => vi.fn().mockResolvedValue({}));
 const revokeInvitationMutate = vi.hoisted(() => vi.fn());
 const createDraftMutate = vi.hoisted(() => vi.fn().mockResolvedValue({}));
@@ -33,13 +40,21 @@ vi.mock("@/api/hooks", async () => {
       isPending: false,
       isError: false,
     }),
-    useUserSearch: () => ({ data: [], isPending: false }),
+    useUserSearch: () => ({
+      data: userSearchResults.current,
+      isPending: false,
+    }),
   };
 });
 
 const timestamps = { createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 
 describe("CollaboratorRoster", () => {
+  beforeEach(() => {
+    invitations.current = [];
+    userSearchResults.current = [];
+    vi.clearAllMocks();
+  });
   it("shows a draft collaborator with an Invite button, and opens a mailto link with a sample message after sending", async () => {
     invitations.current = [
       {
@@ -137,7 +152,65 @@ describe("CollaboratorRoster", () => {
 
     expect(revokeInvitationMutate).toHaveBeenCalledWith("invite-2");
   });
-
+  it("reuses a contact from a previous invitation", async () => {
+    userSearchResults.current = [
+      {
+        id: "contact:sam@example.com",
+        displayName: "Sam Invited",
+        email: "sam@example.com",
+        affiliation: "Example Institute",
+      },
+    ];
+  
+    render(
+      <CollaboratorRoster
+        target="note"
+        tenantId="tenant-1"
+        entityId="note-1"
+        entityTitle="Research observations"
+        members={[]}
+        collaborators={[]}
+        onRemoveCollaborator={vi.fn()}
+        canManage
+      />,
+    );
+  
+    const emailInput = screen.getByLabelText("Collaborator email");
+  
+    fireEvent.focus(emailInput);
+    fireEvent.change(emailInput, {
+      target: { value: "sam" },
+    });
+  
+    fireEvent.click(
+      screen.getByRole("option", {
+        name: /Sam Invited/,
+      }),
+    );
+  
+    expect(screen.getByLabelText("Collaborator name")).toHaveValue(
+      "Sam Invited",
+    );
+    expect(emailInput).toHaveValue("sam@example.com");
+    expect(screen.getByLabelText("Collaborator affiliation")).toHaveValue(
+      "Example Institute",
+    );
+  
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Add collaborator",
+      }),
+    );
+  
+    await waitFor(() =>
+      expect(createDraftMutate).toHaveBeenCalledWith({
+        email: "sam@example.com",
+        name: "Sam Invited",
+        affiliation: "Example Institute",
+      }),
+    );
+  });
+  
   it("hides the add-collaborator form and management actions when the viewer can't manage", () => {
     invitations.current = [];
 

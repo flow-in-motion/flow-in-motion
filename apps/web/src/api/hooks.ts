@@ -2450,7 +2450,7 @@ export function useEnumValues(category: string, enabled = true) {
 }
 
 // ---------------------------------------------------------------------------
-// User search (platform-wide, not scoped to a tenant)
+// User and reusable invitation-contact search
 // ---------------------------------------------------------------------------
 
 export interface ApiUserSearchResult {
@@ -2460,7 +2460,7 @@ export interface ApiUserSearchResult {
   affiliation?: string | null;
 }
 
-/** Searches all users on the platform by name/email — used to find collaborators to invite, regardless of workspace. */
+/** Searches visible users and contacts previously invited by the signed-in user. */
 export function useUserSearch(query: string, enabled = true) {
   const trimmed = query.trim();
   return useQuery({
