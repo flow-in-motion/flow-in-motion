@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { AlertTriangle, KeyRound, LoaderCircle } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -24,19 +24,19 @@ export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const tokenHash = searchParams.get("token_hash");
   const otpType = searchParams.get("type") as EmailOtpType | null;
-  const [hasAttemptedVerification, setHasAttemptedVerification] = useState(false);
+  const hasAttemptedVerification = useRef(false);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string>();
 
   useEffect(() => {
-    if (!tokenHash || !otpType || hasAttemptedVerification) return;
-    setHasAttemptedVerification(true);
+    if (!tokenHash || !otpType || hasAttemptedVerification.current) return;
+    hasAttemptedVerification.current = true;
     void auth.confirmEmail(tokenHash, otpType).catch(() => {
       // auth.error already carries a user-facing message for the view below.
     });
-  }, [auth, hasAttemptedVerification, otpType, tokenHash]);
+  }, [auth, otpType, tokenHash]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

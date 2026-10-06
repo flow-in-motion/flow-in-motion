@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { AlertTriangle, CheckCircle2, LoaderCircle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -22,15 +22,15 @@ export default function ConfirmSignUpPage() {
   // through supabase-js, which attaches the key automatically.
   const tokenHash = searchParams.get("token_hash");
   const otpType = (searchParams.get("type") ?? "signup") as EmailOtpType;
-  const [hasAttemptedVerification, setHasAttemptedVerification] = useState(false);
+  const hasAttemptedVerification = useRef(false);
 
   useEffect(() => {
-    if (!tokenHash || hasAttemptedVerification) return;
-    setHasAttemptedVerification(true);
+    if (!tokenHash || hasAttemptedVerification.current) return;
+    hasAttemptedVerification.current = true;
     void auth.confirmEmail(tokenHash, otpType).catch(() => {
       // auth.error already carries a user-facing message for the view below.
     });
-  }, [auth, hasAttemptedVerification, otpType, tokenHash]);
+  }, [auth, otpType, tokenHash]);
 
   useEffect(() => {
     if (auth.isAuthenticated) {
