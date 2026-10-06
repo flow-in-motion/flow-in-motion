@@ -103,13 +103,11 @@ const fixtures = vi.hoisted(() => ({
 
 vi.mock("@/api/client", () => ({
   apiClient: {
-    POST: vi
-      .fn()
-      .mockResolvedValue({
-        data: {},
-        error: undefined,
-        response: new Response(),
-      }),
+    POST: vi.fn().mockResolvedValue({
+      data: {},
+      error: undefined,
+      response: new Response(),
+    }),
   },
 }));
 
@@ -405,6 +403,16 @@ describe("ModulesPage", () => {
     } finally {
       fixtures.stageValues = originalStages;
     }
+  });
+
+  it("labels the paper date column as Follow up or due date", () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Follow up or Due Date")).toBeInTheDocument();
   });
 
   it("requests the next modules page when Next is clicked", () => {
