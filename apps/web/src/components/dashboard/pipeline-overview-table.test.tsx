@@ -20,6 +20,7 @@ const fixtures = vi.hoisted(() => ({
     id: string;
     title: string;
     shortTitle: string | null;
+    status?: string | null;
     pipelineStage: string | null;
     createdAt: string;
   }>,
@@ -32,6 +33,7 @@ vi.mock("@/api/hooks", () => ({
       id: "paper-1",
       title: "Example paper",
       shortTitle: null,
+      status: "Active",
       pipelineStage: fixtures.currentStage,
       createdAt: "2026-09-01T00:00:00.000Z",
     },
@@ -98,6 +100,84 @@ describe("PipelineOverviewTable popup", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Sort papers by" }));
     fireEvent.click(screen.getByRole("option", { name: "Progress" }));
     expect(paperNames()).toEqual(["Alpha", "Beta", "Charlie"]);
+  });
+
+  it("filters by multiple stages and statuses in both pipeline views", async () => {
+    fixtures.papers = [
+      {
+        id: "paper-active-drafting",
+        title: "Active drafting paper",
+        shortTitle: null,
+        status: "Active",
+        pipelineStage: "Drafting & Writing",
+        createdAt: "2026-09-05T00:00:00.000Z",
+      },
+      {
+        id: "paper-stalled-analysis",
+        title: "Stalled analysis paper",
+        shortTitle: null,
+        status: "Stalled",
+        pipelineStage: "Data Analysis",
+        createdAt: "2026-09-04T00:00:00.000Z",
+      },
+      {
+        id: "paper-review-analysis",
+        title: "Review analysis paper",
+        shortTitle: null,
+        status: "Review",
+        pipelineStage: "Data Analysis",
+        createdAt: "2026-09-03T00:00:00.000Z",
+      },
+      {
+        id: "paper-stalled-review",
+        title: "Stalled review-stage paper",
+        shortTitle: null,
+        status: "Stalled",
+        pipelineStage: "Submitted, Under Review",
+        createdAt: "2026-09-02T00:00:00.000Z",
+      },
+      {
+        id: "paper-active-concept",
+        title: "Active concept paper",
+        shortTitle: null,
+        status: "Active",
+        pipelineStage: "Concept, Ideation",
+        createdAt: "2026-09-01T00:00:00.000Z",
+      },
+    ];
+
+    render(<MemoryRouter><PipelineOverviewTable /></MemoryRouter>);
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Filter by stages" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Data Analysis" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Drafting & Writing" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Filter by statuses" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Active" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Stalled" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+
+    expect(screen.getByRole("link", { name: "Active drafting paper" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Stalled analysis paper" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Review analysis paper" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Stalled review-stage paper" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Active concept paper" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter by stages" })).toHaveTextContent("2 stages");
+    expect(screen.getByRole("button", { name: "Filter by statuses" })).toHaveTextContent("2 statuses");
+
+    fireEvent.click(screen.getByRole("button", { name: "Enlarge pipeline" }));
+    const popup = within(screen.getByRole("dialog"));
+    expect(popup.getByRole("link", { name: "Active drafting paper" })).toBeVisible();
+    expect(popup.getByRole("link", { name: "Stalled analysis paper" })).toBeVisible();
+    expect(popup.queryByRole("link", { name: "Review analysis paper" })).not.toBeInTheDocument();
+
+    fireEvent.click(popup.getByRole("button", { name: "Clear filters" }));
+    expect(popup.getAllByRole("link").filter((link) =>
+      link.getAttribute("href")?.startsWith("/modules/")
+    )).toHaveLength(5);
   });
 
   it("preserves every stage, the Columns control, and the Progress percentage column", async () => {
