@@ -64,73 +64,73 @@ describe('UsersService', () => {
   });
 
   describe('search', () => {
-    it('returns matching active users ordered by display name', async () => {
-      const limitMock = jest.fn().mockResolvedValue([
-        {
-          id: 'user-1',
-          displayName: 'Ann Example',
-          email: 'ann@example.com',
-          affiliation: 'Research University',
-        },
-      ]);
-      const orderByMock = jest.fn().mockReturnValue({ limit: limitMock });
-      const whereMock = jest.fn().mockReturnValue({ orderBy: orderByMock });
-      const fromMock = jest.fn().mockReturnValue({ where: whereMock });
-      const selectMock = jest.fn().mockReturnValue({ from: fromMock });
+    it('maps registered users and reusable invitation contacts', async () => {
+      const executeMock = jest.fn().mockResolvedValue({
+        rows: [
+          {
+            id: 'user-1',
+            display_name: 'Ann Registered',
+            email: 'ann@example.com',
+            affiliation: 'Research University',
+          },
+          {
+            id: 'contact:sam@example.com',
+            display_name: 'Sam Invited',
+            email: 'sam@example.com',
+            affiliation: 'Example Institute',
+          },
+        ],
+      });
       const drizzle = {
-        db: { select: selectMock },
+        db: { execute: executeMock },
       } as unknown as DrizzleService;
 
       const service = new UsersService(drizzle);
 
-      const result = await service.search('ann');
+      const result = await service.search('example', 'user-owner');
 
-      expect(selectMock).toHaveBeenCalled();
-      expect(selectMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          affiliation: expect.anything(),
-        }),
-      );
-      expect(limitMock).toHaveBeenCalledWith(8);
+      expect(executeMock).toHaveBeenCalledTimes(1);
       expect(result).toEqual([
         {
           id: 'user-1',
-          displayName: 'Ann Example',
+          displayName: 'Ann Registered',
           email: 'ann@example.com',
           affiliation: 'Research University',
+        },
+        {
+          id: 'contact:sam@example.com',
+          displayName: 'Sam Invited',
+          email: 'sam@example.com',
+          affiliation: 'Example Institute',
         },
       ]);
     });
 
     it('returns an empty array without querying for a blank query', async () => {
-      const selectMock = jest.fn();
+      const executeMock = jest.fn();
       const drizzle = {
-        db: { select: selectMock },
+        db: { execute: executeMock },
       } as unknown as DrizzleService;
 
       const service = new UsersService(drizzle);
 
-      const result = await service.search('   ');
+      const result = await service.search('   ', 'user-owner');
 
       expect(result).toEqual([]);
-      expect(selectMock).not.toHaveBeenCalled();
+      expect(executeMock).not.toHaveBeenCalled();
     });
 
-    it('respects a custom limit', async () => {
-      const limitMock = jest.fn().mockResolvedValue([]);
-      const orderByMock = jest.fn().mockReturnValue({ limit: limitMock });
-      const whereMock = jest.fn().mockReturnValue({ orderBy: orderByMock });
-      const fromMock = jest.fn().mockReturnValue({ where: whereMock });
-      const selectMock = jest.fn().mockReturnValue({ from: fromMock });
+    it('supports a custom result limit', async () => {
+      const executeMock = jest.fn().mockResolvedValue({ rows: [] });
       const drizzle = {
-        db: { select: selectMock },
+        db: { execute: executeMock },
       } as unknown as DrizzleService;
 
       const service = new UsersService(drizzle);
 
-      await service.search('ann', 3);
+      await service.search('ann', 'user-owner', 3);
 
-      expect(limitMock).toHaveBeenCalledWith(3);
+      expect(executeMock).toHaveBeenCalledTimes(1);
     });
   });
 });
