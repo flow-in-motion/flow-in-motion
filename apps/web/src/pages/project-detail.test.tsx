@@ -105,6 +105,10 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useArchiveMyProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useMyProjectArchiveImpact: () => ({
+    data: { papers: 0, tasks: 0, notes: 0 },
+    isPending: false,
+  }),
   useCreateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateModule: () => ({ mutateAsync: fixtures.updateModule, isPending: false }),
@@ -171,6 +175,10 @@ vi.mock("@/api/hooks", () => ({
     isError: false,
   }),
   useUserSearch: () => ({ data: [], isPending: false, isError: false }),
+}));
+
+vi.mock("@/components/projects/archive-project-dialog", () => ({
+  ArchiveProjectDialog: () => null,
 }));
 
 describe("ProjectDetailPage", () => {

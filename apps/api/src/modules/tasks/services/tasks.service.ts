@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
+import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 import { TaskMembersRepository } from '../../task-members/repositories/task-members.repository';
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
 import { TasksRepository } from '../repositories/tasks.repository';
@@ -24,6 +25,7 @@ export class TasksService {
     private readonly sequences: TenantSequencesRepository,
     private readonly taskMembers: TaskMembersRepository,
     private readonly modulesRepository: ProjectModulesRepository,
+    private readonly projectsRepository: ProjectsRepository,
   ) {}
 
   /**
@@ -46,6 +48,15 @@ export class TasksService {
         throw new BadRequestException('Unknown moduleId');
       }
       return { projectId: module.projectId, moduleId: module.id };
+    }
+    if (input.projectId) {
+      const project = await this.projectsRepository.findById(
+        tenantId,
+        input.projectId,
+      );
+      if (!project) {
+        throw new BadRequestException('Unknown or archived projectId');
+      }
     }
     return { projectId: input.projectId ?? null, moduleId: null };
   }
@@ -83,16 +94,19 @@ export class TasksService {
     const requestedPage = pageSize === 'all' ? 1 : page;
     const offset = paginationOffset(requestedPage, limit);
 
-    const { data: rows, totalItems, summary } =
-      await this.repository.findVisibleByTenant(
-        tenantId,
-        callerUserId,
-        offset,
-        limit,
-        projectId,
-        search,
-        projectOnly,
-      );
+    const {
+      data: rows,
+      totalItems,
+      summary,
+    } = await this.repository.findVisibleByTenant(
+      tenantId,
+      callerUserId,
+      offset,
+      limit,
+      projectId,
+      search,
+      projectOnly,
+    );
 
     assertAllFits(pageSize, totalItems);
 

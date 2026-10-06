@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   BadRequestException,
   ForbiddenException,
@@ -102,6 +101,14 @@ export class ProjectModulesService {
       summary,
       meta: buildPaginationMeta(requestedPage, limit, totalItems),
     };
+  }
+
+  async listArchived(tenantId: string, callerUserId: string) {
+    const rows = await this.repository.findArchivedByTenant(
+      tenantId,
+      callerUserId,
+    );
+    return this.withDisplayValues(rows, callerUserId);
   }
 
   async findOne(tenantId: string, moduleId: string, callerUserId: string) {
@@ -352,21 +359,7 @@ export class ProjectModulesService {
       );
     }
 
-    const archivedStatusId = await this.resolveEnum(
-      'project_status',
-      'Archived',
-    );
-    if (!archivedStatusId) {
-      throw new NotFoundException(
-        'Archived status is not configured in the enum table',
-      );
-    }
-
-    const module = await this.repository.archive(
-      tenantId,
-      moduleId,
-      archivedStatusId,
-    );
+    const module = await this.repository.archive(tenantId, moduleId);
     if (!module) {
       throw new NotFoundException('Module not found');
     }
@@ -386,6 +379,94 @@ export class ProjectModulesService {
       throw new NotFoundException('Module not found');
     }
     return this.archive(module.tenantId, moduleId, callerUserId);
+  }
+
+  async restore(tenantId: string, moduleId: string, callerUserId: string) {
+    const existing = await this.repository.findArchivedById(tenantId, moduleId);
+    if (!existing) {
+      throw new NotFoundException('Archived paper not found');
+    }
+    const ownerMembership =
+      await this.collaboratorsRepository.findByModuleAndUser(
+        tenantId,
+        moduleId,
+        callerUserId,
+      );
+    const ownerRole = await this.enumRepository.findByCategoryAndValue(
+      'project_role',
+      'Owner',
+    );
+    if (
+      !ownerMembership ||
+      !ownerRole ||
+      ownerMembership.roleId !== ownerRole.id
+    ) {
+      throw new ForbiddenException(
+        'Only the paper owner can restore this paper',
+      );
+    }
+    if (
+      existing.projectId &&
+      !(await this.projectsRepository.findById(tenantId, existing.projectId))
+    ) {
+      throw new BadRequestException(
+        'Restore the parent project before restoring this paper',
+      );
+    }
+
+    const [archivedStatusId, activeStatusId] = await Promise.all([
+      this.resolveEnum('project_status', 'Archived'),
+      this.resolveEnum('project_status', 'Active'),
+    ]);
+    const statusId =
+      existing.statusId === archivedStatusId
+        ? (activeStatusId ?? null)
+        : existing.statusId;
+    const restored = await this.repository.restore(
+      tenantId,
+      moduleId,
+      statusId,
+    );
+    if (!restored) {
+      throw new NotFoundException('Archived paper not found');
+    }
+    const [shaped] = await this.withDisplayValues([restored], callerUserId);
+    return shaped;
+  }
+
+  async permanentlyDelete(
+    tenantId: string,
+    moduleId: string,
+    callerUserId: string,
+  ) {
+    const existing = await this.repository.findArchivedById(tenantId, moduleId);
+    if (!existing) {
+      throw new NotFoundException('Archived paper not found');
+    }
+    const ownerMembership =
+      await this.collaboratorsRepository.findByModuleAndUser(
+        tenantId,
+        moduleId,
+        callerUserId,
+      );
+    const ownerRole = await this.enumRepository.findByCategoryAndValue(
+      'project_role',
+      'Owner',
+    );
+    if (
+      !ownerMembership ||
+      !ownerRole ||
+      ownerMembership.roleId !== ownerRole.id
+    ) {
+      throw new ForbiddenException(
+        'Only the paper owner can permanently delete this paper',
+      );
+    }
+    const deleted = await this.repository.permanentlyDelete(tenantId, moduleId);
+    if (!deleted) {
+      throw new NotFoundException('Archived paper not found');
+    }
+    return { id: deleted.id };
   }
 
   private async withDisplayValues<

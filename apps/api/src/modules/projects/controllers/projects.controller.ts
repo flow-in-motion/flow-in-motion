@@ -22,6 +22,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { UsersService } from '../../users/users.service';
 import { CreateProjectDto } from '../dto/create-project.dto';
 import { UpdateProjectDto } from '../dto/update-project.dto';
+import { ArchiveProjectDto } from '../dto/archive-project.dto';
 import { ProjectsService } from '../services/projects.service';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { ProjectAccessGuard } from '../policies/project-access.guard';
@@ -62,6 +63,29 @@ export class ProjectsController {
       pageSize === 'all' ? 'all' : listPageSize(pageSize),
       query.search?.trim() || undefined,
     );
+  }
+
+  @ApiOperation({ summary: 'List projects archived by the current owner' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Get('archived')
+  async listArchived(
+    @Param('tenantId') tenantId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.projectsService.listArchived(tenantId, user.id);
+  }
+
+  @ApiOperation({ summary: 'Count content affected by archiving a project' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard, ProjectAccessGuard)
+  @Get(':projectId/archive-impact')
+  async archiveImpact(
+    @Param('tenantId') tenantId: string,
+    @Param('projectId') projectId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.projectsService.archiveImpact(tenantId, projectId, user.id);
   }
 
   @ApiOperation({ summary: 'Get a single project' })
@@ -112,5 +136,46 @@ export class ProjectsController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.projectsService.archive(tenantId, projectId, user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Archive a project and archive or move its contents',
+  })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard, ProjectAccessGuard)
+  @Post(':projectId/archive')
+  async archiveWithOptions(
+    @Param('tenantId') tenantId: string,
+    @Param('projectId') projectId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ArchiveProjectDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.projectsService.archive(tenantId, projectId, user.id, dto);
+  }
+
+  @ApiOperation({ summary: 'Restore an archived project and its contents' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Post(':projectId/restore')
+  async restore(
+    @Param('tenantId') tenantId: string,
+    @Param('projectId') projectId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.projectsService.restore(tenantId, projectId, user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Permanently delete an archived project and its contents',
+  })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Delete(':projectId/permanent')
+  async permanentlyDelete(
+    @Param('tenantId') tenantId: string,
+    @Param('projectId') projectId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.projectsService.permanentlyDelete(tenantId, projectId, user.id);
   }
 }

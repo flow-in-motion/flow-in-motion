@@ -9,6 +9,7 @@ import { NoteMembersModule } from '../note-members/note-members.module';
 import { EnumModule } from '../enum/enum.module';
 import { MembershipsModule } from '../memberships/memberships.module';
 import { ProjectModulesModule } from '../project-modules/project-modules.module';
+import { ProjectsModule } from '../projects/project.module';
 @Module({
   imports: [
     UsersModule,
@@ -16,6 +17,7 @@ import { ProjectModulesModule } from '../project-modules/project-modules.module'
     forwardRef(() => NoteMembersModule),
     EnumModule,
     ProjectModulesModule,
+    ProjectsModule,
     MembershipsModule,
   ],
   controllers: [NotesController, MyNotesController],

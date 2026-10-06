@@ -57,7 +57,8 @@ export class ProjectModulesController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
 
-    const pageSize = query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
+    const pageSize =
+      query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
 
     return this.modulesService.listActive(
       tenantId,
@@ -69,6 +70,17 @@ export class ProjectModulesController {
       query.sortBy,
       query.sortDirection,
     );
+  }
+
+  @ApiOperation({ summary: 'List papers archived by the current owner' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Get('archived')
+  async listArchived(
+    @Param('tenantId') tenantId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.modulesService.listArchived(tenantId, user.id);
   }
 
   @ApiOperation({ summary: 'Get a single module' })
@@ -121,5 +133,31 @@ export class ProjectModulesController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.modulesService.archive(tenantId, moduleId, user.id);
+  }
+
+  @ApiOperation({ summary: 'Restore an archived paper and its linked content' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Post(':moduleId/restore')
+  async restore(
+    @Param('tenantId') tenantId: string,
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.modulesService.restore(tenantId, moduleId, user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Permanently delete an archived paper and its linked content',
+  })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Delete(':moduleId/permanent')
+  async permanentlyDelete(
+    @Param('tenantId') tenantId: string,
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.modulesService.permanentlyDelete(tenantId, moduleId, user.id);
   }
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -13,6 +14,7 @@ import {
   listPageSize,
   paginationOffset,
 } from '../../../common/pagination';
+import type { ProjectArchiveMode } from '../dto/archive-project.dto';
 
 const ARCHIVE_RETENTION_DAYS = 14;
 
@@ -51,6 +53,14 @@ export class ProjectsService {
       data: generalRow ? shaped.slice(1) : shaped,
       meta: buildPaginationMeta(requestedPage, limit, totalItems),
     };
+  }
+
+  async listArchived(tenantId: string, callerUserId: string) {
+    const rows = await this.repository.findArchivedByTenant(
+      tenantId,
+      callerUserId,
+    );
+    return this.withDisplayValues(rows, callerUserId);
   }
 
   /**
@@ -218,7 +228,11 @@ export class ProjectsService {
     return this.update(project.tenantId, projectId, callerUserId, input);
   }
 
-  async archive(tenantId: string, projectId: string, callerUserId: string) {
+  async archiveImpact(
+    tenantId: string,
+    projectId: string,
+    callerUserId: string,
+  ) {
     const existingProject = await this.repository.findById(tenantId, projectId);
     if (!existingProject) {
       throw new NotFoundException('Project not found');
@@ -229,21 +243,52 @@ export class ProjectsService {
       );
     }
 
-    const archivedStatusId = await this.resolveEnum(
-      'project_status',
-      'Archived',
-    );
-    if (!archivedStatusId) {
-      throw new NotFoundException(
-        'Archived status is not configured in the enum table',
+    return this.repository.archiveImpact(tenantId, projectId);
+  }
+
+  async archive(
+    tenantId: string,
+    projectId: string,
+    callerUserId: string,
+    input: {
+      mode: ProjectArchiveMode;
+      destinationProjectId?: string;
+    } = { mode: 'archive_contents' },
+  ) {
+    const existingProject = await this.repository.findById(tenantId, projectId);
+    if (!existingProject) {
+      throw new NotFoundException('Project not found');
+    }
+    if (existingProject.userId !== callerUserId) {
+      throw new ForbiddenException(
+        'Only the project owner can archive this project',
       );
     }
 
-    const project = await this.repository.archive(
-      tenantId,
-      projectId,
-      archivedStatusId,
-    );
+    if (input.mode === 'move_contents') {
+      if (!input.destinationProjectId) {
+        throw new BadRequestException(
+          'Choose a destination project before moving project contents',
+        );
+      }
+      if (input.destinationProjectId === projectId) {
+        throw new BadRequestException(
+          'The destination project must be different from the archived project',
+        );
+      }
+      const destination = await this.repository.findById(
+        tenantId,
+        input.destinationProjectId,
+      );
+      if (!destination || destination.userId !== callerUserId) {
+        throw new BadRequestException(
+          'Choose another active project that you own',
+        );
+      }
+      await this.repository.moveContents(tenantId, projectId, destination.id);
+    }
+
+    const project = await this.repository.archive(tenantId, projectId);
     if (!project) {
       throw new NotFoundException('Project not found');
     }
@@ -263,6 +308,87 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
     return this.archive(project.tenantId, projectId, callerUserId);
+  }
+
+  async archiveImpactForCaller(projectId: string, callerUserId: string) {
+    const project = await this.repository.findByIdGlobal(projectId);
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    return this.archiveImpact(project.tenantId, projectId, callerUserId);
+  }
+
+  async archiveForCallerWithOptions(
+    projectId: string,
+    callerUserId: string,
+    input: Parameters<ProjectsService['archive']>[3],
+  ) {
+    const project = await this.repository.findByIdGlobal(projectId);
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    return this.archive(project.tenantId, projectId, callerUserId, input);
+  }
+
+  async restore(tenantId: string, projectId: string, callerUserId: string) {
+    const existing = await this.repository.findArchivedById(
+      tenantId,
+      projectId,
+    );
+    if (!existing) {
+      throw new NotFoundException('Archived project not found');
+    }
+    if (existing.userId !== callerUserId) {
+      throw new ForbiddenException(
+        'Only the project owner can restore this project',
+      );
+    }
+
+    const [archivedStatusId, activeStatusId] = await Promise.all([
+      this.resolveEnum('project_status', 'Archived'),
+      this.resolveEnum('project_status', 'Active'),
+    ]);
+    const statusId =
+      existing.statusId === archivedStatusId
+        ? (activeStatusId ?? null)
+        : existing.statusId;
+    const restored = await this.repository.restore(
+      tenantId,
+      projectId,
+      statusId,
+    );
+    if (!restored) {
+      throw new NotFoundException('Archived project not found');
+    }
+    const [shaped] = await this.withDisplayValues([restored], callerUserId);
+    return shaped;
+  }
+
+  async permanentlyDelete(
+    tenantId: string,
+    projectId: string,
+    callerUserId: string,
+  ) {
+    const existing = await this.repository.findArchivedById(
+      tenantId,
+      projectId,
+    );
+    if (!existing) {
+      throw new NotFoundException('Archived project not found');
+    }
+    if (existing.userId !== callerUserId) {
+      throw new ForbiddenException(
+        'Only the project owner can permanently delete this project',
+      );
+    }
+    const deleted = await this.repository.permanentlyDelete(
+      tenantId,
+      projectId,
+    );
+    if (!deleted) {
+      throw new NotFoundException('Archived project not found');
+    }
+    return { id: deleted.id };
   }
 
   private async withDisplayValues<

@@ -172,6 +172,10 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useArchiveProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useProjectArchiveImpact: () => ({
+    data: { papers: 0, tasks: 0, notes: 0 },
+    isPending: false,
+  }),
   useTrackEvent: () => vi.fn(),
   useModules: () => ({
     data: {
@@ -215,6 +219,10 @@ vi.mock("@/components/projects/project-collaborators", () => ({
   ProjectCollaborators: ({ entityTitle }: { entityTitle: string }) => (
     <div>Collaborators for {entityTitle}</div>
   ),
+}));
+
+vi.mock("@/components/projects/archive-project-dialog", () => ({
+  ArchiveProjectDialog: () => null,
 }));
 
 function renderPage() {

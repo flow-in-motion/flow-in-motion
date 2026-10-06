@@ -122,6 +122,14 @@ export interface ApiProject {
   role: string | null;
 }
 
+export type ProjectArchiveMode = "archive_contents" | "move_contents";
+
+export interface ProjectArchiveImpact {
+  papers: number;
+  tasks: number;
+  notes: number;
+}
+
 export interface ApiCollaborator {
   id: string;
   tenantId: string;
@@ -313,6 +321,17 @@ export const apiKeys = {
   ) => ["api", "tenant", tenantId, "projects", page, pageSize, search] as const,
   project: (tenantId: string, projectId: string) =>
     ["api", "tenant", tenantId, "projects", projectId] as const,
+  archive: (tenantId: string) =>
+    ["api", "tenant", tenantId, "archive"] as const,
+  projectArchiveImpact: (tenantId: string, projectId: string) =>
+    [
+      "api",
+      "tenant",
+      tenantId,
+      "projects",
+      projectId,
+      "archive-impact",
+    ] as const,
   projectCollaborators: (tenantId: string, projectId: string) =>
     [
       "api",
@@ -778,6 +797,32 @@ export function useProject(
   });
 }
 
+export function useProjectArchiveImpact(
+  tenantId: string,
+  projectId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: apiKeys.projectArchiveImpact(tenantId, projectId),
+    enabled: Boolean(tenantId) && Boolean(projectId) && enabled,
+    queryFn: () =>
+      authenticatedJson<ProjectArchiveImpact>(
+        `/api/v1/tenant/${tenantId}/projects/${projectId}/archive-impact`,
+      ),
+  });
+}
+
+export function useArchivedProjects(tenantId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...apiKeys.archive(tenantId), "projects"],
+    enabled: Boolean(tenantId) && enabled,
+    queryFn: () =>
+      authenticatedJson<ApiProject[]>(
+        `/api/v1/tenant/${tenantId}/projects/archived`,
+      ),
+  });
+}
+
 export function useCreateProject(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -839,19 +884,63 @@ export function useUpdateProject(tenantId: string) {
 export function useArchiveProject(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (projectId: string) =>
-      responseData<{ project: ApiProject; warning: string }>(
-        await apiClient.DELETE(
-          "/api/v1/tenant/{tenantId}/projects/{projectId}",
-          {
-            params: { path: { tenantId, projectId } },
-          },
-        ),
+    mutationFn: async (input: {
+      projectId: string;
+      mode: ProjectArchiveMode;
+      destinationProjectId?: string;
+    }) =>
+      authenticatedJson<{ project: ApiProject; warning: string }>(
+        `/api/v1/tenant/${tenantId}/projects/${input.projectId}/archive`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            mode: input.mode,
+            destinationProjectId: input.destinationProjectId,
+          }),
+        },
       ),
     async onSuccess() {
-      await queryClient.invalidateQueries({
-        queryKey: apiKeys.projects(tenantId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: apiKeys.projects(tenantId) }),
+        queryClient.invalidateQueries({ queryKey: apiKeys.archive(tenantId) }),
+        invalidateResourceEverywhere(queryClient, "modules"),
+        invalidateResourceEverywhere(queryClient, "tasks"),
+        invalidateResourceEverywhere(queryClient, "notes"),
+      ]);
+    },
+  });
+}
+
+export function useRestoreProject(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: string) =>
+      authenticatedJson<ApiProject>(
+        `/api/v1/tenant/${tenantId}/projects/${projectId}/restore`,
+        { method: "POST" },
+      ),
+    async onSuccess() {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: apiKeys.projects(tenantId) }),
+        queryClient.invalidateQueries({ queryKey: apiKeys.archive(tenantId) }),
+        invalidateResourceEverywhere(queryClient, "modules"),
+        invalidateResourceEverywhere(queryClient, "tasks"),
+        invalidateResourceEverywhere(queryClient, "notes"),
+      ]);
+    },
+  });
+}
+
+export function usePermanentlyDeleteProject(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: string) =>
+      authenticatedJson<{ id: string }>(
+        `/api/v1/tenant/${tenantId}/projects/${projectId}/permanent`,
+        { method: "DELETE" },
+      ),
+    async onSuccess() {
+      await queryClient.invalidateQueries({ queryKey: apiKeys.archive(tenantId) });
     },
   });
 }
@@ -950,11 +1039,20 @@ export function useUpdateMyProject() {
 export function useArchiveMyProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (projectId: string) =>
-      responseData<{ project: ApiProject; warning: string }>(
-        await apiClient.DELETE("/api/v1/me/projects/{projectId}", {
-          params: { path: { projectId } },
-        }),
+    mutationFn: async (input: {
+      projectId: string;
+      mode: ProjectArchiveMode;
+      destinationProjectId?: string;
+    }) =>
+      authenticatedJson<{ project: ApiProject; warning: string }>(
+        `/api/v1/me/projects/${input.projectId}/archive`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            mode: input.mode,
+            destinationProjectId: input.destinationProjectId,
+          }),
+        },
       ),
     async onSuccess() {
       await Promise.all([
@@ -962,6 +1060,17 @@ export function useArchiveMyProject() {
         invalidateResourceEverywhere(queryClient, "projects"),
       ]);
     },
+  });
+}
+
+export function useMyProjectArchiveImpact(projectId: string, enabled = true) {
+  return useQuery({
+    queryKey: ["api", "me", "projects", projectId, "archive-impact"],
+    enabled: Boolean(projectId) && enabled,
+    queryFn: () =>
+      authenticatedJson<ProjectArchiveImpact>(
+        `/api/v1/me/projects/${projectId}/archive-impact`,
+      ),
   });
 }
 
@@ -1271,6 +1380,50 @@ export function useArchiveModule(tenantId: string) {
         }),
         queryClient.invalidateQueries({ queryKey: myModulesKey }),
       ]);
+    },
+  });
+}
+
+export function useArchivedModules(tenantId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...apiKeys.archive(tenantId), "modules"],
+    enabled: Boolean(tenantId) && enabled,
+    queryFn: () =>
+      authenticatedJson<ApiModule[]>(
+        `/api/v1/tenant/${tenantId}/modules/archived`,
+      ),
+  });
+}
+
+export function useRestoreModule(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (moduleId: string) =>
+      authenticatedJson<ApiModule>(
+        `/api/v1/tenant/${tenantId}/modules/${moduleId}/restore`,
+        { method: "POST" },
+      ),
+    async onSuccess() {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: apiKeys.archive(tenantId) }),
+        invalidateResourceEverywhere(queryClient, "modules"),
+        invalidateResourceEverywhere(queryClient, "tasks"),
+        invalidateResourceEverywhere(queryClient, "notes"),
+      ]);
+    },
+  });
+}
+
+export function usePermanentlyDeleteModule(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (moduleId: string) =>
+      authenticatedJson<{ id: string }>(
+        `/api/v1/tenant/${tenantId}/modules/${moduleId}/permanent`,
+        { method: "DELETE" },
+      ),
+    async onSuccess() {
+      await queryClient.invalidateQueries({ queryKey: apiKeys.archive(tenantId) });
     },
   });
 }

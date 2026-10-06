@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { projectCollaborators, projects } from '@research-tracker/migrations';
-import { and, desc, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import {
+  modules,
+  notes,
+  projectCollaborators,
+  projects,
+  tasks,
+} from '@research-tracker/migrations';
+import { and, desc, eq, ilike, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 import { searchPattern } from '../../../common/pagination';
 
@@ -12,7 +18,13 @@ export class ProjectsRepository {
     const [project] = await this.drizzle.db
       .select()
       .from(projects)
-      .where(and(eq(projects.tenantId, tenantId), eq(projects.id, projectId)));
+      .where(
+        and(
+          eq(projects.tenantId, tenantId),
+          eq(projects.id, projectId),
+          isNull(projects.archivedAt),
+        ),
+      );
     return project;
   }
 
@@ -21,8 +33,36 @@ export class ProjectsRepository {
     const [project] = await this.drizzle.db
       .select()
       .from(projects)
-      .where(eq(projects.id, projectId));
+      .where(and(eq(projects.id, projectId), isNull(projects.archivedAt)));
     return project;
+  }
+
+  async findArchivedById(tenantId: string, projectId: string) {
+    const [project] = await this.drizzle.db
+      .select()
+      .from(projects)
+      .where(
+        and(
+          eq(projects.tenantId, tenantId),
+          eq(projects.id, projectId),
+          isNotNull(projects.archivedAt),
+        ),
+      );
+    return project;
+  }
+
+  async findArchivedByTenant(tenantId: string, ownerUserId: string) {
+    return this.drizzle.db
+      .select()
+      .from(projects)
+      .where(
+        and(
+          eq(projects.tenantId, tenantId),
+          eq(projects.userId, ownerUserId),
+          isNotNull(projects.archivedAt),
+        ),
+      )
+      .orderBy(desc(projects.archivedAt), desc(projects.id));
   }
   async findGeneralByTenant(tenantId: string) {
     const [project] = await this.drizzle.db
@@ -196,16 +236,106 @@ export class ProjectsRepository {
     return project;
   }
 
-  async archive(tenantId: string, projectId: string, archivedStatusId: string) {
+  async archive(tenantId: string, projectId: string) {
     const [project] = await this.drizzle.db
       .update(projects)
       .set({
-        statusId: archivedStatusId,
         archivedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(and(eq(projects.tenantId, tenantId), eq(projects.id, projectId)))
       .returning();
     return project;
+  }
+
+  async restore(tenantId: string, projectId: string, statusId: string | null) {
+    const [project] = await this.drizzle.db
+      .update(projects)
+      .set({
+        statusId,
+        archivedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(projects.tenantId, tenantId),
+          eq(projects.id, projectId),
+          isNotNull(projects.archivedAt),
+        ),
+      )
+      .returning();
+    return project;
+  }
+
+  async permanentlyDelete(tenantId: string, projectId: string) {
+    const [project] = await this.drizzle.db
+      .delete(projects)
+      .where(
+        and(
+          eq(projects.tenantId, tenantId),
+          eq(projects.id, projectId),
+          isNotNull(projects.archivedAt),
+        ),
+      )
+      .returning();
+    return project;
+  }
+
+  async archiveImpact(tenantId: string, projectId: string) {
+    const [paperCount, taskCount, noteCount] = await Promise.all([
+      this.drizzle.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(modules)
+        .where(
+          and(eq(modules.tenantId, tenantId), eq(modules.projectId, projectId)),
+        ),
+      this.drizzle.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(tasks)
+        .where(
+          and(eq(tasks.tenantId, tenantId), eq(tasks.projectId, projectId)),
+        ),
+      this.drizzle.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(notes)
+        .where(
+          and(eq(notes.tenantId, tenantId), eq(notes.projectId, projectId)),
+        ),
+    ]);
+
+    return {
+      papers: paperCount[0]?.count ?? 0,
+      tasks: taskCount[0]?.count ?? 0,
+      notes: noteCount[0]?.count ?? 0,
+    };
+  }
+
+  async moveContents(
+    tenantId: string,
+    sourceProjectId: string,
+    destinationProjectId: string,
+  ) {
+    const now = new Date();
+    await this.drizzle.db
+      .update(modules)
+      .set({ projectId: destinationProjectId, updatedAt: now })
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          eq(modules.projectId, sourceProjectId),
+        ),
+      );
+    await this.drizzle.db
+      .update(tasks)
+      .set({ projectId: destinationProjectId, updatedAt: now })
+      .where(
+        and(eq(tasks.tenantId, tenantId), eq(tasks.projectId, sourceProjectId)),
+      );
+    await this.drizzle.db
+      .update(notes)
+      .set({ projectId: destinationProjectId, updatedAt: now })
+      .where(
+        and(eq(notes.tenantId, tenantId), eq(notes.projectId, sourceProjectId)),
+      );
   }
 }

@@ -7,7 +7,18 @@ import {
   projectCollaborators,
   projects,
 } from '@research-tracker/migrations';
-import { and, asc, desc, eq, exists, ilike, isNull, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  ilike,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 import type {
   ModuleSortField,
@@ -22,7 +33,27 @@ export class ProjectModulesRepository {
     const [module] = await this.drizzle.db
       .select()
       .from(modules)
-      .where(and(eq(modules.tenantId, tenantId), eq(modules.id, moduleId)));
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          eq(modules.id, moduleId),
+          isNull(modules.archivedAt),
+          or(
+            isNull(modules.projectId),
+            exists(
+              this.drizzle.db
+                .select({ id: projects.id })
+                .from(projects)
+                .where(
+                  and(
+                    eq(projects.id, modules.projectId),
+                    isNull(projects.archivedAt),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      );
     return module;
   }
 
@@ -30,8 +61,86 @@ export class ProjectModulesRepository {
     const [module] = await this.drizzle.db
       .select()
       .from(modules)
-      .where(eq(modules.id, moduleId));
+      .where(
+        and(
+          eq(modules.id, moduleId),
+          isNull(modules.archivedAt),
+          or(
+            isNull(modules.projectId),
+            exists(
+              this.drizzle.db
+                .select({ id: projects.id })
+                .from(projects)
+                .where(
+                  and(
+                    eq(projects.id, modules.projectId),
+                    isNull(projects.archivedAt),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      );
     return module;
+  }
+
+  async findArchivedById(tenantId: string, moduleId: string) {
+    const [module] = await this.drizzle.db
+      .select()
+      .from(modules)
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          eq(modules.id, moduleId),
+          isNotNull(modules.archivedAt),
+        ),
+      );
+    return module;
+  }
+
+  async findArchivedByTenant(tenantId: string, callerUserId: string) {
+    return this.drizzle.db
+      .select()
+      .from(modules)
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          isNotNull(modules.archivedAt),
+          or(
+            isNull(modules.projectId),
+            exists(
+              this.drizzle.db
+                .select({ id: projects.id })
+                .from(projects)
+                .where(
+                  and(
+                    eq(projects.id, modules.projectId),
+                    isNull(projects.archivedAt),
+                  ),
+                ),
+            ),
+          ),
+          exists(
+            this.drizzle.db
+              .select({ id: moduleCollaborators.id })
+              .from(moduleCollaborators)
+              .innerJoin(
+                enumTable,
+                eq(enumTable.id, moduleCollaborators.roleId),
+              )
+              .where(
+                and(
+                  eq(moduleCollaborators.tenantId, tenantId),
+                  eq(moduleCollaborators.moduleId, modules.id),
+                  eq(moduleCollaborators.userId, callerUserId),
+                  eq(enumTable.category, 'project_role'),
+                  eq(enumTable.value, 'Owner'),
+                ),
+              ),
+          ),
+        ),
+      )
+      .orderBy(desc(modules.archivedAt), desc(modules.id));
   }
 
   async findVisibleActiveByTenant(
@@ -77,6 +186,20 @@ export class ProjectModulesRepository {
     const conditions = [
       eq(modules.tenantId, tenantId),
       isNull(modules.archivedAt),
+      or(
+        isNull(modules.projectId),
+        exists(
+          this.drizzle.db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, modules.projectId),
+                isNull(projects.archivedAt),
+              ),
+            ),
+        ),
+      ),
       visibilityCondition,
     ];
 
@@ -95,9 +218,14 @@ export class ProjectModulesRepository {
             this.drizzle.db
               .select({ id: projects.id })
               .from(projects)
-              .where(and(eq(projects.id, modules.projectId), ilike(projects.title, pattern))),
+              .where(
+                and(
+                  eq(projects.id, modules.projectId),
+                  ilike(projects.title, pattern),
+                ),
+              ),
           ),
-        )!,
+        ),
       );
     }
 
@@ -119,11 +247,20 @@ export class ProjectModulesRepository {
       order by (effective.tenant_id = ${tenantId}) desc
       limit 1
     ), -1)`;
-    const orderBy = sortBy === 'alphabetical'
-      ? [direction(paperTitle), direction(modules.createdAt), direction(modules.id)]
-      : sortBy === 'progress'
-        ? [direction(progressOrder), direction(modules.createdAt), direction(modules.id)]
-        : [direction(modules.createdAt), direction(modules.id)];
+    const orderBy =
+      sortBy === 'alphabetical'
+        ? [
+            direction(paperTitle),
+            direction(modules.createdAt),
+            direction(modules.id),
+          ]
+        : sortBy === 'progress'
+          ? [
+              direction(progressOrder),
+              direction(modules.createdAt),
+              direction(modules.id),
+            ]
+          : [direction(modules.createdAt), direction(modules.id)];
 
     const [data, countResult] = await Promise.all([
       this.drizzle.db
@@ -147,7 +284,10 @@ export class ProjectModulesRepository {
     return {
       data,
       totalItems: countResult[0]?.count ?? 0,
-      summary: { active: countResult[0]?.active ?? 0, review: countResult[0]?.review ?? 0 },
+      summary: {
+        active: countResult[0]?.active ?? 0,
+        review: countResult[0]?.review ?? 0,
+      },
     };
   }
 
@@ -186,7 +326,24 @@ export class ProjectModulesRepository {
       ),
     );
 
-    const whereCondition = and(isNull(modules.archivedAt), visibilityCondition);
+    const whereCondition = and(
+      isNull(modules.archivedAt),
+      or(
+        isNull(modules.projectId),
+        exists(
+          this.drizzle.db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, modules.projectId),
+                isNull(projects.archivedAt),
+              ),
+            ),
+        ),
+      ),
+      visibilityCondition,
+    );
 
     const [data, countResult] = await Promise.all([
       this.drizzle.db
@@ -280,15 +437,43 @@ export class ProjectModulesRepository {
     return module;
   }
 
-  async archive(tenantId: string, moduleId: string, archivedStatusId: string) {
+  async archive(tenantId: string, moduleId: string) {
     const [module] = await this.drizzle.db
       .update(modules)
       .set({
-        statusId: archivedStatusId,
         archivedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(and(eq(modules.tenantId, tenantId), eq(modules.id, moduleId)))
+      .returning();
+    return module;
+  }
+
+  async restore(tenantId: string, moduleId: string, statusId: string | null) {
+    const [module] = await this.drizzle.db
+      .update(modules)
+      .set({ statusId, archivedAt: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          eq(modules.id, moduleId),
+          isNotNull(modules.archivedAt),
+        ),
+      )
+      .returning();
+    return module;
+  }
+
+  async permanentlyDelete(tenantId: string, moduleId: string) {
+    const [module] = await this.drizzle.db
+      .delete(modules)
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          eq(modules.id, moduleId),
+          isNotNull(modules.archivedAt),
+        ),
+      )
       .returning();
     return module;
   }
