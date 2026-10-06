@@ -60,6 +60,7 @@ export const navGroups: NavGroup[] = [
       { label: "Pipeline", to: "/pipeline", icon: Workflow },
       { label: "Calendar", to: "/calendar", icon: Calendar },
       { label: "Conferences", to: "/conferences", icon: Presentation },
+      { label: "Funding", to: "/funding", icon: DollarSign },
       { label: "Mind Map", to: "/mind-map", icon: Network },
     ],
   },
@@ -82,7 +83,6 @@ export const navGroups: NavGroup[] = [
       { label: "CV Builder", to: "/future/cv-builder", icon: FileText },
       { label: "Dissemination", to: "/future/dissemination", icon: Megaphone },
       { label: "Documents", to: "/future/documents", icon: Files },
-      { label: "Funding", to: "/future/funding", icon: DollarSign },
       {
         label: "HDR students",
         to: "/future/hdr-students",

@@ -237,6 +237,54 @@ export interface ConferenceInput {
   projectIds: string[];
 }
 
+export type FundingStatus =
+  "Considering" | "Preparing" | "Submitted" | "Awarded" | "Unsuccessful";
+
+export interface ApiFundingProject {
+  id: string;
+  displayId: string | null;
+  title: string;
+}
+
+export interface ApiFundingPaper {
+  id: string;
+  displayId: string | null;
+  shortTitle: string | null;
+  title: string | null;
+  projectId: string | null;
+}
+
+export interface ApiFunding {
+  id: string;
+  tenantId: string;
+  ownerUserId: string;
+  fundingBody: string;
+  scheme: string | null;
+  partners: string | null;
+  amount: string | null;
+  currency: string | null;
+  applicationDeadline: string | null;
+  status: FundingStatus | null;
+  notes: string | null;
+  projects: ApiFundingProject[];
+  papers: ApiFundingPaper[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FundingInput {
+  fundingBody: string;
+  scheme?: string | null;
+  partners?: string | null;
+  amount?: string | null;
+  currency?: string | null;
+  applicationDeadline?: string | null;
+  status?: FundingStatus | null;
+  notes?: string | null;
+  projectIds: string[];
+  moduleIds: string[];
+}
+
 export interface ApiCalendarEvent {
   id: string;
   tenantId: string;
@@ -436,6 +484,14 @@ export const apiKeys = {
     ] as const,
   conference: (tenantId: string, conferenceId: string) =>
     ["api", "tenant", tenantId, "conferences", conferenceId] as const,
+  fundings: (
+    tenantId: string,
+    page = 1,
+    pageSize: number | "all" = 20,
+    search = "",
+  ) => ["api", "tenant", tenantId, "fundings", page, pageSize, search] as const,
+  funding: (tenantId: string, fundingId: string) =>
+    ["api", "tenant", tenantId, "fundings", "detail", fundingId] as const,
   calendarEvents: (
     tenantId: string,
     page = 1,
@@ -2331,6 +2387,107 @@ export function useDeleteConference(tenantId: string) {
       });
       await queryClient.invalidateQueries({
         queryKey: apiKeys.conferences(tenantId),
+      });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Funding
+// ---------------------------------------------------------------------------
+
+export function useFundings(
+  tenantId: string,
+  page = 1,
+  enabled = true,
+  options?: { pageSize?: number | "all"; search?: string },
+) {
+  const pageSize = options?.pageSize ?? 20;
+  const search = options?.search?.trim() ?? "";
+  return useQuery({
+    queryKey: apiKeys.fundings(tenantId, page, pageSize, search),
+    enabled: Boolean(tenantId) && enabled,
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (search) params.set("search", search);
+      return authenticatedJson<PaginatedResponse<ApiFunding>>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/fundings?${params.toString()}`,
+      );
+    },
+  });
+}
+
+export function useFunding(
+  tenantId: string,
+  fundingId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: apiKeys.funding(tenantId, fundingId),
+    enabled: Boolean(tenantId) && Boolean(fundingId) && enabled,
+    queryFn: () =>
+      authenticatedJson<ApiFunding>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/fundings/${encodeURIComponent(fundingId)}`,
+      ),
+  });
+}
+
+export function useCreateFunding(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: FundingInput) =>
+      apiJson<ApiFunding>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/fundings`,
+        { method: "POST", body: JSON.stringify(input) },
+      ),
+    async onSuccess() {
+      await queryClient.invalidateQueries({
+        queryKey: ["api", "tenant", tenantId, "fundings"],
+      });
+    },
+  });
+}
+
+export function useUpdateFunding(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      fundingId,
+      input,
+    }: {
+      fundingId: string;
+      input: FundingInput;
+    }) =>
+      apiJson<ApiFunding>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/fundings/${encodeURIComponent(fundingId)}`,
+        { method: "PATCH", body: JSON.stringify(input) },
+      ),
+    async onSuccess(funding) {
+      queryClient.setQueryData(apiKeys.funding(tenantId, funding.id), funding);
+      await queryClient.invalidateQueries({
+        queryKey: ["api", "tenant", tenantId, "fundings"],
+      });
+    },
+  });
+}
+
+export function useDeleteFunding(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fundingId: string) =>
+      apiJson<{ message: string; funding: ApiFunding }>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/fundings/${encodeURIComponent(fundingId)}`,
+        { method: "DELETE" },
+      ),
+    async onSuccess(_result, fundingId) {
+      queryClient.removeQueries({
+        queryKey: apiKeys.funding(tenantId, fundingId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["api", "tenant", tenantId, "fundings"],
       });
     },
   });
