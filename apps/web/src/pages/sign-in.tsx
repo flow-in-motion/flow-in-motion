@@ -227,6 +227,16 @@ export default function SignInPage() {
               If that account exists, a password-reset email has been sent.
             </p>
           ) : null}
+          <p className="text-sm text-muted-foreground">
+            New to Research in Motion?{" "}
+            <Link
+              to="/sign-up"
+              state={{ returnTo }}
+              className="font-semibold text-primary underline-offset-4 hover:underline"
+            >
+              Create an account
+            </Link>
+          </p>
           <p className="text-xs text-muted-foreground">
             By signing in, you agree to our{" "}
             <Link

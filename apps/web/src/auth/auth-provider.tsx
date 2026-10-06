@@ -19,6 +19,11 @@ interface AuthContextValue {
   isSessionExpired: boolean;
   error: Error | null;
   signInWithPassword(email: string, password: string): Promise<void>;
+  signUpWithPassword(
+    email: string,
+    password: string,
+    returnTo?: string,
+  ): Promise<{ requiresEmailConfirmation: boolean }>;
   signOut(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
@@ -78,6 +83,29 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const signUpWithPassword = useCallback(
+    async (email: string, password: string, returnTo = "/") => {
+      setError(null);
+      const confirmationUrl = new URL("/auth/confirm", window.location.origin);
+      confirmationUrl.searchParams.set("returnTo", returnTo);
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          emailRedirectTo: confirmationUrl.toString(),
+        },
+      });
+      if (signUpError) {
+        const nextError = toError(signUpError)!;
+        setError(nextError);
+        throw nextError;
+      }
+      setSession(data.session);
+      return { requiresEmailConfirmation: data.session === null };
+    },
+    [],
+  );
+
   const signOut = useCallback(async () => {
     setError(null);
     const { error: signOutError } = await supabase.auth.signOut();
@@ -125,6 +153,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       isSessionExpired,
       error,
       signInWithPassword,
+      signUpWithPassword,
       signOut,
       sendPasswordReset,
       updatePassword,
@@ -137,6 +166,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       sendPasswordReset,
       session,
       signInWithPassword,
+      signUpWithPassword,
       signOut,
       updatePassword,
     ],
