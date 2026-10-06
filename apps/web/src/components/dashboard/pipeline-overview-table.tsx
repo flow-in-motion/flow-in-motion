@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Maximize2, Table2 } from "lucide-react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { ArrowDown, ArrowUp, ChevronDown, Maximize2, Table2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
@@ -31,6 +31,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -64,6 +71,69 @@ const PAPER_SORT_OPTIONS: readonly { value: ModuleSortField; label: string }[] =
   { value: "progress", label: "Progress" },
 ];
 
+const PAPER_STATUS_FILTERS = ["Active", "Review", "Stalled", "Complete"] as const;
+
+interface MultiSelectFilterProps {
+  options: readonly string[];
+  selected: ReadonlySet<string>;
+  pluralLabel: string;
+  triggerClassName: string;
+  onToggle: (value: string) => void;
+  onClear: () => void;
+}
+
+function MultiSelectFilter({
+  options,
+  selected,
+  pluralLabel,
+  triggerClassName,
+  onToggle,
+  onClear,
+}: MultiSelectFilterProps) {
+  const triggerLabel = selected.size === 0
+    ? `All ${pluralLabel}`
+    : selected.size === 1
+      ? [...selected][0]
+      : `${selected.size} ${pluralLabel}`;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn("justify-between gap-2", triggerClassName)}
+          aria-label={`Filter by ${pluralLabel}`}
+        >
+          <span className="truncate">{triggerLabel}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-72 min-w-64 overflow-y-auto">
+        <DropdownMenuCheckboxItem
+          checked={selected.size === 0}
+          onSelect={(event) => event.preventDefault()}
+          onCheckedChange={onClear}
+        >
+          All {pluralLabel}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator />
+        {options.map((option) => (
+          <DropdownMenuCheckboxItem
+            key={option}
+            checked={selected.has(option)}
+            onSelect={(event) => event.preventDefault()}
+            onCheckedChange={() => onToggle(option)}
+          >
+            {option}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function PipelineOverviewTable() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
@@ -77,7 +147,8 @@ export function PipelineOverviewTable() {
   const pipelineStagesQuery = useModulePipelineStagePool(tenantId);
 
   const [search, setSearch] = useState("");
-  const [stage, setStage] = useState("All");
+  const [selectedStages, setSelectedStages] = useState<Set<string>>(() => new Set());
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(() => new Set());
   const columns = useColumnVisibility(
     PIPELINE_COLUMNS.map((column) => column.id),
     "dashboard-pipeline",
@@ -111,6 +182,7 @@ export function PipelineOverviewTable() {
             id: paper.id,
             name: paperDisplayTitle(paper),
             createdAt: paper.createdAt ?? "",
+            status: paper.status ?? "",
             stageIndex,
             completion: progressByStage.get(paper.pipelineStage ?? "") ?? 0,
           };
@@ -122,7 +194,8 @@ export function PipelineOverviewTable() {
     const query = search.trim().toLowerCase();
     const matching = paperRows.filter((row) => {
       const rowStage = row.stageIndex === undefined ? "Unassigned" : stageNames[row.stageIndex];
-      if (stage !== "All" && rowStage !== stage) return false;
+      if (selectedStages.size > 0 && !selectedStages.has(rowStage)) return false;
+      if (selectedStatuses.size > 0 && !selectedStatuses.has(row.status)) return false;
       if (query && !row.name.toLowerCase().includes(query)) return false;
       return true;
     });
@@ -137,13 +210,27 @@ export function PipelineOverviewTable() {
         ? comparison * multiplier
         : a.id.localeCompare(b.id) * multiplier;
     });
-  }, [paperRows, search, sortBy, sortDirection, stage, stageNames]);
+  }, [paperRows, search, selectedStages, selectedStatuses, sortBy, sortDirection, stageNames]);
 
-  const hasActiveFilters = search !== "" || stage !== "All";
+  const hasActiveFilters =
+    search !== "" || selectedStages.size > 0 || selectedStatuses.size > 0;
 
   function clearFilters() {
     setSearch("");
-    setStage("All");
+    setSelectedStages(new Set());
+    setSelectedStatuses(new Set());
+  }
+
+  function toggleSelected(
+    setter: Dispatch<SetStateAction<Set<string>>>,
+    value: string,
+  ) {
+    setter((current) => {
+      const next = new Set(current);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
   }
 
   function changeSort(nextSort: ModuleSortField) {
@@ -161,21 +248,22 @@ export function PipelineOverviewTable() {
           placeholder="Search paper…"
           className="sm:max-w-xs"
         />
-        <Select
-          value={stage}
-          onValueChange={setStage}
-        >
-          <SelectTrigger className="sm:w-44">
-            <SelectValue placeholder="Stage" />
-          </SelectTrigger>
-          <SelectContent>
-            {stageFilterOptions.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option === "All" ? "All stages" : option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelectFilter
+          options={stageFilterOptions.slice(1)}
+          selected={selectedStages}
+          pluralLabel="stages"
+          triggerClassName="sm:w-44"
+          onToggle={(value) => toggleSelected(setSelectedStages, value)}
+          onClear={() => setSelectedStages(new Set())}
+        />
+        <MultiSelectFilter
+          options={PAPER_STATUS_FILTERS}
+          selected={selectedStatuses}
+          pluralLabel="statuses"
+          triggerClassName="sm:w-40"
+          onToggle={(value) => toggleSelected(setSelectedStatuses, value)}
+          onClear={() => setSelectedStatuses(new Set())}
+        />
         <Select value={sortBy} onValueChange={(value) => changeSort(value as ModuleSortField)}>
           <SelectTrigger className="sm:w-40" aria-label="Sort papers by">
             <SelectValue placeholder="Sort by" />
