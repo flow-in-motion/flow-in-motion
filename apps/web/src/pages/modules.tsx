@@ -53,7 +53,7 @@ const MODULE_COLUMNS = [
   { id: "status", label: "Status", width: "110px" },
   { id: "progress", label: "Progress", width: "130px" },
   { id: "stage", label: "Stage", width: "170px" },
-  { id: "due", label: "Due Date", width: "110px" },
+  { id: "due", label: "Follow up or Due Date", width: "170px" },
   { id: "assignee", label: "Assigned To", width: "150px" },
 ] as const;
 
