@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { GoneException, NotFoundException } from '@nestjs/common';
 import { InvitationAcceptanceController } from './invitation-acceptance.controller';
 import { ProjectInvitationsService } from '../services/project-invitations.service';
 import { ModuleInvitationsService } from '../../module-invitations/services/module-invitations.service';
@@ -19,12 +19,20 @@ describe('InvitationAcceptanceController', () => {
     projectInvitations = { preview: jest.fn(), accept: jest.fn() };
     moduleInvitations = { preview: jest.fn(), accept: jest.fn() };
     taskInvitations = {
-      preview: jest.fn().mockRejectedValue(new NotFoundException()),
-      accept: jest.fn().mockRejectedValue(new NotFoundException()),
+      preview: jest
+        .fn()
+        .mockRejectedValue(new NotFoundException('Invitation not found')),
+      accept: jest
+        .fn()
+        .mockRejectedValue(new NotFoundException('Invitation not found')),
     };
     noteInvitations = {
-      preview: jest.fn().mockRejectedValue(new NotFoundException()),
-      accept: jest.fn().mockRejectedValue(new NotFoundException()),
+      preview: jest
+        .fn()
+        .mockRejectedValue(new NotFoundException('Invitation not found')),
+      accept: jest
+        .fn()
+        .mockRejectedValue(new NotFoundException('Invitation not found')),
     };
     usersService = { findOrProvisionFromPrincipal: jest.fn() };
 
@@ -42,6 +50,32 @@ describe('InvitationAcceptanceController', () => {
     controller = moduleRef.get<InvitationAcceptanceController>(
       InvitationAcceptanceController,
     );
+  });
+
+  describe('preview', () => {
+    it('falls back when the token does not match a project invitation', async () => {
+      projectInvitations.preview.mockRejectedValue(
+        new NotFoundException('Invitation not found'),
+      );
+      moduleInvitations.preview.mockResolvedValue({
+        moduleId: 'module-1',
+        moduleTitle: 'Draft paper',
+      });
+
+      await expect(controller.preview('raw-token')).resolves.toEqual({
+        type: 'module',
+        moduleId: 'module-1',
+        moduleTitle: 'Draft paper',
+      });
+    });
+
+    it('propagates an unexpected preview failure', async () => {
+      const failure = new Error('Database lookup failed');
+      projectInvitations.preview.mockRejectedValue(failure);
+
+      await expect(controller.preview('raw-token')).rejects.toBe(failure);
+      expect(moduleInvitations.preview).not.toHaveBeenCalled();
+    });
   });
 
   describe('accept', () => {
@@ -74,7 +108,9 @@ describe('InvitationAcceptanceController', () => {
         id: 'user-id',
         email: 'someone@example.com',
       });
-      projectInvitations.accept.mockRejectedValue(new NotFoundException());
+      projectInvitations.accept.mockRejectedValue(
+        new NotFoundException('Invitation not found'),
+      );
       moduleInvitations.accept.mockResolvedValue({ id: 'collab-2' });
 
       const req = {
@@ -91,8 +127,12 @@ describe('InvitationAcceptanceController', () => {
         id: 'user-id',
         email: 'someone@example.com',
       });
-      projectInvitations.accept.mockRejectedValue(new NotFoundException());
-      moduleInvitations.accept.mockRejectedValue(new NotFoundException());
+      projectInvitations.accept.mockRejectedValue(
+        new NotFoundException('Invitation not found'),
+      );
+      moduleInvitations.accept.mockRejectedValue(
+        new NotFoundException('Invitation not found'),
+      );
       taskInvitations.accept.mockResolvedValue({ id: 'member-1' });
 
       const req = {
@@ -109,9 +149,15 @@ describe('InvitationAcceptanceController', () => {
         id: 'user-id',
         email: 'someone@example.com',
       });
-      projectInvitations.accept.mockRejectedValue(new NotFoundException());
-      moduleInvitations.accept.mockRejectedValue(new NotFoundException());
-      taskInvitations.accept.mockRejectedValue(new NotFoundException());
+      projectInvitations.accept.mockRejectedValue(
+        new NotFoundException('Invitation not found'),
+      );
+      moduleInvitations.accept.mockRejectedValue(
+        new NotFoundException('Invitation not found'),
+      );
+      taskInvitations.accept.mockRejectedValue(
+        new NotFoundException('Invitation not found'),
+      );
       noteInvitations.accept.mockResolvedValue({ id: 'member-2' });
 
       const req = {
@@ -134,6 +180,26 @@ describe('InvitationAcceptanceController', () => {
         NotFoundException,
       );
       expect(projectInvitations.accept).not.toHaveBeenCalled();
+    });
+
+    it('propagates an expired invitation error without trying another type', async () => {
+      const failure = new GoneException('This invitation has expired');
+
+      usersService.findOrProvisionFromPrincipal.mockResolvedValue({
+        id: 'user-id',
+        email: 'someone@example.com',
+      });
+      projectInvitations.accept.mockRejectedValue(failure);
+
+      const req = {
+        user: {
+          sub: 'supabase-user',
+          accessToken: 'access-token',
+        },
+      } as any;
+
+      await expect(controller.accept('raw-token', req)).rejects.toBe(failure);
+      expect(moduleInvitations.accept).not.toHaveBeenCalled();
     });
   });
 });

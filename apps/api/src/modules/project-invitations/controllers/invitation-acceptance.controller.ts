@@ -22,6 +22,27 @@ interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
 }
 
+function isMissingInvitation(error: unknown): error is NotFoundException {
+  return (
+    error instanceof NotFoundException &&
+    error.message === 'Invitation not found'
+  );
+}
+
+async function tryInvitation<T>(
+  operation: () => Promise<T>,
+): Promise<T | null> {
+  try {
+    return await operation();
+  } catch (error) {
+    if (isMissingInvitation(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 @ApiTags('invitations')
 @Controller('api/v1/invitations')
 export class InvitationAcceptanceController {
@@ -38,21 +59,20 @@ export class InvitationAcceptanceController {
   })
   @Get(':token')
   async preview(@Param('token') token: string) {
-    const project = await this.projectInvitations
-      .preview(token)
-      .catch(() => null);
-
+    const project = await tryInvitation(() =>
+      this.projectInvitations.preview(token),
+    );
     if (project) return { type: 'project', ...project };
 
-    const module = await this.moduleInvitations
-      .preview(token)
-      .catch(() => null);
+    const module = await tryInvitation(() =>
+      this.moduleInvitations.preview(token),
+    );
     if (module) return { type: 'module', ...module };
 
-    const task = await this.taskInvitations.preview(token).catch(() => null);
+    const task = await tryInvitation(() => this.taskInvitations.preview(token));
     if (task) return { type: 'task', ...task };
 
-    const note = await this.noteInvitations.preview(token).catch(() => null);
+    const note = await tryInvitation(() => this.noteInvitations.preview(token));
     if (note) return { type: 'note', ...note };
 
     throw new NotFoundException('Invitation not found');
@@ -71,28 +91,32 @@ export class InvitationAcceptanceController {
       throw new NotFoundException('User could not be found or provisioned');
     }
 
-    const project = await this.projectInvitations
-      .accept(token, user.id, user.email)
-      .then((row) => ({ type: 'project', row }))
-      .catch(() => null);
+    const project = await tryInvitation(() =>
+      this.projectInvitations
+        .accept(token, user.id, user.email)
+        .then((row) => ({ type: 'project' as const, row })),
+    );
     if (project) return project;
 
-    const module = await this.moduleInvitations
-      .accept(token, user.id, user.email)
-      .then((row) => ({ type: 'module', row }))
-      .catch(() => null);
+    const module = await tryInvitation(() =>
+      this.moduleInvitations
+        .accept(token, user.id, user.email)
+        .then((row) => ({ type: 'module' as const, row })),
+    );
     if (module) return module;
 
-    const task = await this.taskInvitations
-      .accept(token, user.id, user.email)
-      .then((row) => ({ type: 'task', row }))
-      .catch(() => null);
+    const task = await tryInvitation(() =>
+      this.taskInvitations
+        .accept(token, user.id, user.email)
+        .then((row) => ({ type: 'task' as const, row })),
+    );
     if (task) return task;
 
-    const note = await this.noteInvitations
-      .accept(token, user.id, user.email)
-      .then((row) => ({ type: 'note', row }))
-      .catch(() => null);
+    const note = await tryInvitation(() =>
+      this.noteInvitations
+        .accept(token, user.id, user.email)
+        .then((row) => ({ type: 'note' as const, row })),
+    );
     if (note) return note;
 
     throw new NotFoundException('Invitation not found');
