@@ -60,7 +60,7 @@ vi.mock("@/api/hooks", () => ({
 
 describe("PriorityTasksTable", () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    window.localStorage?.clear();
   });
 
   it("sorts Task, Project, Due, and Priority and reverses the active column", () => {
@@ -86,7 +86,7 @@ describe("PriorityTasksTable", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
     expect(taskNames()).toEqual(["Zulu task", "Middle task", "Bravo task", "Alpha task"]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Project/paper" }));
     expect(taskNames()).toEqual(["Zulu task", "Alpha task", "Bravo task", "Middle task"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Due" }));

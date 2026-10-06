@@ -37,7 +37,7 @@ import { useColumnVisibility } from "@/hooks/use-column-visibility";
 const PRIORITY_FILTERS = ["All", "Critical", "High", "Medium", "Low"] as const;
 const TASK_COLUMNS = [
   { id: "task", label: "Task" },
-  { id: "project", label: "Project" },
+  { id: "project", label: "Project/paper" },
   { id: "due", label: "Due" },
   { id: "priority", label: "Priority" },
 ] as const;
