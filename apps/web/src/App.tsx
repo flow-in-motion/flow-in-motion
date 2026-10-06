@@ -26,6 +26,8 @@ const AccountAuditPage = lazy(() => import("@/pages/account-audit"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const FutureFeaturePage = lazy(() => import("@/pages/future-feature"));
 const SignInPage = lazy(() => import("@/pages/sign-in"));
+const SignUpPage = lazy(() => import("@/pages/sign-up"));
+const ConfirmSignUpPage = lazy(() => import("@/pages/confirm-sign-up"));
 const AuthCallbackPage = lazy(() => import("@/pages/auth-callback"));
 const WorkspaceOnboardingPage = lazy(() => import("@/pages/workspace-onboarding"));
 const SessionExpiredPage = lazy(() => import("@/pages/session-expired"));
@@ -60,6 +62,8 @@ export default function App() {
     <CookieNotice />
     <Routes>
       <Route path="sign-in" element={routePage(<SignInPage />)} />
+      <Route path="sign-up" element={routePage(<SignUpPage />)} />
+      <Route path="auth/confirm" element={routePage(<ConfirmSignUpPage />)} />
       <Route path="auth/callback" element={routePage(<AuthCallbackPage />)} />
       <Route path="session-expired" element={routePage(<SessionExpiredPage />)} />
       <Route path="access-denied" element={routePage(<AccessDeniedPage />)} />
