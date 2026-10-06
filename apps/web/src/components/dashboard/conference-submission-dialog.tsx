@@ -25,7 +25,7 @@ interface ConferenceFormState {
   projectIds: string[];
 }
 
-const NO_LINK_LABEL = "No linked project or module/paper";
+const NO_LINK_LABEL = "No linked project/paper";
 
 interface LinkOption {
   key: string;
@@ -241,7 +241,7 @@ export function ConferenceSubmissionDialog({
             </Select>
           </FormField>
 
-          <FormField label="Linked project or module/paper" htmlFor="conference-link">
+          <FormField label="Linked project/paper" htmlFor="conference-link">
             <div
               className="relative"
               onBlur={(event) => {
@@ -269,7 +269,7 @@ export function ConferenceSubmissionDialog({
                 <button
                   type="button"
                   onClick={() => selectLink("", NO_LINK_LABEL)}
-                  aria-label="Clear linked project or module/paper"
+                  aria-label="Clear linked project/paper"
                   className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <X className="h-4 w-4" />

@@ -69,7 +69,7 @@ function endDateInput() {
 }
 
 function linkCombobox() {
-  return screen.getByRole("combobox", { name: "Linked project or module/paper" });
+  return screen.getByRole("combobox", { name: "Linked project/paper" });
 }
 
 describe("ConferenceSubmissionDialog", () => {
@@ -159,7 +159,7 @@ describe("ConferenceSubmissionDialog", () => {
     expect(endDateInput().value).toBe("2026-08-10");
   });
 
-  it("defaults the link field to No linked project or module/paper and submits with none selected", async () => {
+  it("defaults the link field to No linked project/paper and submits with none selected", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
       <ConferenceSubmissionDialog
@@ -171,7 +171,7 @@ describe("ConferenceSubmissionDialog", () => {
       />,
     );
 
-    expect(linkCombobox()).toHaveValue("No linked project or module/paper");
+    expect(linkCombobox()).toHaveValue("No linked project/paper");
 
     fireEvent.change(screen.getByRole("textbox", { name: /Acronym/ }), { target: { value: "ASM" } });
     fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), {
@@ -292,8 +292,8 @@ describe("ConferenceSubmissionDialog", () => {
     fireEvent.click(screen.getByRole("option", { name: /Genome Project/ }));
     expect(linkCombobox()).toHaveValue("Genome Project");
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear linked project or module/paper" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear linked project/paper" }));
 
-    expect(linkCombobox()).toHaveValue("No linked project or module/paper");
+    expect(linkCombobox()).toHaveValue("No linked project/paper");
   });
 });
