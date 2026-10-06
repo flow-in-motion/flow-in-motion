@@ -11,12 +11,15 @@ import {
   useProjects,
   useNotes,
   useCreateProject,
+  useUpdateProjectCollaboratorRole,
+  useUpdateProject,
   useTrackEvent,
   type ApiProject,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import { LoadingState } from "@/components/shared/loading-state";
 import { ErrorState } from "@/components/shared/error-state";
+import { InlineFieldSelect } from "@/components/shared/inline-field-select";
 import { PageHeading } from "@/components/typography/heading";
 import {
   NewProjectDialog,
@@ -25,7 +28,6 @@ import {
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
 import { SearchInput } from "@/components/shared/search-input";
 import { SortableHeader } from "@/components/shared/sortable-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,20 +48,11 @@ import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
-const STATUS_FILTERS = [
-  "All",
-  "Active",
-  "Review",
-  "Stalled",
-  "Complete",
-] as const;
-const ROLE_FILTERS = [
-  "All roles",
-  "owner",
-  "collaborator",
-  "supervisor",
-  "lead",
-] as const;
+const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
+const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
+const ROLE_OPTIONS = ["Owner", "Collaborator", "Supervisor", "Lead"] as const;
+const ROLE_FILTERS = ["All roles", ...ROLE_OPTIONS] as const;
+const IMPORTANCE_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
 
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type RoleFilter = (typeof ROLE_FILTERS)[number];
@@ -119,7 +112,7 @@ function statusPillClass(status: string | null) {
 }
 
 function rolePillClass(role: string | null) {
-  switch (role) {
+  switch (role?.toLowerCase()) {
     case "owner":
       return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
     case "lead":
@@ -146,10 +139,13 @@ export default function ProjectsPage() {
   const me = useMe();
 
   const createProject = useCreateProject(tenantId);
+  const updateProject = useUpdateProject(tenantId);
+  const updateProjectRole = useUpdateProjectCollaboratorRole(tenantId);
   const archiveProject = useArchiveProject(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [sharingProject, setSharingProject] = useState<ApiProject | null>(null);
   const membersQuery = useMembers(tenantId, 1, sharingProject !== null);
   const members = membersQuery.data?.data ?? [];
@@ -334,6 +330,21 @@ export default function ProjectsPage() {
         tenantId={tenantId}
         onCreate={handleCreateProject}
       />
+      {actionError ? (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       <Dialog
         open={sharingProject !== null}
         onOpenChange={(open) => {
@@ -511,30 +522,74 @@ export default function ProjectsPage() {
                   ) : null}
 
                   {columns.isColumnVisible("role") ? (
-                    <Badge
-                      variant="outline"
-                      className={rolePillClass(project.role)}
-                    >
-                      {project.role ?? "—"}
-                    </Badge>
+                    <InlineFieldSelect
+                      value={project.role}
+                      options={ROLE_OPTIONS}
+                      fieldLabel="role"
+                      itemLabel={project.title}
+                      valueClassName={rolePillClass}
+                      disabled={!me.data?.id || project.role === null}
+                      onChange={async (nextRole) => {
+                        setActionError(null);
+                        if (!me.data?.id) {
+                          throw new Error("Your account could not be identified.");
+                        }
+                        await updateProjectRole.mutateAsync({
+                          projectId: project.id,
+                          userId: me.data.id,
+                          role: nextRole,
+                        });
+                      }}
+                      onError={(message) =>
+                        setActionError(
+                          `Could not update your role for “${project.title}”. ${message}`,
+                        )
+                      }
+                    />
                   ) : null}
 
                   {columns.isColumnVisible("importance") ? (
-                    <Badge
-                      variant="outline"
-                      className={priorityPillClass(project.importance)}
-                    >
-                      {project.importance ?? "—"}
-                    </Badge>
+                    <InlineFieldSelect
+                      value={project.importance}
+                      options={IMPORTANCE_OPTIONS}
+                      fieldLabel="importance"
+                      itemLabel={project.title}
+                      valueClassName={priorityPillClass}
+                      onChange={async (nextImportance) => {
+                        setActionError(null);
+                        await updateProject.mutateAsync({
+                          projectId: project.id,
+                          input: { importance: nextImportance },
+                        });
+                      }}
+                      onError={(message) =>
+                        setActionError(
+                          `Could not update the importance for “${project.title}”. ${message}`,
+                        )
+                      }
+                    />
                   ) : null}
 
                   {columns.isColumnVisible("status") ? (
-                    <Badge
-                      variant="outline"
-                      className={statusPillClass(project.status)}
-                    >
-                      {project.status ?? "—"}
-                    </Badge>
+                    <InlineFieldSelect
+                      value={project.status}
+                      options={STATUS_OPTIONS}
+                      fieldLabel="status"
+                      itemLabel={project.title}
+                      valueClassName={statusPillClass}
+                      onChange={async (nextStatus) => {
+                        setActionError(null);
+                        await updateProject.mutateAsync({
+                          projectId: project.id,
+                          input: { status: nextStatus },
+                        });
+                      }}
+                      onError={(message) =>
+                        setActionError(
+                          `Could not update the status for “${project.title}”. ${message}`,
+                        )
+                      }
+                    />
                   ) : null}
 
                   {columns.isColumnVisible("papers") ? (

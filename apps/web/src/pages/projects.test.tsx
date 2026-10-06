@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,7 +26,7 @@ const fixtures = vi.hoisted(() => ({
     archivedAt: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-    role: "owner",
+    role: "Owner",
   },
   module: {
     id: "module-1",
@@ -76,6 +76,8 @@ const fixtures = vi.hoisted(() => ({
 }));
 const hookMocks = vi.hoisted(() => ({
   useProjects: vi.fn(),
+  updateProject: vi.fn(),
+  updateProjectRole: vi.fn(),
   pagination: {
     totalItems: 1,
     totalPages: 1,
@@ -161,6 +163,14 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useCreateProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateProject: () => ({
+    mutateAsync: hookMocks.updateProject,
+    isPending: false,
+  }),
+  useUpdateProjectCollaboratorRole: () => ({
+    mutateAsync: hookMocks.updateProjectRole,
+    isPending: false,
+  }),
   useArchiveProject: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useTrackEvent: () => vi.fn(),
   useModules: () => ({
@@ -222,10 +232,17 @@ function renderPage() {
 
 describe("ProjectsPage", () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    window.localStorage?.clear();
     fixtures.projects = [fixtures.project];
     fixtures.modules = [fixtures.module];
     hookMocks.useProjects.mockClear();
+    hookMocks.updateProject.mockReset();
+    hookMocks.updateProject.mockResolvedValue(fixtures.project);
+    hookMocks.updateProjectRole.mockReset();
+    hookMocks.updateProjectRole.mockResolvedValue({
+      userId: "user-owner",
+      role: "Lead",
+    });
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
   });
@@ -255,6 +272,61 @@ describe("ProjectsPage", () => {
 
     expect(editLink).toHaveAttribute("href", "/projects/PRJ-101?edit=true");
     expect(screen.getByText("Low")).toBeInTheDocument();
+  });
+
+  it("changes a project status directly from its list row", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change status for Enzyme Kinetics Inhibition Study Across Temperature Gradients",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Review" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { status: "Review" },
+      }),
+    );
+  });
+
+  it("changes importance directly from a project row", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change importance for Enzyme Kinetics Inhibition Study Across Temperature Gradients",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "High" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { importance: "High" },
+      }),
+    );
+  });
+
+  it("changes the current user's role directly from a project row", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change role for Enzyme Kinetics Inhibition Study Across Temperature Gradients",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Lead" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateProjectRole).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        userId: "user-owner",
+        role: "Lead",
+      }),
+    );
   });
 
   it("shows General together with the other projects", () => {

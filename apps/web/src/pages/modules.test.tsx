@@ -50,6 +50,7 @@ const store = vi.hoisted(() => {
 });
 const hookMocks = vi.hoisted(() => ({
   useModules: vi.fn(),
+  updateModule: vi.fn(),
   pagination: {
     totalItems: 1,
     totalPages: 1,
@@ -243,23 +244,7 @@ vi.mock("@/api/hooks", async () => {
       }),
     }),
     useUpdateModule: () => ({
-      mutateAsync: vi.fn(
-        async ({
-          moduleId,
-          input,
-        }: {
-          moduleId: string;
-          input: Record<string, unknown>;
-        }) => {
-          const updated = store
-            .getModules()
-            .map((item) =>
-              item.id === moduleId ? { ...item, ...input } : item,
-            );
-          store.setModules(updated);
-          return updated.find((item) => item.id === moduleId);
-        },
-      ),
+      mutateAsync: hookMocks.updateModule,
     }),
     useArchiveModule: () => ({
       mutateAsync: vi.fn(async (moduleId: string) => {
@@ -332,6 +317,24 @@ describe("ModulesPage", () => {
     fixtures.projects = [];
     fixtures.tasks = [];
     hookMocks.useModules.mockClear();
+    hookMocks.updateModule.mockReset();
+    hookMocks.updateModule.mockImplementation(
+      async ({
+        moduleId,
+        input,
+      }: {
+        moduleId: string;
+        input: Record<string, unknown>;
+      }) => {
+        const updated = store
+          .getModules()
+          .map((item) =>
+            item.id === moduleId ? { ...item, ...input } : item,
+          );
+        store.setModules(updated);
+        return updated.find((item) => item.id === moduleId);
+      },
+    );
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
   });
@@ -413,6 +416,28 @@ describe("ModulesPage", () => {
     );
 
     expect(screen.getByText("Follow up or Due Date")).toBeInTheDocument();
+  });
+
+  it("changes a paper status directly from its list row", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change status for Literature synthesis",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Review" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { status: "Review" },
+      }),
+    );
   });
 
   it("requests the next modules page when Next is clicked", () => {

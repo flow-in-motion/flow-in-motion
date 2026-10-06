@@ -12,6 +12,7 @@ import {
   useModules,
   useProjects,
   useTrackEvent,
+  useUpdateModule,
   type ApiModule,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
@@ -22,11 +23,11 @@ import {
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { ErrorState } from "@/components/shared/error-state";
+import { InlineFieldSelect } from "@/components/shared/inline-field-select";
 import { LoadingState } from "@/components/shared/loading-state";
 import { SearchInput } from "@/components/shared/search-input";
 import { PageHeading } from "@/components/typography/heading";
 import { SortableHeader } from "@/components/shared/sortable-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -40,13 +41,8 @@ import { formatListDate, isOverdue } from "@/lib/list-format";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
-const STATUS_FILTERS = [
-  "All",
-  "Active",
-  "Review",
-  "Stalled",
-  "Complete",
-] as const;
+const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
+const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
 const MODULE_COLUMNS = [
   { id: "module", label: "Paper", width: "minmax(280px,2fr)" },
   { id: "project", label: "Project", width: "180px" },
@@ -124,6 +120,7 @@ export default function ModulesPage() {
   const workspaceMembers = useMembers(tenantId, 1, isNewModuleOpen);
   const members = workspaceMembers.data?.data ?? [];
   const createModule = useCreateModule(tenantId);
+  const updateModule = useUpdateModule(tenantId);
   const archiveModule = useArchiveModule(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
@@ -483,12 +480,25 @@ export default function ModulesPage() {
                     )
                   ) : null}
                   {columns.isColumnVisible("status") ? (
-                    <Badge
-                      variant="outline"
-                      className={statusPillClass(module.status)}
-                    >
-                      {module.status ?? "—"}
-                    </Badge>
+                    <InlineFieldSelect
+                      value={module.status}
+                      options={STATUS_OPTIONS}
+                      fieldLabel="status"
+                      itemLabel={paperDisplayTitle(module)}
+                      valueClassName={statusPillClass}
+                      onChange={async (nextStatus) => {
+                        setActionError(null);
+                        await updateModule.mutateAsync({
+                          moduleId: module.id,
+                          input: { status: nextStatus },
+                        });
+                      }}
+                      onError={(message) =>
+                        setActionError(
+                          `Could not update the status for “${paperDisplayTitle(module)}”. ${message}`,
+                        )
+                      }
+                    />
                   ) : null}
                   {columns.isColumnVisible("progress") ? (
                     <ProgressCell
