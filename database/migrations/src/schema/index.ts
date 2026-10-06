@@ -24,3 +24,6 @@ export * from './user-preferences';
 export * from './analytics-events';
 export * from './calendar-events';
 export * from './module-submissions';
+export * from './fundings';
+export * from './funding-projects';
+export * from './funding-modules';
