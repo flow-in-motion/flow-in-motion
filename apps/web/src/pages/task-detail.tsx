@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, ListTodo, Pencil, Save, Unlink, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ListTodo, Pencil, Save, Unlink, Users, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import {
@@ -77,16 +77,12 @@ function formatDueDate(iso: string | null) {
   return `${day}/${month}/${year}`;
 }
 
-function DetailItem({ label, children, className = "" }: {
-  label: string;
-  children: ReactNode;
-  className?: string;
-}) {
+function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className={className}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="mt-1 font-medium">{children}</div>
-    </div>
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-2.5 py-1 text-xs">
+      <span className="font-medium text-muted-foreground">{label}</span>
+      <span className="font-semibold text-foreground">{value}</span>
+    </span>
   );
 }
 
@@ -283,9 +279,8 @@ export default function TaskDetailPage() {
   const members = membersQuery.data?.data ?? [];
   const [form, setForm] = useState<TaskFormInput | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
-  const [isOverviewVisible, setIsOverviewVisible] = useState(true);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
-  const [isTaskMembersVisible, setIsTaskMembersVisible] = useState(true);
+  const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
 
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && task) {
@@ -377,7 +372,7 @@ export default function TaskDetailPage() {
         icon={ListTodo}
         eyebrow={task.displayId ?? task.id}
         title={task.title}
-        description="Review and update the task's status, priority and progress."
+        description={task.description || "Review and update the task's status, priority and progress."}
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="outline" className={statusPillClass(task.status)}>
@@ -390,7 +385,18 @@ export default function TaskDetailPage() {
               : <Button type="button" onClick={() => setForm(formValues(task))}><Pencil /> Edit Task</Button>}
           </div>
         }
-      />
+      >
+        {!form ? (
+          <div className="flex flex-wrap gap-2">
+            <HeaderStat label="Due date" value={formatDueDate(task.dueDate)} />
+            <HeaderStat label="Estimated hours" value={task.estimatedHours ? `${task.estimatedHours}h` : "—"} />
+            <HeaderStat label="Visibility" value={task.visibility ?? "Private"} />
+            {task.workingWith ? (
+              <HeaderStat label="Working with" value={task.workingWith} />
+            ) : null}
+          </div>
+        ) : null}
+      </PageHeading>
 
       {form ? (
         <Card>
@@ -429,38 +435,6 @@ export default function TaskDetailPage() {
       ) : null}
 
       <div className="flex flex-col gap-6">
-        <section aria-labelledby="task-overview-heading">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 id="task-overview-heading" className="text-lg font-semibold">Overview</h2>
-            <Button variant="outline" size="sm" aria-expanded={isOverviewVisible} aria-controls="task-overview-content" onClick={() => setIsOverviewVisible((visible) => !visible)}>
-              {isOverviewVisible ? <ChevronUp /> : <ChevronDown />}
-              {isOverviewVisible ? "Hide overview" : "Show overview"}
-            </Button>
-          </div>
-          {isOverviewVisible ? (
-            <Card id="task-overview-content">
-              <CardHeader>
-                <CardTitle>Task overview</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-5 text-sm sm:grid-cols-2">
-                <DetailItem label="Estimated hours">
-                  {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
-                </DetailItem>
-                <DetailItem label="Due date">{formatDueDate(task.dueDate)}</DetailItem>
-                <DetailItem label="Visibility">{task.visibility ?? "Private"}</DetailItem>
-                {task.workingWith ? (
-                  <DetailItem label="Working with">{task.workingWith}</DetailItem>
-                ) : null}
-                <DetailItem label="Description" className="sm:col-span-2">
-                  <span className="font-normal text-muted-foreground">
-                    {task.description || "No description provided."}
-                  </span>
-                </DetailItem>
-              </CardContent>
-            </Card>
-          ) : null}
-        </section>
-
         <section aria-labelledby="task-linked-work-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="task-linked-work-heading" className="text-lg font-semibold">Linked work</h2>
@@ -485,21 +459,28 @@ export default function TaskDetailPage() {
           ) : null}
         </section>
 
-        <section aria-labelledby="task-members-heading">
+        <section aria-labelledby="task-collaborators-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 id="task-members-heading" className="text-lg font-semibold">Task members</h2>
-            <Button variant="outline" size="sm" aria-expanded={isTaskMembersVisible} aria-controls="task-members-content" onClick={() => setIsTaskMembersVisible((visible) => !visible)}>
-              {isTaskMembersVisible ? <ChevronUp /> : <ChevronDown />}
-              {isTaskMembersVisible ? "Hide task members" : "Show task members"}
+            <h2 id="task-collaborators-heading" className="text-lg font-semibold">Collaborators</h2>
+            <Button variant="outline" size="sm" aria-expanded={isCollaboratorsVisible} aria-controls="task-collaborators-content" onClick={() => setIsCollaboratorsVisible((visible) => !visible)}>
+              {isCollaboratorsVisible ? <ChevronUp /> : <ChevronDown />}
+              {isCollaboratorsVisible ? "Hide collaborators" : "Show collaborators"}
             </Button>
           </div>
-          {isTaskMembersVisible ? (
-            <Card id="task-members-content">
+          {isCollaboratorsVisible ? (
+            <Card id="task-collaborators-content">
               <CardHeader>
-                <CardTitle>Manage task members</CardTitle>
+                <CardTitle>Task collaborators</CardTitle>
               </CardHeader>
               <CardContent>
-                {task.visibility === "Shared" && sameTenant ? (
+                {!tenantId ? (
+                  <EmptyState
+                    icon={Users}
+                    title="No workspace selected"
+                    description="Select a workspace to manage collaborators."
+                    className="min-h-40 border-0 bg-muted/30"
+                  />
+                ) : task.visibility === "Shared" && sameTenant ? (
                   <TaskMembersManager
                     tenantId={tenantId}
                     taskId={task.id}
@@ -515,7 +496,7 @@ export default function TaskDetailPage() {
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     This task is private — only you can see it. Switch its visibility to Shared to
-                    add members.
+                    add collaborators.
                   </p>
                 )}
               </CardContent>

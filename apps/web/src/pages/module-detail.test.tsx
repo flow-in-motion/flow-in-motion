@@ -607,19 +607,33 @@ describe("ModuleDetailPage", () => {
     );
   });
 
-  it("shows a compact collaborator summary and manages collaborators only while editing", () => {
+  it("shows a compact collaborator summary in the header", () => {
     renderPage();
 
-    expect(screen.getByText("Collaborators")).toBeInTheDocument();
     expect(screen.getByText("Avi Researcher · University of Melbourne")).toBeInTheDocument();
     expect(screen.getByText("Sam Lee · CSIRO")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add collaborator" })).not.toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+  it("shows a collaborators section, expanded by default, with an option to hide it", () => {
+    renderPage();
 
-    expect(screen.getByRole("heading", { name: "Collaborators" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Paper collaborators" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add collaborator" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Collaborator email" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hide collaborators" }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide collaborators" }));
+
+    expect(
+      screen.queryByRole("heading", { name: "Paper collaborators" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show collaborators" }),
+    ).toHaveAttribute("aria-expanded", "false");
   });
 
   it("shows linked work expanded by default, with an option to hide it", () => {

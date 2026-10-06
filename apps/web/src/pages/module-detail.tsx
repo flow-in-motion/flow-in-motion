@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, FileStack, Link2, Pencil, Plus, Save, Trash2, Unlink, X } from "lucide-react";
+import { ChevronDown, ChevronUp, FileStack, Link2, Pencil, Plus, Save, Trash2, Unlink, Users, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import {
@@ -541,6 +541,7 @@ export default function ModuleDetailPage() {
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
   const [isSubmissionHistoryVisible, setIsSubmissionHistoryVisible] = useState(true);
+  const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
   const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
@@ -810,28 +811,6 @@ export default function ModuleDetailPage() {
               </p>
             ) : null}
           </form>
-          {sameTenant ? (
-            <div className="grid gap-4 border-t pt-5">
-              <div>
-                <h2 className="text-base font-semibold">Collaborators</h2>
-                {module.projectId ? (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Project collaborators already inherit access. You can also invite someone directly to this paper by email.
-                  </p>
-                ) : null}
-              </div>
-              <ModuleCollaboratorsManager
-                tenantId={tenantId}
-                moduleId={module.id}
-                moduleTitle={paperDisplayTitle(module)}
-                members={members}
-              />
-            </div>
-          ) : (
-            <p className="border-t pt-5 text-sm text-muted-foreground">
-              This paper was shared with you from another workspace. Only members of that workspace can manage who has access.
-            </p>
-          )}
           <div className="flex justify-end gap-3 border-t pt-5"><Button type="button" variant="outline" onClick={cancelEditing}>Cancel</Button><Button type="submit" form="edit-module-details-form" disabled={updateModule.isPending}><Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}</Button></div>
         </CardContent>
       </Card> : null}
@@ -932,6 +911,55 @@ export default function ModuleDetailPage() {
                 onUnlinkNote={sameTenant ? (note) => void handleUnlinkNote(note) : undefined}
               />
             </div>
+          ) : null}
+        </section>
+
+        <section aria-labelledby="module-collaborators-heading">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="module-collaborators-heading" className="text-lg font-semibold">Collaborators</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-expanded={isCollaboratorsVisible}
+              aria-controls="module-collaborators-content"
+              onClick={() => setIsCollaboratorsVisible((visible) => !visible)}
+            >
+              {isCollaboratorsVisible ? <ChevronUp /> : <ChevronDown />}
+              {isCollaboratorsVisible ? "Hide collaborators" : "Show collaborators"}
+            </Button>
+          </div>
+          {isCollaboratorsVisible ? (
+            <Card id="module-collaborators-content">
+              <CardHeader>
+                <CardTitle>Paper collaborators</CardTitle>
+                {module.projectId ? (
+                  <p className="text-sm text-muted-foreground">
+                    Project collaborators already inherit access. You can also invite someone directly to this paper by email.
+                  </p>
+                ) : null}
+              </CardHeader>
+              <CardContent>
+                {!tenantId ? (
+                  <EmptyState
+                    icon={Users}
+                    title="No workspace selected"
+                    description="Select a workspace to manage collaborators."
+                    className="min-h-40 border-0 bg-muted/30"
+                  />
+                ) : sameTenant ? (
+                  <ModuleCollaboratorsManager
+                    tenantId={tenantId}
+                    moduleId={module.id}
+                    moduleTitle={paperDisplayTitle(module)}
+                    members={members}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    This paper was shared with you from another workspace. Only members of that workspace can manage who has access.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           ) : null}
         </section>
 

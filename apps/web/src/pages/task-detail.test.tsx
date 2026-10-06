@@ -79,6 +79,10 @@ describe("TaskDetailPage", () => {
     fixtures.task.projectId = null;
     fixtures.task.moduleId = null;
     fixtures.task.visibility = "Private";
+    fixtures.task.dueDate = null;
+    fixtures.task.estimatedHours = null;
+    fixtures.task.workingWith = null;
+    fixtures.task.description = null;
     fixtures.updateTask.mockReset();
     fixtures.updateTask.mockResolvedValue(fixtures.task);
   });
@@ -180,7 +184,10 @@ describe("TaskDetailPage", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
-  it("shows the task overview expanded by default at the top, with an option to hide it", () => {
+  it("shows the task's planning details as stats in the page header", () => {
+    fixtures.task.dueDate = "2026-04-15";
+    fixtures.task.estimatedHours = "3.5";
+    fixtures.task.workingWith = "Sam Lee";
     render(
       <MemoryRouter initialEntries={["/tasks/task-1"]}>
         <Routes>
@@ -189,21 +196,26 @@ describe("TaskDetailPage", () => {
       </MemoryRouter>,
     );
 
-    expect(
-      screen.getByRole("heading", { name: "Task overview" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Hide overview" }),
-    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Due date")).toBeInTheDocument();
+    expect(screen.getByText("15/04/2026")).toBeInTheDocument();
+    expect(screen.getByText("Estimated hours")).toBeInTheDocument();
+    expect(screen.getByText("3.5h")).toBeInTheDocument();
+    expect(screen.getByText("Visibility")).toBeInTheDocument();
+    expect(screen.getByText("Private")).toBeInTheDocument();
+    expect(screen.getByText("Working with")).toBeInTheDocument();
+    expect(screen.getByText("Sam Lee")).toBeInTheDocument();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide overview" }));
+  it("hides the working-with stat when no one else is tagged on the task", () => {
+    render(
+      <MemoryRouter initialEntries={["/tasks/task-1"]}>
+        <Routes>
+          <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
 
-    expect(
-      screen.queryByRole("heading", { name: "Task overview" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Show overview" }),
-    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Working with")).not.toBeInTheDocument();
   });
 
   it("shows linked work expanded by default, with an option to hide it", () => {
@@ -229,7 +241,7 @@ describe("TaskDetailPage", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("shows task members expanded by default, with an option to hide them", () => {
+  it("shows collaborators expanded by default, with an option to hide them", () => {
     render(
       <MemoryRouter initialEntries={["/tasks/task-1"]}>
         <Routes>
@@ -239,19 +251,19 @@ describe("TaskDetailPage", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Manage task members" }),
+      screen.getByRole("heading", { name: "Task collaborators" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Hide task members" }),
+      screen.getByRole("button", { name: "Hide collaborators" }),
     ).toHaveAttribute("aria-expanded", "true");
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide task members" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hide collaborators" }));
 
     expect(
-      screen.queryByRole("heading", { name: "Manage task members" }),
+      screen.queryByRole("heading", { name: "Task collaborators" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Show task members" }),
+      screen.getByRole("button", { name: "Show collaborators" }),
     ).toHaveAttribute("aria-expanded", "false");
   });
 
