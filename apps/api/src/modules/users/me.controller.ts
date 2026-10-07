@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Patch,
   Req,
@@ -11,6 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import type { AuthenticatedPrincipal } from '../auth/jwt.strategy';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AccountDeletionService } from './account-deletion.service';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -54,7 +58,10 @@ function profileResponse(user: {
 @ApiBearerAuth()
 @Controller('api/v1/me')
 export class MeController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly accountDeletion: AccountDeletionService,
+  ) {}
 
   @ApiOperation({
     summary: 'Return or provision the authenticated user profile',
@@ -84,5 +91,21 @@ export class MeController {
     }
     const updated = await this.usersService.updateProfile(user.id, input);
     return profileResponse(updated);
+  }
+
+  @ApiOperation({
+    summary: 'Permanently delete the authenticated account and its data',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Delete()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteMe(@Req() req: AuthenticatedRequest): Promise<void> {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    await this.accountDeletion.deleteAccount({
+      id: user.id,
+      email: user.email,
+      externalAuthId: req.user.sub,
+    });
   }
 }

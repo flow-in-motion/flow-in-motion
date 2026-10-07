@@ -8,7 +8,7 @@ export const tenants = pgTable('tenants', {
   status: text('status').default('active').notNull(),
   ownerUserId: uuid('owner_user_id')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

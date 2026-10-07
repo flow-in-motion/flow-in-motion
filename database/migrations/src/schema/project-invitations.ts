@@ -14,7 +14,7 @@ export const projectInvitations = pgTable('project_invitations', {
   role: text('role').notNull(),
   invitedBy: uuid('invited_by')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: 'cascade' }),
   token: text('token').unique(),
   status: text('status').notNull().default('draft'),
   expiresAt: timestamp('expires_at', { withTimezone: true }),

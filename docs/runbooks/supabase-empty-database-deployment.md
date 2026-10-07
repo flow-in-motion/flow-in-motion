@@ -83,8 +83,10 @@ zero expected triggers.
 
 ## 6. Configure Lambda
 
-Store only the transaction-pooler runtime values in the Lambda environment or
-AWS Secrets Manager:
+Store the transaction-pooler runtime values and a dedicated server-only
+Supabase secret key in the Lambda environment or AWS Secrets Manager. Create
+the key under **Supabase Dashboard > Settings > API Keys**; never expose it to
+the frontend:
 
 ```dotenv
 POSTGRES_HOST=<shared-pooler-host>
@@ -96,9 +98,12 @@ POSTGRES_SSL_MODE=require
 POSTGRES_CONNECT_TIMEOUT_MS=5000
 POSTGRES_QUERY_TIMEOUT_MS=10000
 POSTGRES_IDLE_TIMEOUT_MS=10000
+SUPABASE_SECRET_KEY=sb_secret_<value>
 ```
 
-Do not deploy the Supabase admin password or migration-role password to Lambda.
+Do not deploy the Supabase database admin password or migration-role password
+to Lambda. The secret key is used only by the authenticated account-deletion
+endpoint and must remain server-side.
 
 ## 7. Future schema changes
 

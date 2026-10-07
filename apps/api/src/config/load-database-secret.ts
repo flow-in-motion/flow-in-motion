@@ -79,4 +79,10 @@ export async function loadDatabaseSecretEnvironment(
   if (typeof sslMode === 'string' && sslMode.length > 0) {
     process.env.POSTGRES_SSL_MODE = sslMode;
   }
+
+  const supabaseSecretKey = values.SUPABASE_SECRET_KEY;
+
+  if (typeof supabaseSecretKey === 'string' && supabaseSecretKey.length > 0) {
+    process.env.SUPABASE_SECRET_KEY = supabaseSecretKey;
+  }
 }

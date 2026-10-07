@@ -54,6 +54,7 @@ Resources:
 
           SUPABASE_URL: !Ref SupabaseUrl
           SUPABASE_JWT_AUDIENCE: authenticated
+          SUPABASE_SECRET_KEY: !Sub "{{resolve:secretsmanager:${DatabaseSecretName}:SecretString:SUPABASE_SECRET_KEY}}"
 
           INVITATION_EMAIL_FROM: no-reply@flowinmotion.org
           INVITATION_EMAIL_REGION: ap-southeast-2

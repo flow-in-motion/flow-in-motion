@@ -48,6 +48,9 @@ importers:
       '@research-tracker/migrations':
         specifier: workspace:*
         version: link:../../database/migrations
+      '@supabase/supabase-js':
+        specifier: ^2.57.4
+        version: 2.116.0
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1

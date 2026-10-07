@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -27,6 +27,7 @@ import { z } from "zod";
 import {
   useCreateWorkspace,
   useCurrentWorkspace,
+  useDeleteAccount,
   useDeleteWorkspace,
   useMe,
   useSwitchWorkspace,
@@ -99,6 +100,7 @@ type PasswordStep = "current" | "new";
 
 export default function SettingsPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const auth = useAuth();
   const me = useMe();
   const workspace = useCurrentWorkspace();
@@ -107,6 +109,7 @@ export default function SettingsPage() {
   const switchWorkspace = useSwitchWorkspace();
   const createWorkspaceMutation = useCreateWorkspace();
   const deleteWorkspaceMutation = useDeleteWorkspace();
+  const deleteAccountMutation = useDeleteAccount();
   const workspaceForm = useForm<WorkspaceForm>({ defaultValues: { name: "" } });
   const passwordForm = useForm<PasswordForm>({
     defaultValues: {
@@ -125,6 +128,10 @@ export default function SettingsPage() {
   const [passwordStep, setPasswordStep] = useState<PasswordStep>("current");
   const [passwordSubmitError, setPasswordSubmitError] = useState<string | null>(null);
   const [passwordUpdated, setPasswordUpdated] = useState(false);
+  const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
+  const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
+  const [deleteAccountConfirmation, setDeleteAccountConfirmation] = useState("");
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const [profile, setProfile] = useState({
     displayName: "",
     jobTitle: "",
@@ -253,6 +260,42 @@ export default function SettingsPage() {
     );
     if (!confirmed) return;
     await deleteWorkspaceMutation.mutateAsync(workspaceId).catch(() => undefined);
+  }
+
+  function resetDeleteAccountDialog() {
+    setDeleteAccountPassword("");
+    setDeleteAccountConfirmation("");
+    setDeleteAccountError(null);
+  }
+
+  function handleDeleteAccountDialogOpenChange(open: boolean) {
+    if (!open && deleteAccountMutation.isPending) return;
+    setDeleteAccountDialogOpen(open);
+    if (!open) resetDeleteAccountDialog();
+  }
+
+  async function submitDeleteAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDeleteAccountError(null);
+
+    if (deleteAccountConfirmation !== "DELETE") {
+      setDeleteAccountError('Type "DELETE" exactly to confirm.');
+      return;
+    }
+
+    try {
+      await auth.verifyCurrentPassword(deleteAccountPassword);
+      await deleteAccountMutation.mutateAsync();
+      await auth.clearLocalSession().catch(() => undefined);
+      navigate("/sign-in", {
+        replace: true,
+        state: { accountDeleted: true },
+      });
+    } catch (error) {
+      setDeleteAccountError(
+        error instanceof Error ? error.message : "Your account could not be deleted.",
+      );
+    }
   }
 
   if (me.isPending || workspace.isPending) {
@@ -441,7 +484,7 @@ export default function SettingsPage() {
         </Card>
 
         <div className="grid gap-6">
-          <Card>
+          <Card className="order-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 {appearanceTheme.theme === "dark" ? <Moon className="h-5 w-5 text-primary" /> : <Sun className="h-5 w-5 text-primary" />}
@@ -505,7 +548,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="order-5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <KeyRound className="h-5 w-5 text-primary" />
@@ -655,7 +698,7 @@ export default function SettingsPage() {
             </DialogContent>
           </Dialog>
 
-          <Card>
+          <Card className="order-4">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-primary" />
@@ -672,7 +715,115 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="order-6 border-destructive/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="h-5 w-5" />
+                Delete account
+              </CardTitle>
+              <CardDescription>
+                Permanently remove your account and all data connected to it. This cannot be
+                undone.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  resetDeleteAccountDialog();
+                  setDeleteAccountDialogOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete account
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Dialog
+            open={deleteAccountDialogOpen}
+            onOpenChange={handleDeleteAccountDialogOpenChange}
+          >
+            <DialogContent className="max-w-md">
+              <form className="grid gap-5" onSubmit={submitDeleteAccount}>
+                <DialogHeader>
+                  <DialogTitle className="text-destructive">
+                    Permanently delete your account?
+                  </DialogTitle>
+                  <DialogDescription>
+                    This action is irreversible. Your Supabase login and application data will
+                    be removed.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                  <p className="font-semibold text-destructive">This permanently deletes:</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+                    <li>Your profile, preferences, memberships, and collaborator access</li>
+                    <li>Workspaces you own and everything stored in them</li>
+                    <li>Projects, papers, tasks, notes, conferences, and invitations you own</li>
+                  </ul>
+                </div>
+
+                <div className="grid gap-2">
+                  <label htmlFor="delete-account-password" className="text-sm font-medium">
+                    Current password
+                  </label>
+                  <Input
+                    id="delete-account-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={deleteAccountPassword}
+                    onChange={(event) => setDeleteAccountPassword(event.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <label htmlFor="delete-account-confirmation" className="text-sm font-medium">
+                    Type DELETE to confirm
+                  </label>
+                  <Input
+                    id="delete-account-confirmation"
+                    value={deleteAccountConfirmation}
+                    onChange={(event) => setDeleteAccountConfirmation(event.target.value)}
+                    autoComplete="off"
+                    required
+                  />
+                </div>
+
+                {deleteAccountError ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    {deleteAccountError}
+                  </p>
+                ) : null}
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={deleteAccountMutation.isPending}
+                    onClick={() => handleDeleteAccountDialogOpenChange(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={!deleteAccountPassword || deleteAccountMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deleteAccountMutation.isPending
+                      ? "Deleting account…"
+                      : "Permanently delete account"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          <Card className="order-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <LayoutTemplate className="h-5 w-5 text-primary" />
@@ -751,7 +902,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="order-3">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5 text-primary" />

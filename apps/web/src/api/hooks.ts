@@ -471,6 +471,17 @@ export function useUpdateMe() {
   });
 }
 
+export function useDeleteAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      authenticatedJson<void>("/api/v1/me", { method: "DELETE" }),
+    onSuccess() {
+      queryClient.clear();
+    },
+  });
+}
+
 export function useAccountPreferences(enabled = true) {
   return useQuery({
     queryKey: apiKeys.accountPreferences,

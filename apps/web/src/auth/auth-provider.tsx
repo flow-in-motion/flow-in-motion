@@ -35,6 +35,7 @@ interface AuthContextValue {
    */
   confirmEmail(tokenHash: string, type: EmailOtpType): Promise<void>;
   signOut(): Promise<void>;
+  clearLocalSession(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
   verifyCurrentPassword(currentPassword: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
@@ -145,6 +146,17 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
   }, []);
 
+  const clearLocalSession = useCallback(async () => {
+    setError(null);
+    const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+    setSession(null);
+    if (signOutError) {
+      const nextError = toError(signOutError)!;
+      setError(nextError);
+      throw nextError;
+    }
+  }, []);
+
   const sendPasswordReset = useCallback(async (email: string) => {
     setError(null);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
@@ -200,6 +212,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
       signUpWithPassword,
       confirmEmail,
       signOut,
+      clearLocalSession,
       sendPasswordReset,
       verifyCurrentPassword,
       updatePassword,
@@ -207,6 +220,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       confirmEmail,
+      clearLocalSession,
       error,
       isLoading,
       isSessionExpired,

@@ -1,6 +1,7 @@
 import { UsersService } from './users.service';
 import { DrizzleService } from '../../db/drizzle.service';
 import { UnauthorizedException } from '@nestjs/common';
+import { SupabaseAdminService } from '../auth/supabase-admin.service';
 
 describe('UsersService', () => {
   describe('findOrProvisionFromPrincipal', () => {
@@ -28,7 +29,11 @@ describe('UsersService', () => {
       const drizzle = {
         db: { select, insert },
       } as unknown as DrizzleService;
-      const service = new UsersService(drizzle);
+      const assertUserExists = jest.fn().mockResolvedValue(undefined);
+      const supabaseAdmin = {
+        assertUserExists,
+      } as unknown as SupabaseAdminService;
+      const service = new UsersService(drizzle, supabaseAdmin);
 
       await expect(
         service.findOrProvisionFromPrincipal({
@@ -44,6 +49,7 @@ describe('UsersService', () => {
         displayName: 'Person Example',
         status: 'active',
       });
+      expect(assertUserExists).toHaveBeenCalledWith('supabase-user-1');
     });
 
     it('requires an email claim when provisioning a new user', async () => {
@@ -55,7 +61,10 @@ describe('UsersService', () => {
           }),
         },
       } as unknown as DrizzleService;
-      const service = new UsersService(drizzle);
+      const supabaseAdmin = {
+        assertUserExists: jest.fn().mockResolvedValue(undefined),
+      } as unknown as SupabaseAdminService;
+      const service = new UsersService(drizzle, supabaseAdmin);
 
       await expect(
         service.findOrProvisionFromPrincipal({ sub: 'supabase-user-1' }),
@@ -81,7 +90,7 @@ describe('UsersService', () => {
         db: { select: selectMock },
       } as unknown as DrizzleService;
 
-      const service = new UsersService(drizzle);
+      const service = new UsersService(drizzle, {} as SupabaseAdminService);
 
       const result = await service.search('ann');
 
@@ -108,7 +117,7 @@ describe('UsersService', () => {
         db: { select: selectMock },
       } as unknown as DrizzleService;
 
-      const service = new UsersService(drizzle);
+      const service = new UsersService(drizzle, {} as SupabaseAdminService);
 
       const result = await service.search('   ');
 
@@ -126,7 +135,7 @@ describe('UsersService', () => {
         db: { select: selectMock },
       } as unknown as DrizzleService;
 
-      const service = new UsersService(drizzle);
+      const service = new UsersService(drizzle, {} as SupabaseAdminService);
 
       await service.search('ann', 3);
 

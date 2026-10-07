@@ -24,11 +24,14 @@ const mockCreateWorkspace = vi.fn();
 const mockDeleteWorkspace = vi.fn();
 const mockVerifyCurrentPassword = vi.fn();
 const mockUpdatePassword = vi.fn();
+const mockClearLocalSession = vi.fn();
+const mockDeleteAccount = vi.fn();
 
 vi.mock("@/auth/auth-provider", () => ({
   useAuth: () => ({
     verifyCurrentPassword: mockVerifyCurrentPassword,
     updatePassword: mockUpdatePassword,
+    clearLocalSession: mockClearLocalSession,
   }),
 }));
 
@@ -96,6 +99,10 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
     isError: false,
     variables: undefined,
+  }),
+  useDeleteAccount: () => ({
+    mutateAsync: mockDeleteAccount,
+    isPending: false,
   }),
   useUpdateMe: () => ({
     mutate: mockMutate,
@@ -174,6 +181,8 @@ describe("SettingsPage", () => {
     mockDeleteWorkspace.mockReset().mockResolvedValue({ id: "workspace-1" });
     mockVerifyCurrentPassword.mockReset().mockResolvedValue(undefined);
     mockUpdatePassword.mockReset().mockResolvedValue(undefined);
+    mockClearLocalSession.mockReset().mockResolvedValue(undefined);
+    mockDeleteAccount.mockReset().mockResolvedValue(undefined);
   });
 
   it("scrolls straight to the paper pipeline stages section when linked in with a hash", () => {
@@ -359,6 +368,54 @@ describe("SettingsPage", () => {
       screen.getByRole("heading", { name: "Confirm current password" }),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
+  });
+
+  it("permanently deletes the account after password and typed confirmation", async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    expect(
+      screen.getByRole("heading", { name: "Permanently delete your account?" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "current-password" },
+    });
+    fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), {
+      target: { value: "DELETE" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Permanently delete account" }));
+
+    await waitFor(() =>
+      expect(mockVerifyCurrentPassword).toHaveBeenCalledWith("current-password"),
+    );
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    expect(mockClearLocalSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires DELETE to be typed exactly before deleting the account", async () => {
+    render(
+      <MemoryRouter>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "current-password" },
+    });
+    fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), {
+      target: { value: "delete" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Permanently delete account" }));
+
+    expect(await screen.findByText('Type "DELETE" exactly to confirm.')).toBeInTheDocument();
+    expect(mockVerifyCurrentPassword).not.toHaveBeenCalled();
+    expect(mockDeleteAccount).not.toHaveBeenCalled();
   });
 
   it("shows the workspace list and creates a new workspace, all from Settings", async () => {

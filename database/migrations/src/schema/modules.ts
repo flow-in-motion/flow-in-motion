@@ -25,7 +25,9 @@ export const modules = pgTable(
     statusId: uuid('status_id').references((): AnyPgColumn => enumTable.id),
     pipelineStageId: uuid('pipeline_stage_id').references((): AnyPgColumn => enumTable.id),
     pipelineStageChangedAt: timestamp('pipeline_stage_changed_at', { withTimezone: true }),
-    assignedToUserId: uuid('assigned_to_user_id').references(() => users.id),
+    assignedToUserId: uuid('assigned_to_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     dueDate: date('due_date'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
