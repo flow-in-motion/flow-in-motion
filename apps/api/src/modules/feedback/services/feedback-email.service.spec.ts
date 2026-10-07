@@ -138,7 +138,9 @@ describe('FeedbackEmailService screenshot handling', () => {
     expect(raw).toContain('Content-Type: multipart/related');
     expect(raw).toContain('Content-ID: <feedback-screenshot>');
     expect(raw).toContain('cid:feedback-screenshot');
-    expect(raw).toContain(tinyPngBase64);
+    // The base64 payload is wrapped at 76 chars per line (MIME convention),
+    // so compare with line breaks stripped rather than as one long substring.
+    expect(raw.replace(/\r\n/g, '')).toContain(tinyPngBase64);
   });
 
   it('falls back to the Simple content path when the screenshot is not a recognizable data URL', async () => {
