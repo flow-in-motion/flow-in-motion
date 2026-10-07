@@ -16,6 +16,7 @@ const fixtures = vi.hoisted(() => ({
   hidden: [] as string[],
   reversed: false,
   currentStage: "Drafting & Writing" as string | null,
+  moduleQueryArgs: [] as unknown[],
   papers: null as null | Array<{
     id: string;
     title: string;
@@ -28,16 +29,19 @@ const fixtures = vi.hoisted(() => ({
 
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({ data: { id: "workspace-1" } }),
-  useModules: () => ({ data: { data: fixtures.papers ?? [
-    {
-      id: "paper-1",
-      title: "Example paper",
-      shortTitle: null,
-      status: "Active",
-      pipelineStage: fixtures.currentStage,
-      createdAt: "2026-09-01T00:00:00.000Z",
-    },
-  ] } }),
+  useModules: (...args: unknown[]) => {
+    fixtures.moduleQueryArgs = args;
+    return { data: { data: fixtures.papers ?? [
+      {
+        id: "paper-1",
+        title: "Example paper",
+        shortTitle: null,
+        status: "Active",
+        pipelineStage: fixtures.currentStage,
+        createdAt: "2026-09-01T00:00:00.000Z",
+      },
+    ] } };
+  },
   useTasks: () => ({ data: { data: [
     { id: "task-1", moduleId: "paper-1", status: "Complete" },
     { id: "task-2", moduleId: "paper-1", status: "In Progress" },
@@ -55,7 +59,24 @@ describe("PipelineOverviewTable popup", () => {
     fixtures.hidden = [];
     fixtures.reversed = false;
     fixtures.currentStage = "Drafting & Writing";
+    fixtures.moduleQueryArgs = [];
     fixtures.papers = null;
+  });
+
+  it("requests all accessible papers for the dashboard and enlarged pipeline", () => {
+    render(<MemoryRouter><PipelineOverviewTable /></MemoryRouter>);
+
+    expect(fixtures.moduleQueryArgs).toEqual([
+      "workspace-1",
+      undefined,
+      1,
+      true,
+      {
+        pageSize: "all",
+        sortBy: "dateAdded",
+        sortDirection: "desc",
+      },
+    ]);
   });
 
   it("sorts by date, alphabet, or progress and reverses the selected order", () => {
