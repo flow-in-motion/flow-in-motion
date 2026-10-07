@@ -74,6 +74,7 @@ const fixtures = vi.hoisted(() => ({
   confetti: vi.fn(),
   tenantId: "workspace-1",
   projects: [] as ProjectFixture[],
+  moduleQueryArgs: [] as unknown[],
 }));
 
 vi.mock("canvas-confetti", () => ({
@@ -137,7 +138,8 @@ vi.mock("@/api/hooks", async () => {
         meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 },
       },
     }),
-    useModules: () => {
+    useModules: (...args: unknown[]) => {
+      fixtures.moduleQueryArgs = args;
       const moduleRows = useSyncExternalStore(modules.subscribe, modules.get);
       return {
         data: {
@@ -266,7 +268,20 @@ describe("PipelinePage", () => {
     stages.set(baseStages());
     modules.set(baseModules());
     fixtures.projects = [];
+    fixtures.moduleQueryArgs = [];
     fixtures.confetti.mockReset();
+  });
+
+  it("requests all accessible papers for the pipeline", () => {
+    render(<MemoryRouter><PipelinePage /></MemoryRouter>);
+
+    expect(fixtures.moduleQueryArgs).toEqual([
+      "workspace-1",
+      undefined,
+      1,
+      true,
+      { pageSize: "all" },
+    ]);
   });
 
   it("uses the selected stage order for percentages in both pipeline views", () => {

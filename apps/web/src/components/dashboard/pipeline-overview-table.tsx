@@ -140,6 +140,7 @@ export function PipelineOverviewTable() {
   const [sortBy, setSortBy] = useState<ModuleSortField>("dateAdded");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const modulesQuery = useModules(tenantId, undefined, 1, true, {
+    pageSize: "all",
     sortBy,
     sortDirection,
   });

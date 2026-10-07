@@ -238,7 +238,9 @@ export default function PipelinePage() {
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
   const generalProject = projectsQuery.data?.generalProject ?? null;
-  const modulesQuery = useModules(tenantId);
+  const modulesQuery = useModules(tenantId, undefined, 1, true, {
+    pageSize: "all",
+  });
   const modules = modulesQuery.data?.data ?? [];
   const tasksQuery = useTasks(tenantId);
   const tasks = tasksQuery.data?.data ?? [];
