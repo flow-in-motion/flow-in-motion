@@ -7,6 +7,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { SiteHeader } from "@/components/layout/site-header";
 import { TopNav } from "@/components/layout/top-nav";
 import { AppErrorBoundary } from "@/components/shared/error-boundary";
+import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { registerErrorReporter } from "@/lib/client-error-reporter";
 import { useDesignTheme } from "@/theme/design-theme";
 
@@ -39,6 +40,7 @@ export function AppLayout() {
             </AppErrorBoundary>
           </div>
         </main>
+        <FeedbackLauncher tenantId={workspace.data?.id ?? ""} />
       </div>
     );
   }
@@ -58,6 +60,7 @@ export function AppLayout() {
           </div>
         </main>
       </div>
+      <FeedbackLauncher tenantId={workspace.data?.id ?? ""} />
     </div>
   );
 }

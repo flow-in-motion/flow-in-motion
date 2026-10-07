@@ -1250,6 +1250,7 @@ export interface ApiFeedback {
   userId: string;
   message: string;
   rating: number | null;
+  screenshotDataUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1257,6 +1258,7 @@ export interface ApiFeedback {
 export interface CreateFeedbackInput {
   message: string;
   rating?: number;
+  screenshotDataUrl?: string;
 }
 
 export function useCreateFeedback(tenantId: string) {

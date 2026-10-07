@@ -1,0 +1,1 @@
+ALTER TABLE "feedback" ADD COLUMN "screenshot_data_url" text;
