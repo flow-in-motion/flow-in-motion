@@ -164,6 +164,10 @@ export class FeedbackEmailService {
 
       const result = await this.ses.send(command);
 
+      this.logger.log(
+        `Feedback email notification sent to SES (messageId=${result.MessageId}, screenshot=${Boolean(screenshot)})`,
+      );
+
       return result.MessageId;
     } catch (error) {
       const errorName = error instanceof Error ? error.name : 'UnknownError';
