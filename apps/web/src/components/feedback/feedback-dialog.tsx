@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { Star } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Star, X } from "lucide-react";
 
 import { useCreateFeedback } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
@@ -18,25 +18,44 @@ interface FeedbackDialogProps {
   open: boolean;
   tenantId: string;
   onOpenChange: (open: boolean) => void;
+  /**
+   * A screenshot captured by the caller before opening this dialog (so the
+   * capture happens before the dialog itself is in the DOM). Optional —
+   * the person can also remove it before sending.
+   */
+  initialScreenshotDataUrl?: string;
 }
 
 export function FeedbackDialog({
   open,
   tenantId,
   onOpenChange,
+  initialScreenshotDataUrl,
 }: FeedbackDialogProps) {
   const createFeedback = useCreateFeedback(tenantId);
 
   const [message, setMessage] = useState("");
   const [rating, setRating] = useState<number | undefined>();
   const [hoverRating, setHoverRating] = useState<number | undefined>();
+  const [screenshotDataUrl, setScreenshotDataUrl] = useState<
+    string | undefined
+  >(initialScreenshotDataUrl);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setScreenshotDataUrl(initialScreenshotDataUrl);
+    }
+    // Only pick up a freshly captured screenshot when the dialog opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function reset() {
     setMessage("");
     setRating(undefined);
     setHoverRating(undefined);
+    setScreenshotDataUrl(undefined);
     setSubmitted(false);
     setError(null);
   }
@@ -65,6 +84,7 @@ export function FeedbackDialog({
       await createFeedback.mutateAsync({
         message: trimmedMessage,
         rating,
+        screenshotDataUrl,
       });
 
       setSubmitted(true);
@@ -113,14 +133,14 @@ export function FeedbackDialog({
                 htmlFor="feedback-message"
                 className="text-sm font-medium"
               >
-                Feedback
+                What were you trying to do?
               </label>
 
               <Textarea
                 id="feedback-message"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="Share your feedback…"
+                placeholder="What were you trying to do, and what happened?"
                 rows={6}
                 minLength={2}
                 maxLength={2000}
@@ -131,6 +151,28 @@ export function FeedbackDialog({
                 {message.length}/2000
               </p>
             </div>
+
+            {screenshotDataUrl ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Screenshot</p>
+                <div className="relative overflow-hidden rounded-md border">
+                  <img
+                    src={screenshotDataUrl}
+                    alt="Screenshot of the current page"
+                    className="max-h-40 w-full object-cover object-top"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setScreenshotDataUrl(undefined)}
+                    aria-label="Remove screenshot"
+                    title="Remove screenshot"
+                    className="absolute right-1.5 top-1.5 rounded-full bg-background/90 p-1 text-muted-foreground shadow-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium">

@@ -60,6 +60,7 @@ export class FeedbackService {
       userId: callerUserId,
       message: input.message.trim(),
       rating: input.rating,
+      screenshotDataUrl: input.screenshotDataUrl,
     });
 
     if (!feedback) {
@@ -71,6 +72,7 @@ export class FeedbackService {
       userId: feedback.userId,
       message: feedback.message,
       rating: feedback.rating,
+      screenshotDataUrl: feedback.screenshotDataUrl,
       submittedAt: feedback.createdAt,
     });
 
@@ -92,6 +94,7 @@ export class FeedbackService {
       {
         message: input.message !== undefined ? input.message.trim() : undefined,
         rating: input.rating,
+        screenshotDataUrl: input.screenshotDataUrl,
       },
     );
 

@@ -61,6 +61,7 @@ export class FeedbackRepository {
     userId: string;
     message: string;
     rating?: number;
+    screenshotDataUrl?: string;
   }) {
     const [row] = await this.drizzle.db
       .insert(feedback)
@@ -77,6 +78,7 @@ export class FeedbackRepository {
     values: Partial<{
       message: string;
       rating: number;
+      screenshotDataUrl: string;
     }>,
   ) {
     const [row] = await this.drizzle.db

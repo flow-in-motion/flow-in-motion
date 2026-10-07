@@ -32,7 +32,7 @@ describe("FeedbackDialog", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Feedback"), {
+    fireEvent.change(screen.getByLabelText("What were you trying to do?"), {
       target: {
         value: "The project workflow is easy to understand.",
       },
@@ -54,6 +54,7 @@ describe("FeedbackDialog", () => {
       expect(mocks.createFeedback).toHaveBeenCalledWith({
         message: "The project workflow is easy to understand.",
         rating: 5,
+        screenshotDataUrl: undefined,
       });
     });
 
@@ -97,7 +98,7 @@ describe("FeedbackDialog", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Feedback"), {
+    fireEvent.change(screen.getByLabelText("What were you trying to do?"), {
       target: {
         value: "Please improve the dashboard loading time.",
       },
@@ -112,5 +113,73 @@ describe("FeedbackDialog", () => {
     expect(
       await screen.findByRole("alert"),
     ).toHaveTextContent("Feedback service unavailable");
+  });
+
+  it("shows a pre-captured screenshot and includes it on submit", async () => {
+    mocks.createFeedback.mockResolvedValue({ id: "feedback-2" });
+
+    render(
+      <FeedbackDialog
+        open
+        tenantId="tenant-1"
+        initialScreenshotDataUrl="data:image/jpeg;base64,abc123"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByAltText("Screenshot of the current page"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("What were you trying to do?"), {
+      target: { value: "Trying to export a report." },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send feedback" }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.createFeedback).toHaveBeenCalledWith({
+        message: "Trying to export a report.",
+        rating: undefined,
+        screenshotDataUrl: "data:image/jpeg;base64,abc123",
+      });
+    });
+  });
+
+  it("lets the person remove the pre-captured screenshot before submitting", async () => {
+    mocks.createFeedback.mockResolvedValue({ id: "feedback-3" });
+
+    render(
+      <FeedbackDialog
+        open
+        tenantId="tenant-1"
+        initialScreenshotDataUrl="data:image/jpeg;base64,abc123"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove screenshot" }));
+
+    expect(
+      screen.queryByAltText("Screenshot of the current page"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("What were you trying to do?"), {
+      target: { value: "Trying to export a report." },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Send feedback" }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.createFeedback).toHaveBeenCalledWith({
+        message: "Trying to export a report.",
+        rating: undefined,
+        screenshotDataUrl: undefined,
+      });
+    });
   });
 });

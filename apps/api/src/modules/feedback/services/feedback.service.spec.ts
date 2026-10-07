@@ -108,5 +108,42 @@ describe('FeedbackService', () => {
 
       expect(result).toBe(feedback);
     });
+
+    it('passes a screenshot through to both the repository and the email notification', async () => {
+      const createdAt = new Date('2026-09-14T00:00:00.000Z');
+      const screenshotDataUrl = 'data:image/jpeg;base64,abc123';
+
+      const feedback = {
+        id: 'feedback-2',
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        message: 'Found a bug.',
+        rating: null,
+        screenshotDataUrl,
+        createdAt,
+        updatedAt: createdAt,
+      };
+
+      repository.create.mockResolvedValue(feedback);
+
+      await service.create('tenant-1', 'user-1', {
+        message: 'Found a bug.',
+        screenshotDataUrl,
+      });
+
+      expect(repository.create).toHaveBeenCalledWith({
+        tenantId: 'tenant-1',
+        userId: 'user-1',
+        message: 'Found a bug.',
+        rating: undefined,
+        screenshotDataUrl,
+      });
+
+      expect(
+        feedbackEmailService.sendFeedbackNotification,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({ screenshotDataUrl }),
+      );
+    });
   });
 });

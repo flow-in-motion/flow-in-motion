@@ -27,6 +27,8 @@ export const feedback = pgTable(
 
     rating: integer('rating'),
 
+    screenshotDataUrl: text('screenshot_data_url'),
+
     createdAt: timestamp('created_at', {
       withTimezone: true,
     })

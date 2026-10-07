@@ -1343,12 +1343,16 @@ export interface components {
             message: string;
             /** @example 4 */
             rating?: number;
+            /** @description Optional screenshot captured by the client, as a base64 data URL (image/png or image/jpeg). */
+            screenshotDataUrl?: string;
         };
         UpdateFeedbackDto: {
             /** @example The project dashboard is easy to use, but loading is sometimes slow. */
             message?: string;
             /** @example 4 */
             rating?: number;
+            /** @description Optional screenshot captured by the client, as a base64 data URL (image/png or image/jpeg). */
+            screenshotDataUrl?: string;
         };
         UpdateAccountPreferencesDto: {
             /** @enum {string} */
