@@ -1,4 +1,5 @@
-import { Archive, RotateCcw, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { RotateCcw, Trash2 } from "lucide-react";
 
 import {
   useArchivedModules,
@@ -64,8 +65,8 @@ function ArchiveTable<T extends ApiProject | ApiModule>({
       <CardContent>
         {rows.length === 0 ? (
           <EmptyState
-            title={`No archived ${title.toLowerCase()}`}
-            description={`Archived ${title.toLowerCase()} will appear here for 14 days.`}
+            title={`No deleted ${title.toLowerCase()}`}
+            description={`Deleted ${title.toLowerCase()} will appear here for 14 days.`}
           />
         ) : (
           <div className="overflow-x-auto">
@@ -142,16 +143,18 @@ export default function ProjectsArchivePage() {
   const permanentlyDeleteProject = usePermanentlyDeleteProject(tenantId);
   const restorePaper = useRestoreModule(tenantId);
   const permanentlyDeletePaper = usePermanentlyDeleteModule(tenantId);
+  const [isEmptying, setIsEmptying] = useState(false);
+  const [emptyError, setEmptyError] = useState<string | null>(null);
 
   if (workspace.isPending || projectsQuery.isPending || papersQuery.isPending) {
-    return <LoadingState title="Loading archive" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading trash" className="min-h-[50vh]" />;
   }
 
   if (projectsQuery.isError || papersQuery.isError) {
     const error = projectsQuery.error ?? papersQuery.error;
     return (
       <ErrorState
-        title="Archive could not be loaded"
+        title="Trash could not be loaded"
         description={
           error instanceof Error ? error.message : "Please try again."
         }
@@ -195,16 +198,78 @@ export default function ProjectsArchivePage() {
     await permanentlyDeletePaper.mutateAsync(paper.id);
   }
 
+  async function emptyTrash() {
+    const projects = projectsQuery.data ?? [];
+    const papers = papersQuery.data ?? [];
+    const total = projects.length + papers.length;
+    if (total === 0) return;
+
+    if (
+      !window.confirm(
+        `Permanently delete all ${total} item${total === 1 ? "" : "s"} in the trash? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setEmptyError(null);
+    setIsEmptying(true);
+    try {
+      const results = await Promise.allSettled([
+        ...projects.map((project) =>
+          permanentlyDeleteProject.mutateAsync(project.id),
+        ),
+        ...papers.map((paper) => permanentlyDeletePaper.mutateAsync(paper.id)),
+      ]);
+      const failed = results.filter(
+        (result) => result.status === "rejected",
+      ).length;
+      if (failed > 0) {
+        setEmptyError(
+          `${failed} of ${total} item${total === 1 ? "" : "s"} could not be deleted. Please try again.`,
+        );
+      }
+    } finally {
+      setIsEmptying(false);
+    }
+  }
+
+  const totalInTrash = (projectsQuery.data?.length ?? 0) + (papersQuery.data?.length ?? 0);
+  const anyActionPending =
+    restoreProject.isPending ||
+    permanentlyDeleteProject.isPending ||
+    restorePaper.isPending ||
+    permanentlyDeletePaper.isPending;
+
   return (
     <div className="page-stack">
       <BackButton fallback="/projects" label="Back to Projects" />
       <PageHeading
-        icon={Archive}
+        icon={Trash2}
         tone="blue"
         eyebrow="Projects"
-        title="Archive"
-        description="Restore archived projects and papers before they are permanently deleted after 14 days."
+        title="Trash"
+        description="Restore deleted projects and papers before they are permanently removed after 14 days."
+        actions={
+          totalInTrash > 0 ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void emptyTrash()}
+              disabled={isEmptying || anyActionPending}
+            >
+              <Trash2 />
+              {isEmptying ? "Emptying Trash…" : "Empty Trash"}
+            </Button>
+          ) : undefined
+        }
       />
+
+      {emptyError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {emptyError}
+        </p>
+      ) : null}
 
       <ArchiveTable
         title="Projects"

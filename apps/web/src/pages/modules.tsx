@@ -376,7 +376,7 @@ export default function ModulesPage() {
   async function archive(module: ApiModule) {
     if (
       !window.confirm(
-        `Archive "${paperDisplayTitle(module)}"? It will be permanently deleted after 14 days.`,
+        `Delete "${paperDisplayTitle(module)}"? It will be permanently deleted after 14 days.`,
       )
     ) {
       return;
@@ -388,7 +388,7 @@ export default function ModulesPage() {
       setActionError(
         error instanceof Error
           ? error.message
-          : "The paper could not be archived.",
+          : "The paper could not be deleted.",
       );
     }
   }
@@ -548,8 +548,8 @@ export default function ModulesPage() {
                           </Link>
                           <button
                             type="button"
-                            aria-label={`Archive ${paperDisplayTitle(module)}`}
-                            title="Archive paper"
+                            aria-label={`Delete ${paperDisplayTitle(module)}`}
+                            title="Delete paper"
                             onClick={() => void archive(module)}
                             disabled={archiveModule.isPending}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -101,7 +101,7 @@ export function ArchiveProjectDialog({
       setError(
         caught instanceof Error
           ? caught.message
-          : "The project could not be archived.",
+          : "The project could not be deleted.",
       );
     }
   }
@@ -114,9 +114,9 @@ export function ArchiveProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Archive {project?.title ?? "project"}?</DialogTitle>
+          <DialogTitle>Delete {project?.title ?? "project"}?</DialogTitle>
           <DialogDescription>
-            {countText} Archived items are permanently deleted after 14 days.
+            {countText} Deleted items are permanently removed after 14 days.
           </DialogDescription>
         </DialogHeader>
 
@@ -135,7 +135,7 @@ export function ArchiveProjectDialog({
             />
             <span>
               <span className="block text-sm font-medium">
-                Archive project and linked work
+                Delete project and linked work
               </span>
               <span className="block text-sm text-muted-foreground">
                 Papers, tasks, and notes will be hidden with the project and
@@ -158,11 +158,11 @@ export function ArchiveProjectDialog({
             />
             <span>
               <span className="block text-sm font-medium">
-                Move linked work, then archive project
+                Move linked work, then delete project
               </span>
               <span className="block text-sm text-muted-foreground">
                 Move all linked papers, tasks, and notes to another project
-                before archiving this one.
+                before deleting this one.
               </span>
             </span>
           </label>
@@ -215,7 +215,7 @@ export function ArchiveProjectDialog({
             onClick={() => void submitArchive()}
             disabled={isPending || impactPending}
           >
-            {isPending ? "Archiving…" : "Archive Project"}
+            {isPending ? "Deleting…" : "Delete Project"}
           </Button>
         </DialogFooter>
       </DialogContent>

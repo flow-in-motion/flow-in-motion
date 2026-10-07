@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Archive, FolderKanban, Pencil, Trash2, UserPlus } from "lucide-react";
+import { FolderKanban, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
@@ -322,12 +322,6 @@ export default function ProjectsPage() {
         description="Track research work by stage, dates, collaborators and outstanding tasks."
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <Button asChild variant="outline">
-              <Link to="/projects/archive">
-                <Archive />
-                Archive
-              </Link>
-            </Button>
             <Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>
           </div>
         }

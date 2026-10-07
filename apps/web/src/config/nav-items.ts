@@ -19,6 +19,7 @@ import {
   NotebookPen,
   Presentation,
   ShieldCheck,
+  Trash2,
   Users,
   Workflow,
 } from "lucide-react";
@@ -52,6 +53,7 @@ export const navGroups: NavGroup[] = [
       { label: "Papers", to: "/modules", icon: FileStack },
       { label: "Tasks", to: "/tasks", icon: ClipboardList },
       { label: "Notes", to: "/daily-notes", icon: NotebookPen },
+      { label: "Trash", to: "/projects/archive", icon: Trash2 },
     ],
   },
   {
