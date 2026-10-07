@@ -19,7 +19,7 @@ export const fundings = pgTable(
       .references(() => tenants.id, { onDelete: "cascade" }),
     ownerUserId: uuid("owner_user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "restrict" }),
+      .references(() => users.id, { onDelete: "cascade" }),
     fundingBody: text("funding_body").notNull(),
     scheme: text("scheme"),
     partners: text("partners"),
