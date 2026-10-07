@@ -550,7 +550,7 @@ describe("ModulesPage", () => {
     ).toHaveAttribute("href", "/modules/module-1?edit=true");
   });
 
-  it("archives a module", async () => {
+  it("deletes a module", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     render(
       <MemoryRouter>
@@ -559,7 +559,7 @@ describe("ModulesPage", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Archive Literature synthesis" }),
+      screen.getByRole("button", { name: "Delete Literature synthesis" }),
     );
     expect(confirm).toHaveBeenCalled();
 

@@ -41,7 +41,7 @@ const project = {
 };
 
 describe("ArchiveProjectDialog", () => {
-  it("shows impact and can move linked work before archiving", async () => {
+  it("shows impact and can move linked work before deleting", async () => {
     const onArchive = vi.fn().mockResolvedValue(undefined);
 
     render(
@@ -64,14 +64,14 @@ describe("ArchiveProjectDialog", () => {
 
     fireEvent.click(
       screen.getByRole("radio", {
-        name: /Move linked work, then archive project/i,
+        name: /Move linked work, then delete project/i,
       }),
     );
     fireEvent.change(screen.getByRole("combobox"), {
       target: { value: "Destination" },
     });
     fireEvent.click(screen.getByRole("option", { name: /Destination Project/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Archive Project" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Project" }));
 
     await waitFor(() =>
       expect(onArchive).toHaveBeenCalledWith({
