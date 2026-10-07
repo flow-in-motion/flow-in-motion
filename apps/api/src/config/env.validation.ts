@@ -59,6 +59,9 @@ export const envValidationSchema = Joi.object({
     .uri({ scheme: ['https'] })
     .required(),
   SUPABASE_JWT_AUDIENCE: Joi.string().default('authenticated'),
+  // The scheduled cleanup Lambda shares this schema but does not administer
+  // Auth users. SupabaseAdminService enforces this key only on admin actions.
+  SUPABASE_SECRET_KEY: Joi.string().min(1).optional(),
 
   INVITATION_TOKEN_TTL_HOURS: Joi.number().integer().positive().default(72),
   INVITATION_TOKEN_BYTES: Joi.number().integer().min(32).default(32),

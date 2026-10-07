@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
+import { AccountDeletionService } from './account-deletion.service';
 import { MeController } from './me.controller';
 import { UsersService } from './users.service';
 
@@ -7,18 +8,25 @@ describe('MeController', () => {
   let controller: MeController;
   let usersService: {
     findOrProvisionFromPrincipal: jest.Mock;
+    findByExternalAuthId: jest.Mock;
     updateProfile: jest.Mock;
   };
+  let accountDeletion: { deleteAccount: jest.Mock };
 
   beforeEach(async () => {
     usersService = {
       findOrProvisionFromPrincipal: jest.fn(),
+      findByExternalAuthId: jest.fn(),
       updateProfile: jest.fn(),
     };
+    accountDeletion = { deleteAccount: jest.fn() };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [MeController],
-      providers: [{ provide: UsersService, useValue: usersService }],
+      providers: [
+        { provide: UsersService, useValue: usersService },
+        { provide: AccountDeletionService, useValue: accountDeletion },
+      ],
     }).compile();
 
     controller = moduleRef.get<MeController>(MeController);
@@ -141,6 +149,27 @@ describe('MeController', () => {
       );
       expect(result.profileComplete).toBe(true);
       expect(result.missingProfileFields).toEqual([]);
+    });
+  });
+
+  describe('deleteMe', () => {
+    it('deletes the authenticated application and Supabase account', async () => {
+      usersService.findByExternalAuthId.mockResolvedValue({
+        id: 'user-uuid-1',
+        email: 'real@example.com',
+      });
+      accountDeletion.deleteAccount.mockResolvedValue(undefined);
+      const req = {
+        user: { sub: 'supabase-user-1' },
+      } as Parameters<MeController['deleteMe']>[0];
+
+      await expect(controller.deleteMe(req)).resolves.toBeUndefined();
+
+      expect(accountDeletion.deleteAccount).toHaveBeenCalledWith({
+        id: 'user-uuid-1',
+        email: 'real@example.com',
+        externalAuthId: 'supabase-user-1',
+      });
     });
   });
 });

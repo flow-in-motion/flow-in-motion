@@ -344,6 +344,13 @@
       "when": 1791290386279,
       "tag": "0064_elite_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1791334876734,
+      "tag": "0065_account_deletion_cascades",
+      "breakpoints": true
     }
   ]
 }

@@ -158,6 +158,7 @@ for the production sequence.
 | `POSTGRES_MIGRATION_HOST` / `POSTGRES_MIGRATION_PORT`     | `drizzle-kit migrate` | Session/direct migration connection     |
 | `POSTGRES_MIGRATION_USER` / `POSTGRES_MIGRATION_PASSWORD` | `drizzle-kit migrate` | Runs schema migrations, owns tables    |
 | `POSTGRES_RUNTIME_USER` / `POSTGRES_RUNTIME_PASSWORD`     | running API           | Read/write only, cannot alter schema   |
+| `SUPABASE_SECRET_KEY`                                     | running API           | Server-only Auth account administration |
 
 > **Note:** the database role is always named `research_tracker_migration`.
 > Through Supabase's shared pooler, its connection username is

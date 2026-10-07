@@ -20,7 +20,7 @@ import {
   
       ownerUserId: uuid('owner_user_id')
         .notNull()
-        .references(() => users.id, { onDelete: 'restrict' }),
+        .references(() => users.id, { onDelete: 'cascade' }),
   
       acronym: text('acronym'),
       name: text('name').notNull(),

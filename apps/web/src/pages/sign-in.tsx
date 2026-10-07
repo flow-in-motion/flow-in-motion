@@ -47,6 +47,9 @@ export default function SignInPage() {
   const [resetSent, setResetSent] = useState(false);
   const returnTo =
     (location.state as { returnTo?: string } | null)?.returnTo ?? "/";
+  const accountDeleted = Boolean(
+    (location.state as { accountDeleted?: boolean } | null)?.accountDeleted,
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -217,6 +220,11 @@ export default function SignInPage() {
               Forgot your password?
             </button>
           </form>
+          {accountDeleted ? (
+            <p role="status" className="text-xs text-emerald-700">
+              Your account and associated data were permanently deleted.
+            </p>
+          ) : null}
           {auth.error ? (
             <p role="alert" className="text-xs text-destructive">
               {auth.error.message}

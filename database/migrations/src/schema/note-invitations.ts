@@ -13,7 +13,7 @@ export const noteInvitations = pgTable('note_invitations', {
   affiliation: text('affiliation'),
   invitedBy: uuid('invited_by')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: 'cascade' }),
   token: text('token').unique(),
   status: text('status').notNull().default('draft'),
   expiresAt: timestamp('expires_at', { withTimezone: true }),

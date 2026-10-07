@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(),
   signInWithPassword: vi.fn(),
+  signOut: vi.fn(),
   updateUser: vi.fn(),
   unsubscribe: vi.fn(),
 }));
@@ -32,6 +33,7 @@ vi.mock("@/auth/supabase-client", () => ({
       getSession: mocks.getSession,
       onAuthStateChange: mocks.onAuthStateChange,
       signInWithPassword: mocks.signInWithPassword,
+      signOut: mocks.signOut,
       updateUser: mocks.updateUser,
     },
   },
@@ -56,6 +58,7 @@ describe("AppAuthProvider password changes", () => {
       data: { user: session.user },
       error: null,
     });
+    mocks.signOut.mockReset().mockResolvedValue({ error: null });
   });
 
   function wrapper({ children }: { children: ReactNode }) {
@@ -79,5 +82,15 @@ describe("AppAuthProvider password changes", () => {
     expect(mocks.signInWithPassword.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.updateUser.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("clears the local session after the server deletes the account", async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(() => result.current.clearLocalSession());
+
+    expect(mocks.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(result.current.session).toBeNull();
   });
 });

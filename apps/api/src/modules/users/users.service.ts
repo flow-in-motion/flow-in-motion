@@ -8,11 +8,15 @@ import { users } from '@research-tracker/migrations';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../db/drizzle.service';
 import type { AuthenticatedPrincipal } from '../auth/jwt.strategy';
+import { SupabaseAdminService } from '../auth/supabase-admin.service';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly drizzle: DrizzleService) {}
+  constructor(
+    private readonly drizzle: DrizzleService,
+    private readonly supabaseAdmin: SupabaseAdminService,
+  ) {}
 
   /**
    * Search active registered users visible under RLS, together with contacts
@@ -196,6 +200,11 @@ export class UsersService {
     if (existing && !existing.email.endsWith('@pending.local')) {
       return existing;
     }
+
+    // Supabase access tokens remain valid until they expire even after an
+    // Auth user is deleted. Confirm the identity still exists before any
+    // provisioning path so a stale token cannot recreate a deleted account.
+    await this.supabaseAdmin.assertUserExists(externalAuthId);
 
     const email = principal.email?.trim().toLowerCase();
     if (!email) {

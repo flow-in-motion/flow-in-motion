@@ -11,7 +11,7 @@ export const invitations = pgTable('invitations', {
   role: text('role').notNull(),
   invitedBy: uuid('invited_by')
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: 'cascade' }),
   token: text('token').notNull().unique(),
   status: text('status').notNull().default('pending'), // pending | accepted | revoked | expired
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),

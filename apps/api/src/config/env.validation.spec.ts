@@ -38,6 +38,7 @@ describe('envValidationSchema', () => {
       POSTGRES_RUNTIME_USER: 'runtime-user.project-ref',
       POSTGRES_RUNTIME_PASSWORD: 'runtime-password',
       SUPABASE_URL: 'https://project-ref.supabase.co',
+      SUPABASE_SECRET_KEY: 'sb_secret_test-key',
     });
 
     expect(error).toBeDefined();
@@ -56,8 +57,25 @@ describe('envValidationSchema', () => {
       POSTGRES_RUNTIME_USER: 'runtime-user.project-ref',
       POSTGRES_RUNTIME_PASSWORD: 'runtime-password',
       SUPABASE_URL: 'https://project-ref.supabase.co',
+      SUPABASE_SECRET_KEY: 'sb_secret_test-key',
     });
 
     expect(error?.message).toContain('POSTGRES_SSL_CA');
+  });
+
+  it('allows production processes that do not administer Supabase Auth', () => {
+    const { error } = envValidationSchema.validate({
+      NODE_ENV: 'production',
+      APP_URL: 'https://flow-in-motion.example',
+      POSTGRES_HOST: 'aws-0-ap-southeast-2.pooler.supabase.com',
+      POSTGRES_PORT: 6543,
+      POSTGRES_DB: 'postgres',
+      POSTGRES_SSL_MODE: 'require',
+      POSTGRES_RUNTIME_USER: 'runtime-user.project-ref',
+      POSTGRES_RUNTIME_PASSWORD: 'runtime-password',
+      SUPABASE_URL: 'https://project-ref.supabase.co',
+    });
+
+    expect(error).toBeUndefined();
   });
 });

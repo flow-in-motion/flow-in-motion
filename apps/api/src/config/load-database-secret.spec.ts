@@ -8,6 +8,7 @@ const DATABASE_KEYS = [
   'POSTGRES_RUNTIME_USER',
   'POSTGRES_RUNTIME_PASSWORD',
   'POSTGRES_SSL_MODE',
+  'SUPABASE_SECRET_KEY',
 ] as const;
 
 const originalEnvironment = Object.fromEntries(
@@ -60,6 +61,7 @@ describe('loadDatabaseSecretEnvironment', () => {
         POSTGRES_RUNTIME_USER: 'runtime-user',
         POSTGRES_RUNTIME_PASSWORD: 'runtime-password',
         POSTGRES_SSL_MODE: 'require',
+        SUPABASE_SECRET_KEY: 'sb_secret_test-key',
       }),
     );
 
@@ -70,6 +72,7 @@ describe('loadDatabaseSecretEnvironment', () => {
     expect(process.env.POSTGRES_PORT).toBe('6543');
     expect(process.env.POSTGRES_RUNTIME_USER).toBe('runtime-user');
     expect(process.env.POSTGRES_SSL_MODE).toBe('require');
+    expect(process.env.SUPABASE_SECRET_KEY).toBe('sb_secret_test-key');
   });
 
   it('fails when neither environment variables nor a secret ARN exist', async () => {
