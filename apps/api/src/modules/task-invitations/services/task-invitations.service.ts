@@ -141,13 +141,19 @@ export class TaskInvitationsService {
       );
     }
 
-    const task = await this.tasksRepository.findByIdGlobal(invitation.taskId);
-    if (!task) {
+    const tenantResult = await this.drizzle.db.execute(
+      sql`SELECT find_task_tenant_for_invitation(${invitation.taskId}) AS tenant_id`,
+    );
+    const tenantId =
+      (tenantResult.rows[0] as { tenant_id: string | null } | undefined)
+        ?.tenant_id ?? null;
+
+    if (!tenantId) {
       throw new NotFoundException('Task not found');
     }
 
     await this.taskMembersRepository.create({
-      tenantId: task.tenantId,
+      tenantId,
       taskId: invitation.taskId,
       userId,
     });

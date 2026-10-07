@@ -78,6 +78,8 @@ describe('ProjectModulesController', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
       );
 
       expect(result).toBe(response);
@@ -101,6 +103,31 @@ describe('ProjectModulesController', () => {
         undefined,
         'progress',
         'asc',
+        undefined,
+        undefined,
+      );
+    });
+
+    it('forwards multiple paper statuses and stages', async () => {
+      modulesService.listActive.mockResolvedValue({ data: [] });
+
+      await controller.list('tenant-1', req, {
+        page: 1,
+        statuses: ['Complete', 'Stalled'],
+        stages: ['Literature Review', 'Submitted, Under Review'],
+      });
+
+      expect(modulesService.listActive).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+        1,
+        20,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        ['Complete', 'Stalled'],
+        ['Literature Review', 'Submitted, Under Review'],
       );
     });
   });

@@ -14,6 +14,7 @@ import {
   eq,
   exists,
   ilike,
+  inArray,
   isNotNull,
   isNull,
   or,
@@ -152,6 +153,8 @@ export class ProjectModulesRepository {
     search?: string,
     sortBy: ModuleSortField = 'dateAdded',
     sortDirection: SortDirection = 'desc',
+    statuses?: string[],
+    stages?: string[],
   ) {
     const visibilityCondition = or(
       exists(
@@ -225,6 +228,38 @@ export class ProjectModulesRepository {
                 ),
               ),
           ),
+        ),
+      );
+    }
+    if (statuses?.length) {
+      conditions.push(
+        exists(
+          this.drizzle.db
+            .select({ id: enumTable.id })
+            .from(enumTable)
+            .where(
+              and(
+                eq(enumTable.id, modules.statusId),
+                eq(enumTable.category, 'project_status'),
+                inArray(enumTable.value, statuses),
+              ),
+            ),
+        ),
+      );
+    }
+    if (stages?.length) {
+      conditions.push(
+        exists(
+          this.drizzle.db
+            .select({ id: enumTable.id })
+            .from(enumTable)
+            .where(
+              and(
+                eq(enumTable.id, modules.pipelineStageId),
+                eq(enumTable.category, 'module_pipeline_stage'),
+                inArray(enumTable.value, stages),
+              ),
+            ),
         ),
       );
     }

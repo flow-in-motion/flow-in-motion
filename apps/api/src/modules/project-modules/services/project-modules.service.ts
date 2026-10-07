@@ -72,6 +72,8 @@ export class ProjectModulesService {
     search?: string,
     sortBy?: ModuleSortField,
     sortDirection?: SortDirection,
+    statuses?: string[],
+    stages?: string[],
   ) {
     const limit = listPageSize(pageSize);
     const requestedPage = pageSize === 'all' ? 1 : page;
@@ -87,6 +89,8 @@ export class ProjectModulesService {
         search,
         sortBy,
         sortDirection,
+        statuses,
+        stages,
       );
 
     assertAllFits(pageSize, totalItems);

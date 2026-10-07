@@ -28,6 +28,7 @@ import { ModuleSubmissionsModule } from './modules/module-submissions/module-sub
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { FundingsModule } from './modules/fundings/fundings.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RequestContextInterceptor } from './db/request-context.interceptor';
 @Module({
@@ -91,6 +92,7 @@ import { RequestContextInterceptor } from './db/request-context.interceptor';
     FeedbackModule,
     PreferencesModule,
     AnalyticsModule,
+    FundingsModule,
   ],
   controllers: [AppController],
   providers: [
