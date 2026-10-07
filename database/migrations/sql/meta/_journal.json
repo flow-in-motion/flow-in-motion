@@ -358,6 +358,13 @@
       "when": 1791345551576,
       "tag": "0066_fundings_owner_cascade",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1791347984027,
+      "tag": "0067_fundings_owner_rls_bypass",
+      "breakpoints": true
     }
   ]
 }
