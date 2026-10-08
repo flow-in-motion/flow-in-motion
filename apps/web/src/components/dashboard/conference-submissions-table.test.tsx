@@ -17,6 +17,13 @@ type ConferenceFixture = {
   submissionType: string | null;
   daysRemaining: number | null;
   projects: Array<{ id: string; displayId: string; title: string }>;
+  papers: Array<{
+    id: string;
+    displayId: string;
+    shortTitle: string;
+    title: string;
+    projectId: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 };
@@ -64,6 +71,17 @@ vi.mock("@/api/hooks", async () => {
     useMe: () => ({ data: { id: fixtures.userId }, isPending: false }),
     useProjects: () => ({ data: { data: [fixtures.project], meta: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }, isPending: false }),
     useModules: () => ({ data: [], isPending: false }),
+    useConferenceLinkOptions: (_tenantId: string, _search: string, enabled: boolean) => ({
+      data: enabled ? [{
+        kind: "project",
+        id: fixtures.project.id,
+        projectId: fixtures.project.id,
+        displayId: fixtures.project.displayId,
+        label: fixtures.project.title,
+        projectTitle: fixtures.project.title,
+      }] : undefined,
+      isFetching: false,
+    }),
     useConferences: (
       tenantId: string,
       page = 1,
@@ -110,6 +128,7 @@ vi.mock("@/api/hooks", async () => {
               displayId: fixtures.project.displayId,
               title: fixtures.project.title,
             }] : [],
+          papers: [],
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
         };
@@ -197,8 +216,11 @@ describe("ConferenceSubmissionsTable", () => {
     fireEvent.change(dateInputs[0], { target: { value: "2026-12-01" } });
     fireEvent.change(dateInputs[1], { target: { value: "2027-03-04" } });
     fireEvent.change(dateInputs[2], { target: { value: "2027-03-06" } });
-    fireEvent.focus(screen.getByRole("combobox", { name: "Linked project/paper" }));
-    fireEvent.click(screen.getByRole("option", { name: /Genome Project/ }));
+    fireEvent.focus(screen.getByRole("combobox", { name: "Linked project" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Linked project" }), {
+      target: { value: "Genome" },
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /Genome Project/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
 
     await waitFor(() => expect(screen.getByText("Test Research Conference 2027")).toBeInTheDocument());

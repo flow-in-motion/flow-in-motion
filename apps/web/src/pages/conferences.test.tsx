@@ -39,6 +39,7 @@ vi.mock("@/api/hooks", () => ({
       meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 },
     },
   }),
+  useConferenceLinkOptions: () => ({ data: undefined, isFetching: false }),
   useCreateConference: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateConference: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteConference: () => ({ mutateAsync: fixtures.deleteConference, isPending: false }),

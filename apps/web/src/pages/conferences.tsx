@@ -8,8 +8,6 @@ import {
   useCurrentWorkspace,
   useDeleteConference,
   useMe,
-  useModules,
-  useProjects,
   useUpdateConference,
   useTrackEvent,
   type ApiConference,
@@ -44,6 +42,7 @@ import {
   type ConferenceTypeFilter,
 } from "@/lib/conference-format";
 import { cn } from "@/lib/utils";
+import { paperDisplayTitle } from "@/lib/paper-title";
 
 const CONFERENCE_COLUMNS = [
   { id: "conference", label: "Conference", width: "minmax(260px,2fr)" },
@@ -91,10 +90,6 @@ export default function ConferencesPage() {
   const conferencesQuery = useConferences(tenantId, page);
   const conferences = conferencesQuery.data?.data ?? [];
   const paginationMeta = conferencesQuery.data?.meta;
-  const projectsQuery = useProjects(tenantId);
-  const projects = projectsQuery.data?.data ?? [];
-  const modulesQuery = useModules(tenantId);
-  const modules = modulesQuery.data?.data ?? [];
   const meQuery = useMe();
   const createConference = useCreateConference(tenantId);
   const updateConference = useUpdateConference(tenantId);
@@ -124,18 +119,6 @@ export default function ConferencesPage() {
     .map((column) => column.width)
     .join(" ");
 
-  const ownedProjects = useMemo(
-    () => projects.filter((project) =>
-      project.userId === meQuery.data?.id || project.role?.toLowerCase() === "owner",
-    ),
-    [meQuery.data?.id, projects],
-  );
-
-  const ownedModules = useMemo(() => {
-    const ownedProjectIds = new Set(ownedProjects.map((project) => project.id));
-    return modules.filter((module) => module.projectId && ownedProjectIds.has(module.projectId));
-  }, [modules, ownedProjects]);
-
   function handleSort(column: SortColumn) {
     if (column === sortColumn) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -158,7 +141,8 @@ export default function ConferencesPage() {
       case "type":
         return (a.submissionType ?? "").localeCompare(b.submissionType ?? "");
       case "linkedProjects":
-        return a.projects.length - b.projects.length;
+        return (a.projects.length + (a.papers ?? []).length) -
+          (b.projects.length + (b.papers ?? []).length);
     }
   }
 
@@ -172,7 +156,10 @@ export default function ConferencesPage() {
         conference.name.toLowerCase().includes(query) ||
         conference.acronym?.toLowerCase().includes(query) ||
         conference.location?.toLowerCase().includes(query) ||
-        conference.projects.some((project) => project.title.toLowerCase().includes(query))
+        conference.projects.some((project) => project.title.toLowerCase().includes(query)) ||
+        (conference.papers ?? []).some((paper) =>
+          paperDisplayTitle(paper).toLowerCase().includes(query),
+        )
       );
     });
     return [...filtered].sort((a, b) => {
@@ -222,7 +209,7 @@ export default function ConferencesPage() {
     }
   }
 
-  const isLoading = workspace.isPending || conferencesQuery.isPending || projectsQuery.isPending || meQuery.isPending;
+  const isLoading = workspace.isPending || conferencesQuery.isPending || meQuery.isPending;
 
   if (isLoading) {
     return <LoadingState title="Loading conferences" className="min-h-[50vh]" />;
@@ -255,8 +242,7 @@ export default function ConferencesPage() {
       <ConferenceSubmissionDialog
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
-        projects={ownedProjects}
-        modules={ownedModules}
+        tenantId={tenantId}
         onSave={handleCreateConference}
       />
       <ConferenceSubmissionDialog
@@ -264,8 +250,7 @@ export default function ConferencesPage() {
         onOpenChange={(open) => {
           if (!open) setEditingConference(null);
         }}
-        projects={ownedProjects}
-        modules={ownedModules}
+        tenantId={tenantId}
         conference={editingConference}
         onSave={handleUpdateConference}
       />
@@ -417,18 +402,29 @@ export default function ConferencesPage() {
                     ) : null}
                     {columns.isColumnVisible("linkedProjects") ? (
                       <div className="flex flex-wrap gap-1">
-                        {conference.projects.length === 0 ? (
+                        {conference.projects.length === 0 && (conference.papers ?? []).length === 0 ? (
                           <span className="text-xs text-muted-foreground">—</span>
                         ) : (
-                          conference.projects.map((project) => (
-                            <Link
-                              key={project.id}
-                              to={`/projects/${project.id}`}
-                              className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/15 hover:bg-primary/15 hover:underline"
-                            >
-                              {project.displayId ?? project.title}
-                            </Link>
-                          ))
+                          <>
+                            {conference.projects.map((project) => (
+                              <Link
+                                key={`project:${project.id}`}
+                                to={`/projects/${project.id}`}
+                                className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/15 hover:bg-primary/15 hover:underline"
+                              >
+                                {project.displayId ?? project.title}
+                              </Link>
+                            ))}
+                            {(conference.papers ?? []).map((paper) => (
+                              <Link
+                                key={`paper:${paper.id}`}
+                                to={`/modules/${paper.id}`}
+                                className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/15 hover:bg-primary/15 hover:underline"
+                              >
+                                {paper.displayId ?? paperDisplayTitle(paper)}
+                              </Link>
+                            ))}
+                          </>
                         )}
                       </div>
                     ) : null}

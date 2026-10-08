@@ -22,6 +22,7 @@ import type { AuthenticatedPrincipal } from '../../auth/jwt.strategy';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { UsersService } from '../../users/users.service';
 import { CreateConferenceDto } from '../dto/create-conference.dto';
+import { ConferenceLinkOptionsQueryDto } from '../dto/conference-link-options-query.dto';
 import { UpdateConferenceDto } from '../dto/update-conference.dto';
 import { ConferencesService } from '../services/conferences.service';
 import { ConfigService } from '@nestjs/config';
@@ -68,6 +69,28 @@ export class ConferencesController {
   }
 
   @ApiOperation({
+    summary: 'Search projects and papers available to link to a conference',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Conference link options returned successfully',
+  })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Get('link-options')
+  async searchLinkOptions(
+    @Param('tenantId') tenantId: string,
+    @Req() req: AuthenticatedRequest,
+    @Query() query: ConferenceLinkOptionsQueryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.conferencesService.searchLinkOptions(
+      tenantId,
+      user.id,
+      query.search,
+    );
+  }
+
+  @ApiOperation({
     summary: 'Get a single conference',
   })
   @ApiResponse({
@@ -91,7 +114,7 @@ export class ConferencesController {
   }
 
   @ApiOperation({
-    summary: 'Create a conference and link it to one or more projects',
+    summary: 'Create a conference and link it to projects or papers',
   })
   @ApiResponse({
     status: 201,

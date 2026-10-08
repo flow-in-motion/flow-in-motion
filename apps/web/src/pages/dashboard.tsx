@@ -20,7 +20,6 @@ import {
   useCreateProject,
   useCreateTask,
   useCurrentWorkspace,
-  useMe,
   useMembers,
   useModules,
   useProjects,
@@ -263,7 +262,6 @@ export default function DashboardPage() {
   const tasksQuery = useTasks(tenantId);
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
-  const me = useMe();
   const createProject = useCreateProject(tenantId);
   const createTask = useCreateTask(tenantId);
   const createModule = useCreateModule(tenantId);
@@ -284,20 +282,6 @@ export default function DashboardPage() {
   const lastSavedLayout = useRef("");
   const isHydratingLayout = useRef(false);
   const saveLayoutTimeout = useRef<ReturnType<typeof setTimeout>>();
-
-  const ownedProjects = useMemo(
-    () => projects.filter(
-      (project) => project.userId === me.data?.id || project.role?.toLowerCase() === "owner",
-    ),
-    [projects, me.data?.id],
-  );
-
-  const ownedModules = useMemo(() => {
-    const ownedProjectIds = new Set(ownedProjects.map((project) => project.id));
-    return modules.filter(
-      (module) => module.projectId && ownedProjectIds.has(module.projectId),
-    );
-  }, [modules, ownedProjects]);
 
   const summary = useMemo(
     () =>
@@ -586,8 +570,7 @@ export default function DashboardPage() {
       <ConferenceSubmissionDialog
         open={isNewConferenceOpen}
         onOpenChange={setIsNewConferenceOpen}
-        projects={ownedProjects}
-        modules={ownedModules}
+        tenantId={tenantId}
         onSave={handleCreateConference}
       />
 

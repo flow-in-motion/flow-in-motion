@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CalendarDays, MapPin, Pencil, Presentation, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -7,8 +7,6 @@ import {
   useCurrentWorkspace,
   useDeleteConference,
   useMe,
-  useModules,
-  useProjects,
   useUpdateConference,
 } from "@/api/hooks";
 import { ConferenceSubmissionDialog, type ConferenceSubmissionInput } from "@/components/dashboard/conference-submission-dialog";
@@ -20,6 +18,7 @@ import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { paperDisplayTitle } from "@/lib/paper-title";
 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
@@ -56,29 +55,13 @@ export default function ConferenceDetailPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
   const conferenceQuery = useConference(tenantId, conferenceId);
-  const projectsQuery = useProjects(tenantId);
-  const projects = projectsQuery.data?.data ?? [];
-  const modulesQuery = useModules(tenantId);
-  const modules = modulesQuery.data?.data ?? [];
   const meQuery = useMe();
   const updateConference = useUpdateConference(tenantId);
   const deleteConference = useDeleteConference(tenantId);
   const [isEditing, setIsEditing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const ownedProjects = useMemo(
-    () => projects.filter((project) =>
-      project.userId === meQuery.data?.id || project.role?.toLowerCase() === "owner",
-    ),
-    [meQuery.data?.id, projects],
-  );
-
-  const ownedModules = useMemo(() => {
-    const ownedProjectIds = new Set(ownedProjects.map((project) => project.id));
-    return modules.filter((module) => module.projectId && ownedProjectIds.has(module.projectId));
-  }, [modules, ownedProjects]);
-
-  if (workspace.isPending || conferenceQuery.isPending || projectsQuery.isPending || modulesQuery.isPending || meQuery.isPending) {
+  if (workspace.isPending || conferenceQuery.isPending || meQuery.isPending) {
     return <LoadingState title="Loading conference" className="min-h-[50vh]" />;
   }
 
@@ -137,8 +120,7 @@ export default function ConferenceDetailPage() {
       <ConferenceSubmissionDialog
         open={isEditing}
         onOpenChange={setIsEditing}
-        projects={ownedProjects}
-        modules={ownedModules}
+        tenantId={tenantId}
         conference={conference}
         onSave={update}
       />
@@ -165,18 +147,29 @@ export default function ConferenceDetailPage() {
         </Card>
 
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Linked projects or modules/papers</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Linked projects or papers</CardTitle></CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {conference.projects.length === 0 ? (
+              {conference.projects.length === 0 && (conference.papers ?? []).length === 0 ? (
                 <span className="text-sm text-muted-foreground">—</span>
-              ) : conference.projects.map((project) => (
-                <Link key={project.id} to={`/projects/${project.id}`}
-                  className="rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:border-primary/40 hover:bg-accent">
-                  {project.displayId ? <span className="font-mono text-xs text-muted-foreground">{project.displayId}</span> : null}
-                  <span className="mt-1 block font-semibold">{project.title}</span>
-                </Link>
-              ))}
+              ) : (
+                <>
+                  {conference.projects.map((project) => (
+                    <Link key={`project:${project.id}`} to={`/projects/${project.id}`}
+                      className="rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:border-primary/40 hover:bg-accent">
+                      {project.displayId ? <span className="font-mono text-xs text-muted-foreground">{project.displayId}</span> : null}
+                      <span className="mt-1 block font-semibold">{project.title}</span>
+                    </Link>
+                  ))}
+                  {(conference.papers ?? []).map((paper) => (
+                    <Link key={`paper:${paper.id}`} to={`/modules/${paper.id}`}
+                      className="rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:border-primary/40 hover:bg-accent">
+                      {paper.displayId ? <span className="font-mono text-xs text-muted-foreground">{paper.displayId}</span> : null}
+                      <span className="mt-1 block font-semibold">{paperDisplayTitle(paper)}</span>
+                    </Link>
+                  ))}
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

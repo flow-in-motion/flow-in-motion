@@ -209,6 +209,23 @@ export interface ApiConferenceProject {
   title: string;
 }
 
+export interface ApiConferencePaper {
+  id: string;
+  displayId: string | null;
+  shortTitle: string | null;
+  title: string | null;
+  projectId: string | null;
+}
+
+export interface ApiConferenceLinkOption {
+  kind: "project" | "paper";
+  id: string;
+  projectId: string;
+  displayId: string | null;
+  label: string;
+  projectTitle: string;
+}
+
 export interface ApiConference {
   id: string;
   tenantId: string;
@@ -222,6 +239,7 @@ export interface ApiConference {
   submissionType: string | null;
   daysRemaining: number | null;
   projects: ApiConferenceProject[];
+  papers: ApiConferencePaper[];
   createdAt: string;
   updatedAt: string;
 }
@@ -235,6 +253,7 @@ export interface ConferenceInput {
   endDate?: string | null;
   submissionType?: string | null;
   projectIds: string[];
+  moduleIds: string[];
 }
 
 export type FundingStatus =
@@ -484,6 +503,8 @@ export const apiKeys = {
     ] as const,
   conference: (tenantId: string, conferenceId: string) =>
     ["api", "tenant", tenantId, "conferences", conferenceId] as const,
+  conferenceLinkOptions: (tenantId: string, search: string) =>
+    ["api", "tenant", tenantId, "conferences", "link-options", search] as const,
   fundings: (
     tenantId: string,
     page = 1,
@@ -2340,6 +2361,22 @@ export function useConference(
     queryFn: () =>
       authenticatedJson<ApiConference>(
         `/api/v1/tenant/${encodeURIComponent(tenantId)}/conferences/${encodeURIComponent(conferenceId)}`,
+      ),
+  });
+}
+
+export function useConferenceLinkOptions(
+  tenantId: string,
+  search: string,
+  enabled = true,
+) {
+  const normalizedSearch = search.trim();
+  return useQuery({
+    queryKey: apiKeys.conferenceLinkOptions(tenantId, normalizedSearch),
+    enabled: Boolean(tenantId) && Boolean(normalizedSearch) && enabled,
+    queryFn: () =>
+      authenticatedJson<ApiConferenceLinkOption[]>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/conferences/link-options?search=${encodeURIComponent(normalizedSearch)}`,
       ),
   });
 }
