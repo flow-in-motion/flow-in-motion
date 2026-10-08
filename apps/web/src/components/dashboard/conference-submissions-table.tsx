@@ -8,8 +8,6 @@ import {
   useCurrentWorkspace,
   useDeleteConference,
   useMe,
-  useModules,
-  useProjects,
   useUpdateConference,
   useTrackEvent,
   type ApiConference,
@@ -36,6 +34,7 @@ import {
   type ConferenceTypeFilter as TypeFilter,
 } from "@/lib/conference-format";
 import { cn } from "@/lib/utils";
+import { paperDisplayTitle } from "@/lib/paper-title";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const CONFERENCE_COLUMNS = [
@@ -62,10 +61,6 @@ export function ConferenceSubmissionsTable({
   const conferencesQuery = useConferences(tenantId, page);
   const conferences = conferencesQuery.data?.data ?? [];
   const paginationMeta = conferencesQuery.data?.meta;
-  const projectsQuery = useProjects(tenantId);
-  const projects = projectsQuery.data?.data ?? [];
-  const modulesQuery = useModules(tenantId);
-  const modules = modulesQuery.data?.data ?? [];
   const meQuery = useMe();
   const createConference = useCreateConference(tenantId);
   const updateConference = useUpdateConference(tenantId);
@@ -94,18 +89,6 @@ export function ConferenceSubmissionsTable({
     "conferences",
   );
 
-  const ownedProjects = useMemo(
-    () => projects.filter((project) =>
-      project.userId === meQuery.data?.id || project.role?.toLowerCase() === "owner",
-    ),
-    [meQuery.data?.id, projects],
-  );
-
-  const ownedModules = useMemo(() => {
-    const ownedProjectIds = new Set(ownedProjects.map((project) => project.id));
-    return modules.filter((module) => module.projectId && ownedProjectIds.has(module.projectId));
-  }, [modules, ownedProjects]);
-
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return [...(conferences)]
@@ -115,7 +98,8 @@ export function ConferenceSubmissionsTable({
         if (!matchesDeadline(row.daysRemaining, deadline)) return false;
         return !query || row.name.toLowerCase().includes(query) ||
           row.acronym?.toLowerCase().includes(query) || row.location?.toLowerCase().includes(query) ||
-          row.projects.some((project) => project.title.toLowerCase().includes(query));
+          row.projects.some((project) => project.title.toLowerCase().includes(query)) ||
+          (row.papers ?? []).some((paper) => paperDisplayTitle(paper).toLowerCase().includes(query));
       })
       .sort((a, b) => {
         if (a.submissionDue === null && b.submissionDue !== null) return 1;
@@ -147,7 +131,7 @@ export function ConferenceSubmissionsTable({
     }
   }
 
-  const isLoading = workspace.isPending || conferencesQuery.isPending || projectsQuery.isPending || meQuery.isPending;
+  const isLoading = workspace.isPending || conferencesQuery.isPending || meQuery.isPending;
 
   return (
     <Card className="overflow-hidden">
@@ -208,9 +192,14 @@ export function ConferenceSubmissionsTable({
                     <span className={cn("text-xs", urgencyClass(row.daysRemaining))}>{urgencyLabel(row.daysRemaining)}</span></div></TableCell> : null}
                   {columns.isColumnVisible("conferenceDates") ? <TableCell className="text-muted-foreground">{formatConferenceDates(row.startDate, row.endDate)}</TableCell> : null}
                   {columns.isColumnVisible("type") ? <TableCell><Badge variant="outline" className={typeBadgeClass(row.submissionType)}>{row.submissionType ?? "—"}</Badge></TableCell> : null}
-                  {columns.isColumnVisible("linkedProjects") ? <TableCell><div className="flex flex-wrap gap-1">{row.projects.length === 0 ? <span className="text-xs text-muted-foreground">—</span> : row.projects.map((project) => <Link key={project.id}
-                    to={`/projects/${project.id}`}
-                    className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/15 hover:bg-primary/15 hover:underline">{project.displayId ?? project.title}</Link>)}</div></TableCell> : null}
+                  {columns.isColumnVisible("linkedProjects") ? <TableCell><div className="flex flex-wrap gap-1">{row.projects.length === 0 && (row.papers ?? []).length === 0 ? <span className="text-xs text-muted-foreground">—</span> : <>
+                    {row.projects.map((project) => <Link key={`project:${project.id}`}
+                      to={`/projects/${project.id}`}
+                      className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/15 hover:bg-primary/15 hover:underline">{project.displayId ?? project.title}</Link>)}
+                    {(row.papers ?? []).map((paper) => <Link key={`paper:${paper.id}`}
+                      to={`/modules/${paper.id}`}
+                      className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/15 hover:bg-primary/15 hover:underline">{paper.displayId ?? paperDisplayTitle(paper)}</Link>)}
+                  </>}</div></TableCell> : null}
                   {columns.isColumnVisible("actions") ? <TableCell><div className="flex justify-end gap-1">
                     {canManage ? <><Button type="button" variant="ghost" size="icon" aria-label={`Edit ${row.name}`} onClick={() => setEditingConference(row)}><Pencil /></Button>
                       <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label={`Delete ${row.name}`} onClick={() => void remove(row)}><Trash2 /></Button></>
@@ -233,9 +222,9 @@ export function ConferenceSubmissionsTable({
           </div>
         ) : null}
       </CardContent>
-      <ConferenceSubmissionDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} projects={ownedProjects} modules={ownedModules} onSave={create} />
+      <ConferenceSubmissionDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} tenantId={tenantId} onSave={create} />
       <ConferenceSubmissionDialog open={editingConference !== null} onOpenChange={(open) => { if (!open) setEditingConference(null); }}
-        projects={ownedProjects} modules={ownedModules} conference={editingConference} onSave={update} />
+        tenantId={tenantId} conference={editingConference} onSave={update} />
     </Card>
   );
 }

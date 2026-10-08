@@ -1,7 +1,12 @@
 import { Search, X } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import type { ApiConference, ApiModule, ApiProject, ConferenceInput } from "@/api/hooks";
+import {
+  useConferenceLinkOptions,
+  type ApiConference,
+  type ApiConferenceLinkOption,
+  type ConferenceInput,
+} from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
@@ -23,29 +28,23 @@ interface ConferenceFormState {
   endDate: string;
   submissionType: string;
   projectIds: string[];
+  moduleIds: string[];
 }
 
-const NO_LINK_LABEL = "No linked project/paper";
-
-interface LinkOption {
-  key: string;
-  projectId: string;
-  label: string;
-  meta: string;
-}
+const NO_PROJECT_LABEL = "No linked project";
+const NO_PAPER_LABEL = "No linked paper";
 
 interface ConferenceSubmissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projects: ApiProject[];
-  modules: ApiModule[];
+  tenantId: string;
   conference?: ApiConference | null;
   onSave: (input: ConferenceSubmissionInput) => Promise<void> | void;
 }
 
 const INITIAL_FORM: ConferenceFormState = {
   acronym: "", name: "", location: "", submissionDue: "", startDate: "",
-  endDate: "", submissionType: "", projectIds: [],
+  endDate: "", submissionType: "", projectIds: [], moduleIds: [],
 };
 
 function nextDate(value: string) {
@@ -68,21 +67,52 @@ function FormField({ label, htmlFor, required, children }: {
 }
 
 export function ConferenceSubmissionDialog({
-  open, onOpenChange, projects, modules, conference, onSave,
+  open, onOpenChange, tenantId, conference, onSave,
 }: ConferenceSubmissionDialogProps) {
   const [form, setForm] = useState<ConferenceFormState>(INITIAL_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [linkedLabel, setLinkedLabel] = useState(NO_LINK_LABEL);
-  const [linkQuery, setLinkQuery] = useState("");
-  const [linkPickerOpen, setLinkPickerOpen] = useState(false);
+  const [linkedProjectLabel, setLinkedProjectLabel] = useState(NO_PROJECT_LABEL);
+  const [projectQuery, setProjectQuery] = useState("");
+  const [projectRequestSearch, setProjectRequestSearch] = useState("");
+  const [projectPickerOpen, setProjectPickerOpen] = useState(false);
+  const [linkedPaperLabel, setLinkedPaperLabel] = useState(NO_PAPER_LABEL);
+  const [paperQuery, setPaperQuery] = useState("");
+  const [paperRequestSearch, setPaperRequestSearch] = useState("");
+  const [paperPickerOpen, setPaperPickerOpen] = useState(false);
   const isEditing = Boolean(conference);
+
+  const projectOptionsQuery = useConferenceLinkOptions(
+    tenantId,
+    projectRequestSearch,
+    open && projectPickerOpen && projectRequestSearch.length > 0,
+  );
+  const projectOptions = (projectOptionsQuery.data ?? []).filter(
+    (option) => option.kind === "project",
+  );
+  const normalizedProjectSearch = projectQuery.trim();
+  const isWaitingForProjectSearch =
+    normalizedProjectSearch !== projectRequestSearch || projectOptionsQuery.isFetching;
+
+  const paperOptionsQuery = useConferenceLinkOptions(
+    tenantId,
+    paperRequestSearch,
+    open && paperPickerOpen && paperRequestSearch.length > 0,
+  );
+  const paperOptions = (paperOptionsQuery.data ?? []).filter(
+    (option) => option.kind === "paper",
+  );
+  const normalizedPaperSearch = paperQuery.trim();
+  const isWaitingForPaperSearch =
+    normalizedPaperSearch !== paperRequestSearch || paperOptionsQuery.isFetching;
 
   useEffect(() => {
     if (!open) return;
     setFormError(null);
-    setLinkQuery("");
-    setLinkPickerOpen(false);
+    setProjectQuery("");
+    setProjectPickerOpen(false);
+    setPaperQuery("");
+    setPaperPickerOpen(false);
     setForm(conference ? {
       acronym: conference.acronym ?? "",
       name: conference.name,
@@ -92,49 +122,62 @@ export function ConferenceSubmissionDialog({
       endDate: conference.endDate ?? "",
       submissionType: conference.submissionType ?? "",
       projectIds: conference.projects.map((project) => project.id),
+      moduleIds: (conference.papers ?? []).map((paper) => paper.id),
     } : INITIAL_FORM);
-    setLinkedLabel(conference?.projects[0]?.title ?? NO_LINK_LABEL);
+    setLinkedProjectLabel(conference?.projects[0]?.title ?? NO_PROJECT_LABEL);
+    setLinkedPaperLabel(
+      conference?.papers?.[0]
+        ? paperDisplayTitle(conference.papers[0])
+        : NO_PAPER_LABEL,
+    );
+    setProjectRequestSearch("");
+    setPaperRequestSearch("");
   }, [conference, open]);
 
-  const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
-
-  const linkOptions = useMemo<LinkOption[]>(() => {
-    const projectOptions: LinkOption[] = projects.map((project) => ({
-      key: `project:${project.id}`,
-      projectId: project.id,
-      label: project.title,
-      meta: project.displayId ? `Project · ${project.displayId}` : "Project",
-    }));
-    const moduleOptions: LinkOption[] = modules
-      .filter((module): module is ApiModule & { projectId: string } => Boolean(module.projectId))
-      .map((module) => {
-        const parentProject = projectById.get(module.projectId);
-
-        return {
-          key: `module:${module.id}`,
-          projectId: module.projectId,
-          label: paperDisplayTitle(module),
-          meta: parentProject
-            ? `Paper · via ${parentProject.title}`
-            : "Paper",
-        };
-      });
-    return [...projectOptions, ...moduleOptions];
-  }, [modules, projectById, projects]);
-
-  const filteredLinkOptions = useMemo(() => {
-    const query = linkQuery.trim().toLowerCase();
-    if (!query) return linkOptions;
-    return linkOptions.filter(
-      (option) => option.label.toLowerCase().includes(query) || option.meta.toLowerCase().includes(query),
+  useEffect(() => {
+    if (!open || !projectPickerOpen || !normalizedProjectSearch) {
+      setProjectRequestSearch("");
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setProjectRequestSearch(normalizedProjectSearch),
+      300,
     );
-  }, [linkOptions, linkQuery]);
+    return () => window.clearTimeout(timer);
+  }, [normalizedProjectSearch, open, projectPickerOpen]);
 
-  function selectLink(projectId: string, label: string) {
-    setForm((current) => ({ ...current, projectIds: projectId ? [projectId] : [] }));
-    setLinkedLabel(label);
-    setLinkQuery("");
-    setLinkPickerOpen(false);
+  useEffect(() => {
+    if (!open || !paperPickerOpen || !normalizedPaperSearch) {
+      setPaperRequestSearch("");
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setPaperRequestSearch(normalizedPaperSearch),
+      300,
+    );
+    return () => window.clearTimeout(timer);
+  }, [normalizedPaperSearch, open, paperPickerOpen]);
+
+  function selectProject(option?: ApiConferenceLinkOption) {
+    setForm((current) => ({
+      ...current,
+      projectIds: option ? [option.id] : [],
+    }));
+    setLinkedProjectLabel(option?.label ?? NO_PROJECT_LABEL);
+    setProjectQuery("");
+    setProjectRequestSearch("");
+    setProjectPickerOpen(false);
+  }
+
+  function selectPaper(option?: ApiConferenceLinkOption) {
+    setForm((current) => ({
+      ...current,
+      moduleIds: option ? [option.id] : [],
+    }));
+    setLinkedPaperLabel(option?.label ?? NO_PAPER_LABEL);
+    setPaperQuery("");
+    setPaperRequestSearch("");
+    setPaperPickerOpen(false);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -175,7 +218,7 @@ export function ConferenceSubmissionDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit conference" : "Add a conference"}</DialogTitle>
           <DialogDescription>
-            Track submission and event dates, and optionally link the conference to a project you own.
+            Track submission and event dates, and optionally link the conference to a project or paper you own.
           </DialogDescription>
         </DialogHeader>
 
@@ -241,45 +284,46 @@ export function ConferenceSubmissionDialog({
             </Select>
           </FormField>
 
-          <FormField label="Linked project/paper" htmlFor="conference-link">
+          <FormField label="Linked project" htmlFor="conference-project-link">
             <div
               className="relative"
               onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setLinkPickerOpen(false);
+                if (!event.currentTarget.contains(event.relatedTarget)) setProjectPickerOpen(false);
               }}
             >
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                id="conference-link"
+                id="conference-project-link"
                 role="combobox"
-                aria-expanded={linkPickerOpen}
-                aria-controls="conference-link-options"
+                aria-expanded={projectPickerOpen}
+                aria-controls="conference-project-options"
                 aria-autocomplete="list"
-                value={linkPickerOpen ? linkQuery : linkedLabel}
+                value={projectPickerOpen ? projectQuery : linkedProjectLabel}
                 onFocus={() => {
-                  setLinkQuery("");
-                  setLinkPickerOpen(true);
+                  setProjectQuery("");
+                  setPaperPickerOpen(false);
+                  setProjectPickerOpen(true);
                 }}
-                onChange={(event) => setLinkQuery(event.target.value)}
-                placeholder="Search a project, module or paper…"
+                onChange={(event) => setProjectQuery(event.target.value)}
+                placeholder="Search all projects…"
                 autoComplete="off"
                 className="pl-9 pr-8"
               />
-              {!linkPickerOpen && form.projectIds.length > 0 ? (
+              {!projectPickerOpen && form.projectIds.length > 0 ? (
                 <button
                   type="button"
-                  onClick={() => selectLink("", NO_LINK_LABEL)}
-                  aria-label="Clear linked project/paper"
+                  onClick={() => selectProject()}
+                  aria-label="Clear linked project"
                   className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
-              {linkPickerOpen ? (
+              {projectPickerOpen ? (
                 <div
-                  id="conference-link-options"
+                  id="conference-project-options"
                   role="listbox"
-                  aria-label="Available projects, modules and papers"
+                  aria-label="Available projects"
                   className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
                 >
                   <button
@@ -287,29 +331,130 @@ export function ConferenceSubmissionDialog({
                     role="option"
                     aria-selected={form.projectIds.length === 0}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => selectLink("", NO_LINK_LABEL)}
+                    onClick={() => selectProject()}
                     className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent focus:bg-accent focus:outline-none"
                   >
-                    {NO_LINK_LABEL}
+                    {NO_PROJECT_LABEL}
                   </button>
-                  {filteredLinkOptions.length ? (
-                    filteredLinkOptions.map((option) => (
+                  {!normalizedProjectSearch ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      Type to search all projects.
+                    </p>
+                  ) : isWaitingForProjectSearch ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      Searching all projects…
+                    </p>
+                  ) : projectOptions.length ? (
+                    projectOptions.map((option) => (
                       <button
-                        key={option.key}
+                        key={option.id}
                         type="button"
                         role="option"
-                        aria-selected={form.projectIds[0] === option.projectId && linkedLabel === option.label}
+                        aria-selected={form.projectIds[0] === option.id}
                         onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => selectLink(option.projectId, option.label)}
+                        onClick={() => selectProject(option)}
                         className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
                       >
                         <span className="text-sm font-medium">{option.label}</span>
-                        <span className="text-xs text-muted-foreground">{option.meta}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {option.displayId ? `Project · ${option.displayId}` : "Project"}
+                        </span>
                       </button>
                     ))
                   ) : (
                     <p className="px-3 py-2 text-sm text-muted-foreground">No matches.</p>
                   )}
+                </div>
+              ) : null}
+            </div>
+          </FormField>
+
+          <FormField label="Linked paper" htmlFor="conference-linked-paper">
+            <div
+              className="relative"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setPaperPickerOpen(false);
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  id="conference-linked-paper"
+                  value={linkedPaperLabel}
+                  readOnly
+                  className="min-w-0 flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setPaperQuery("");
+                    setProjectPickerOpen(false);
+                    setPaperPickerOpen(true);
+                  }}
+                >
+                  <Search /> Search papers
+                </Button>
+                {form.moduleIds.length > 0 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove linked paper"
+                    onClick={() => selectPaper()}
+                  >
+                    <X />
+                  </Button>
+                ) : null}
+              </div>
+              {paperPickerOpen ? (
+                <div
+                  role="dialog"
+                  aria-label="Search papers"
+                  className="absolute z-50 mt-1 w-full rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+                >
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="conference-paper-search"
+                      aria-label="Search all papers"
+                      value={paperQuery}
+                      onChange={(event) => setPaperQuery(event.target.value)}
+                      placeholder="Search all papers…"
+                      autoComplete="off"
+                      autoFocus
+                      className="pl-9"
+                    />
+                  </div>
+                  <div role="listbox" aria-label="Available papers" className="mt-1 max-h-60 overflow-y-auto">
+                    {!normalizedPaperSearch ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        Type to search all papers.
+                      </p>
+                    ) : isWaitingForPaperSearch ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">
+                        Searching all papers…
+                      </p>
+                    ) : paperOptions.length ? (
+                      paperOptions.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          role="option"
+                          aria-selected={form.moduleIds[0] === option.id}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => selectPaper(option)}
+                          className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                        >
+                          <span className="text-sm font-medium">{option.label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            Paper · via {option.projectTitle}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">No papers found.</p>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </div>

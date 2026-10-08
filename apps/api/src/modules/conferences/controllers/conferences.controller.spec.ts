@@ -8,6 +8,7 @@ describe('ConferencesController', () => {
 
   let conferencesService: {
     list: jest.Mock;
+    searchLinkOptions: jest.Mock;
   };
 
   let usersService: {
@@ -21,6 +22,7 @@ describe('ConferencesController', () => {
   beforeEach(() => {
     conferencesService = {
       list: jest.fn(),
+      searchLinkOptions: jest.fn(),
     };
 
     usersService = {
@@ -75,6 +77,27 @@ describe('ConferencesController', () => {
       );
 
       expect(result).toBe(response);
+    });
+  });
+
+  describe('searchLinkOptions', () => {
+    it('delegates the server-wide link search to the conference service', async () => {
+      conferencesService.searchLinkOptions.mockResolvedValue([
+        { kind: 'paper', id: 'paper-21', label: 'Beyond page one' },
+      ]);
+
+      const result = await controller.searchLinkOptions('tenant-1', req, {
+        search: 'Beyond',
+      });
+
+      expect(conferencesService.searchLinkOptions).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+        'Beyond',
+      );
+      expect(result).toEqual([
+        { kind: 'paper', id: 'paper-21', label: 'Beyond page one' },
+      ]);
     });
   });
 });

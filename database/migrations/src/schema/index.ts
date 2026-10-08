@@ -19,6 +19,7 @@ export * from "./task-invitations";
 export * from "./note-invitations";
 export * from './conferences';
 export * from './conference-projects';
+export * from './conference-modules';
 export * from './feedback';
 export * from './user-preferences';
 export * from './analytics-events';

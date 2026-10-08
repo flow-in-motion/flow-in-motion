@@ -99,6 +99,7 @@ vi.mock("@/api/hooks", () => ({
   useCreateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateConference: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useConferenceLinkOptions: () => ({ data: undefined, isFetching: false }),
   useUpdateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),

@@ -36,16 +36,16 @@ export class ConferencesService {
 
     const conferenceIds = data.map((conference) => conference.id);
 
-    const projectsByConference =
-      await this.repository.findLinkedProjectsForConferences(
-        tenantId,
-        conferenceIds,
-      );
+    const [projectsByConference, papersByConference] = await Promise.all([
+      this.repository.findLinkedProjectsForConferences(tenantId, conferenceIds),
+      this.repository.findLinkedPapersForConferences(tenantId, conferenceIds),
+    ]);
 
     const conferencesWithProjects = data.map((conference) => ({
       ...conference,
       daysRemaining: calculateDaysRemaining(conference.submissionDue),
       projects: projectsByConference.get(conference.id) ?? [],
+      papers: papersByConference.get(conference.id) ?? [],
     }));
 
     return {
@@ -72,6 +72,21 @@ export class ConferencesService {
     return this.withResponseValues(tenantId, conference);
   }
 
+  /** Searches all active projects and papers the caller owns. */
+  async searchLinkOptions(
+    tenantId: string,
+    callerUserId: string,
+    search: string,
+  ) {
+    const normalizedSearch = search.trim();
+    if (!normalizedSearch) return [];
+    return this.repository.searchOwnedLinkOptions(
+      tenantId,
+      callerUserId,
+      normalizedSearch,
+    );
+  }
+
   /**
    * Creates a conference.
    *
@@ -87,12 +102,11 @@ export class ConferencesService {
       throw new BadRequestException('Conference name is required');
     }
     this.validateDates(input.startDate, input.endDate);
+    const projectIds = input.projectIds ?? [];
+    const moduleIds = input.moduleIds ?? [];
 
-    await this.validateProjectOwnership(
-      tenantId,
-      input.projectIds,
-      callerUserId,
-    );
+    await this.validateProjectOwnership(tenantId, projectIds, callerUserId);
+    await this.validateModuleOwnership(tenantId, moduleIds, callerUserId);
 
     const conference = await this.repository.create(
       {
@@ -106,7 +120,8 @@ export class ConferencesService {
         endDate: input.endDate ?? null,
         submissionType: trimOptional(input.submissionType),
       },
-      input.projectIds,
+      projectIds,
+      moduleIds,
     );
 
     if (!conference) {
@@ -164,6 +179,13 @@ export class ConferencesService {
         callerUserId,
       );
     }
+    if (input.moduleIds !== undefined) {
+      await this.validateModuleOwnership(
+        tenantId,
+        input.moduleIds,
+        callerUserId,
+      );
+    }
 
     const conference = await this.repository.update(
       tenantId,
@@ -178,6 +200,7 @@ export class ConferencesService {
         submissionType: trimOptional(input.submissionType),
       },
       input.projectIds,
+      input.moduleIds,
     );
 
     if (!conference) {
@@ -270,6 +293,45 @@ export class ConferencesService {
   }
 
   /**
+   * Every linked paper must exist, remain active, and belong to a project the
+   * caller owns. This preserves the conference linker's existing ownership
+   * rules while storing the paper itself instead of only its parent project.
+   */
+  private async validateModuleOwnership(
+    tenantId: string,
+    moduleIds: string[],
+    callerUserId: string,
+  ) {
+    const uniqueModuleIds = [...new Set(moduleIds)];
+    if (uniqueModuleIds.length === 0) return;
+
+    const linkedModules = await this.repository.findModulesByIds(
+      tenantId,
+      uniqueModuleIds,
+    );
+    if (linkedModules.length !== uniqueModuleIds.length) {
+      throw new NotFoundException(
+        'One or more selected papers could not be found',
+      );
+    }
+
+    const projectIds = linkedModules
+      .map((module) => module.projectId)
+      .filter((projectId): projectId is string => Boolean(projectId));
+    if (projectIds.length !== linkedModules.length) {
+      throw new BadRequestException(
+        'Every paper linked to a conference must belong to a project',
+      );
+    }
+
+    await this.validateProjectOwnership(
+      tenantId,
+      [...new Set(projectIds)],
+      callerUserId,
+    );
+  }
+
+  /**
    * Conference end date cannot occur before the start date.
    *
    * ISO date strings use YYYY-MM-DD, so direct comparison is safe here.
@@ -296,15 +358,16 @@ export class ConferencesService {
       submissionDue: string | null;
     },
   >(tenantId: string, conference: T) {
-    const projects = await this.repository.findLinkedProjects(
-      tenantId,
-      conference.id,
-    );
+    const [projects, papers] = await Promise.all([
+      this.repository.findLinkedProjects(tenantId, conference.id),
+      this.repository.findLinkedPapers(tenantId, conference.id),
+    ]);
 
     return {
       ...conference,
       daysRemaining: calculateDaysRemaining(conference.submissionDue),
       projects,
+      papers,
     };
   }
 }

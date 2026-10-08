@@ -59,4 +59,14 @@ export class CreateConferenceDto {
   @ArrayUnique()
   @IsUUID('4', { each: true })
   projectIds: string[] = [];
+
+  @ApiProperty({
+    type: [String],
+    description: 'Papers linked to this conference',
+    required: false,
+  })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  moduleIds: string[] = [];
 }

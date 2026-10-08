@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConferencesService } from './conferences.service';
 import { ConferencesRepository } from '../repositories/conferences.repository';
 
@@ -7,10 +11,14 @@ describe('ConferencesService', () => {
   let repository: {
     findProjectsByIds: jest.Mock;
     findOwnedProjectIds: jest.Mock;
+    findModulesByIds: jest.Mock;
     findLinkedProjects: jest.Mock;
+    findLinkedPapers: jest.Mock;
     findVisibleById: jest.Mock;
     findVisiblePageByUser: jest.Mock;
     findLinkedProjectsForConferences: jest.Mock;
+    findLinkedPapersForConferences: jest.Mock;
+    searchOwnedLinkOptions: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
   };
@@ -22,10 +30,14 @@ describe('ConferencesService', () => {
     repository = {
       findProjectsByIds: jest.fn(),
       findOwnedProjectIds: jest.fn(),
+      findModulesByIds: jest.fn(),
       findLinkedProjects: jest.fn().mockResolvedValue([]),
+      findLinkedPapers: jest.fn().mockResolvedValue([]),
       findVisibleById: jest.fn(),
       findVisiblePageByUser: jest.fn(),
       findLinkedProjectsForConferences: jest.fn(),
+      findLinkedPapersForConferences: jest.fn(),
+      searchOwnedLinkOptions: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     };
@@ -42,6 +54,7 @@ describe('ConferencesService', () => {
     submissionDue: '2026-08-01',
     startDate: '2027-06-04',
     endDate: '2027-06-08',
+    moduleIds: [],
   };
 
   describe('create', () => {
@@ -54,6 +67,7 @@ describe('ConferencesService', () => {
       const result = await service.create(tenantId, callerUserId, {
         name: 'XYZ, London, 2027',
         projectIds: [],
+        moduleIds: [],
       });
 
       expect(repository.create).toHaveBeenCalledWith(
@@ -68,6 +82,7 @@ describe('ConferencesService', () => {
           endDate: null,
           submissionType: undefined,
         },
+        [],
         [],
       );
       expect(result).toEqual(
@@ -88,6 +103,7 @@ describe('ConferencesService', () => {
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({ tenantId, ownerUserId: callerUserId }),
         [],
+        [],
       );
     });
 
@@ -101,6 +117,44 @@ describe('ConferencesService', () => {
           projectIds: ['project-1'],
         }),
       ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('stores a paper link after validating ownership of its parent project', async () => {
+      repository.findModulesByIds.mockResolvedValue([
+        { id: 'paper-1', projectId: 'project-1' },
+      ]);
+      repository.findProjectsByIds.mockResolvedValue([{ id: 'project-1' }]);
+      repository.findOwnedProjectIds.mockResolvedValue(['project-1']);
+      repository.create.mockResolvedValue({
+        id: 'conference-1',
+        submissionDue: null,
+      });
+
+      await service.create(tenantId, callerUserId, {
+        name: 'Paper conference',
+        projectIds: [],
+        moduleIds: ['paper-1'],
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Paper conference' }),
+        [],
+        ['paper-1'],
+      );
+    });
+
+    it('does not link a missing or archived paper', async () => {
+      repository.findModulesByIds.mockResolvedValue([]);
+
+      await expect(
+        service.create(tenantId, callerUserId, {
+          name: 'Paper conference',
+          projectIds: [],
+          moduleIds: ['paper-1'],
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
 
       expect(repository.create).not.toHaveBeenCalled();
     });
@@ -137,6 +191,7 @@ describe('ConferencesService', () => {
         'conference-1',
         expect.any(Object),
         [],
+        undefined,
       );
     });
 
@@ -167,6 +222,7 @@ describe('ConferencesService', () => {
           startDate: null,
           endDate: null,
         }),
+        undefined,
         undefined,
       );
     });
@@ -200,6 +256,7 @@ describe('ConferencesService', () => {
       repository.findLinkedProjectsForConferences.mockResolvedValue(
         new Map([['conference-1', linkedProjects]]),
       );
+      repository.findLinkedPapersForConferences.mockResolvedValue(new Map());
 
       const result = await service.list('tenant-1', 'user-1', 2, 20);
 
@@ -214,11 +271,16 @@ describe('ConferencesService', () => {
         'tenant-1',
         ['conference-1'],
       );
+      expect(repository.findLinkedPapersForConferences).toHaveBeenCalledWith(
+        'tenant-1',
+        ['conference-1'],
+      );
 
       expect(result.data).toEqual([
         expect.objectContaining({
           id: 'conference-1',
           projects: linkedProjects,
+          papers: [],
           daysRemaining: expect.any(Number),
         }),
       ]);
@@ -237,12 +299,36 @@ describe('ConferencesService', () => {
         totalItems: 1,
       });
       repository.findLinkedProjectsForConferences.mockResolvedValue(new Map());
+      repository.findLinkedPapersForConferences.mockResolvedValue(new Map());
 
       const result = await service.list('tenant-1', 'user-1', 1, 20);
 
       expect(result.data[0]).toEqual(
         expect.objectContaining({ daysRemaining: null }),
       );
+    });
+  });
+
+  describe('searchLinkOptions', () => {
+    it('searches all owned project and paper link options', async () => {
+      repository.searchOwnedLinkOptions.mockResolvedValue([
+        { kind: 'paper', id: 'paper-42', label: 'Remote paper' },
+      ]);
+
+      const result = await service.searchLinkOptions(
+        tenantId,
+        callerUserId,
+        ' Remote ',
+      );
+
+      expect(repository.searchOwnedLinkOptions).toHaveBeenCalledWith(
+        tenantId,
+        callerUserId,
+        'Remote',
+      );
+      expect(result).toEqual([
+        { kind: 'paper', id: 'paper-42', label: 'Remote paper' },
+      ]);
     });
   });
 });
