@@ -983,6 +983,23 @@ export default function ProjectDetailPage() {
                 </Button>
               </div>
             </form>
+            <div className="mt-6 border-t pt-5">
+              <h3 className="mb-1 text-sm font-semibold">
+                Collaborators (optional)
+              </h3>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Add, invite or remove project collaborators. You can leave this
+                section unchanged.
+              </p>
+              <ProjectCollaborators
+                tenantId={tenantId}
+                projectId={project.id}
+                ownerUserId={project.userId}
+                members={members}
+                entityTitle={project.title}
+                canManage={me.data?.id === project.userId}
+              />
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -1082,7 +1099,7 @@ export default function ProjectDetailPage() {
                       ownerUserId={project.userId}
                       members={members}
                       entityTitle={project.title}
-                      canManage={me.data?.id === project.userId}
+                      canManage={false}
                     />
                   ) : (
                     <p className="text-sm text-muted-foreground">

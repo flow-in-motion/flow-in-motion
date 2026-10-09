@@ -457,6 +457,7 @@ export const apiKeys = {
     sortDirection: SortDirection = "desc",
     statuses: readonly string[] = [],
     stages: readonly string[] = [],
+    currentlyWithTypes: readonly PaperCurrentlyWithType[] = [],
   ) =>
     [
       "api",
@@ -471,6 +472,7 @@ export const apiKeys = {
       sortDirection,
       statuses,
       stages,
+      currentlyWithTypes,
     ] as const,
   module: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", "detail", moduleId] as const,
@@ -1369,6 +1371,7 @@ export function useModules(
     sortDirection?: SortDirection;
     statuses?: readonly string[];
     stages?: readonly string[];
+    currentlyWithTypes?: readonly PaperCurrentlyWithType[];
   },
 ) {
   const pageSize = options?.pageSize ?? 20;
@@ -1377,6 +1380,7 @@ export function useModules(
   const sortDirection = options?.sortDirection ?? "desc";
   const statuses = [...(options?.statuses ?? [])].sort();
   const stages = [...(options?.stages ?? [])].sort();
+  const currentlyWithTypes = [...(options?.currentlyWithTypes ?? [])].sort();
   return useQuery({
     queryKey: apiKeys.modules(
       tenantId,
@@ -1388,6 +1392,7 @@ export function useModules(
       sortDirection,
       statuses,
       stages,
+      currentlyWithTypes,
     ),
     enabled: Boolean(tenantId) && enabled,
     // Keep the search field mounted while a new result page is loading.
@@ -1410,6 +1415,7 @@ export function useModules(
               sortDirection,
               ...(statuses.length ? { statuses } : {}),
               ...(stages.length ? { stages } : {}),
+              ...(currentlyWithTypes.length ? { currentlyWithTypes } : {}),
             } as {
               projectId: string;
               page: number;
@@ -1419,6 +1425,7 @@ export function useModules(
               sortDirection: SortDirection;
               statuses?: string[];
               stages?: string[];
+              currentlyWithTypes?: PaperCurrentlyWithType[];
             },
           },
         }),

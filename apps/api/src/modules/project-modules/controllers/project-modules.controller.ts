@@ -71,6 +71,7 @@ export class ProjectModulesController {
       query.sortDirection,
       query.statuses,
       query.stages,
+      query.currentlyWithTypes,
     );
   }
 

@@ -1,14 +1,18 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import {
+  createDraftInvitation,
   useModules,
+  useMe,
   useNotes,
   useTasks,
   useUpdateModule,
   useUpdateNote,
   useUpdateTask,
   type ApiProject,
+  type DraftCollaboratorInput,
 } from "@/api/hooks";
+import { OptionalCollaboratorEntries } from "@/components/sharing/optional-collaborator-entries";
 import {
   LinkExistingField,
   type LinkExistingOption,
@@ -98,6 +102,10 @@ export function NewProjectDialog({
   const [linkedModules, setLinkedModules] = useState<LinkExistingOption[]>([]);
   const [linkedTasks, setLinkedTasks] = useState<LinkExistingOption[]>([]);
   const [linkedNotes, setLinkedNotes] = useState<LinkExistingOption[]>([]);
+  const [draftCollaborators, setDraftCollaborators] = useState<
+    DraftCollaboratorInput[]
+  >([]);
+  const me = useMe();
 
   const modulesQuery = useModules(tenantId, undefined, 1, open);
   const tasksQuery = useTasks(tenantId, undefined, 1, open);
@@ -111,6 +119,7 @@ export function NewProjectDialog({
     setLinkedModules([]);
     setLinkedTasks([]);
     setLinkedNotes([]);
+    setDraftCollaborators([]);
   }, [open]);
 
   const moduleOptions = (modulesQuery.data?.data ?? []).map((module) => ({
@@ -143,6 +152,7 @@ export function NewProjectDialog({
     setLinkedModules([]);
     setLinkedTasks([]);
     setLinkedNotes([]);
+    setDraftCollaborators([]);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -163,6 +173,14 @@ export function NewProjectDialog({
         targetJournals: form.targetJournals.trim(),
       });
       await Promise.all([
+        ...draftCollaborators.map((collaborator) =>
+          createDraftInvitation(
+            "project",
+            tenantId,
+            project.id,
+            collaborator,
+          ),
+        ),
         ...linkedModules.map((module) =>
           updateModule.mutateAsync({
             moduleId: module.id,
@@ -316,6 +334,14 @@ export function NewProjectDialog({
             </div>
           </div>
 
+          <OptionalCollaboratorEntries
+            value={draftCollaborators}
+            onChange={setDraftCollaborators}
+            ownerUserId={me.data?.id}
+            ownerEmail={me.data?.email}
+            entityLabel="project"
+          />
+
           <div className="grid gap-4 rounded-lg border p-4">
             <p className="text-sm font-medium">Link existing work (optional)</p>
             <FormField label="Papers" htmlFor="new-project-link-papers">
@@ -358,10 +384,6 @@ export function NewProjectDialog({
               />
             </FormField>
           </div>
-
-          <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-            After creating the project, open it to invite collaborators by email using a secure acceptance link.
-          </p>
 
           {saveError ? (
             <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">

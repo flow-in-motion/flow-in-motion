@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 
 import type { ApiCollaborator, PaperCurrentlyWithType } from "@/api/hooks";
 import { PAPER_CURRENTLY_WITH_LABELS } from "@/lib/paper-currently-with";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,6 +20,11 @@ interface PaperCurrentlyWithSelectProps {
   assignedToUserId: string | null;
   currentUserId?: string;
   collaborators: ApiCollaborator[];
+  collaboratorsPending?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  triggerClassName?: string;
+  ariaLabel?: string;
+  disabled?: boolean;
   onChange: (
     currentlyWithType: PaperCurrentlyWithType,
     assignedToUserId: string | null,
@@ -31,6 +37,11 @@ export function PaperCurrentlyWithSelect({
   assignedToUserId,
   currentUserId,
   collaborators,
+  collaboratorsPending = false,
+  onOpenChange,
+  triggerClassName,
+  ariaLabel,
+  disabled = false,
   onChange,
 }: PaperCurrentlyWithSelectProps) {
   const selectableCollaborators = collaborators.filter(
@@ -48,14 +59,19 @@ export function PaperCurrentlyWithSelect({
         : "Not set";
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button
           id={id}
           type="button"
           variant="outline"
           role="combobox"
-          className="w-full justify-between font-normal"
+          aria-label={ariaLabel}
+          className={cn(
+            "w-full justify-between font-normal",
+            triggerClassName,
+          )}
+          disabled={disabled}
         >
           <span className="truncate">{label}</span>
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
@@ -75,7 +91,9 @@ export function PaperCurrentlyWithSelect({
             Collaborators/Coauthors
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
-            {selectableCollaborators.length ? (
+            {collaboratorsPending ? (
+              <DropdownMenuItem disabled>Loading collaborators…</DropdownMenuItem>
+            ) : selectableCollaborators.length ? (
               selectableCollaborators.map((collaborator) => (
                 <DropdownMenuItem
                   key={collaborator.id}

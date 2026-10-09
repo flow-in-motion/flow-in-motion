@@ -213,6 +213,8 @@ vi.mock("@/api/hooks", () => ({
   useUpdateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateNote: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUserSearch: () => ({ data: [], isPending: false, isError: false }),
+  createDraftInvitation: vi.fn(),
 }));
 
 vi.mock("@/components/projects/project-collaborators", () => ({
@@ -396,18 +398,12 @@ describe("ProjectsPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("directs project sharing to the post-creation invitation flow", () => {
+  it("offers optional collaborator entry during project creation", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "New Project" }));
-    expect(
-      screen.queryByRole("combobox", { name: "Collaborators" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /After creating the project, open it to invite collaborators by email/i,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Collaborators (optional)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Collaborator email")).not.toBeRequired();
   });
 
   it("shows linked paper/note counts and a description line directly in the row, without needing to expand", () => {
