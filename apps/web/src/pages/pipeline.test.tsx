@@ -195,6 +195,8 @@ vi.mock("@/api/hooks", async () => {
     }),
     useTrackEvent: () => vi.fn(),
     useEnumValues: () => ({ data: [], isPending: false }),
+    useUserSearch: () => ({ data: [], isPending: false, isError: false }),
+    createDraftInvitation: vi.fn(),
   };
 });
 

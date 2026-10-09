@@ -14,19 +14,23 @@ import {
   useArchiveModule,
   useCreateModule,
   useCurrentWorkspace,
+  useMe,
   useMembers,
+  useModuleCollaborators,
   useModulePipelineStagePool,
   useModules,
   useProjects,
   useTrackEvent,
   useUpdateModule,
   type ApiModule,
+  type PaperCurrentlyWithType,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import {
   ModuleDialog,
   type ModuleFormInput,
 } from "@/components/modules/module-dialog";
+import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
@@ -50,6 +54,18 @@ import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
+const CURRENTLY_WITH_OPTIONS: readonly PaperCurrentlyWithType[] = [
+  "me",
+  "collaborator",
+  "journal",
+  "friendly_reviewer",
+];
+const CURRENTLY_WITH_FILTER_LABELS: Record<PaperCurrentlyWithType, string> = {
+  me: "Me",
+  collaborator: "Collaborators/Coauthors",
+  journal: "Journal",
+  friendly_reviewer: "Friendly reviewer",
+};
 const MODULE_COLUMNS = [
   { id: "module", label: "Paper", width: "minmax(280px,2fr)" },
   { id: "project", label: "Project", width: "180px" },
@@ -68,6 +84,7 @@ interface MultiSelectFilterProps {
   selected: ReadonlySet<string>;
   pluralLabel: string;
   triggerClassName: string;
+  optionLabel?: (value: string) => string;
   onToggle: (value: string) => void;
   onClear: () => void;
 }
@@ -77,6 +94,7 @@ function MultiSelectFilter({
   selected,
   pluralLabel,
   triggerClassName,
+  optionLabel = (value) => value,
   onToggle,
   onClear,
 }: MultiSelectFilterProps) {
@@ -84,7 +102,7 @@ function MultiSelectFilter({
     selected.size === 0
       ? `All ${pluralLabel}`
       : selected.size === 1
-        ? [...selected][0]
+        ? optionLabel([...selected][0])
         : `${selected.size} ${pluralLabel}`;
 
   return (
@@ -123,7 +141,7 @@ function MultiSelectFilter({
             onSelect={(event) => event.preventDefault()}
             onCheckedChange={() => onToggle(option)}
           >
-            {option}
+            {optionLabel(option)}
           </DropdownMenuCheckboxItem>
         ))}
       </DropdownMenuContent>
@@ -166,6 +184,46 @@ function ProgressCell({ percent }: { percent: number }) {
   );
 }
 
+function InlinePaperCurrentlyWith({
+  tenantId,
+  paper,
+  currentUserId,
+  disabled,
+  onChange,
+}: {
+  tenantId: string;
+  paper: ApiModule;
+  currentUserId?: string;
+  disabled: boolean;
+  onChange: (
+    currentlyWithType: PaperCurrentlyWithType,
+    assignedToUserId: string | null,
+  ) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const collaboratorsQuery = useModuleCollaborators(
+    tenantId,
+    paper.id,
+    open,
+  );
+
+  return (
+    <PaperCurrentlyWithSelect
+      id={`currently-with-${paper.id}`}
+      currentlyWithType={paper.currentlyWithType ?? null}
+      assignedToUserId={paper.assignedToUserId}
+      currentUserId={currentUserId}
+      collaborators={collaboratorsQuery.data ?? []}
+      collaboratorsPending={collaboratorsQuery.isPending}
+      onOpenChange={setOpen}
+      triggerClassName="h-8 px-2 text-sm"
+      ariaLabel={`Change Currently With for ${paperDisplayTitle(paper)}`}
+      disabled={disabled}
+      onChange={onChange}
+    />
+  );
+}
+
 export default function ModulesPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
@@ -178,12 +236,18 @@ export default function ModulesPage() {
   const [selectedStages, setSelectedStages] = useState<Set<string>>(
     () => new Set(),
   );
+  const [selectedCurrentlyWith, setSelectedCurrentlyWith] = useState<
+    Set<string>
+  >(() => new Set());
 
   const modulesQuery = useModules(tenantId, undefined, page, true, {
     pageSize,
     search: requestSearch,
     statuses: [...selectedStatuses],
     stages: [...selectedStages],
+    currentlyWithTypes: [
+      ...selectedCurrentlyWith,
+    ] as PaperCurrentlyWithType[],
   });
   const modules = modulesQuery.data?.data ?? [];
   const paginationMeta = modulesQuery.data?.meta;
@@ -191,6 +255,7 @@ export default function ModulesPage() {
   const projects = projectsQuery.data?.data ?? [];
   const generalProject = projectsQuery.data?.generalProject ?? null;
   const stagesQuery = useModulePipelineStagePool(tenantId);
+  const me = useMe();
   const visibleStages = useMemo(
     () =>
       [...(stagesQuery.data ?? [])]
@@ -216,6 +281,7 @@ export default function ModulesPage() {
     tenantId,
     selectedStatuses,
     selectedStages,
+    selectedCurrentlyWith,
     sortColumn,
     sortDirection,
   ]);
@@ -316,6 +382,12 @@ export default function ModulesPage() {
       ) {
         return false;
       }
+      if (
+        selectedCurrentlyWith.size > 0 &&
+        !selectedCurrentlyWith.has(module.currentlyWithType ?? "")
+      ) {
+        return false;
+      }
       return true;
     });
     return [...filtered].sort(
@@ -328,6 +400,7 @@ export default function ModulesPage() {
     search,
     selectedStatuses,
     selectedStages,
+    selectedCurrentlyWith,
     projectName,
     currentlyWithName,
     progressByStage,
@@ -336,7 +409,10 @@ export default function ModulesPage() {
   ]);
 
   const hasActiveFilters =
-    search !== "" || selectedStatuses.size > 0 || selectedStages.size > 0;
+    search !== "" ||
+    selectedStatuses.size > 0 ||
+    selectedStages.size > 0 ||
+    selectedCurrentlyWith.size > 0;
 
   function toggleSelected(
     setter: Dispatch<SetStateAction<Set<string>>>,
@@ -469,6 +545,17 @@ export default function ModulesPage() {
           onToggle={(value) => toggleSelected(setSelectedStages, value)}
           onClear={() => setSelectedStages(new Set())}
         />
+        <MultiSelectFilter
+          options={CURRENTLY_WITH_OPTIONS}
+          selected={selectedCurrentlyWith}
+          pluralLabel="current holders"
+          triggerClassName="sm:w-52"
+          optionLabel={(value) =>
+            CURRENTLY_WITH_FILTER_LABELS[value as PaperCurrentlyWithType]
+          }
+          onToggle={(value) => toggleSelected(setSelectedCurrentlyWith, value)}
+          onClear={() => setSelectedCurrentlyWith(new Set())}
+        />
         <ColumnVisibilityMenu
           columns={MODULE_COLUMNS}
           visibleColumns={columns.visibleColumns}
@@ -481,6 +568,7 @@ export default function ModulesPage() {
               setSearch("");
               setSelectedStatuses(new Set());
               setSelectedStages(new Set());
+              setSelectedCurrentlyWith(new Set());
             }}
             className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
@@ -622,9 +710,34 @@ export default function ModulesPage() {
                     </span>
                   ) : null}
                   {columns.isColumnVisible("assignee") ? (
-                    <span className="text-sm text-muted-foreground">
-                      {currentlyWithName(module)}
-                    </span>
+                    <InlinePaperCurrentlyWith
+                      tenantId={tenantId}
+                      paper={module}
+                      currentUserId={me.data?.id}
+                      disabled={updateModule.isPending}
+                      onChange={(currentlyWithType, assignedToUserId) => {
+                        setActionError(null);
+                        void updateModule
+                          .mutateAsync({
+                            moduleId: module.id,
+                            input: {
+                              currentlyWithType,
+                              ...(assignedToUserId
+                                ? { assignedToUserId }
+                                : {}),
+                            },
+                          })
+                          .catch((error: unknown) => {
+                            setActionError(
+                              `Could not update who “${paperDisplayTitle(module)}” is currently with. ${
+                                error instanceof Error
+                                  ? error.message
+                                  : "Please try again."
+                              }`,
+                            );
+                          });
+                      }}
+                    />
                   ) : null}
                 </div>
               ))

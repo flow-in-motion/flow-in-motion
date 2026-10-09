@@ -16,6 +16,7 @@ type ModuleFixture = {
   pipelineStage: string | null;
   dueDate: string | null;
   assignedToUserId: string | null;
+  currentlyWithType?: "me" | "collaborator" | "journal" | "friendly_reviewer" | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -52,6 +53,8 @@ const hookMocks = vi.hoisted(() => ({
   useModules: vi.fn(),
   useModulesOptions: vi.fn(),
   updateModule: vi.fn(),
+  createDraftInvitation: vi.fn(),
+  useModuleCollaborators: vi.fn(),
   pagination: {
     totalItems: 1,
     totalPages: 1,
@@ -254,6 +257,7 @@ vi.mock("@/api/hooks", async () => {
     }),
     useUpdateModule: () => ({
       mutateAsync: hookMocks.updateModule,
+      isPending: false,
     }),
     useArchiveModule: () => ({
       mutateAsync: vi.fn(async (moduleId: string) => {
@@ -262,8 +266,14 @@ vi.mock("@/api/hooks", async () => {
         );
       }),
     }),
-    useModuleCollaborators: () => ({
-      data: [
+    useModuleCollaborators: (
+      tenantId: string,
+      moduleId: string,
+      enabled: boolean,
+    ) => {
+      hookMocks.useModuleCollaborators(tenantId, moduleId, enabled);
+      return {
+        data: [
         {
           id: "collaborator-owner",
           tenantId: fixtures.tenantId,
@@ -275,9 +285,10 @@ vi.mock("@/api/hooks", async () => {
           createdAt: "",
           updatedAt: "",
         },
-      ],
-      isPending: false,
-    }),
+        ],
+        isPending: false,
+      };
+    },
     useRemoveModuleCollaborator: () => ({ mutate: vi.fn(), isPending: false }),
     useCollaboratorInvitations: () => ({
       data: [],
@@ -300,6 +311,7 @@ vi.mock("@/api/hooks", async () => {
       isError: false,
     }),
     useUserSearch: () => ({ data: [], isPending: false, isError: false }),
+    createDraftInvitation: hookMocks.createDraftInvitation,
   };
 });
 
@@ -318,6 +330,7 @@ describe("ModulesPage", () => {
         pipelineStage: "Concept & Ideation",
         dueDate: "2026-09-15",
         assignedToUserId: null,
+        currentlyWithType: "me",
         archivedAt: null,
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
@@ -328,6 +341,8 @@ describe("ModulesPage", () => {
     hookMocks.useModules.mockClear();
     hookMocks.useModulesOptions.mockClear();
     hookMocks.updateModule.mockReset();
+    hookMocks.createDraftInvitation.mockReset();
+    hookMocks.useModuleCollaborators.mockClear();
     hookMocks.updateModule.mockImplementation(
       async ({
         moduleId,
@@ -523,6 +538,7 @@ describe("ModulesPage", () => {
     );
     expect(screen.getAllByText("Independent paper").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Concept & Ideation").length).toBeGreaterThan(0);
+    expect(hookMocks.createDraftInvitation).not.toHaveBeenCalled();
   });
 
   it("includes an optional due date in the module form", () => {
@@ -846,7 +862,7 @@ describe("ModulesPage", () => {
     ]);
   });
 
-  it("points to inviting collaborators after the paper is created, instead of staging them", () => {
+  it("offers optional collaborator entry while creating a paper", () => {
     render(
       <MemoryRouter>
         <ModulesPage />
@@ -855,13 +871,123 @@ describe("ModulesPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
 
+    expect(screen.getByLabelText("Collaborator email")).not.toBeRequired();
+    expect(screen.getByText("Collaborators (optional)")).toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Collaborator email"),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "After creating the paper, open it to invite collaborators by email using a secure acceptance link.",
+      screen.getByRole("combobox", { name: "Currently With" }),
+    ).toHaveTextContent("Me");
+  });
+
+  it("saves an entered paper collaborator as an invitation draft", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
+    fireEvent.change(screen.getByLabelText("Collaborator email"), {
+      target: { value: "sam@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add collaborator" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "Collaborative paper" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+
+    await waitFor(() =>
+      expect(hookMocks.createDraftInvitation).toHaveBeenCalledWith(
+        "module",
+        fixtures.tenantId,
+        "module-2",
+        { email: "sam@example.com", name: undefined, affiliation: undefined },
       ),
-    ).toBeInTheDocument();
+    );
+  });
+
+  it("updates Currently With directly from the paper list", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(hookMocks.useModuleCollaborators).toHaveBeenCalledWith(
+      fixtures.tenantId,
+      "module-1",
+      false,
+    );
+    fireEvent.keyDown(
+      screen.getByRole("combobox", {
+        name: "Change Currently With for Literature synthesis",
+      }),
+      { key: "Enter" },
+    );
+    fireEvent.click(
+      await screen.findByRole("menuitem", { name: "Journal" }),
+    );
+
+    await waitFor(() =>
+      expect(hookMocks.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { currentlyWithType: "journal" },
+      }),
+    );
+  });
+
+  it("filters by multiple Currently With categories before pagination", async () => {
+    store.setModules([
+      {
+        ...store.getModules()[0],
+        currentlyWithType: "journal",
+      },
+      {
+        ...store.getModules()[0],
+        id: "module-2",
+        displayId: "MOD-002",
+        shortTitle: "Friendly review paper",
+        title: "Friendly review paper",
+        currentlyWithType: "friendly_reviewer",
+      },
+      {
+        ...store.getModules()[0],
+        id: "module-3",
+        displayId: "MOD-003",
+        shortTitle: "Paper with me",
+        title: "Paper with me",
+        currentlyWithType: "me",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by current holders" }),
+      { key: "Enter" },
+    );
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Journal" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Friendly reviewer" }),
+    );
+
+    expect(screen.getByText("Literature synthesis")).toBeInTheDocument();
+    expect(screen.getByText("Friendly review paper")).toBeInTheDocument();
+    expect(screen.queryByText("Paper with me")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          currentlyWithTypes: expect.arrayContaining([
+            "journal",
+            "friendly_reviewer",
+          ]),
+        }),
+      ),
+    );
   });
 });

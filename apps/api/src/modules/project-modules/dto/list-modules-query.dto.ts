@@ -8,6 +8,10 @@ import {
   MaxLength,
 } from 'class-validator';
 import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import {
+  CURRENTLY_WITH_TYPES,
+  type CurrentlyWithType,
+} from './create-module.dto';
 
 export const MODULE_SORT_FIELDS = [
   'dateAdded',
@@ -50,4 +54,11 @@ export class ListModulesQueryDto extends ProjectScopedPaginationQueryDto {
   @IsString({ each: true })
   @MaxLength(100, { each: true })
   stages?: string[];
+
+  @ApiPropertyOptional({ enum: CURRENTLY_WITH_TYPES, isArray: true })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => toStringArray(value))
+  @IsArray()
+  @IsIn(CURRENTLY_WITH_TYPES, { each: true })
+  currentlyWithTypes?: CurrentlyWithType[];
 }

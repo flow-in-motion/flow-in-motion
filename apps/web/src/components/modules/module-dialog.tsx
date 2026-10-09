@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import {
+  createDraftInvitation,
   useModulePipelineStagePool,
   useNotes,
   useTasks,
@@ -8,11 +9,13 @@ import {
   useUpdateTask,
   type ApiModule,
   type ApiProject,
+  type DraftCollaboratorInput,
   type Membership,
   type PaperCurrentlyWithType,
   useMe,
 } from "@/api/hooks";
 import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
+import { OptionalCollaboratorEntries } from "@/components/sharing/optional-collaborator-entries";
 import {
   LinkExistingField,
   type LinkExistingOption,
@@ -127,6 +130,9 @@ export function ModuleDialog({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [linkedTasks, setLinkedTasks] = useState<LinkExistingOption[]>([]);
   const [linkedNotes, setLinkedNotes] = useState<LinkExistingOption[]>([]);
+  const [draftCollaborators, setDraftCollaborators] = useState<
+    DraftCollaboratorInput[]
+  >([]);
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
   const isEditing = Boolean(module);
@@ -180,6 +186,7 @@ const generalProjectOption =
     setSaveError(null);
     setLinkedTasks([]);
     setLinkedNotes([]);
+    setDraftCollaborators([]);
     if (module) {
       setForm({
         shortTitle: module.shortTitle ?? "",
@@ -265,6 +272,14 @@ const generalProjectOption =
       });
       if (!isEditing && savedModule) {
         await Promise.all([
+          ...draftCollaborators.map((collaborator) =>
+            createDraftInvitation(
+              "module",
+              tenantId,
+              savedModule.id,
+              collaborator,
+            ),
+          ),
           ...linkedTasks.map((task) =>
             updateTask.mutateAsync({
               taskId: task.id,
@@ -463,6 +478,16 @@ const generalProjectOption =
           </div>
 
           {!isEditing ? (
+            <OptionalCollaboratorEntries
+              value={draftCollaborators}
+              onChange={setDraftCollaborators}
+              ownerUserId={me.data?.id}
+              ownerEmail={me.data?.email}
+              entityLabel="paper"
+            />
+          ) : null}
+
+          {!isEditing ? (
             <div className="grid gap-4 rounded-lg border p-4">
               <p className="text-sm font-medium">Link existing work (optional)</p>
               <FormField label="Project" htmlFor="module-project" required>
@@ -507,13 +532,6 @@ const generalProjectOption =
                 />
               </FormField>
             </div>
-          ) : null}
-
-          {!isEditing ? (
-            <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-              After creating the paper, open it to invite collaborators by email using a secure
-              acceptance link.
-            </p>
           ) : null}
 
           {saveError ? (

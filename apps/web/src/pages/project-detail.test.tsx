@@ -239,6 +239,26 @@ describe("ProjectDetailPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps project collaborator management inside Edit Project", () => {
+    render(
+      <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
+        <Routes>
+          <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Add collaborator" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Project" }));
+    expect(screen.getByText("Collaborators (optional)")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add collaborator" }),
+    ).toBeInTheDocument();
+  });
+
   it("opens directly in edit mode from a project-table edit link", () => {
     render(
       <MemoryRouter initialEntries={["/projects/PRJ-101?edit=true"]}>

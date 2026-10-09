@@ -337,6 +337,7 @@ describe('ProjectModulesService', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
 
       expect(result.data.map((module) => module.id)).toEqual([
@@ -352,7 +353,7 @@ describe('ProjectModulesService', () => {
       });
     });
 
-    it('passes status and stage filters to the repository before pagination', async () => {
+    it('passes status, stage and Currently With filters to the repository before pagination', async () => {
       repository.findVisibleActiveByTenant.mockResolvedValue({
         data: [],
         totalItems: 0,
@@ -369,6 +370,7 @@ describe('ProjectModulesService', () => {
         undefined,
         ['Complete', 'Stalled'],
         ['Literature Review', 'Submitted, Under Review'],
+        ['me', 'journal'],
       );
 
       expect(repository.findVisibleActiveByTenant).toHaveBeenCalledWith(
@@ -382,6 +384,7 @@ describe('ProjectModulesService', () => {
         undefined,
         ['Complete', 'Stalled'],
         ['Literature Review', 'Submitted, Under Review'],
+        ['me', 'journal'],
       );
     });
   });

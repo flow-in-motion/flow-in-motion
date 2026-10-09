@@ -54,16 +54,18 @@ describe("list request costs and scope", () => {
     }));
   });
 
-  it("sends multiple paper statuses and stages through the existing request", async () => {
+  it("sends multiple paper statuses, stages and current holders through the existing request", async () => {
     const { result } = renderHook(() => useModules("tenant-a", undefined, 1, true, {
       statuses: ["Stalled", "Complete"],
       stages: ["Submitted, Under Review", "Literature Review"],
+      currentlyWithTypes: ["journal", "collaborator"],
     }), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(get).toHaveBeenCalledTimes(1);
     expect(get.mock.calls[0][1].params.query).toEqual(expect.objectContaining({
       statuses: ["Complete", "Stalled"],
       stages: ["Literature Review", "Submitted, Under Review"],
+      currentlyWithTypes: ["collaborator", "journal"],
     }));
   });
 

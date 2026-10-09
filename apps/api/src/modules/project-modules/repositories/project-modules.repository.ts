@@ -25,6 +25,7 @@ import type {
   ModuleSortField,
   SortDirection,
 } from '../dto/list-modules-query.dto';
+import type { CurrentlyWithType } from '../dto/create-module.dto';
 
 @Injectable()
 export class ProjectModulesRepository {
@@ -155,6 +156,7 @@ export class ProjectModulesRepository {
     sortDirection: SortDirection = 'desc',
     statuses?: string[],
     stages?: string[],
+    currentlyWithTypes?: CurrentlyWithType[],
   ) {
     const visibilityCondition = or(
       exists(
@@ -262,6 +264,9 @@ export class ProjectModulesRepository {
             ),
         ),
       );
+    }
+    if (currentlyWithTypes?.length) {
+      conditions.push(inArray(modules.currentlyWithType, currentlyWithTypes));
     }
 
     const whereCondition = and(...conditions);

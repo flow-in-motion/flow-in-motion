@@ -2151,6 +2151,7 @@ export interface operations {
             query?: {
                 page?: number;
                 projectId?: string;
+                currentlyWithTypes?: ("me" | "collaborator" | "journal" | "friendly_reviewer")[];
             };
             header?: never;
             path: {
