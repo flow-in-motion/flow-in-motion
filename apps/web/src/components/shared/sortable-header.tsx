@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export interface SortableHeaderProps<TColumn extends string> {
   label: string;
   column: TColumn;
-  sortColumn: TColumn;
+  sortColumn: TColumn | null;
   sortDirection: "asc" | "desc";
   onSort: (column: TColumn) => void;
 }
@@ -18,7 +18,11 @@ export function SortableHeader<TColumn extends string>({
   onSort,
 }: SortableHeaderProps<TColumn>) {
   const active = column === sortColumn;
-  const Icon = active ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  const Icon = active
+    ? sortDirection === "asc"
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown;
   return (
     <button
       type="button"

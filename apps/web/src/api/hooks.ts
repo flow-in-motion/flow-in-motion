@@ -273,6 +273,34 @@ export interface ApiFundingPaper {
   projectId: string | null;
 }
 
+export interface ApiFundingNote {
+  id: string;
+  displayId: string | null;
+  title: string;
+  content: string | null;
+  followUpDate: string | null;
+  createdAt: string;
+}
+
+export interface ApiFundingTask {
+  id: string;
+  displayId: string | null;
+  title: string;
+  description: string | null;
+  dueDate: string | null;
+  createdAt: string;
+}
+
+export type FundingSortField =
+  | "fundingBody"
+  | "scheme"
+  | "partners"
+  | "amount"
+  | "applicationDeadline"
+  | "followUpDate"
+  | "status"
+  | "links";
+
 export interface ApiFunding {
   id: string;
   tenantId: string;
@@ -283,10 +311,14 @@ export interface ApiFunding {
   amount: string | null;
   currency: string | null;
   applicationDeadline: string | null;
+  followUpDate?: string | null;
   status: FundingStatus | null;
-  notes: string | null;
+  description?: string | null;
+  notes?: string | null;
   projects: ApiFundingProject[];
   papers: ApiFundingPaper[];
+  linkedNotes?: ApiFundingNote[];
+  tasks?: ApiFundingTask[];
   createdAt: string;
   updatedAt: string;
 }
@@ -298,8 +330,9 @@ export interface FundingInput {
   amount?: string | null;
   currency?: string | null;
   applicationDeadline?: string | null;
+  followUpDate?: string | null;
   status?: FundingStatus | null;
-  notes?: string | null;
+  description?: string | null;
   projectIds: string[];
   moduleIds: string[];
 }
@@ -2450,12 +2483,21 @@ export function useFundings(
   tenantId: string,
   page = 1,
   enabled = true,
-  options?: { pageSize?: number | "all"; search?: string },
+  options?: {
+    pageSize?: number | "all";
+    search?: string;
+    sortBy?: FundingSortField;
+    sortDirection?: "asc" | "desc";
+  },
 ) {
   const pageSize = options?.pageSize ?? 20;
   const search = options?.search?.trim() ?? "";
   return useQuery({
-    queryKey: apiKeys.fundings(tenantId, page, pageSize, search),
+    queryKey: [
+      ...apiKeys.fundings(tenantId, page, pageSize, search),
+      options?.sortBy ?? "default",
+      options?.sortDirection ?? "default",
+    ],
     enabled: Boolean(tenantId) && enabled,
     queryFn: () => {
       const params = new URLSearchParams({
@@ -2463,6 +2505,9 @@ export function useFundings(
         pageSize: String(pageSize),
       });
       if (search) params.set("search", search);
+      if (options?.sortBy) params.set("sortBy", options.sortBy);
+      if (options?.sortDirection)
+        params.set("sortDirection", options.sortDirection);
       return authenticatedJson<PaginatedResponse<ApiFunding>>(
         `/api/v1/tenant/${encodeURIComponent(tenantId)}/fundings?${params.toString()}`,
       );
@@ -2541,6 +2586,44 @@ export function useDeleteFunding(tenantId: string) {
       });
     },
   });
+}
+
+function useFundingLinkMutation(
+  tenantId: string,
+  fundingId: string,
+  kind: "notes" | "tasks",
+  method: "POST" | "DELETE",
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (recordId: string) =>
+      apiJson<ApiFunding>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/fundings/${encodeURIComponent(fundingId)}/${kind}/${encodeURIComponent(recordId)}`,
+        { method },
+      ),
+    async onSuccess(funding) {
+      queryClient.setQueryData(apiKeys.funding(tenantId, fundingId), funding);
+      await queryClient.invalidateQueries({
+        queryKey: apiKeys.funding(tenantId, fundingId),
+      });
+    },
+  });
+}
+
+export function useAttachFundingNote(tenantId: string, fundingId: string) {
+  return useFundingLinkMutation(tenantId, fundingId, "notes", "POST");
+}
+
+export function useDetachFundingNote(tenantId: string, fundingId: string) {
+  return useFundingLinkMutation(tenantId, fundingId, "notes", "DELETE");
+}
+
+export function useAttachFundingTask(tenantId: string, fundingId: string) {
+  return useFundingLinkMutation(tenantId, fundingId, "tasks", "POST");
+}
+
+export function useDetachFundingTask(tenantId: string, fundingId: string) {
+  return useFundingLinkMutation(tenantId, fundingId, "tasks", "DELETE");
 }
 
 // ---------------------------------------------------------------------------

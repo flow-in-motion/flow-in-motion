@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import {
   type ApiFunding,
+  type FundingSortField,
   type FundingInput,
   useCreateFunding,
   useCurrentWorkspace,
@@ -17,6 +18,7 @@ import { FundingDialog } from "@/components/funding/funding-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PaginationControls } from "@/components/shared/pagination-controls";
+import { SortableHeader } from "@/components/shared/sortable-header";
 import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,7 @@ const FUNDING_COLUMNS = [
   { id: "partners", label: "Partners", width: "minmax(180px,1.2fr)" },
   { id: "amount", label: "Amount", width: "130px" },
   { id: "deadline", label: "Deadline", width: "140px" },
+  { id: "followUpDate", label: "Follow-up", width: "140px" },
   { id: "status", label: "Status", width: "130px" },
   {
     id: "links",
@@ -38,7 +41,21 @@ const FUNDING_COLUMNS = [
   },
 ] as const;
 
-function formatDate(value: string | null) {
+type FundingColumn = (typeof FUNDING_COLUMNS)[number]["id"];
+type SortDirection = "asc" | "desc";
+
+const SORT_FIELD_BY_COLUMN: Record<FundingColumn, FundingSortField> = {
+  fundingBody: "fundingBody",
+  scheme: "scheme",
+  partners: "partners",
+  amount: "amount",
+  deadline: "applicationDeadline",
+  followUpDate: "followUpDate",
+  status: "status",
+  links: "links",
+};
+
+function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat(undefined, {
@@ -78,10 +95,14 @@ export default function FundingPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingFunding, setEditingFunding] = useState<ApiFunding | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<FundingColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const fundingsQuery = useFundings(tenantId, page, true, {
     pageSize,
     search: requestSearch,
+    sortBy: sortColumn ? SORT_FIELD_BY_COLUMN[sortColumn] : undefined,
+    sortDirection: sortColumn ? sortDirection : undefined,
   });
   const createFunding = useCreateFunding(tenantId);
   const updateFunding = useUpdateFunding(tenantId);
@@ -107,7 +128,16 @@ export default function FundingPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [tenantId, requestSearch, pageSize]);
+  }, [tenantId, requestSearch, pageSize, sortColumn, sortDirection]);
+
+  function handleSort(column: FundingColumn) {
+    if (column === sortColumn) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  }
 
   async function handleCreate(input: FundingInput) {
     setActionError(null);
@@ -229,7 +259,7 @@ export default function FundingPage() {
       </div>
 
       <div className="overflow-x-auto rounded-xl border bg-muted/20 p-1">
-        <div className="min-w-[1120px]">
+        <div className="min-w-[1260px]">
           <div
             className="grid gap-4 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
             style={{ gridTemplateColumns: gridTemplate }}
@@ -237,7 +267,14 @@ export default function FundingPage() {
             {FUNDING_COLUMNS.filter((column) =>
               columns.visibleColumns.has(column.id),
             ).map((column) => (
-              <span key={column.id}>{column.label}</span>
+              <SortableHeader
+                key={column.id}
+                label={column.label}
+                column={column.id}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+              />
             ))}
           </div>
 
@@ -259,9 +296,12 @@ export default function FundingPage() {
                   >
                     {columns.isColumnVisible("fundingBody") ? (
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-foreground">
+                        <Link
+                          to={`/funding/${funding.id}`}
+                          className="font-semibold text-foreground hover:underline"
+                        >
                           {funding.fundingBody}
-                        </span>
+                        </Link>
                         {canManage ? (
                           <span className="flex shrink-0">
                             <button
@@ -305,6 +345,11 @@ export default function FundingPage() {
                     {columns.isColumnVisible("deadline") ? (
                       <span className="text-sm text-muted-foreground">
                         {formatDate(funding.applicationDeadline)}
+                      </span>
+                    ) : null}
+                    {columns.isColumnVisible("followUpDate") ? (
+                      <span className="text-sm text-muted-foreground">
+                        {formatDate(funding.followUpDate)}
                       </span>
                     ) : null}
                     {columns.isColumnVisible("status") ? (

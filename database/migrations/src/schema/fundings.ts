@@ -26,6 +26,7 @@ export const fundings = pgTable(
     amount: numeric("amount", { precision: 14, scale: 2 }),
     currency: text("currency"),
     applicationDeadline: date("application_deadline"),
+    followUpDate: date("follow_up_date"),
     status: text("status"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -39,6 +40,9 @@ export const fundings = pgTable(
     tenantIdx: index("fundings_tenant_id_idx").on(table.tenantId),
     deadlineIdx: index("fundings_application_deadline_idx").on(
       table.applicationDeadline,
+    ),
+    followUpDateIdx: index("fundings_follow_up_date_idx").on(
+      table.followUpDate,
     ),
   }),
 );
