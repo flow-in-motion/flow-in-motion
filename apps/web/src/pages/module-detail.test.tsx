@@ -93,11 +93,17 @@ const fixtures = vi.hoisted(() => ({
     shortTitle: "Literature synthesis",
     title: "Literature synthesis",
     description: null,
+    abstract: null as string | null,
+    targetJournal: null as string | null,
+    backupJournal: null as string | null,
+    targetConference: null as string | null,
+    backupConference: null as string | null,
     tag: "Research Paper",
     status: "Active",
     pipelineStage: "Concept",
     dueDate: "2026-09-15",
     assignedToUserId: null,
+    currentlyWithType: null,
     archivedAt: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
@@ -156,7 +162,11 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useMe: () => ({
-    data: { id: "user-owner", displayName: "Avi Researcher", email: "owner@example.com" },
+    data: {
+      id: "user-owner",
+      displayName: "Avi Researcher",
+      email: "owner@example.com",
+    },
   }),
   useMyModule: () => ({
     data: fixtures.module,
@@ -177,10 +187,22 @@ vi.mock("@/api/hooks", () => ({
   useCreateTask: () => ({ mutateAsync: fixtures.createTask, isPending: false }),
   useUpdateTask: () => ({ mutateAsync: fixtures.updateTask, isPending: false }),
   useUpdateNote: () => ({ mutateAsync: fixtures.updateNote, isPending: false }),
-  useModuleSubmissions: () => ({ data: fixtures.submissions, isPending: false }),
-  useCreateModuleSubmission: () => ({ mutateAsync: fixtures.createSubmission, isPending: false }),
-  useUpdateModuleSubmission: () => ({ mutateAsync: fixtures.updateSubmission, isPending: false }),
-  useDeleteModuleSubmission: () => ({ mutateAsync: fixtures.deleteSubmission, isPending: false }),
+  useModuleSubmissions: () => ({
+    data: fixtures.submissions,
+    isPending: false,
+  }),
+  useCreateModuleSubmission: () => ({
+    mutateAsync: fixtures.createSubmission,
+    isPending: false,
+  }),
+  useUpdateModuleSubmission: () => ({
+    mutateAsync: fixtures.updateSubmission,
+    isPending: false,
+  }),
+  useDeleteModuleSubmission: () => ({
+    mutateAsync: fixtures.deleteSubmission,
+    isPending: false,
+  }),
   useTrackEvent: () => vi.fn(),
   useTasks: () => ({
     data: {
@@ -217,7 +239,10 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useEnumValues: () => ({ data: [] }),
-  useProject: () => ({ data: undefined, isError: false }),
+  useProject: (_tenantId: string, projectId: string) => ({
+    data: fixtures.projects.find((project) => project.id === projectId),
+    isError: false,
+  }),
   useProjects: () => ({
     data: {
       generalProject: {
@@ -236,7 +261,10 @@ vi.mock("@/api/hooks", () => ({
     },
     isPending: false,
   }),
-  useModuleCollaborators: () => ({ data: fixtures.collaborators, isPending: false }),
+  useModuleCollaborators: () => ({
+    data: fixtures.collaborators,
+    isPending: false,
+  }),
   useRemoveModuleCollaborator: () => ({ mutate: vi.fn(), isPending: false }),
   useCollaboratorInvitations: () => ({
     data: [],
@@ -265,7 +293,12 @@ describe("ModuleDetailPage", () => {
   beforeEach(() => {
     fixtures.confetti.mockReset();
     fixtures.module.pipelineStage = "Concept";
-    fixtures.module.projectId = null;
+    fixtures.module.projectId = "project-general";
+    fixtures.module.abstract = null;
+    fixtures.module.targetJournal = null;
+    fixtures.module.backupJournal = null;
+    fixtures.module.targetConference = null;
+    fixtures.module.backupConference = null;
     fixtures.updateModule.mockReset();
     fixtures.updateModule.mockImplementation(
       async ({ input }: { input: Record<string, unknown> }) => {
@@ -285,12 +318,16 @@ describe("ModuleDetailPage", () => {
     fixtures.updateSubmission.mockReset();
     fixtures.updateSubmission.mockResolvedValue({ id: "submission-1" });
     fixtures.deleteSubmission.mockReset();
-    fixtures.deleteSubmission.mockResolvedValue({ message: "Submission deleted successfully" });
+    fixtures.deleteSubmission.mockResolvedValue({
+      message: "Submission deleted successfully",
+    });
   });
 
   function nativeDateInputFor(textInputId: string) {
     const textInput = document.getElementById(textInputId)!;
-    return textInput.closest(".relative")!.querySelector<HTMLInputElement>('input[type="date"]')!;
+    return textInput
+      .closest(".relative")!
+      .querySelector<HTMLInputElement>('input[type="date"]')!;
   }
 
   function renderPage() {
@@ -305,13 +342,9 @@ describe("ModuleDetailPage", () => {
   it("celebrates after moving the paper into Submitted, Under Review", async () => {
     renderPage();
   
-    fireEvent.click(
-      screen.getByRole("button", { name: "Edit Paper" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
   
-    fireEvent.click(
-      screen.getByRole("combobox", { name: "Pipeline stage" }),
-    );
+    fireEvent.click(screen.getByRole("combobox", { name: "Pipeline stage" }));
   
     fireEvent.click(
       screen.getByRole("option", {
@@ -319,9 +352,7 @@ describe("ModuleDetailPage", () => {
       }),
     );
   
-    fireEvent.click(
-      screen.getByRole("button", { name: "Save Changes" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
   
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith(
@@ -379,35 +410,68 @@ describe("ModuleDetailPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("moves a paper to General when Independent paper is checked", async () => {
-    fixtures.module.projectId = "project-1";
+  it("allows the linked project to be changed inside Edit Paper", async () => {
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Change project" }));
-    const checkbox = screen.getByRole("checkbox", { name: /Independent paper/ })
-    expect(checkbox).not.toBeChecked();
-
-    fireEvent.click(checkbox);
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+    const projectSearch = screen.getByRole("combobox", {
+      name: "Linked project",
+    });
+    fireEvent.click(projectSearch);
+    fireEvent.click(
+      screen.getByRole("option", { name: /Genome Sequencing Study/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith(
         expect.objectContaining({
           moduleId: "module-1",
-          input: { projectId: "project-general" },
+          input: expect.objectContaining({ projectId: "project-1" }),
         }),
       ),
     );
   });
 
-  it("blocks saving when Independent paper is unchecked without picking a project", () => {
-    fixtures.module.projectId = null;
+  it("shows collaborator management only inside Edit Paper", () => {
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Change project" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Independent paper/ }));
+    expect(
+      screen.queryByRole("button", { name: "Add collaborator" }),
+    ).not.toBeInTheDocument();
 
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+
+    expect(
+      screen.getByRole("button", { name: "Add collaborator" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Collaborator email" }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens paper collaborators to the right for Currently With", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+    fireEvent.keyDown(
+      screen.getByRole("combobox", { name: "Currently With" }),
+      {
+        key: "Enter",
+      },
+    );
+    expect(screen.getByRole("menuitem", { name: "Me" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Journal" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Friendly reviewer" }),
+    ).toBeInTheDocument();
+    fireEvent.pointerMove(await screen.findByText("Collaborators/Coauthors"));
+
+    const collaborator = await screen.findByText("Sam Lee");
+    expect(collaborator).toBeInTheDocument();
+    expect(screen.queryByText("Avi Researcher")).not.toBeInTheDocument();
   });
 
   it("opens the Add task dialog pre-linked to this module and creates the task", async () => {
@@ -421,7 +485,10 @@ describe("ModuleDetailPage", () => {
 
     await waitFor(() =>
       expect(fixtures.createTask).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Draft outline", moduleId: "module-1" }),
+        expect.objectContaining({
+          title: "Draft outline",
+          moduleId: "module-1",
+        }),
       ),
     );
   });
@@ -435,21 +502,14 @@ describe("ModuleDetailPage", () => {
     );
   });
 
-  it("moves the paper to General via the quick action", async () => {
+  it("shows the linked project in the top panel", () => {
     fixtures.module.projectId = "project-1";
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderPage();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Move to General" }),
-    );
-
-    await waitFor(() =>
-      expect(fixtures.updateModule).toHaveBeenCalledWith({
-        moduleId: "module-1",
-        input: { projectId: "project-general" },
-      }),
-    );
+    expect(screen.getByText("Linked project")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Genome Sequencing Study" }),
+    ).toHaveAttribute("href", "/projects/project-1");
   });
 
   it("unlinks a task from this module", async () => {
@@ -457,7 +517,9 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Unlink Extract references from this module" }),
+      screen.getByRole("button", {
+        name: "Unlink Extract references from this module",
+      }),
     );
 
     await waitFor(() =>
@@ -473,7 +535,9 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Unlink Meeting notes from this module" }),
+      screen.getByRole("button", {
+        name: "Unlink Meeting notes from this module",
+      }),
     );
 
     await waitFor(() =>
@@ -487,9 +551,13 @@ describe("ModuleDetailPage", () => {
   it("links an existing task to this paper", async () => {
     renderPage();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[0]);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Link existing" })[0],
+    );
 
-    const searchInput = await screen.findByPlaceholderText("Search tasks by title");
+    const searchInput = await screen.findByPlaceholderText(
+      "Search tasks by title",
+    );
     fireEvent.click(searchInput);
     fireEvent.click(await screen.findByText("Independent task"));
     fireEvent.click(screen.getByRole("button", { name: "Link tasks" }));
@@ -505,9 +573,13 @@ describe("ModuleDetailPage", () => {
   it("links an existing note to this paper", async () => {
     renderPage();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Link existing" })[1]);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Link existing" })[1],
+    );
 
-    const searchInput = await screen.findByPlaceholderText("Search notes by title");
+    const searchInput = await screen.findByPlaceholderText(
+      "Search notes by title",
+    );
     fireEvent.click(searchInput);
     fireEvent.click(await screen.findByText("Independent note"));
     fireEvent.click(screen.getByRole("button", { name: "Link notes" }));
@@ -528,9 +600,12 @@ describe("ModuleDetailPage", () => {
     fireEvent.change(nativeDateInputFor("submission-submitted-date"), {
       target: { value: "2026-03-01" },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: /Journal \/ venue/ }), {
+    fireEvent.change(
+      screen.getByRole("textbox", { name: /Journal \/ venue/ }),
+      {
       target: { value: "Nature Communications" },
-    });
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
 
     await waitFor(() =>
@@ -564,7 +639,9 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Edit submission to Nature Communications" }),
+      screen.getByRole("button", {
+        name: "Edit submission to Nature Communications",
+      }),
     );
     fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
     fireEvent.click(screen.getByRole("option", { name: "Accepted" }));
@@ -599,7 +676,9 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Delete submission to Nature Communications" }),
+      screen.getByRole("button", {
+        name: "Delete submission to Nature Communications",
+      }),
     );
 
     await waitFor(() =>
@@ -610,30 +689,47 @@ describe("ModuleDetailPage", () => {
   it("shows a compact collaborator summary in the header", () => {
     renderPage();
 
-    expect(screen.getByText("Avi Researcher · University of Melbourne")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Avi Researcher · University of Melbourne"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Sam Lee · CSIRO")).toBeInTheDocument();
   });
 
-  it("shows a collaborators section, expanded by default, with an option to hide it", () => {
+  it("keeps Abstract collapsed by default and expands it on request", () => {
+    fixtures.module.abstract = "A focused summary of the paper.";
     renderPage();
 
     expect(
-      screen.getByRole("heading", { name: "Collaborators on this paper" }),
+      screen.getByRole("heading", { name: "Abstract" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add collaborator" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Collaborator email" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Hide collaborators" }),
-    ).toHaveAttribute("aria-expanded", "true");
-
-    fireEvent.click(screen.getByRole("button", { name: "Hide collaborators" }));
-
-    expect(
-      screen.queryByRole("heading", { name: "Collaborators on this paper" }),
+      screen.queryByText("A focused summary of the paper."),
     ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show abstract" }));
+
     expect(
-      screen.getByRole("button", { name: "Show collaborators" }),
-    ).toHaveAttribute("aria-expanded", "false");
+      screen.getByText("A focused summary of the paper."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Hide abstract" }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("keeps Journals & conferences collapsed by default and expands it on request", () => {
+    fixtures.module.targetJournal = "Nature Communications";
+    renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: "Journals & conferences" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Nature Communications")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show journals & conferences" }),
+    );
+
+    expect(screen.getByText("Nature Communications")).toBeInTheDocument();
   });
 
   it("shows linked work expanded by default, with an option to hide it", () => {
@@ -647,7 +743,7 @@ describe("ModuleDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide linked work" }));
 
     expect(screen.queryByText("Extract references")).not.toBeInTheDocument();
-    expect(screen.getByText("Avi Researcher · University of Melbourne")).toBeInTheDocument();
+    expect(screen.getByText("Sam Lee · CSIRO")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show linked work" }),
     ).toHaveAttribute("aria-expanded", "false");

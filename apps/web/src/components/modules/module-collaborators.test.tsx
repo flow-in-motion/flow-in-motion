@@ -76,7 +76,8 @@ describe("ModuleCollaboratorsManager", () => {
       />,
     );
 
-    expect(screen.getByText("University of Melbourne")).toBeInTheDocument();
+    expect(screen.queryByText("Owner Person")).not.toBeInTheDocument();
+    expect(screen.queryByText("University of Melbourne")).not.toBeInTheDocument();
     expect(screen.getByText("University of Sydney")).toBeInTheDocument();
     expect(screen.getByText("CSIRO")).toBeInTheDocument();
 

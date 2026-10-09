@@ -24,12 +24,15 @@ export function ModuleCollaboratorsSummary({
   moduleId,
 }: ModuleCollaboratorsSummaryProps) {
   const collaboratorsQuery = useModuleCollaborators(tenantId, moduleId);
+  const me = useMe();
 
   if (collaboratorsQuery.isPending) {
     return <span className="text-muted-foreground">Loading…</span>;
   }
 
-  const collaborators = collaboratorsQuery.data ?? [];
+  const collaborators = (collaboratorsQuery.data ?? []).filter(
+    (collaborator) => collaborator.userId !== me.data?.id,
+  );
 
   if (collaborators.length === 0) {
     return <span className="text-muted-foreground">None added</span>;
@@ -65,14 +68,16 @@ export function ModuleCollaboratorsManager({
   const owner = collaboratorRows.find((collaborator) => collaborator.role === "Owner");
   const isOwner = owner?.userId === me.data?.id;
 
-  const collaborators = collaboratorRows.map((collaborator) => ({
-    id: collaborator.id,
-    userId: collaborator.userId,
-    displayName: collaborator.displayName,
-    email: collaborator.email,
-    affiliation: collaborator.affiliation,
-    role: collaborator.role,
-  }));
+  const collaborators = collaboratorRows
+    .filter((collaborator) => collaborator.userId !== me.data?.id)
+    .map((collaborator) => ({
+      id: collaborator.id,
+      userId: collaborator.userId,
+      displayName: collaborator.displayName,
+      email: collaborator.email,
+      affiliation: collaborator.affiliation,
+      role: collaborator.role,
+    }));
 
   return (
     <CollaboratorRoster

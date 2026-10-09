@@ -10,6 +10,13 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div role="menu">{children}</div>,
+  DropdownMenuSub: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuSubTrigger: ({ children }: { children: ReactNode }) => (
+    <button type="button" role="menuitem">{children}</button>
+  ),
+  DropdownMenuSubContent: ({ children }: { children: ReactNode }) => (
+    <div role="menu">{children}</div>
+  ),
   DropdownMenuItem: ({
     children,
     onSelect,

@@ -28,6 +28,7 @@ import {
   type ModuleFormInput,
 } from "@/components/modules/module-dialog";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { ErrorState } from "@/components/shared/error-state";
 import { InlineFieldSelect } from "@/components/shared/inline-field-select";
@@ -56,7 +57,7 @@ const MODULE_COLUMNS = [
   { id: "progress", label: "Progress", width: "130px" },
   { id: "stage", label: "Stage", width: "170px" },
   { id: "due", label: "Follow up or Due Date", width: "170px" },
-  { id: "assignee", label: "Assigned To", width: "150px" },
+  { id: "assignee", label: "Currently With", width: "150px" },
 ] as const;
 
 type SortColumn = (typeof MODULE_COLUMNS)[number]["id"];
@@ -261,11 +262,9 @@ export default function ModulesPage() {
     [projectById],
   );
 
-  const assigneeName = useCallback(
-    (userId: string | null) => {
-      if (!userId) return "Unassigned";
-      return memberById.get(userId) ?? "Unknown member";
-    },
+  const currentlyWithName = useCallback(
+    (module: ApiModule) =>
+      paperCurrentlyWithLabel(module, undefined, memberById),
     [memberById],
   );
 
@@ -299,9 +298,7 @@ export default function ModulesPage() {
       case "due":
         return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
       case "assignee":
-        return assigneeName(a.assignedToUserId).localeCompare(
-          assigneeName(b.assignedToUserId),
-        );
+        return currentlyWithName(a).localeCompare(currentlyWithName(b));
     }
   }
 
@@ -332,7 +329,7 @@ export default function ModulesPage() {
     selectedStatuses,
     selectedStages,
     projectName,
-    assigneeName,
+    currentlyWithName,
     progressByStage,
     sortColumn,
     sortDirection,
@@ -368,6 +365,7 @@ export default function ModulesPage() {
       pipelineStage: input.pipelineStage,
       dueDate: input.dueDate || undefined,
       assignedToUserId: input.assignedToUserId ?? undefined,
+      currentlyWithType: input.currentlyWithType ?? undefined,
     });
     trackEvent({ name: "module_created" });
     return module;
@@ -625,10 +623,7 @@ export default function ModulesPage() {
                   ) : null}
                   {columns.isColumnVisible("assignee") ? (
                     <span className="text-sm text-muted-foreground">
-                      {module.assignedToUserId
-                        ? (memberById.get(module.assignedToUserId) ??
-                          "Unknown member")
-                        : "Unassigned"}
+                      {currentlyWithName(module)}
                     </span>
                   ) : null}
                 </div>

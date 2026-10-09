@@ -1138,6 +1138,8 @@ export interface components {
             /** @example Concept & Ideation */
             pipelineStage?: string;
             assignedToUserId?: string;
+            /** @description Who currently has the paper. */
+            currentlyWithType?: "me" | "collaborator" | "journal" | "friendly_reviewer";
             /**
              * @description Module due date in ISO date format
              * @example 2027-06-01
@@ -1186,6 +1188,8 @@ export interface components {
             /** @example Concept & Ideation */
             pipelineStage?: string;
             assignedToUserId?: string;
+            /** @description Who currently has the paper. */
+            currentlyWithType?: "me" | "collaborator" | "journal" | "friendly_reviewer";
             /**
              * @description Module due date in ISO date format
              * @example 2027-06-01
