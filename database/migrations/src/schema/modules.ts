@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, timestamp, uniqueIndex, AnyPgColumn, date } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { pgTable, uuid, text, timestamp, uniqueIndex, AnyPgColumn, date, check } from 'drizzle-orm/pg-core';
 import { projects } from './projects';
 import { tenants } from './tenants';
 import { users } from './users';
@@ -28,6 +29,7 @@ export const modules = pgTable(
     assignedToUserId: uuid('assigned_to_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
+    currentlyWithType: text('currently_with_type'),
     dueDate: date('due_date'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -35,5 +37,9 @@ export const modules = pgTable(
   },
   (table) => ({
     tenantDisplayIdKey: uniqueIndex('modules_tenant_id_display_id_key').on(table.tenantId, table.displayId),
+    currentlyWithTypeCheck: check(
+      'modules_currently_with_type_check',
+      sql`${table.currentlyWithType} IS NULL OR ${table.currentlyWithType} IN ('me', 'collaborator', 'journal', 'friendly_reviewer')`,
+    ),
   }),
 );

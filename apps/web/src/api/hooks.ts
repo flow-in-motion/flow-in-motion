@@ -163,10 +163,14 @@ export interface ApiModule {
   pipelineStageChangedAt: string | null;
   dueDate: string | null;
   assignedToUserId: string | null;
+  currentlyWithType?: PaperCurrentlyWithType | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type PaperCurrentlyWithType =
+  "me" | "collaborator" | "journal" | "friendly_reviewer";
 
 export interface ApiTask {
   id: string;
@@ -1347,6 +1351,7 @@ export interface CreateModuleInput {
   pipelineStage?: string;
   dueDate?: string;
   assignedToUserId?: string;
+  currentlyWithType?: PaperCurrentlyWithType;
 }
 export type UpdateModuleInput = Partial<CreateModuleInput>;
 export type ModuleSortField = "dateAdded" | "alphabetical" | "progress";

@@ -2,11 +2,21 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsDateString,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
   Length,
 } from 'class-validator';
+
+export const CURRENTLY_WITH_TYPES = [
+  'me',
+  'collaborator',
+  'journal',
+  'friendly_reviewer',
+] as const;
+
+export type CurrentlyWithType = (typeof CURRENTLY_WITH_TYPES)[number];
 
 export class CreateModuleDto {
   @ApiProperty({
@@ -106,6 +116,15 @@ export class CreateModuleDto {
   @IsOptional()
   @IsUUID()
   assignedToUserId?: string;
+
+  @ApiProperty({
+    required: false,
+    enum: CURRENTLY_WITH_TYPES,
+    description: 'Who currently has the paper.',
+  })
+  @IsOptional()
+  @IsIn(CURRENTLY_WITH_TYPES)
+  currentlyWithType?: CurrentlyWithType;
 
   @ApiProperty({
     required: false,

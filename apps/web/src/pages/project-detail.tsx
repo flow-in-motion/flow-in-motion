@@ -562,6 +562,7 @@ export default function ProjectDetailPage() {
       pipelineStage: input.pipelineStage,
       dueDate: input.dueDate || undefined,
       assignedToUserId: input.assignedToUserId ?? undefined,
+      currentlyWithType: input.currentlyWithType ?? undefined,
     });
     trackEvent({ name: "module_created" });
     return module;

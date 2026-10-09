@@ -417,7 +417,8 @@ export class ProjectModulesRepository {
     statusId?: string;
     pipelineStageId?: string;
     pipelineStageChangedAt?: Date;
-    assignedToUserId?: string;
+    assignedToUserId?: string | null;
+    currentlyWithType?: string;
     dueDate?: string;
     displayId?: string;
   }) {
@@ -460,7 +461,8 @@ export class ProjectModulesRepository {
       statusId: string;
       pipelineStageId: string;
       pipelineStageChangedAt: Date;
-      assignedToUserId: string;
+      assignedToUserId: string | null;
+      currentlyWithType: string | null;
       dueDate: string;
     }>,
   ) {

@@ -20,6 +20,7 @@ import type {
   ModuleSortField,
   SortDirection,
 } from '../dto/list-modules-query.dto';
+import type { CurrentlyWithType } from '../dto/create-module.dto';
 const ARCHIVE_RETENTION_DAYS = 14;
 
 @Injectable()
@@ -196,6 +197,7 @@ export class ProjectModulesService {
       status?: string;
       pipelineStage?: string;
       assignedToUserId?: string;
+      currentlyWithType?: CurrentlyWithType;
       dueDate?: string;
     },
   ) {
@@ -210,6 +212,11 @@ export class ProjectModulesService {
       : undefined;
     const ownerRoleId = await this.resolveEnum('project_role', 'Owner');
     const displayId = await this.sequences.nextDisplayId(tenantId, 'module');
+    const currentlyWith = this.resolveCreateCurrentlyWith(
+      callerUserId,
+      input.currentlyWithType,
+      input.assignedToUserId,
+    );
 
     const createValues = {
       projectId: input.projectId,
@@ -225,7 +232,8 @@ export class ProjectModulesService {
       statusId,
       pipelineStageId,
       pipelineStageChangedAt: new Date(),
-      assignedToUserId: input.assignedToUserId,
+      assignedToUserId: currentlyWith.assignedToUserId,
+      currentlyWithType: currentlyWith.currentlyWithType,
       dueDate: input.dueDate,
       displayId,
     };
@@ -268,6 +276,7 @@ export class ProjectModulesService {
       status: string;
       pipelineStage: string;
       assignedToUserId: string;
+      currentlyWithType: CurrentlyWithType;
       dueDate: string;
     }>,
   ) {
@@ -298,6 +307,19 @@ export class ProjectModulesService {
     const stageChanged =
       input.pipelineStage !== undefined &&
       input.pipelineStage !== existing?.pipelineStage;
+    const hasCurrentlyWithUpdate =
+      Object.prototype.hasOwnProperty.call(input, 'currentlyWithType') ||
+      Object.prototype.hasOwnProperty.call(input, 'assignedToUserId');
+    const currentlyWith = hasCurrentlyWithUpdate
+      ? await this.resolveUpdatedCurrentlyWith(
+          tenantId,
+          moduleId,
+          callerUserId,
+          input.currentlyWithType,
+          input.assignedToUserId,
+          existing?.assignedToUserId,
+        )
+      : undefined;
 
     const module = await this.repository.update(tenantId, moduleId, {
       shortTitle: input.shortTitle,
@@ -312,7 +334,8 @@ export class ProjectModulesService {
       statusId,
       pipelineStageId,
       pipelineStageChangedAt: stageChanged ? new Date() : undefined,
-      assignedToUserId: input.assignedToUserId,
+      assignedToUserId: currentlyWith?.assignedToUserId,
+      currentlyWithType: currentlyWith?.currentlyWithType,
       dueDate: input.dueDate,
     });
 
@@ -492,6 +515,78 @@ export class ProjectModulesService {
         ? (valuesById.get(pipelineStageId) ?? null)
         : null,
     }));
+  }
+
+  private resolveCreateCurrentlyWith(
+    callerUserId: string,
+    requestedType?: CurrentlyWithType,
+    requestedUserId?: string,
+  ) {
+    const currentlyWithType =
+      requestedType ??
+      (requestedUserId
+        ? requestedUserId === callerUserId
+          ? 'me'
+          : 'collaborator'
+        : 'me');
+
+    if (currentlyWithType === 'me') {
+      return { currentlyWithType, assignedToUserId: callerUserId };
+    }
+    if (currentlyWithType === 'collaborator') {
+      if (!requestedUserId || requestedUserId === callerUserId) {
+        throw new BadRequestException(
+          'Choose a paper collaborator or coauthor',
+        );
+      }
+      return { currentlyWithType, assignedToUserId: requestedUserId };
+    }
+    return { currentlyWithType, assignedToUserId: null };
+  }
+
+  private async resolveUpdatedCurrentlyWith(
+    tenantId: string,
+    moduleId: string,
+    callerUserId: string,
+    requestedType?: CurrentlyWithType,
+    requestedUserId?: string,
+    existingUserId?: string | null,
+  ) {
+    const selectedUserId = requestedUserId ?? existingUserId ?? undefined;
+    const currentlyWithType =
+      requestedType ??
+      (selectedUserId
+        ? selectedUserId === callerUserId
+          ? 'me'
+          : 'collaborator'
+        : undefined);
+
+    if (!currentlyWithType) {
+      return { currentlyWithType: null, assignedToUserId: null };
+    }
+    if (currentlyWithType === 'me') {
+      return { currentlyWithType, assignedToUserId: callerUserId };
+    }
+    if (currentlyWithType === 'collaborator') {
+      if (!selectedUserId || selectedUserId === callerUserId) {
+        throw new BadRequestException(
+          'Choose a paper collaborator or coauthor',
+        );
+      }
+      const collaborator =
+        await this.collaboratorsRepository.findByModuleAndUser(
+          tenantId,
+          moduleId,
+          selectedUserId,
+        );
+      if (!collaborator) {
+        throw new BadRequestException(
+          'Currently With can only select a collaborator on this paper',
+        );
+      }
+      return { currentlyWithType, assignedToUserId: selectedUserId };
+    }
+    return { currentlyWithType, assignedToUserId: null };
   }
 
   private async resolveEnum(

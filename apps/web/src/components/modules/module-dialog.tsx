@@ -9,8 +9,10 @@ import {
   type ApiModule,
   type ApiProject,
   type Membership,
+  type PaperCurrentlyWithType,
   useMe,
 } from "@/api/hooks";
+import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
 import {
   LinkExistingField,
   type LinkExistingOption,
@@ -42,7 +44,6 @@ import {
 } from "@/components/modules/paper-stage-celebration";
 
 const MODULE_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
-const UNASSIGNED = "__unassigned__";
 
 export interface ModuleFormInput {
   shortTitle: string;
@@ -58,6 +59,7 @@ export interface ModuleFormInput {
   pipelineStage: string;
   dueDate: string;
   assignedToUserId: string | null;
+  currentlyWithType: PaperCurrentlyWithType | null;
 }
 
 interface ModuleDialogProps {
@@ -88,6 +90,7 @@ const INITIAL_FORM: ModuleFormInput = {
   pipelineStage: "",
   dueDate: "",
   assignedToUserId: null,
+  currentlyWithType: "me",
 };
 
 function FormField({ label, htmlFor, required, children }: {
@@ -113,7 +116,6 @@ export function ModuleDialog({
   tenantId,
   projects,
   generalProject,
-  members,
   module,
   initialProjectId,
   onSave,
@@ -193,6 +195,13 @@ const generalProjectOption =
         pipelineStage: module.pipelineStage ?? "",
         dueDate: module.dueDate ?? "",
         assignedToUserId: module.assignedToUserId,
+        currentlyWithType:
+          module.currentlyWithType ??
+          (module.assignedToUserId
+            ? module.assignedToUserId === me.data?.id
+              ? "me"
+              : "collaborator"
+            : null),
       });
       setSelectedProject(
         module.projectId
@@ -435,26 +444,21 @@ const generalProjectOption =
               </Select>
             </FormField>
 
-            <FormField label="Assigned to" htmlFor="module-assignee">
-              <Select
-                value={form.assignedToUserId ?? UNASSIGNED}
-                onValueChange={(value) =>
+            <FormField label="Currently With" htmlFor="module-currently-with">
+              <PaperCurrentlyWithSelect
+                id="module-currently-with"
+                currentlyWithType={form.currentlyWithType}
+                assignedToUserId={form.assignedToUserId}
+                currentUserId={me.data?.id}
+                collaborators={[]}
+                onChange={(currentlyWithType, assignedToUserId) =>
                   setForm((current) => ({
                     ...current,
-                    assignedToUserId: value === UNASSIGNED ? null : value,
+                    currentlyWithType,
+                    assignedToUserId,
                   }))
                 }
-              >
-                <SelectTrigger id="module-assignee"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                  {members.map((member) => (
-                    <SelectItem key={member.userId} value={member.userId}>
-                      {member.displayName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </FormField>
           </div>
 

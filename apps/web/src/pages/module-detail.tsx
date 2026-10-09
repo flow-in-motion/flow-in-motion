@@ -1,6 +1,23 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, FileStack, Link2, Pencil, Plus, Save, Trash2, Unlink, Users, X } from "lucide-react";
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  ChevronDown,
+  ChevronUp,
+  FileStack,
+  Link2,
+  Pencil,
+  Plus,
+  Save,
+  Trash2,
+  Unlink,
+  X,
+} from "lucide-react";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 
 import {
   useCreateModuleSubmission,
@@ -8,7 +25,7 @@ import {
   useCurrentWorkspace,
   useDeleteModuleSubmission,
   useMembers,
-
+  useModuleCollaborators,
   useModulePipelineStagePool,
   useModuleSubmissions,
   useMyModule,
@@ -24,14 +41,15 @@ import {
   type ApiModuleSubmission,
   type ApiNote,
   type ApiModule,
-  type ApiProject,
   type ApiTask,
+  type PaperCurrentlyWithType,
   useMe,
 } from "@/api/hooks";
 import {
   ModuleCollaboratorsManager,
   ModuleCollaboratorsSummary,
 } from "@/components/modules/module-collaborators";
+import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
@@ -44,10 +62,15 @@ import { BackButton } from "@/components/shared/back-button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LinkExistingDialog } from "@/components/shared/link-existing-dialog";
+import {
+  LinkExistingField,
+  type LinkExistingOption,
+} from "@/components/shared/link-existing-field";
 import { LoadingState } from "@/components/shared/loading-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TagInput } from "@/components/shared/tag-input";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +78,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 const MODULE_STATUSES = ["Active", "Review", "Stalled", "Complete"];
@@ -73,9 +102,14 @@ interface EditableModule {
   pipelineStage: string;
   dueDate: string;
   assignedToUserId: string;
+  currentlyWithType: PaperCurrentlyWithType | null;
+  projectId: string;
 }
 
-function editableValues(module: ApiModule): EditableModule {
+function editableValues(
+  module: ApiModule,
+  currentUserId?: string,
+): EditableModule {
   return {
     shortTitle: module.shortTitle ?? "",
     title: module.title ?? "",
@@ -89,6 +123,14 @@ function editableValues(module: ApiModule): EditableModule {
     pipelineStage: module.pipelineStage ?? "",
     dueDate: module.dueDate ?? "",
     assignedToUserId: module.assignedToUserId ?? "",
+    currentlyWithType:
+      module.currentlyWithType ??
+      (module.assignedToUserId
+        ? module.assignedToUserId === currentUserId
+          ? "me"
+          : "collaborator"
+        : null),
+    projectId: module.projectId ?? "",
   };
 }
 
@@ -99,7 +141,10 @@ function formatDate(iso: string | null) {
 }
 
 function splitEntries(value: string | null) {
-  return (value ?? "").split(",").map((entry) => entry.trim()).filter(Boolean);
+  return (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
@@ -111,8 +156,25 @@ function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function FormField({ label, htmlFor, children, className = "" }: { label: string; htmlFor: string; children: ReactNode; className?: string }) {
-  return <div className={`grid gap-1.5 ${className}`}><label htmlFor={htmlFor} className="text-sm font-medium">{label}</label>{children}</div>;
+function FormField({
+  label,
+  htmlFor,
+  children,
+  className = "",
+}: {
+  label: string;
+  htmlFor: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`grid gap-1.5 ${className}`}>
+      <label htmlFor={htmlFor} className="text-sm font-medium">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 }
 
 function ModuleTasksDetails({
@@ -143,16 +205,27 @@ function ModuleTasksDetails({
               Add task
             </Button>
           ) : null}
-          <Button asChild variant="ghost" size="sm"><Link to="/tasks">View all</Link></Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/tasks">View all</Link>
+          </Button>
         </div>
       </CardHeader>
-      <CardContent>{tasks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No tasks are linked to this module.</p>
+      <CardContent>
+        {tasks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No tasks are linked to this module.
+          </p>
       ) : (
         <div className="grid gap-2">
           {tasks.map((task) => (
-            <div key={task.id} className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40">
-              <Link to={`/tasks/${task.id}`} className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div
+                key={task.id}
+                className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
+              >
+                <Link
+                  to={`/tasks/${task.id}`}
+                  className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     {task.displayId ? (
@@ -160,7 +233,9 @@ function ModuleTasksDetails({
                         {task.displayId}
                       </span>
                     ) : null}
-                    <span className="block text-sm font-semibold">{task.title}</span>
+                      <span className="block text-sm font-semibold">
+                        {task.title}
+                      </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     <StatusBadge status={task.status ?? "—"} />
@@ -185,7 +260,8 @@ function ModuleTasksDetails({
             </div>
           ))}
         </div>
-      )}</CardContent>
+        )}
+      </CardContent>
     </Card>
   );
 }
@@ -220,19 +296,32 @@ function ModuleNotesDetails({
               </Link>
             </Button>
           ) : null}
-          <Button asChild variant="ghost" size="sm"><Link to="/daily-notes">View all</Link></Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/daily-notes">View all</Link>
+          </Button>
         </div>
       </CardHeader>
-      <CardContent>{notes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No notes are linked to this module.</p>
+      <CardContent>
+        {notes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No notes are linked to this module.
+          </p>
       ) : (
         <div className="grid gap-2">
           {notes.map((note) => (
-            <div key={note.id} className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40">
-              <Link to={`/daily-notes/${note.id}`} className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div
+                key={note.id}
+                className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
+              >
+                <Link
+                  to={`/daily-notes/${note.id}`}
+                  className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                 <span className="text-sm font-semibold">{note.title}</span>
                 {note.content ? (
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{note.content}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {note.content}
+                    </p>
                 ) : null}
               </Link>
               {onUnlinkNote ? (
@@ -249,152 +338,6 @@ function ModuleNotesDetails({
             </div>
           ))}
         </div>
-      )}</CardContent>
-    </Card>
-  );
-}
-
-function LinkedProjectCard({
-  module,
-  canChangeProject,
-  availableProjects,
-  generalProject,
-  linkedProject,
-  isSaving,
-  onChangeProject,
-}: {
-  module: ApiModule;
-  canChangeProject: boolean;
-  availableProjects: ApiProject[];
-  generalProject: ApiProject | null;
-  linkedProject: { title?: string; isError: boolean };
-  isSaving: boolean;
-  onChangeProject: (projectId: string) => Promise<void>;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isIndependent, setIsIndependent] = useState(
-    module.projectId === null || module.projectId === generalProject?.id,
-  );
-  const [projectId, setProjectId] = useState(module.projectId ?? "");
-
-  function startEditing() {
-    setIsIndependent(
-      module.projectId === null || module.projectId === generalProject?.id,
-    );
-    setProjectId(module.projectId ?? "");
-    setIsEditing(true);
-  }
-
-  async function handleSave() {
-    if (isIndependent) {
-      if (!generalProject) return;
-      await onChangeProject(generalProject.id);
-    } else {
-      if (!projectId) return;
-      await onChangeProject(projectId);
-    }
-  
-    setIsEditing(false);
-  }
-
-  async function handleMoveToGeneral() {
-    if (!generalProject) return;
-  
-    if (
-      !window.confirm(
-        "Move this paper to General? It will be treated as an independent paper.",
-      )
-    ) {
-      return;
-    }
-  
-    await onChangeProject(generalProject.id);
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle>Linked project</CardTitle>
-        {canChangeProject && !isEditing ? (
-          <div className="flex items-center gap-2">
-            {module.projectId &&
-            module.projectId !== generalProject?.id &&
-            generalProject ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleMoveToGeneral()}
-                disabled={isSaving}
-              >
-                <Unlink />
-                Move to General
-              </Button>
-            ) : null}
-            <Button variant="ghost" size="sm" onClick={startEditing}>
-              <Pencil />
-              Change project
-            </Button>
-          </div>
-        ) : null}
-      </CardHeader>
-      <CardContent>
-        {isEditing ? (
-          <div className="flex flex-col gap-3">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={isIndependent}
-                onChange={(event) => {
-                  setIsIndependent(event.target.checked);
-                  if (event.target.checked) setProjectId("");
-                }}
-                className="mt-0.5 h-4 w-4 accent-primary"
-              />
-              <span>
-              <span className="block text-sm font-medium">
-                Independent paper
-              </span>
-              <span className="block text-xs text-muted-foreground">
-                Independent papers are stored in the General project.
-              </span>
-              </span>
-            </label>
-            {!isIndependent ? (
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger aria-label="Project"><SelectValue placeholder="Select a project" /></SelectTrigger>
-                <SelectContent>
-                  {availableProjects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void handleSave()}
-                disabled={
-                  isSaving ||
-                  (isIndependent ? !generalProject : !projectId)
-                }
-              >
-                {isSaving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </div>
-        ) : module.projectId ? (
-          <Link to={`/projects/${module.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project</span>
-            <span className="mt-1 block font-semibold text-primary">
-              {linkedProject.title ?? (linkedProject.isError ? "Unknown project" : "Loading…")}
-            </span>
-          </Link>
-        ) : (
-          <p className="text-sm text-muted-foreground">This is an independent module.</p>
         )}
       </CardContent>
     </Card>
@@ -445,19 +388,27 @@ function SubmissionHistoryCard({
                     <StatusBadge status={submission.status} />
                   </div>
                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Submitted {formatDate(submission.submittedDate)}</span>
+                    <span>
+                      Submitted {formatDate(submission.submittedDate)}
+                    </span>
                     {submission.decisionDate ? (
-                      <span>Decision {formatDate(submission.decisionDate)}</span>
+                      <span>
+                        Decision {formatDate(submission.decisionDate)}
+                      </span>
                     ) : null}
                     {submission.revisionRounds !== null ? (
                       <span>
                         {submission.revisionRounds}{" "}
-                        {submission.revisionRounds === 1 ? "revision round" : "revision rounds"}
+                        {submission.revisionRounds === 1
+                          ? "revision round"
+                          : "revision rounds"}
                       </span>
                     ) : null}
                   </div>
                   {submission.notes ? (
-                    <p className="mt-2 text-xs text-muted-foreground">{submission.notes}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {submission.notes}
+                    </p>
                   ) : null}
                 </div>
                 {canManage ? (
@@ -516,10 +467,21 @@ export default function ModuleDetailPage() {
   const updateNote = useUpdateNote(tenantId);
   const trackEvent = useTrackEvent(tenantId);
   
-
   const module = moduleQuery.data;
-  const sameTenant = Boolean(module && tenantId && module.tenantId === tenantId);
-  const linkedProjectQuery = useProject(tenantId, module?.projectId ?? "", Boolean(module?.projectId));
+  const sameTenant = Boolean(
+    module && tenantId && module.tenantId === tenantId,
+  );
+  const linkedProjectQuery = useProject(
+    tenantId,
+    module?.projectId ?? "",
+    Boolean(module?.projectId),
+  );
+  const collaboratorsQuery = useModuleCollaborators(
+    tenantId,
+    module?.id ?? "",
+    sameTenant,
+  );
+  const paperCollaborators = collaboratorsQuery.data ?? [];
   // Relinking is only offered when the module lives in the caller's active
   // workspace — a module shared from another tenant can't list that
   // tenant's projects without full membership there (same boundary as the
@@ -530,30 +492,87 @@ export default function ModuleDetailPage() {
   const availableProjects = (projectsQuery.data?.data ?? []).filter(
     (project) => project.userId === me.data?.id,
   );
-  const stagesQuery = useModulePipelineStagePool(module?.tenantId ?? tenantId, Boolean(module));
-  const submissionsQuery = useModuleSubmissions(tenantId, module?.id ?? "", sameTenant);
+  const stagesQuery = useModulePipelineStagePool(
+    module?.tenantId ?? tenantId,
+    Boolean(module),
+  );
+  const submissionsQuery = useModuleSubmissions(
+    tenantId,
+    module?.id ?? "",
+    sameTenant,
+  );
   const submissions = submissionsQuery.data ?? [];
-  const createSubmission = useCreateModuleSubmission(tenantId, module?.id ?? "");
-  const updateSubmission = useUpdateModuleSubmission(tenantId, module?.id ?? "");
-  const deleteSubmission = useDeleteModuleSubmission(tenantId, module?.id ?? "");
+  const createSubmission = useCreateModuleSubmission(
+    tenantId,
+    module?.id ?? "",
+  );
+  const updateSubmission = useUpdateModuleSubmission(
+    tenantId,
+    module?.id ?? "",
+  );
+  const deleteSubmission = useDeleteModuleSubmission(
+    tenantId,
+    module?.id ?? "",
+  );
   const [form, setForm] = useState<EditableModule | null>(null);
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
-  const [isSubmissionHistoryVisible, setIsSubmissionHistoryVisible] = useState(true);
-  const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
+  const [isSubmissionHistoryVisible, setIsSubmissionHistoryVisible] =
+    useState(true);
+  const [isAbstractVisible, setIsAbstractVisible] = useState(false);
+  const [isPublishingTargetsVisible, setIsPublishingTargetsVisible] =
+    useState(false);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
   const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
-  const [editingSubmission, setEditingSubmission] = useState<ApiModuleSubmission | null>(null);
+  const [editingSubmission, setEditingSubmission] =
+    useState<ApiModuleSubmission | null>(null);
+  const editProjectsQuery = useProjects(
+    tenantId,
+    1,
+    sameTenant && Boolean(form),
+    {
+      pageSize: "all",
+    },
+  );
+  const editGeneralProject =
+    editProjectsQuery.data?.generalProject ?? generalProject;
+  const editProjectOptions: LinkExistingOption[] = [
+    ...(editGeneralProject && editGeneralProject.userId === me.data?.id
+      ? [
+          {
+            id: editGeneralProject.id,
+            label: editGeneralProject.title,
+            sublabel: "General project",
+          },
+        ]
+      : []),
+    ...(editProjectsQuery.data?.data ?? [])
+      .filter(
+        (project) =>
+          project.userId === me.data?.id &&
+          project.id !== editGeneralProject?.id,
+      )
+      .map((project) => ({
+        id: project.id,
+        label: project.title,
+        sublabel: "Project",
+      })),
+  ];
 
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && module) {
-      setForm(editableValues(module));
+      setForm(editableValues(module, me.data?.id));
       setOpenedRequestedEdit(true);
     }
-  }, [module, openedRequestedEdit, searchParams]);
+  }, [me.data?.id, module, openedRequestedEdit, searchParams]);
+
+  useEffect(() => {
+    setIsAbstractVisible(false);
+    setIsPublishingTargetsVisible(false);
+  }, [moduleId]);
 
   if (workspace.isPending || moduleQuery.isPending) {
     return <LoadingState title="Loading module" className="min-h-[50vh]" />;
@@ -607,6 +626,9 @@ export default function ModuleDetailPage() {
         pipelineStage: form.pipelineStage,
         dueDate: form.dueDate || undefined,
         assignedToUserId: form.assignedToUserId || undefined,
+        currentlyWithType: form.currentlyWithType || undefined,
+        projectId:
+          form.projectId !== module.projectId ? form.projectId : undefined,
       },
     });
   
@@ -617,15 +639,12 @@ export default function ModuleDetailPage() {
     }
   }
 
-  async function handleChangeProject(projectId: string) {
-    await updateModule.mutateAsync({
-      moduleId,
-      input: { projectId },
-    });
-  }
-
   async function handleUnlinkTask(task: ApiTask) {
-    if (!window.confirm(`Unlink "${task.title}" from this module? The task itself won't be deleted.`)) {
+    if (
+      !window.confirm(
+        `Unlink "${task.title}" from this module? The task itself won't be deleted.`,
+      )
+    ) {
       return;
     }
     await updateTask.mutateAsync({
@@ -635,7 +654,11 @@ export default function ModuleDetailPage() {
   }
 
   async function handleUnlinkNote(note: ApiNote) {
-    if (!window.confirm(`Unlink "${note.title}" from this module? The note itself won't be deleted.`)) {
+    if (
+      !window.confirm(
+        `Unlink "${note.title}" from this module? The note itself won't be deleted.`,
+      )
+    ) {
       return;
     }
     await updateNote.mutateAsync({
@@ -675,7 +698,9 @@ export default function ModuleDetailPage() {
       submittedDate: input.submittedDate,
       journalName: input.journalName,
       status: input.status,
-      revisionRounds: input.revisionRounds ? Number(input.revisionRounds) : undefined,
+      revisionRounds: input.revisionRounds
+        ? Number(input.revisionRounds)
+        : undefined,
       decisionDate: input.decisionDate || undefined,
       notes: input.notes || undefined,
     };
@@ -726,13 +751,22 @@ export default function ModuleDetailPage() {
     trackEvent({ name: "task_created" });
   }
 
-  const assignee = module.assignedToUserId
-    ? (members).find((member) => member.userId === module.assignedToUserId)
-    : undefined;
-    const moduleTasks = tasks.filter(
-      (task) => task.moduleId === module.id,
+  const currentlyWithNameById = new Map<string, string>();
+  for (const member of members) {
+    currentlyWithNameById.set(member.userId, member.displayName);
+  }
+  for (const collaborator of paperCollaborators) {
+    if (collaborator.displayName) {
+      currentlyWithNameById.set(collaborator.userId, collaborator.displayName);
+    }
+  }
+  const currentlyWith = paperCurrentlyWithLabel(
+    module,
+    me.data?.id,
+    currentlyWithNameById,
     );
-  const moduleNotes = (notes).filter((note) => note.moduleId === module.id);
+  const moduleTasks = tasks.filter((task) => task.moduleId === module.id);
+  const moduleNotes = notes.filter((note) => note.moduleId === module.id);
 
   const linkableTaskOptions = tasks
     .filter((task) => task.moduleId !== module.id)
@@ -759,51 +793,293 @@ export default function ModuleDetailPage() {
         icon={FileStack}
         eyebrow={module.displayId ?? module.id}
         title={paperDisplayTitle(module)}
-        description={module.description || "Review and update the paper's status and planning details."}
+        description={
+          module.description ||
+          "Review and update the paper's status and planning details."
+        }
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            {form ? <Button type="button" variant="outline" onClick={cancelEditing}><X /> Cancel Editing</Button>
-              : <Button type="button" onClick={() => setForm(editableValues(module))}><Pencil /> Edit Paper</Button>}
+            {form ? (
+              <Button type="button" variant="outline" onClick={cancelEditing}>
+                <X /> Cancel Editing
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => setForm(editableValues(module, me.data?.id))}
+              >
+                <Pencil /> Edit Paper
+              </Button>
+            )}
           </div>
         }
       >
         {!form ? (
           <div className="flex flex-wrap gap-2">
-            {module.title ? <HeaderStat label="Formal title" value={module.title} /> : null}
+            {module.title ? (
+              <HeaderStat label="Formal title" value={module.title} />
+            ) : null}
             <HeaderStat label="Status" value={module.status ?? "—"} />
-            <HeaderStat label="Pipeline stage" value={module.pipelineStage ?? "Unassigned"} />
+            <HeaderStat
+              label="Pipeline stage"
+              value={module.pipelineStage ?? "Unassigned"}
+            />
             <HeaderStat label="Due" value={formatDate(module.dueDate)} />
-            <HeaderStat label="Assigned to" value={assignee?.displayName ?? "Unassigned"} />
+            <HeaderStat label="Currently With" value={currentlyWith} />
+            <HeaderStat
+              label="Linked project"
+              value={
+                module.projectId ? (
+                  <Link
+                    to={`/projects/${module.projectId}`}
+                    className="hover:underline"
+                  >
+                    {linkedProjectQuery.data?.title ?? "Loading…"}
+                  </Link>
+                ) : (
+                  "—"
+                )
+              }
+            />
             <HeaderStat
               label="Collaborators"
-              value={sameTenant ? (
-                <ModuleCollaboratorsSummary tenantId={tenantId} moduleId={module.id} />
-              ) : "Shared from another workspace"}
+              value={
+                sameTenant ? (
+                  <ModuleCollaboratorsSummary
+                    tenantId={tenantId}
+                    moduleId={module.id}
+                  />
+                ) : (
+                  "Shared from another workspace"
+                )
+              }
             />
           </div>
         ) : null}
       </PageHeading>
 
-      {form ? <Card>
-        <CardHeader><CardTitle>Edit module details</CardTitle></CardHeader>
+      {form ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit paper details</CardTitle>
+          </CardHeader>
         <CardContent className="grid gap-6">
-          <form id="edit-module-details-form" onSubmit={(event) => void handleSave(event)}>
+            <form
+              id="edit-module-details-form"
+              onSubmit={(event) => void handleSave(event)}
+            >
             <div className="grid gap-5 sm:grid-cols-2">
-              <FormField label="Short title" htmlFor="edit-module-short-title"><Input id="edit-module-short-title" value={form.shortTitle} onChange={(event) => setForm({ ...form, shortTitle: event.target.value })} placeholder="The working name you'll refer to this paper by" required autoFocus /></FormField>
-              <FormField label="Formal title" htmlFor="edit-module-title"><Input id="edit-module-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Add once the paper has a formal title" /></FormField>
-              <FormField label="Description" htmlFor="edit-module-description" className="sm:col-span-2"><Textarea id="edit-module-description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} /></FormField>
-              <FormField label="Abstract" htmlFor="edit-module-abstract" className="sm:col-span-2"><Textarea id="edit-module-abstract" value={form.abstract} onChange={(event) => setForm({ ...form, abstract: event.target.value })} placeholder="Add the paper's academic abstract" rows={6} /></FormField>
-              <FormField label="Target journals" htmlFor="edit-module-target-journal"><TagInput id="edit-module-target-journal" value={form.targetJournal} onChange={(value) => setForm({ ...form, targetJournal: value })} placeholder="e.g. Nature Communications, Cell" /></FormField>
-              <FormField label="Backup journals" htmlFor="edit-module-backup-journal"><TagInput id="edit-module-backup-journal" value={form.backupJournal} onChange={(value) => setForm({ ...form, backupJournal: value })} placeholder="e.g. Scientific Reports, PLOS ONE" /></FormField>
-              <FormField label="Target conferences" htmlFor="edit-module-target-conference"><TagInput id="edit-module-target-conference" value={form.targetConference} onChange={(value) => setForm({ ...form, targetConference: value })} placeholder="e.g. ICML, NeurIPS" /></FormField>
-              <FormField label="Backup conferences" htmlFor="edit-module-backup-conference"><TagInput id="edit-module-backup-conference" value={form.backupConference} onChange={(value) => setForm({ ...form, backupConference: value })} placeholder="e.g. NeurIPS Workshop, ICLR Workshop" /></FormField>
+                <FormField
+                  label="Short title"
+                  htmlFor="edit-module-short-title"
+                >
+                  <Input
+                    id="edit-module-short-title"
+                    value={form.shortTitle}
+                    onChange={(event) =>
+                      setForm({ ...form, shortTitle: event.target.value })
+                    }
+                    placeholder="The working name you'll refer to this paper by"
+                    required
+                    autoFocus
+                  />
+                </FormField>
+                <FormField label="Formal title" htmlFor="edit-module-title">
+                  <Input
+                    id="edit-module-title"
+                    value={form.title}
+                    onChange={(event) =>
+                      setForm({ ...form, title: event.target.value })
+                    }
+                    placeholder="Add once the paper has a formal title"
+                  />
+                </FormField>
+                <FormField
+                  label="Description"
+                  htmlFor="edit-module-description"
+                  className="sm:col-span-2"
+                >
+                  <Textarea
+                    id="edit-module-description"
+                    value={form.description}
+                    onChange={(event) =>
+                      setForm({ ...form, description: event.target.value })
+                    }
+                    rows={3}
+                  />
+                </FormField>
+                <FormField
+                  label="Linked project"
+                  htmlFor="edit-module-project"
+                  className="sm:col-span-2"
+                >
+                  <LinkExistingField
+                    id="edit-module-project"
+                    placeholder="Search projects by title"
+                    options={editProjectOptions}
+                    selected={
+                      form.projectId
+                        ? [
+                            editProjectOptions.find(
+                              (project) => project.id === form.projectId,
+                            ) ?? {
+                              id: form.projectId,
+                              label:
+                                linkedProjectQuery.data?.title ??
+                                "Linked project",
+                            },
+                          ]
+                        : []
+                    }
+                    onAdd={(project) =>
+                      setForm({ ...form, projectId: project.id })
+                    }
+                    onRemove={() => setForm({ ...form, projectId: "" })}
+                    emptyMessage={
+                      editProjectsQuery.isPending
+                        ? "Loading projects…"
+                        : "No matching projects."
+                    }
+                  />
+                </FormField>
+                <FormField
+                  label="Abstract"
+                  htmlFor="edit-module-abstract"
+                  className="sm:col-span-2"
+                >
+                  <Textarea
+                    id="edit-module-abstract"
+                    value={form.abstract}
+                    onChange={(event) =>
+                      setForm({ ...form, abstract: event.target.value })
+                    }
+                    placeholder="Add the paper's academic abstract"
+                    rows={6}
+                  />
+                </FormField>
+                <FormField
+                  label="Target journals"
+                  htmlFor="edit-module-target-journal"
+                >
+                  <TagInput
+                    id="edit-module-target-journal"
+                    value={form.targetJournal}
+                    onChange={(value) =>
+                      setForm({ ...form, targetJournal: value })
+                    }
+                    placeholder="e.g. Nature Communications, Cell"
+                  />
+                </FormField>
+                <FormField
+                  label="Backup journals"
+                  htmlFor="edit-module-backup-journal"
+                >
+                  <TagInput
+                    id="edit-module-backup-journal"
+                    value={form.backupJournal}
+                    onChange={(value) =>
+                      setForm({ ...form, backupJournal: value })
+                    }
+                    placeholder="e.g. Scientific Reports, PLOS ONE"
+                  />
+                </FormField>
+                <FormField
+                  label="Target conferences"
+                  htmlFor="edit-module-target-conference"
+                >
+                  <TagInput
+                    id="edit-module-target-conference"
+                    value={form.targetConference}
+                    onChange={(value) =>
+                      setForm({ ...form, targetConference: value })
+                    }
+                    placeholder="e.g. ICML, NeurIPS"
+                  />
+                </FormField>
+                <FormField
+                  label="Backup conferences"
+                  htmlFor="edit-module-backup-conference"
+                >
+                  <TagInput
+                    id="edit-module-backup-conference"
+                    value={form.backupConference}
+                    onChange={(value) =>
+                      setForm({ ...form, backupConference: value })
+                    }
+                    placeholder="e.g. NeurIPS Workshop, ICLR Workshop"
+                  />
+                </FormField>
               <p className="text-xs text-muted-foreground sm:col-span-2">
-                Type a name and press comma or Enter to add it — you can add multiple journals or conferences.
+                  Type a name and press comma or Enter to add it — you can add
+                  multiple journals or conferences.
               </p>
-              <FormField label="Status" htmlFor="edit-module-status"><Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}><SelectTrigger id="edit-module-status"><SelectValue /></SelectTrigger><SelectContent>{MODULE_STATUSES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
-              <FormField label="Pipeline stage" htmlFor="edit-module-stage"><Select value={form.pipelineStage} onValueChange={(value) => setForm({ ...form, pipelineStage: value })}><SelectTrigger id="edit-module-stage"><SelectValue placeholder="Select a stage" /></SelectTrigger><SelectContent>{(stagesQuery.data ?? []).filter((stage) => !stage.hidden).map((stage: { id: string; value: string }) => <SelectItem key={stage.id} value={stage.value}>{stage.value}</SelectItem>)}</SelectContent></Select></FormField>
-              <FormField label="Due date" htmlFor="edit-module-due"><DatePickerInput id="edit-module-due" label="Due date" value={form.dueDate} onChange={(value) => setForm({ ...form, dueDate: value })} /></FormField>
-              <FormField label="Assigned to" htmlFor="edit-module-assignee"><Select value={form.assignedToUserId || "__unassigned__"} onValueChange={(value) => setForm({ ...form, assignedToUserId: value === "__unassigned__" ? "" : value })}><SelectTrigger id="edit-module-assignee"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="__unassigned__">Unassigned</SelectItem>{(members).map((member) => <SelectItem key={member.userId} value={member.userId}>{member.displayName}</SelectItem>)}</SelectContent></Select></FormField>
+                <FormField label="Status" htmlFor="edit-module-status">
+                  <Select
+                    value={form.status}
+                    onValueChange={(value) =>
+                      setForm({ ...form, status: value })
+                    }
+                  >
+                    <SelectTrigger id="edit-module-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODULE_STATUSES.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Pipeline stage" htmlFor="edit-module-stage">
+                  <Select
+                    value={form.pipelineStage}
+                    onValueChange={(value) =>
+                      setForm({ ...form, pipelineStage: value })
+                    }
+                  >
+                    <SelectTrigger id="edit-module-stage">
+                      <SelectValue placeholder="Select a stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(stagesQuery.data ?? [])
+                        .filter((stage) => !stage.hidden)
+                        .map((stage: { id: string; value: string }) => (
+                          <SelectItem key={stage.id} value={stage.value}>
+                            {stage.value}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Due date" htmlFor="edit-module-due">
+                  <DatePickerInput
+                    id="edit-module-due"
+                    label="Due date"
+                    value={form.dueDate}
+                    onChange={(value) => setForm({ ...form, dueDate: value })}
+                  />
+                </FormField>
+                <FormField
+                  label="Currently With"
+                  htmlFor="edit-module-currently-with"
+                >
+                  <PaperCurrentlyWithSelect
+                    id="edit-module-currently-with"
+                    currentlyWithType={form.currentlyWithType}
+                    assignedToUserId={form.assignedToUserId || null}
+                    currentUserId={me.data?.id}
+                    collaborators={paperCollaborators}
+                    onChange={(currentlyWithType, assignedToUserId) =>
+                      setForm({
+                        ...form,
+                        currentlyWithType,
+                        assignedToUserId: assignedToUserId ?? "",
+                      })
+                    }
+                  />
+                </FormField>
             </div>
             {updateModule.isError ? (
               <p role="alert" className="mt-6 text-sm text-destructive">
@@ -811,165 +1087,229 @@ export default function ModuleDetailPage() {
               </p>
             ) : null}
           </form>
-          <div className="flex justify-end gap-3 border-t pt-5"><Button type="button" variant="outline" onClick={cancelEditing}>Cancel</Button><Button type="submit" form="edit-module-details-form" disabled={updateModule.isPending}><Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}</Button></div>
+            <div className="border-t pt-5">
+              <h3 className="mb-3 text-sm font-semibold">Collaborators</h3>
+              {sameTenant ? (
+                <ModuleCollaboratorsManager
+                  tenantId={tenantId}
+                  moduleId={module.id}
+                  moduleTitle={paperDisplayTitle(module)}
+                  members={members}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  This paper was shared from another workspace. Only members of
+                  that workspace can manage collaborators.
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 border-t pt-5">
+              <Button type="button" variant="outline" onClick={cancelEditing}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="edit-module-details-form"
+                disabled={updateModule.isPending || !form.projectId}
+              >
+                <Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}
+              </Button>
+            </div>
         </CardContent>
-      </Card> : null}
+        </Card>
+      ) : null}
 
       {!form && module.abstract ? (
         <Card>
-          <CardHeader><CardTitle>Abstract</CardTitle></CardHeader>
-          <CardContent>
+          <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+            <CardTitle>Abstract</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-expanded={isAbstractVisible}
+              aria-controls="module-abstract-content"
+              onClick={() => setIsAbstractVisible((visible) => !visible)}
+            >
+              {isAbstractVisible ? <ChevronUp /> : <ChevronDown />}
+              {isAbstractVisible ? "Hide abstract" : "Show abstract"}
+            </Button>
+          </CardHeader>
+          {isAbstractVisible ? (
+          <CardContent id="module-abstract-content">
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
               {module.abstract}
             </p>
           </CardContent>
+          ) : null}
         </Card>
       ) : null}
 
       {!form &&
-      (module.targetJournal || module.backupJournal || module.targetConference || module.backupConference) ? (
+      (module.targetJournal ||
+        module.backupJournal ||
+        module.targetConference ||
+        module.backupConference) ? (
         <Card>
-          <CardHeader><CardTitle>Journals &amp; conferences</CardTitle></CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2">
+          <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+            <CardTitle>Journals &amp; conferences</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-expanded={isPublishingTargetsVisible}
+              aria-controls="module-publishing-targets-content"
+              onClick={() =>
+                setIsPublishingTargetsVisible((visible) => !visible)
+              }
+            >
+              {isPublishingTargetsVisible ? <ChevronUp /> : <ChevronDown />}
+              {isPublishingTargetsVisible
+                ? "Hide journals & conferences"
+                : "Show journals & conferences"}
+            </Button>
+          </CardHeader>
+          {isPublishingTargetsVisible ? (
+          <CardContent
+            id="module-publishing-targets-content"
+            className="grid gap-3 sm:grid-cols-2"
+          >
             {module.targetJournal ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target journals</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Target journals
+                  </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {splitEntries(module.targetJournal).map((entry) => (
-                    <Badge key={entry} variant="secondary">{entry}</Badge>
+                      <Badge key={entry} variant="secondary">
+                        {entry}
+                      </Badge>
                   ))}
                 </div>
               </div>
             ) : null}
             {module.backupJournal ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backup journals</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Backup journals
+                  </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {splitEntries(module.backupJournal).map((entry) => (
-                    <Badge key={entry} variant="secondary">{entry}</Badge>
+                      <Badge key={entry} variant="secondary">
+                        {entry}
+                      </Badge>
                   ))}
                 </div>
               </div>
             ) : null}
             {module.targetConference ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target conferences</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Target conferences
+                  </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {splitEntries(module.targetConference).map((entry) => (
-                    <Badge key={entry} variant="secondary">{entry}</Badge>
+                      <Badge key={entry} variant="secondary">
+                        {entry}
+                      </Badge>
                   ))}
                 </div>
               </div>
             ) : null}
             {module.backupConference ? (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Backup conferences</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Backup conferences
+                  </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {splitEntries(module.backupConference).map((entry) => (
-                    <Badge key={entry} variant="secondary">{entry}</Badge>
+                      <Badge key={entry} variant="secondary">
+                        {entry}
+                      </Badge>
                   ))}
                 </div>
               </div>
             ) : null}
           </CardContent>
+          ) : null}
         </Card>
       ) : null}
 
       <div className="flex flex-col gap-6">
         <section aria-labelledby="module-linked-work-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 id="module-linked-work-heading" className="text-lg font-semibold">Linked work</h2>
-            <Button variant="outline" size="sm" aria-expanded={isLinkedWorkVisible} aria-controls="module-linked-work-content" onClick={() => setIsLinkedWorkVisible((visible) => !visible)}>
+            <h2
+              id="module-linked-work-heading"
+              className="text-lg font-semibold"
+            >
+              Linked work
+            </h2>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-expanded={isLinkedWorkVisible}
+              aria-controls="module-linked-work-content"
+              onClick={() => setIsLinkedWorkVisible((visible) => !visible)}
+            >
               {isLinkedWorkVisible ? <ChevronUp /> : <ChevronDown />}
               {isLinkedWorkVisible ? "Hide linked work" : "Show linked work"}
             </Button>
           </div>
           {isLinkedWorkVisible ? (
-            <div id="module-linked-work-content" className="grid gap-6 lg:grid-cols-3">
-              <LinkedProjectCard
-                module={module}
-                canChangeProject={sameTenant}
-                availableProjects={availableProjects}
-                generalProject={generalProject}
-                linkedProject={{
-                  title: linkedProjectQuery.data?.title,
-                  isError: linkedProjectQuery.isError,
-                }}
-                isSaving={updateModule.isPending}
-                onChangeProject={handleChangeProject}
-              />
+            <div
+              id="module-linked-work-content"
+              className="grid gap-6 lg:grid-cols-2"
+            >
               <ModuleTasksDetails
                 tasks={moduleTasks}
-                onAddTask={sameTenant ? () => setIsAddTaskOpen(true) : undefined}
-                onLinkExisting={sameTenant ? () => setIsLinkTasksOpen(true) : undefined}
-                onUnlinkTask={sameTenant ? (task) => void handleUnlinkTask(task) : undefined}
+                onAddTask={
+                  sameTenant ? () => setIsAddTaskOpen(true) : undefined
+                }
+                onLinkExisting={
+                  sameTenant ? () => setIsLinkTasksOpen(true) : undefined
+                }
+                onUnlinkTask={
+                  sameTenant ? (task) => void handleUnlinkTask(task) : undefined
+                }
               />
               <ModuleNotesDetails
                 notes={moduleNotes}
-                addNoteHref={sameTenant ? `/daily-notes?moduleId=${module.id}&new=true` : undefined}
-                onLinkExisting={sameTenant ? () => setIsLinkNotesOpen(true) : undefined}
-                onUnlinkNote={sameTenant ? (note) => void handleUnlinkNote(note) : undefined}
+                addNoteHref={
+                  sameTenant
+                    ? `/daily-notes?moduleId=${module.id}&new=true`
+                    : undefined
+                }
+                onLinkExisting={
+                  sameTenant ? () => setIsLinkNotesOpen(true) : undefined
+                }
+                onUnlinkNote={
+                  sameTenant ? (note) => void handleUnlinkNote(note) : undefined
+                }
               />
             </div>
           ) : null}
         </section>
 
-        <section aria-labelledby="module-collaborators-heading">
+        {sameTenant ? (
+          <section aria-labelledby="module-submission-history-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 id="module-collaborators-heading" className="text-lg font-semibold">Collaborators</h2>
+              <h2
+                id="module-submission-history-heading"
+                className="text-lg font-semibold"
+              >
+                Submission history
+              </h2>
             <Button
               variant="outline"
               size="sm"
-              aria-expanded={isCollaboratorsVisible}
-              aria-controls="module-collaborators-content"
-              onClick={() => setIsCollaboratorsVisible((visible) => !visible)}
+                aria-expanded={isSubmissionHistoryVisible}
+                aria-controls="module-submission-history-content"
+                onClick={() =>
+                  setIsSubmissionHistoryVisible((visible) => !visible)
+                }
             >
-              {isCollaboratorsVisible ? <ChevronUp /> : <ChevronDown />}
-              {isCollaboratorsVisible ? "Hide collaborators" : "Show collaborators"}
-            </Button>
-          </div>
-          {isCollaboratorsVisible ? (
-            <Card id="module-collaborators-content">
-              <CardHeader>
-                <CardTitle>Collaborators on this paper</CardTitle>
-                {module.projectId ? (
-                  <p className="text-sm text-muted-foreground">
-                    Project collaborators already inherit access. You can also invite someone directly to this paper by email.
-                  </p>
-                ) : null}
-              </CardHeader>
-              <CardContent>
-                {!tenantId ? (
-                  <EmptyState
-                    icon={Users}
-                    title="No workspace selected"
-                    description="Select a workspace to manage collaborators."
-                    className="min-h-40 border-0 bg-muted/30"
-                  />
-                ) : sameTenant ? (
-                  <ModuleCollaboratorsManager
-                    tenantId={tenantId}
-                    moduleId={module.id}
-                    moduleTitle={paperDisplayTitle(module)}
-                    members={members}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    This paper was shared with you from another workspace. Only members of that workspace can manage who has access.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-        </section>
-
-        {sameTenant ? (
-          <section aria-labelledby="module-submission-history-heading">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 id="module-submission-history-heading" className="text-lg font-semibold">Submission history</h2>
-              <Button variant="outline" size="sm" aria-expanded={isSubmissionHistoryVisible} aria-controls="module-submission-history-content" onClick={() => setIsSubmissionHistoryVisible((visible) => !visible)}>
                 {isSubmissionHistoryVisible ? <ChevronUp /> : <ChevronDown />}
-                {isSubmissionHistoryVisible ? "Hide submission history" : "Show submission history"}
+                {isSubmissionHistoryVisible
+                  ? "Hide submission history"
+                  : "Show submission history"}
               </Button>
             </div>
             {isSubmissionHistoryVisible ? (
@@ -979,7 +1319,9 @@ export default function ModuleDetailPage() {
                   canManage={sameTenant}
                   onAdd={openAddSubmission}
                   onEdit={openEditSubmission}
-                  onDelete={(submission) => void handleDeleteSubmission(submission)}
+                  onDelete={(submission) =>
+                    void handleDeleteSubmission(submission)
+                  }
                 />
               </div>
             ) : null}
@@ -1011,7 +1353,9 @@ export default function ModuleDetailPage() {
           fieldId="link-existing-module-tasks"
           placeholder="Search tasks by title"
           options={linkableTaskOptions}
-          emptyMessage={tasksQuery.isPending ? "Loading tasks…" : "No matching tasks."}
+          emptyMessage={
+            tasksQuery.isPending ? "Loading tasks…" : "No matching tasks."
+          }
           confirmLabel="Link tasks"
           onConfirm={handleLinkTasks}
         />
@@ -1024,7 +1368,9 @@ export default function ModuleDetailPage() {
           fieldId="link-existing-module-notes"
           placeholder="Search notes by title"
           options={linkableNoteOptions}
-          emptyMessage={notesQuery.isPending ? "Loading notes…" : "No matching notes."}
+          emptyMessage={
+            notesQuery.isPending ? "Loading notes…" : "No matching notes."
+          }
           confirmLabel="Link notes"
           onConfirm={handleLinkNotes}
         />

@@ -69,6 +69,9 @@ describe('ProjectModulesService', () => {
     projectCollaboratorsRepository = {
       findByProjectAndUser: jest.fn().mockResolvedValue(undefined),
     };
+    sequences = {
+      nextDisplayId: jest.fn().mockResolvedValue('MOD-0001'),
+    };
     service = new ProjectModulesService(
       repository as unknown as ProjectModulesRepository,
       enumRepository as unknown as EnumRepository,
@@ -77,9 +80,6 @@ describe('ProjectModulesService', () => {
       projectsRepository as unknown as ProjectsRepository,
       sequences as unknown as TenantSequencesRepository,
     );
-    sequences = {
-      nextDisplayId: jest.fn().mockResolvedValue('MOD-0001'),
-    };
   });
 
   describe('findOne', () => {
@@ -387,6 +387,55 @@ describe('ProjectModulesService', () => {
   });
 
   describe('create', () => {
+    it('defaults a new paper to Currently With Me', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        pipelineStageId: null,
+      });
+
+      await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
+        shortTitle: 'New Paper',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currentlyWithType: 'me',
+          assignedToUserId: 'user-1',
+        }),
+      );
+    });
+
+    it('stores Journal without a user assignment', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        pipelineStageId: null,
+      });
+
+      await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
+        shortTitle: 'New Paper',
+        currentlyWithType: 'journal',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currentlyWithType: 'journal',
+          assignedToUserId: null,
+        }),
+      );
+    });
+
     it('rejects creating a paper for a project that does not exist', async () => {
       projectsRepository.findById.mockResolvedValue(undefined);
 
@@ -591,6 +640,91 @@ describe('ProjectModulesService', () => {
   });
 
   describe('update', () => {
+    it('assigns Currently With to a collaborator already on the paper', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        pipelineStageId: null,
+        assignedToUserId: 'user-1',
+      });
+      collaboratorsRepository.findByModuleAndUser
+        .mockResolvedValueOnce({ roleId: 'owner-role-id' })
+        .mockResolvedValueOnce({ roleId: 'editor-role-id' });
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        pipelineStageId: null,
+      });
+
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        currentlyWithType: 'collaborator',
+        assignedToUserId: 'user-2',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({
+          currentlyWithType: 'collaborator',
+          assignedToUserId: 'user-2',
+        }),
+      );
+    });
+
+    it('rejects a Currently With collaborator who is not on the paper', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        pipelineStageId: null,
+        assignedToUserId: 'user-1',
+      });
+      collaboratorsRepository.findByModuleAndUser
+        .mockResolvedValueOnce({ roleId: 'owner-role-id' })
+        .mockResolvedValueOnce(undefined);
+
+      await expect(
+        service.update('tenant-1', 'module-1', 'user-1', {
+          currentlyWithType: 'collaborator',
+          assignedToUserId: 'user-3',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('clears the user assignment for Friendly reviewer', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        pipelineStageId: null,
+        assignedToUserId: 'user-2',
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'owner-role-id',
+      });
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        pipelineStageId: null,
+      });
+
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        currentlyWithType: 'friendly_reviewer',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({
+          currentlyWithType: 'friendly_reviewer',
+          assignedToUserId: null,
+        }),
+      );
+    });
+
     it("rejects moving a paper into another user's project", async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',

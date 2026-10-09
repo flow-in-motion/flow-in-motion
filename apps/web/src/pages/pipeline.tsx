@@ -24,6 +24,7 @@ import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -298,16 +299,21 @@ export default function PipelinePage() {
   }, [members]);
 
   const assigneeOptions = useMemo(() => {
-    const ids = new Set<string>();
-    for (const module of modules) {
-      if (module.assignedToUserId) ids.add(module.assignedToUserId);
-    }
-    const labeled = Array.from(ids).map((id) => ({
-      id,
-      label: id === me.data?.id ? "Me" : (memberNameById.get(id) ?? "Other member"),
-    }));
-    labeled.sort((a, b) => a.label.localeCompare(b.label));
-    return [{ id: "All", label: "All assignees" }, { id: "Unassigned", label: "Unassigned" }, ...labeled];
+    const labels = new Set(
+      modules
+        .map((module) =>
+          paperCurrentlyWithLabel(module, me.data?.id, memberNameById),
+        )
+        .filter((label) => label !== "Not set"),
+    );
+    const labeled = Array.from(labels)
+      .sort((a, b) => a.localeCompare(b))
+      .map((label) => ({ id: label, label }));
+    return [
+      { id: "All", label: "All current holders" },
+      { id: "Not set", label: "Not set" },
+      ...labeled,
+    ];
   }, [modules, memberNameById, me.data?.id]);
 
   const moduleProjectFilterOptions = useMemo(() => {
@@ -327,17 +333,17 @@ export default function PipelinePage() {
     () =>
       modules.map((module) => {
         const counts = taskCountByModule.get(module.id) ?? { completed: 0, total: 0 };
-        const assigneeLabel = module.assignedToUserId
-          ? module.assignedToUserId === me.data?.id
-            ? "Me"
-            : (memberNameById.get(module.assignedToUserId) ?? "Other member")
-          : null;
+        const currentlyWith = paperCurrentlyWithLabel(
+          module,
+          me.data?.id,
+          memberNameById,
+        );
         return {
           id: module.id,
           displayId: module.displayId,
           title: paperDisplayTitle(module),
           status: module.status,
-          assignee: assigneeLabel,
+          assignee: currentlyWith === "Not set" ? null : currentlyWith,
           projectId: module.projectId,
           completion: progressByStage.get(module.pipelineStage ?? "") ?? 0,
           outstanding: counts.total - counts.completed,
@@ -352,8 +358,8 @@ export default function PipelinePage() {
   const filteredRows = useMemo(() => {
     return moduleRows.filter((row) => {
       if (moduleStatus !== "All" && row.status !== moduleStatus) return false;
-      if (assignee === "Unassigned" && row.assignee !== null) return false;
-      if (assignee !== "All" && assignee !== "Unassigned" && row.assignee !== assignee) return false;
+      if (assignee === "Not set" && row.assignee !== null) return false;
+      if (assignee !== "All" && assignee !== "Not set" && row.assignee !== assignee) return false;
       if (moduleProjectFilter === "None" && row.projectId !== null) return false;
       if (
         moduleProjectFilter !== ALL_ENTITIES &&
@@ -387,6 +393,7 @@ export default function PipelinePage() {
       pipelineStage: input.pipelineStage,
       dueDate: input.dueDate || undefined,
       assignedToUserId: input.assignedToUserId ?? undefined,
+      currentlyWithType: input.currentlyWithType ?? undefined,
     });
     trackEvent({ name: "module_created" });
     return module;
@@ -524,7 +531,7 @@ export default function PipelinePage() {
           </Select>
           <Select value={assignee} onValueChange={setAssignee}>
             <SelectTrigger className="sm:w-44">
-              <SelectValue placeholder="Assignee" />
+              <SelectValue placeholder="Currently With" />
             </SelectTrigger>
             <SelectContent>
               {assigneeOptions.map((option) => (

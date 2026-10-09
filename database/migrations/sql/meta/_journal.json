@@ -386,6 +386,13 @@
       "when": 1791507491045,
       "tag": "0070_funding_detail_links",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1791528092794,
+      "tag": "0071_paper_currently_with",
+      "breakpoints": true
     }
   ]
 }
