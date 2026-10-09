@@ -23,6 +23,8 @@ describe('FundingsController', () => {
       page: 2,
       pageSize: 50,
       search: ' ARC ',
+      sortBy: 'amount',
+      sortDirection: 'desc',
     });
 
     expect(service.list).toHaveBeenCalledWith(
@@ -31,6 +33,8 @@ describe('FundingsController', () => {
       2,
       50,
       'ARC',
+      'amount',
+      'desc',
     );
   });
 });

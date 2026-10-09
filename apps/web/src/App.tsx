@@ -19,6 +19,7 @@ const CalendarPage = lazy(() => import("@/pages/calendar"));
 const MindMapPage = lazy(() => import("@/pages/mind-map"));
 const ConferencesPage = lazy(() => import("@/pages/conferences"));
 const FundingPage = lazy(() => import("@/pages/funding"));
+const FundingDetailPage = lazy(() => import("@/pages/funding-detail"));
 const ConferenceDetailPage = lazy(() => import("@/pages/conference-detail"));
 const TaskDetailPage = lazy(() => import("@/pages/task-detail"));
 const DailyNotesPage = lazy(() => import("@/pages/daily-notes"));
@@ -98,6 +99,7 @@ export default function App() {
               <Route path="mind-map" element={routePage(<MindMapPage />)} />
               <Route path="conferences" element={routePage(<ConferencesPage />)} />
               <Route path="funding" element={routePage(<FundingPage />)} />
+              <Route path="funding/:fundingId" element={routePage(<FundingDetailPage />)} />
               <Route path="conferences/:conferenceId" element={routePage(<ConferenceDetailPage />)} />
               <Route path="tasks/:taskId" element={routePage(<TaskDetailPage />)} />
               <Route path="daily-notes" element={routePage(<DailyNotesPage />)} />

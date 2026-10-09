@@ -1,14 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import {
   fundingModules,
+  fundingNotes,
   fundingProjects,
+  fundingTasks,
   fundings,
   moduleCollaborators,
   modules,
   projectCollaborators,
   projects,
+  noteMembers,
+  notes,
+  taskMembers,
+  tasks,
 } from '@research-tracker/migrations';
 import {
+  asc,
   and,
   desc,
   eq,
@@ -21,6 +28,10 @@ import {
 } from 'drizzle-orm';
 import { searchPattern } from '../../../common/pagination';
 import { DrizzleService } from '../../../db/drizzle.service';
+import type {
+  FundingSortDirection,
+  FundingSortField,
+} from '../dto/list-fundings-query.dto';
 
 interface CreateFundingValues {
   tenantId: string;
@@ -31,6 +42,7 @@ interface CreateFundingValues {
   amount: string | null;
   currency: string | null;
   applicationDeadline: string | null;
+  followUpDate: string | null;
   status: string | null;
   notes: string | null;
 }
@@ -43,12 +55,108 @@ type UpdateFundingValues = Partial<
 export class FundingsRepository {
   constructor(private readonly drizzle: DrizzleService) {}
 
+  private activeNoteParentCondition() {
+    return and(
+      or(
+        isNull(notes.projectId),
+        exists(
+          this.drizzle.db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, notes.projectId),
+                isNull(projects.archivedAt),
+              ),
+            ),
+        ),
+      ),
+      or(
+        isNull(notes.moduleId),
+        exists(
+          this.drizzle.db
+            .select({ id: modules.id })
+            .from(modules)
+            .where(
+              and(
+                eq(modules.id, notes.moduleId),
+                isNull(modules.archivedAt),
+                or(
+                  isNull(modules.projectId),
+                  exists(
+                    this.drizzle.db
+                      .select({ id: projects.id })
+                      .from(projects)
+                      .where(
+                        and(
+                          eq(projects.id, modules.projectId),
+                          isNull(projects.archivedAt),
+                        ),
+                      ),
+                  ),
+                ),
+              ),
+            ),
+        ),
+      ),
+    );
+  }
+
+  private activeTaskParentCondition() {
+    return and(
+      or(
+        isNull(tasks.projectId),
+        exists(
+          this.drizzle.db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, tasks.projectId),
+                isNull(projects.archivedAt),
+              ),
+            ),
+        ),
+      ),
+      or(
+        isNull(tasks.moduleId),
+        exists(
+          this.drizzle.db
+            .select({ id: modules.id })
+            .from(modules)
+            .where(
+              and(
+                eq(modules.id, tasks.moduleId),
+                isNull(modules.archivedAt),
+                or(
+                  isNull(modules.projectId),
+                  exists(
+                    this.drizzle.db
+                      .select({ id: projects.id })
+                      .from(projects)
+                      .where(
+                        and(
+                          eq(projects.id, modules.projectId),
+                          isNull(projects.archivedAt),
+                        ),
+                      ),
+                  ),
+                ),
+              ),
+            ),
+        ),
+      ),
+    );
+  }
+
   async findVisiblePageByUser(
     tenantId: string,
     userId: string,
     offset: number,
     limit: number,
     search?: string,
+    sortBy?: FundingSortField,
+    sortDirection: FundingSortDirection = 'asc',
   ) {
     const visibility = or(
       eq(fundings.ownerUserId, userId),
@@ -61,6 +169,7 @@ export class FundingsRepository {
           ilike(fundings.scheme, pattern),
           ilike(fundings.partners, pattern),
           ilike(fundings.status, pattern),
+          ilike(fundings.notes, pattern),
           exists(
             this.drizzle.db
               .select({ id: fundingProjects.id })
@@ -95,16 +204,57 @@ export class FundingsRepository {
       visibility,
       searchFilter,
     );
+    const direction = sortDirection === 'asc' ? asc : desc;
+    const linksCount = sql<number>`(
+      (select count(*)
+       from ${fundingProjects}
+       inner join ${projects} on ${projects.id} = ${fundingProjects.projectId}
+       where ${fundingProjects.fundingId} = ${fundings.id}
+         and ${projects.archivedAt} is null)
+      +
+      (select count(*)
+       from ${fundingModules}
+       inner join ${modules} on ${modules.id} = ${fundingModules.moduleId}
+       left join ${projects} linked_project on linked_project.id = ${modules.projectId}
+       where ${fundingModules.fundingId} = ${fundings.id}
+         and ${modules.archivedAt} is null
+         and (linked_project.id is null or linked_project.archived_at is null))
+    )`;
+    const sortExpression = sortBy
+      ? {
+          fundingBody: sql`lower(${fundings.fundingBody})`,
+          scheme: sql`lower(${fundings.scheme})`,
+          partners: sql`lower(${fundings.partners})`,
+          amount: fundings.amount,
+          applicationDeadline: fundings.applicationDeadline,
+          followUpDate: fundings.followUpDate,
+          status: sql`lower(${fundings.status})`,
+          links: linksCount,
+        }[sortBy]
+      : undefined;
+    const sortedExpression = sortExpression
+      ? sortDirection === 'asc'
+        ? sql`${sortExpression} ASC NULLS LAST`
+        : sql`${sortExpression} DESC NULLS LAST`
+      : undefined;
+    const orderBy = sortedExpression
+      ? [
+          sortedExpression,
+          direction(fundings.createdAt),
+          direction(fundings.id),
+        ]
+      : [
+          sql`${fundings.applicationDeadline} ASC NULLS LAST`,
+          desc(fundings.createdAt),
+          desc(fundings.id),
+        ];
 
     const [data, countResult] = await Promise.all([
       this.drizzle.db
         .select()
         .from(fundings)
         .where(where)
-        .orderBy(
-          sql`${fundings.applicationDeadline} ASC NULLS LAST`,
-          desc(fundings.createdAt),
-        )
+        .orderBy(...orderBy)
         .limit(limit)
         .offset(offset),
       this.drizzle.db
@@ -246,6 +396,186 @@ export class FundingsRepository {
           eq(fundingModules.fundingId, fundingId),
           isNull(modules.archivedAt),
           or(isNull(projects.id), isNull(projects.archivedAt)),
+        ),
+      );
+  }
+
+  async findLinkedNotes(tenantId: string, fundingId: string, userId: string) {
+    return this.drizzle.db
+      .select({
+        id: notes.id,
+        displayId: notes.displayId,
+        title: notes.title,
+        content: notes.content,
+        followUpDate: notes.followUpDate,
+        createdAt: notes.createdAt,
+      })
+      .from(fundingNotes)
+      .innerJoin(notes, eq(notes.id, fundingNotes.noteId))
+      .where(
+        and(
+          eq(fundingNotes.tenantId, tenantId),
+          eq(fundingNotes.fundingId, fundingId),
+          eq(notes.tenantId, tenantId),
+          this.activeNoteParentCondition(),
+          or(
+            eq(notes.createdBy, userId),
+            exists(
+              this.drizzle.db
+                .select({ id: noteMembers.id })
+                .from(noteMembers)
+                .where(
+                  and(
+                    eq(noteMembers.tenantId, tenantId),
+                    eq(noteMembers.noteId, notes.id),
+                    eq(noteMembers.userId, userId),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      )
+      .orderBy(desc(notes.updatedAt), desc(notes.id));
+  }
+
+  async findLinkedTasks(tenantId: string, fundingId: string, userId: string) {
+    return this.drizzle.db
+      .select({
+        id: tasks.id,
+        displayId: tasks.displayId,
+        title: tasks.title,
+        description: tasks.description,
+        dueDate: tasks.dueDate,
+        createdAt: tasks.createdAt,
+      })
+      .from(fundingTasks)
+      .innerJoin(tasks, eq(tasks.id, fundingTasks.taskId))
+      .where(
+        and(
+          eq(fundingTasks.tenantId, tenantId),
+          eq(fundingTasks.fundingId, fundingId),
+          eq(tasks.tenantId, tenantId),
+          this.activeTaskParentCondition(),
+          or(
+            eq(tasks.createdBy, userId),
+            exists(
+              this.drizzle.db
+                .select({ id: taskMembers.id })
+                .from(taskMembers)
+                .where(
+                  and(
+                    eq(taskMembers.tenantId, tenantId),
+                    eq(taskMembers.taskId, tasks.id),
+                    eq(taskMembers.userId, userId),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      )
+      .orderBy(desc(tasks.updatedAt), desc(tasks.id));
+  }
+
+  async findAccessibleNoteById(
+    tenantId: string,
+    noteId: string,
+    userId: string,
+  ) {
+    const [note] = await this.drizzle.db
+      .select({ id: notes.id })
+      .from(notes)
+      .where(
+        and(
+          eq(notes.tenantId, tenantId),
+          eq(notes.id, noteId),
+          this.activeNoteParentCondition(),
+          or(
+            eq(notes.createdBy, userId),
+            exists(
+              this.drizzle.db
+                .select({ id: noteMembers.id })
+                .from(noteMembers)
+                .where(
+                  and(
+                    eq(noteMembers.tenantId, tenantId),
+                    eq(noteMembers.noteId, notes.id),
+                    eq(noteMembers.userId, userId),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      );
+    return note;
+  }
+
+  async findAccessibleTaskById(
+    tenantId: string,
+    taskId: string,
+    userId: string,
+  ) {
+    const [task] = await this.drizzle.db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.tenantId, tenantId),
+          eq(tasks.id, taskId),
+          this.activeTaskParentCondition(),
+          or(
+            eq(tasks.createdBy, userId),
+            exists(
+              this.drizzle.db
+                .select({ id: taskMembers.id })
+                .from(taskMembers)
+                .where(
+                  and(
+                    eq(taskMembers.tenantId, tenantId),
+                    eq(taskMembers.taskId, tasks.id),
+                    eq(taskMembers.userId, userId),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      );
+    return task;
+  }
+
+  async attachNote(tenantId: string, fundingId: string, noteId: string) {
+    await this.drizzle.db
+      .insert(fundingNotes)
+      .values({ tenantId, fundingId, noteId })
+      .onConflictDoNothing();
+  }
+
+  async detachNote(tenantId: string, fundingId: string, noteId: string) {
+    await this.drizzle.db
+      .delete(fundingNotes)
+      .where(
+        and(
+          eq(fundingNotes.tenantId, tenantId),
+          eq(fundingNotes.fundingId, fundingId),
+          eq(fundingNotes.noteId, noteId),
+        ),
+      );
+  }
+
+  async attachTask(tenantId: string, fundingId: string, taskId: string) {
+    await this.drizzle.db
+      .insert(fundingTasks)
+      .values({ tenantId, fundingId, taskId })
+      .onConflictDoNothing();
+  }
+
+  async detachTask(tenantId: string, fundingId: string, taskId: string) {
+    await this.drizzle.db
+      .delete(fundingTasks)
+      .where(
+        and(
+          eq(fundingTasks.tenantId, tenantId),
+          eq(fundingTasks.fundingId, fundingId),
+          eq(fundingTasks.taskId, taskId),
         ),
       );
   }

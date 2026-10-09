@@ -7,6 +7,7 @@ import FundingPage from "@/pages/funding";
 const fixtures = vi.hoisted(() => ({
   fundings: [] as Record<string, unknown>[],
   deleteFunding: vi.fn(),
+  useFundings: vi.fn(),
   useProjects: vi.fn(),
   useModules: vi.fn(),
 }));
@@ -17,21 +18,24 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
-  useFundings: () => ({
-    data: {
-      data: fixtures.fundings,
-      meta: {
-        page: 1,
-        pageSize: 20,
-        totalItems: fixtures.fundings.length,
-        totalPages: 1,
+  useFundings: (...args: unknown[]) => {
+    fixtures.useFundings(...args);
+    return {
+      data: {
+        data: fixtures.fundings,
+        meta: {
+          page: 1,
+          pageSize: 20,
+          totalItems: fixtures.fundings.length,
+          totalPages: 1,
+        },
       },
-    },
-    isPending: false,
-    isFetching: false,
-    isError: false,
-    refetch: vi.fn(),
-  }),
+      isPending: false,
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    };
+  },
   useCreateFunding: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateFunding: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteFunding: () => ({
@@ -54,6 +58,7 @@ describe("FundingPage", () => {
   beforeEach(() => {
     fixtures.deleteFunding.mockReset();
     fixtures.deleteFunding.mockResolvedValue({});
+    fixtures.useFundings.mockReset();
     fixtures.useProjects.mockReset();
     fixtures.useProjects.mockReturnValue({
       data: { data: [], generalProject: null },
@@ -75,8 +80,9 @@ describe("FundingPage", () => {
         amount: "250000.00",
         currency: "AUD",
         applicationDeadline: "2027-03-15",
+        followUpDate: "2027-03-22",
         status: "Preparing",
-        notes: null,
+        description: "Funding description",
         projects: [
           { id: "project-1", displayId: "PRJ-1", title: "Research Project" },
         ],
@@ -101,7 +107,9 @@ describe("FundingPage", () => {
     expect(
       screen.getByRole("heading", { name: "Funding" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Australian Research Council")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Australian Research Council" }),
+    ).toHaveAttribute("href", "/funding/funding-1");
     expect(screen.getByText("Discovery Projects")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "PRJ-1" })).toHaveAttribute(
       "href",
@@ -173,5 +181,25 @@ describe("FundingPage", () => {
         name: "Delete Australian Research Council",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("sorts the full funding result set through the server query", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Amount" }));
+    expect(fixtures.useFundings).toHaveBeenLastCalledWith(
+      "workspace-1",
+      1,
+      true,
+      expect.objectContaining({ sortBy: "amount", sortDirection: "asc" }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Amount" }));
+    expect(fixtures.useFundings).toHaveBeenLastCalledWith(
+      "workspace-1",
+      1,
+      true,
+      expect.objectContaining({ sortBy: "amount", sortDirection: "desc" }),
+    );
   });
 });

@@ -58,12 +58,23 @@ export class CreateFundingDto {
   @IsDateString()
   applicationDeadline?: string | null;
 
+  @ApiPropertyOptional({ example: '2027-03-22', nullable: true })
+  @IsOptional()
+  @IsDateString()
+  followUpDate?: string | null;
+
   @ApiPropertyOptional({ enum: FUNDING_STATUSES, nullable: true })
   @IsOptional()
   @IsIn(FUNDING_STATUSES)
   status?: (typeof FUNDING_STATUSES)[number] | null;
 
   @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  description?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, deprecated: true })
   @IsOptional()
   @IsString()
   @MaxLength(5000)

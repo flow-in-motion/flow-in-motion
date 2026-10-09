@@ -47,8 +47,9 @@ interface FundingFormState {
   amount: string;
   currency: string;
   applicationDeadline: string;
+  followUpDate: string;
   status: FundingStatus | "";
-  notes: string;
+  description: string;
 }
 
 const INITIAL_FORM: FundingFormState = {
@@ -58,8 +59,9 @@ const INITIAL_FORM: FundingFormState = {
   amount: "",
   currency: "",
   applicationDeadline: "",
+  followUpDate: "",
   status: "",
-  notes: "",
+  description: "",
 };
 
 interface FundingDialogProps {
@@ -173,8 +175,9 @@ export function FundingDialog({
             amount: funding.amount ?? "",
             currency: funding.currency ?? "",
             applicationDeadline: funding.applicationDeadline ?? "",
+            followUpDate: funding.followUpDate ?? "",
             status: funding.status ?? "",
-            notes: funding.notes ?? "",
+            description: funding.description ?? funding.notes ?? "",
           }
         : INITIAL_FORM,
     );
@@ -229,8 +232,9 @@ export function FundingDialog({
         amount: form.amount.trim() || null,
         currency: form.currency.trim().toUpperCase() || null,
         applicationDeadline: form.applicationDeadline || null,
+        followUpDate: form.followUpDate || null,
         status: form.status || null,
-        notes: form.notes.trim() || null,
+        description: form.description.trim() || null,
         projectIds: selectedProjects.map((project) => project.id),
         moduleIds: selectedPapers.map((paper) => paper.id),
       });
@@ -377,6 +381,18 @@ export function FundingDialog({
                 ))}
               </SelectContent>
             </Select>
+          </FormField>
+
+          <FormField label="Follow-up date" htmlFor="funding-follow-up-date">
+            <DatePickerInput
+              id="funding-follow-up-date"
+              label="Follow-up date"
+              allowTyped
+              value={form.followUpDate}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, followUpDate: value }))
+              }
+            />
           </FormField>
 
           <FormField label="Linked projects" htmlFor="funding-project-search">
@@ -547,17 +563,17 @@ export function FundingDialog({
             ) : null}
           </FormField>
 
-          <FormField label="Notes" htmlFor="funding-notes">
+          <FormField label="Description" htmlFor="funding-description">
             <Textarea
-              id="funding-notes"
-              value={form.notes}
+              id="funding-description"
+              value={form.description}
               onChange={(event) =>
                 setForm((current) => ({
                   ...current,
-                  notes: event.target.value,
+                  description: event.target.value,
                 }))
               }
-              placeholder="Optional funding notes"
+              placeholder="Optional funding description"
               rows={3}
             />
           </FormField>
