@@ -16,7 +16,7 @@ import {
   useCurrentWorkspace,
   useMe,
   useMembers,
-  useModuleCollaborators,
+  useModuleCollaboratorContacts,
   useModulePipelineStagePool,
   useModules,
   usePaperCurrentlyWithCollaborators,
@@ -152,18 +152,18 @@ function MultiSelectFilter({
 
 interface CurrentlyWithFilterProps {
   selectedTypes: ReadonlySet<string>;
-  selectedUserIds: ReadonlySet<string>;
+  selectedContactIds: ReadonlySet<string>;
   collaborators: readonly PaperCurrentlyWithCollaborator[];
   isLoading: boolean;
   onOpenChange: (open: boolean) => void;
   onToggleType: (value: PaperCurrentlyWithType) => void;
-  onToggleCollaborator: (userId: string) => void;
+  onToggleCollaborator: (contactId: string) => void;
   onClear: () => void;
 }
 
 function CurrentlyWithFilter({
   selectedTypes,
-  selectedUserIds,
+  selectedContactIds,
   collaborators,
   isLoading,
   onOpenChange,
@@ -171,22 +171,22 @@ function CurrentlyWithFilter({
   onToggleCollaborator,
   onClear,
 }: CurrentlyWithFilterProps) {
-  const selectionCount = selectedTypes.size + selectedUserIds.size;
+  const selectionCount = selectedTypes.size + selectedContactIds.size;
   const selectedCollaborator =
-    selectedUserIds.size === 1
-      ? collaborators.find((item) => selectedUserIds.has(item.userId))
+    selectedContactIds.size === 1
+      ? collaborators.find((item) => selectedContactIds.has(item.id))
       : undefined;
   const onlySelectedType =
-    selectedTypes.size === 1 && selectedUserIds.size === 0
+    selectedTypes.size === 1 && selectedContactIds.size === 0
       ? ([...selectedTypes][0] as PaperCurrentlyWithType)
       : undefined;
   const triggerLabel =
     selectionCount === 0
       ? "All current holders"
       : selectedCollaborator
-        ? selectedCollaborator.displayName ??
+        ? (selectedCollaborator.displayName ??
           selectedCollaborator.affiliation ??
-          "Unnamed collaborator"
+          "Unnamed collaborator")
         : onlySelectedType
           ? CURRENTLY_WITH_FILTER_LABELS[onlySelectedType]
           : `${selectionCount} current holders`;
@@ -227,11 +227,12 @@ function CurrentlyWithFilter({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <span>Collaborators/Coauthors</span>
-            {selectedTypes.has("collaborator") || selectedUserIds.size > 0 ? (
+            {selectedTypes.has("collaborator") ||
+            selectedContactIds.size > 0 ? (
               <span className="ml-auto text-xs text-muted-foreground">
                 {selectedTypes.has("collaborator")
                   ? "All"
-                  : selectedUserIds.size}
+                  : selectedContactIds.size}
               </span>
             ) : null}
           </DropdownMenuSubTrigger>
@@ -251,12 +252,10 @@ function CurrentlyWithFilter({
             ) : collaborators.length ? (
               collaborators.map((collaborator) => (
                 <DropdownMenuCheckboxItem
-                  key={collaborator.userId}
-                  checked={selectedUserIds.has(collaborator.userId)}
+                  key={collaborator.id}
+                  checked={selectedContactIds.has(collaborator.id)}
                   onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={() =>
-                    onToggleCollaborator(collaborator.userId)
-                  }
+                  onCheckedChange={() => onToggleCollaborator(collaborator.id)}
                 >
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate">
@@ -360,10 +359,11 @@ function InlinePaperCurrentlyWith({
   onChange: (
     currentlyWithType: PaperCurrentlyWithType,
     assignedToUserId: string | null,
+    assignedToInvitationId: string | null,
   ) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const collaboratorsQuery = useModuleCollaborators(
+  const collaboratorsQuery = useModuleCollaboratorContacts(
     tenantId,
     paper.id,
     open,
@@ -374,6 +374,7 @@ function InlinePaperCurrentlyWith({
       id={`currently-with-${paper.id}`}
       currentlyWithType={paper.currentlyWithType ?? null}
       assignedToUserId={paper.assignedToUserId}
+      assignedToInvitationId={paper.assignedToInvitationId ?? null}
       currentUserId={currentUserId}
       collaborators={collaboratorsQuery.data ?? []}
       collaboratorsPending={collaboratorsQuery.isPending}
@@ -401,20 +402,32 @@ export default function ModulesPage() {
   const [selectedCurrentlyWith, setSelectedCurrentlyWith] = useState<
     Set<string>
   >(() => new Set());
-  const [selectedCurrentlyWithUsers, setSelectedCurrentlyWithUsers] = useState<
-    Set<string>
-  >(() => new Set());
+  const [selectedCurrentlyWithContacts, setSelectedCurrentlyWithContacts] =
+    useState<Set<string>>(() => new Set());
   const [currentlyWithFilterOpen, setCurrentlyWithFilterOpen] = useState(false);
+  const currentlyWithCollaboratorsQuery = usePaperCurrentlyWithCollaborators(
+    tenantId,
+    currentlyWithFilterOpen,
+  );
+  const currentlyWithCollaborators = currentlyWithCollaboratorsQuery.data ?? [];
+  const selectedCollaborators = currentlyWithCollaborators.filter((contact) =>
+    selectedCurrentlyWithContacts.has(contact.id),
+  );
+  const selectedCurrentlyWithUserIds = selectedCollaborators.flatMap(
+    (contact) => contact.userIds,
+  );
+  const selectedCurrentlyWithInvitationIds = selectedCollaborators.flatMap(
+    (contact) => contact.invitationIds,
+  );
 
   const modulesQuery = useModules(tenantId, undefined, page, true, {
     pageSize,
     search: requestSearch,
     statuses: [...selectedStatuses],
     stages: [...selectedStages],
-    currentlyWithTypes: [
-      ...selectedCurrentlyWith,
-    ] as PaperCurrentlyWithType[],
-    currentlyWithUserIds: [...selectedCurrentlyWithUsers],
+    currentlyWithTypes: [...selectedCurrentlyWith] as PaperCurrentlyWithType[],
+    currentlyWithUserIds: selectedCurrentlyWithUserIds,
+    currentlyWithInvitationIds: selectedCurrentlyWithInvitationIds,
   });
   const modules = modulesQuery.data?.data ?? [];
   const paginationMeta = modulesQuery.data?.meta;
@@ -422,10 +435,6 @@ export default function ModulesPage() {
   const projects = projectsQuery.data?.data ?? [];
   const generalProject = projectsQuery.data?.generalProject ?? null;
   const stagesQuery = useModulePipelineStagePool(tenantId);
-  const currentlyWithCollaboratorsQuery =
-    usePaperCurrentlyWithCollaborators(tenantId, currentlyWithFilterOpen);
-  const currentlyWithCollaborators =
-    currentlyWithCollaboratorsQuery.data ?? [];
   const me = useMe();
   const visibleStages = useMemo(
     () =>
@@ -453,7 +462,7 @@ export default function ModulesPage() {
     selectedStatuses,
     selectedStages,
     selectedCurrentlyWith,
-    selectedCurrentlyWithUsers,
+    selectedCurrentlyWithContacts,
     sortColumn,
     sortDirection,
   ]);
@@ -561,12 +570,16 @@ export default function ModulesPage() {
       }
       if (
         (selectedCurrentlyWith.size > 0 ||
-          selectedCurrentlyWithUsers.size > 0) &&
+          selectedCurrentlyWithContacts.size > 0) &&
         !selectedCurrentlyWith.has(module.currentlyWithType ?? "") &&
         !(
           module.currentlyWithType === "collaborator" &&
-          module.assignedToUserId &&
-          selectedCurrentlyWithUsers.has(module.assignedToUserId)
+          ((module.assignedToUserId &&
+            selectedCurrentlyWithUserIds.includes(module.assignedToUserId)) ||
+            (module.assignedToInvitationId &&
+              selectedCurrentlyWithInvitationIds.includes(
+                module.assignedToInvitationId,
+              )))
         )
       ) {
         return false;
@@ -584,7 +597,9 @@ export default function ModulesPage() {
     selectedStatuses,
     selectedStages,
     selectedCurrentlyWith,
-    selectedCurrentlyWithUsers,
+    selectedCurrentlyWithContacts,
+    selectedCurrentlyWithUserIds,
+    selectedCurrentlyWithInvitationIds,
     projectName,
     currentlyWithName,
     progressByStage,
@@ -597,7 +612,7 @@ export default function ModulesPage() {
     selectedStatuses.size > 0 ||
     selectedStages.size > 0 ||
     selectedCurrentlyWith.size > 0 ||
-    selectedCurrentlyWithUsers.size > 0;
+    selectedCurrentlyWithContacts.size > 0;
 
   function toggleSelected(
     setter: Dispatch<SetStateAction<Set<string>>>,
@@ -733,27 +748,27 @@ export default function ModulesPage() {
         />
         <CurrentlyWithFilter
           selectedTypes={selectedCurrentlyWith}
-          selectedUserIds={selectedCurrentlyWithUsers}
+          selectedContactIds={selectedCurrentlyWithContacts}
           collaborators={currentlyWithCollaborators}
           isLoading={currentlyWithCollaboratorsQuery.isLoading}
           onOpenChange={setCurrentlyWithFilterOpen}
           onToggleType={(value) => {
             if (value === "collaborator") {
-              setSelectedCurrentlyWithUsers(new Set());
+              setSelectedCurrentlyWithContacts(new Set());
             }
             toggleSelected(setSelectedCurrentlyWith, value);
           }}
-          onToggleCollaborator={(userId) => {
+          onToggleCollaborator={(contactId) => {
             setSelectedCurrentlyWith((current) => {
               const next = new Set(current);
               next.delete("collaborator");
               return next;
             });
-            toggleSelected(setSelectedCurrentlyWithUsers, userId);
+            toggleSelected(setSelectedCurrentlyWithContacts, contactId);
           }}
           onClear={() => {
             setSelectedCurrentlyWith(new Set());
-            setSelectedCurrentlyWithUsers(new Set());
+            setSelectedCurrentlyWithContacts(new Set());
           }}
         />
         <ColumnVisibilityMenu
@@ -769,7 +784,7 @@ export default function ModulesPage() {
               setSelectedStatuses(new Set());
               setSelectedStages(new Set());
               setSelectedCurrentlyWith(new Set());
-              setSelectedCurrentlyWithUsers(new Set());
+              setSelectedCurrentlyWithContacts(new Set());
             }}
             className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
@@ -937,16 +952,19 @@ export default function ModulesPage() {
                       paper={module}
                       currentUserId={me.data?.id}
                       disabled={updateModule.isPending}
-                      onChange={(currentlyWithType, assignedToUserId) => {
+                      onChange={(
+                        currentlyWithType,
+                        assignedToUserId,
+                        assignedToInvitationId,
+                      ) => {
                         setActionError(null);
                         void updateModule
                           .mutateAsync({
                             moduleId: module.id,
                             input: {
                               currentlyWithType,
-                              ...(assignedToUserId
-                                ? { assignedToUserId }
-                                : {}),
+                              assignedToUserId,
+                              assignedToInvitationId,
                             },
                           })
                           .catch((error: unknown) => {

@@ -17,7 +17,9 @@ type ModuleFixture = {
   pipelineStage: string | null;
   dueDate: string | null;
   assignedToUserId: string | null;
-  currentlyWithType?: "me" | "collaborator" | "journal" | "friendly_reviewer" | null;
+  assignedToInvitationId?: string | null;
+  currentlyWithType?:
+    "me" | "collaborator" | "journal" | "friendly_reviewer" | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -58,9 +60,18 @@ const hookMocks = vi.hoisted(() => ({
   useModuleCollaborators: vi.fn(),
   currentlyWithCollaborators: [
     {
-      userId: "user-collaborator",
+      id: "user:user-collaborator",
+      userIds: ["user-collaborator"],
+      invitationIds: [],
       displayName: "Sam Coauthor",
       affiliation: "Research Institute",
+    },
+    {
+      id: "invitation:invite-draft",
+      userIds: [],
+      invitationIds: ["invite-draft"],
+      displayName: "Dana Draft",
+      affiliation: "Monash University",
     },
   ],
   pagination: {
@@ -283,7 +294,7 @@ vi.mock("@/api/hooks", async () => {
         );
       }),
     }),
-    useModuleCollaborators: (
+    useModuleCollaboratorContacts: (
       tenantId: string,
       moduleId: string,
       enabled: boolean,
@@ -291,17 +302,20 @@ vi.mock("@/api/hooks", async () => {
       hookMocks.useModuleCollaborators(tenantId, moduleId, enabled);
       return {
         data: [
-        {
-          id: "collaborator-owner",
-          tenantId: fixtures.tenantId,
-          userId: "user-owner",
-          roleId: "role-owner",
-          role: "Owner",
-          displayName: "Avi Researcher",
-          email: "owner@example.com",
-          createdAt: "",
-          updatedAt: "",
-        },
+          {
+            id: "user:user-owner",
+            userId: "user-owner",
+            invitationId: null,
+            displayName: "Avi Researcher",
+            affiliation: null,
+          },
+          {
+            id: "invitation:invite-draft",
+            userId: null,
+            invitationId: "invite-draft",
+            displayName: "Dana Draft",
+            affiliation: "Monash University",
+          },
         ],
         isPending: false,
       };
@@ -370,9 +384,7 @@ describe("ModulesPage", () => {
       }) => {
         const updated = store
           .getModules()
-          .map((item) =>
-            item.id === moduleId ? { ...item, ...input } : item,
-          );
+          .map((item) => (item.id === moduleId ? { ...item, ...input } : item));
         store.setModules(updated);
         return updated.find((item) => item.id === moduleId);
       },
@@ -757,8 +769,12 @@ describe("ModulesPage", () => {
 
       expect(screen.getByText("Literature synthesis")).toBeInTheDocument();
       expect(screen.getByText("Stalled concept paper")).toBeInTheDocument();
-      expect(screen.queryByText("Review literature paper")).not.toBeInTheDocument();
-      expect(screen.queryByText("Stalled submitted paper")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Review literature paper"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Stalled submitted paper"),
+      ).not.toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Filter by statuses" }),
       ).toHaveTextContent("2 statuses");
@@ -944,14 +960,51 @@ describe("ModulesPage", () => {
       }),
       { key: "Enter" },
     );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Journal" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: {
+          currentlyWithType: "journal",
+          assignedToUserId: null,
+          assignedToInvitationId: null,
+        },
+      }),
+    );
+  });
+
+  it("can assign Currently With to a saved collaborator contact", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("combobox", {
+        name: "Change Currently With for Literature synthesis",
+      }),
+      { key: "Enter" },
+    );
+    const collaboratorsSubmenu = await screen.findByRole("menuitem", {
+      name: /Collaborators\/Coauthors/,
+    });
+    fireEvent.focus(collaboratorsSubmenu);
+    fireEvent.pointerMove(collaboratorsSubmenu, { pointerType: "mouse" });
+    fireEvent.keyDown(collaboratorsSubmenu, { key: "ArrowRight" });
     fireEvent.click(
-      await screen.findByRole("menuitem", { name: "Journal" }),
+      await screen.findByRole("menuitem", { name: /Dana Draft/ }),
     );
 
     await waitFor(() =>
       expect(hookMocks.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: { currentlyWithType: "journal" },
+        input: {
+          currentlyWithType: "collaborator",
+          assignedToUserId: null,
+          assignedToInvitationId: "invite-draft",
+        },
       }),
     );
   });
@@ -990,9 +1043,7 @@ describe("ModulesPage", () => {
       screen.getByRole("button", { name: "Filter by current holders" }),
       { key: "Enter" },
     );
-    fireEvent.click(
-      screen.getByRole("menuitemcheckbox", { name: "Journal" }),
-    );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Journal" }));
     fireEvent.click(
       screen.getByRole("menuitemcheckbox", { name: "Friendly reviewer" }),
     );
@@ -1060,6 +1111,49 @@ describe("ModulesPage", () => {
       expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
         expect.objectContaining({
           currentlyWithUserIds: ["user-collaborator"],
+        }),
+      ),
+    );
+  });
+
+  it("filters by a saved collaborator contact before pagination", async () => {
+    store.setModules([
+      {
+        ...store.getModules()[0],
+        id: "module-dana",
+        shortTitle: "Paper with Dana",
+        title: "Paper with Dana",
+        currentlyWithType: "collaborator",
+        assignedToUserId: null,
+        assignedToInvitationId: "invite-draft",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by current holders" }),
+      { key: "Enter" },
+    );
+    const collaboratorsSubmenu = await screen.findByRole("menuitem", {
+      name: /Collaborators\/Coauthors/,
+    });
+    fireEvent.focus(collaboratorsSubmenu);
+    fireEvent.pointerMove(collaboratorsSubmenu, { pointerType: "mouse" });
+    fireEvent.keyDown(collaboratorsSubmenu, { key: "ArrowRight" });
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: /Dana Draft/ }),
+    );
+
+    expect(screen.getByText("Paper with Dana")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          currentlyWithInvitationIds: ["invite-draft"],
         }),
       ),
     );

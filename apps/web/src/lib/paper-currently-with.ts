@@ -11,9 +11,12 @@ export const PAPER_CURRENTLY_WITH_LABELS: Record<
 };
 
 export function paperCurrentlyWithLabel(
-  paper: Pick<ApiModule, "assignedToUserId" | "currentlyWithType">,
+  paper: Pick<
+    ApiModule,
+    "assignedToUserId" | "assignedToInvitationId" | "currentlyWithType"
+  >,
   currentUserId?: string,
-  nameByUserId?: ReadonlyMap<string, string>,
+  nameByAssigneeId?: ReadonlyMap<string, string>,
 ) {
   if (paper.currentlyWithType === "journal") return "Journal";
   if (paper.currentlyWithType === "friendly_reviewer") {
@@ -26,7 +29,15 @@ export function paperCurrentlyWithLabel(
     return "Me";
   }
   if (paper.assignedToUserId) {
-    return nameByUserId?.get(paper.assignedToUserId) ?? "Collaborator/Coauthor";
+    return (
+      nameByAssigneeId?.get(paper.assignedToUserId) ?? "Collaborator/Coauthor"
+    );
+  }
+  if (paper.assignedToInvitationId) {
+    return (
+      nameByAssigneeId?.get(paper.assignedToInvitationId) ??
+      "Collaborator/Coauthor"
+    );
   }
   return paper.currentlyWithType
     ? PAPER_CURRENTLY_WITH_LABELS[paper.currentlyWithType]

@@ -50,6 +50,18 @@ export class ModuleCollaboratorsController {
     return this.service.list(tenantId, moduleId, user.id);
   }
 
+  @ApiOperation({ summary: 'List saved collaborator contacts on a module' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Get('contacts')
+  async listContacts(
+    @Param('tenantId') tenantId: string,
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.service.listContacts(tenantId, moduleId, user.id);
+  }
+
   @ApiOperation({ summary: 'Add a collaborator to a module' })
   @ApiResponse({ status: 201 })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)

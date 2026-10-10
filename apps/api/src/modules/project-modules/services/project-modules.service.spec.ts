@@ -26,6 +26,7 @@ describe('ProjectModulesService', () => {
     findAccessiblePageByUser: jest.Mock;
     findRememberedVenueValues: jest.Mock;
     findCurrentlyWithCollaborators: jest.Mock;
+    findInvitationById: jest.Mock;
   };
   let enumRepository: {
     findByCategoryAndValue: jest.Mock;
@@ -52,6 +53,7 @@ describe('ProjectModulesService', () => {
       findAccessiblePageByUser: jest.fn(),
       findRememberedVenueValues: jest.fn(),
       findCurrentlyWithCollaborators: jest.fn(),
+      findInvitationById: jest.fn(),
     };
     projectsRepository = {
       findById: jest.fn().mockResolvedValue({
@@ -117,21 +119,57 @@ describe('ProjectModulesService', () => {
   });
 
   describe('listCurrentlyWithCollaborators', () => {
-    it('returns the repository list for accessible papers', async () => {
-      const collaborators = [
-        {
-          userId: 'user-2',
-          displayName: 'Sam Coauthor',
-          affiliation: 'Research Institute',
-        },
-      ];
-      repository.findCurrentlyWithCollaborators.mockResolvedValue(
-        collaborators,
-      );
+    it('combines saved and accepted collaborators without including the caller', async () => {
+      repository.findCurrentlyWithCollaborators.mockResolvedValue({
+        registered: [
+          {
+            userId: 'user-2',
+            email: 'sam@example.com',
+            displayName: 'Sam Coauthor',
+            affiliation: 'Research Institute',
+          },
+        ],
+        invited: [
+          {
+            invitationId: 'invite-1',
+            email: 'sam@example.com',
+            displayName: 'Sam',
+            affiliation: null,
+          },
+          {
+            invitationId: 'invite-2',
+            email: 'new@example.com',
+            displayName: 'New Coauthor',
+            affiliation: 'University',
+          },
+          {
+            invitationId: 'invite-self',
+            email: 'owner@example.com',
+            displayName: 'Owner',
+            affiliation: null,
+          },
+        ],
+        callerEmail: 'owner@example.com',
+      });
 
       await expect(
         service.listCurrentlyWithCollaborators('tenant-1', 'user-1'),
-      ).resolves.toEqual(collaborators);
+      ).resolves.toEqual([
+        {
+          id: 'invitation:invite-2',
+          userIds: [],
+          invitationIds: ['invite-2'],
+          displayName: 'New Coauthor',
+          affiliation: 'University',
+        },
+        {
+          id: 'user:user-2',
+          userIds: ['user-2'],
+          invitationIds: ['invite-1'],
+          displayName: 'Sam Coauthor',
+          affiliation: 'Research Institute',
+        },
+      ]);
       expect(repository.findCurrentlyWithCollaborators).toHaveBeenCalledWith(
         'tenant-1',
         'user-1',
@@ -396,6 +434,7 @@ describe('ProjectModulesService', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
 
       expect(result.data.map((module) => module.id)).toEqual([
@@ -430,6 +469,7 @@ describe('ProjectModulesService', () => {
         ['Literature Review', 'Submitted, Under Review'],
         ['me', 'journal'],
         ['user-2'],
+        undefined,
       );
 
       expect(repository.findVisibleActiveByTenant).toHaveBeenCalledWith(
@@ -445,6 +485,7 @@ describe('ProjectModulesService', () => {
         ['Literature Review', 'Submitted, Under Review'],
         ['me', 'journal'],
         ['user-2'],
+        undefined,
       );
     });
   });
@@ -780,6 +821,48 @@ describe('ProjectModulesService', () => {
       ).rejects.toThrow(BadRequestException);
 
       expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('assigns Currently With to a saved collaborator contact', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+        assignedToUserId: 'user-1',
+        assignedToInvitationId: null,
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValueOnce({
+        roleId: 'owner-role-id',
+      });
+      repository.findInvitationById.mockResolvedValue({ id: 'invite-1' });
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+      });
+
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        currentlyWithType: 'collaborator',
+        assignedToUserId: null,
+        assignedToInvitationId: 'invite-1',
+      });
+
+      expect(repository.findInvitationById).toHaveBeenCalledWith(
+        'module-1',
+        'invite-1',
+      );
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({
+          currentlyWithType: 'collaborator',
+          assignedToUserId: null,
+          assignedToInvitationId: 'invite-1',
+        }),
+      );
     });
 
     it('clears the user assignment for Friendly reviewer', async () => {

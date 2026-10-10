@@ -4,6 +4,7 @@ import {
   conferences,
   enumTable,
   moduleCollaborators,
+  moduleInvitations,
   modules,
   projectCollaborators,
   projects,
@@ -19,6 +20,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  ne,
   or,
   sql,
 } from 'drizzle-orm';
@@ -114,37 +116,86 @@ export class ProjectModulesRepository {
       ),
     );
 
-    return this.drizzle.db
-      .selectDistinct({
-        userId: users.id,
-        displayName: users.displayName,
-        affiliation: users.institution,
-      })
-      .from(modules)
-      .innerJoin(users, eq(users.id, modules.assignedToUserId))
+    const activePaperCondition = and(
+      eq(modules.tenantId, tenantId),
+      isNull(modules.archivedAt),
+      or(
+        isNull(modules.projectId),
+        exists(
+          this.drizzle.db
+            .select({ id: projects.id })
+            .from(projects)
+            .where(
+              and(
+                eq(projects.id, modules.projectId),
+                isNull(projects.archivedAt),
+              ),
+            ),
+        ),
+      ),
+      visibilityCondition,
+    );
+
+    const [registered, invited, caller] = await Promise.all([
+      this.drizzle.db
+        .selectDistinct({
+          userId: users.id,
+          email: users.email,
+          displayName: users.displayName,
+          affiliation: users.institution,
+        })
+        .from(modules)
+        .innerJoin(
+          moduleCollaborators,
+          eq(moduleCollaborators.moduleId, modules.id),
+        )
+        .innerJoin(enumTable, eq(enumTable.id, moduleCollaborators.roleId))
+        .innerJoin(users, eq(users.id, moduleCollaborators.userId))
+        .where(
+          and(
+            activePaperCondition,
+            eq(enumTable.category, 'project_role'),
+            ne(enumTable.value, 'Owner'),
+          ),
+        ),
+      this.drizzle.db
+        .selectDistinct({
+          invitationId: moduleInvitations.id,
+          email: moduleInvitations.email,
+          displayName: moduleInvitations.name,
+          affiliation: moduleInvitations.affiliation,
+        })
+        .from(modules)
+        .innerJoin(
+          moduleInvitations,
+          eq(moduleInvitations.moduleId, modules.id),
+        )
+        .where(activePaperCondition),
+      this.drizzle.db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, callerUserId))
+        .limit(1),
+    ]);
+
+    return {
+      registered,
+      invited,
+      callerEmail: caller[0]?.email ?? null,
+    };
+  }
+
+  async findInvitationById(moduleId: string, invitationId: string) {
+    const [invitation] = await this.drizzle.db
+      .select({ id: moduleInvitations.id })
+      .from(moduleInvitations)
       .where(
         and(
-          eq(modules.tenantId, tenantId),
-          isNull(modules.archivedAt),
-          eq(modules.currentlyWithType, 'collaborator'),
-          or(
-            isNull(modules.projectId),
-            exists(
-              this.drizzle.db
-                .select({ id: projects.id })
-                .from(projects)
-                .where(
-                  and(
-                    eq(projects.id, modules.projectId),
-                    isNull(projects.archivedAt),
-                  ),
-                ),
-            ),
-          ),
-          visibilityCondition,
+          eq(moduleInvitations.moduleId, moduleId),
+          eq(moduleInvitations.id, invitationId),
         ),
-      )
-      .orderBy(asc(users.displayName), asc(users.id));
+      );
+    return invitation;
   }
 
   async findById(tenantId: string, moduleId: string) {
@@ -274,6 +325,7 @@ export class ProjectModulesRepository {
     stages?: string[],
     currentlyWithTypes?: CurrentlyWithType[],
     currentlyWithUserIds?: string[],
+    currentlyWithInvitationIds?: string[],
   ) {
     const visibilityCondition = or(
       exists(
@@ -382,25 +434,32 @@ export class ProjectModulesRepository {
         ),
       );
     }
-    if (currentlyWithTypes?.length && currentlyWithUserIds?.length) {
+    const collaboratorAssigneeFilters = [
+      ...(currentlyWithUserIds?.length
+        ? [inArray(modules.assignedToUserId, currentlyWithUserIds)]
+        : []),
+      ...(currentlyWithInvitationIds?.length
+        ? [inArray(modules.assignedToInvitationId, currentlyWithInvitationIds)]
+        : []),
+    ];
+    const selectedCollaborators = collaboratorAssigneeFilters.length
+      ? and(
+          eq(modules.currentlyWithType, 'collaborator'),
+          or(...collaboratorAssigneeFilters),
+        )
+      : undefined;
+
+    if (currentlyWithTypes?.length && selectedCollaborators) {
       conditions.push(
         or(
           inArray(modules.currentlyWithType, currentlyWithTypes),
-          and(
-            eq(modules.currentlyWithType, 'collaborator'),
-            inArray(modules.assignedToUserId, currentlyWithUserIds),
-          ),
+          selectedCollaborators,
         ),
       );
     } else if (currentlyWithTypes?.length) {
       conditions.push(inArray(modules.currentlyWithType, currentlyWithTypes));
-    } else if (currentlyWithUserIds?.length) {
-      conditions.push(
-        and(
-          eq(modules.currentlyWithType, 'collaborator'),
-          inArray(modules.assignedToUserId, currentlyWithUserIds),
-        ),
-      );
+    } else if (selectedCollaborators) {
+      conditions.push(selectedCollaborators);
     }
 
     const whereCondition = and(...conditions);
@@ -558,6 +617,7 @@ export class ProjectModulesRepository {
     pipelineStageId?: string;
     pipelineStageChangedAt?: Date;
     assignedToUserId?: string | null;
+    assignedToInvitationId?: string | null;
     currentlyWithType?: string;
     dueDate?: string;
     displayId?: string;
@@ -603,6 +663,7 @@ export class ProjectModulesRepository {
       pipelineStageId: string;
       pipelineStageChangedAt: Date;
       assignedToUserId: string | null;
+      assignedToInvitationId: string | null;
       currentlyWithType: string | null;
       dueDate: string;
     }>,

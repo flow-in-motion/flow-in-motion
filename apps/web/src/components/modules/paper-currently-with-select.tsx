@@ -1,6 +1,9 @@
 import { ChevronDown } from "lucide-react";
 
-import type { ApiCollaborator, PaperCurrentlyWithType } from "@/api/hooks";
+import type {
+  PaperCollaboratorContact,
+  PaperCurrentlyWithType,
+} from "@/api/hooks";
 import { PAPER_CURRENTLY_WITH_LABELS } from "@/lib/paper-currently-with";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,8 +21,9 @@ interface PaperCurrentlyWithSelectProps {
   id: string;
   currentlyWithType: PaperCurrentlyWithType | null;
   assignedToUserId: string | null;
+  assignedToInvitationId: string | null;
   currentUserId?: string;
-  collaborators: ApiCollaborator[];
+  collaborators: PaperCollaboratorContact[];
   collaboratorsPending?: boolean;
   onOpenChange?: (open: boolean) => void;
   triggerClassName?: string;
@@ -28,6 +32,7 @@ interface PaperCurrentlyWithSelectProps {
   onChange: (
     currentlyWithType: PaperCurrentlyWithType,
     assignedToUserId: string | null,
+    assignedToInvitationId: string | null,
   ) => void;
 }
 
@@ -35,6 +40,7 @@ export function PaperCurrentlyWithSelect({
   id,
   currentlyWithType,
   assignedToUserId,
+  assignedToInvitationId,
   currentUserId,
   collaborators,
   collaboratorsPending = false,
@@ -48,7 +54,10 @@ export function PaperCurrentlyWithSelect({
     (collaborator) => collaborator.userId !== currentUserId,
   );
   const selectedCollaborator = selectableCollaborators.find(
-    (collaborator) => collaborator.userId === assignedToUserId,
+    (collaborator) =>
+      (assignedToUserId && collaborator.userId === assignedToUserId) ||
+      (assignedToInvitationId &&
+        collaborator.invitationId === assignedToInvitationId),
   );
   const label =
     currentlyWithType === "collaborator"
@@ -67,10 +76,7 @@ export function PaperCurrentlyWithSelect({
           variant="outline"
           role="combobox"
           aria-label={ariaLabel}
-          className={cn(
-            "w-full justify-between font-normal",
-            triggerClassName,
-          )}
+          className={cn("w-full justify-between font-normal", triggerClassName)}
           disabled={disabled}
         >
           <span className="truncate">{label}</span>
@@ -82,7 +88,7 @@ export function PaperCurrentlyWithSelect({
         className="min-w-[var(--radix-dropdown-menu-trigger-width)]"
       >
         <DropdownMenuItem
-          onSelect={() => onChange("me", currentUserId ?? null)}
+          onSelect={() => onChange("me", currentUserId ?? null, null)}
         >
           Me
         </DropdownMenuItem>
@@ -92,12 +98,20 @@ export function PaperCurrentlyWithSelect({
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             {collaboratorsPending ? (
-              <DropdownMenuItem disabled>Loading collaborators…</DropdownMenuItem>
+              <DropdownMenuItem disabled>
+                Loading collaborators…
+              </DropdownMenuItem>
             ) : selectableCollaborators.length ? (
               selectableCollaborators.map((collaborator) => (
                 <DropdownMenuItem
                   key={collaborator.id}
-                  onSelect={() => onChange("collaborator", collaborator.userId)}
+                  onSelect={() =>
+                    onChange(
+                      "collaborator",
+                      collaborator.userId,
+                      collaborator.userId ? null : collaborator.invitationId,
+                    )
+                  }
                 >
                   <span className="min-w-0">
                     <span className="block truncate">
@@ -118,10 +132,12 @@ export function PaperCurrentlyWithSelect({
             )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuItem onSelect={() => onChange("journal", null)}>
+        <DropdownMenuItem onSelect={() => onChange("journal", null, null)}>
           Journal
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onChange("friendly_reviewer", null)}>
+        <DropdownMenuItem
+          onSelect={() => onChange("friendly_reviewer", null, null)}
+        >
           Friendly reviewer
         </DropdownMenuItem>
       </DropdownMenuContent>

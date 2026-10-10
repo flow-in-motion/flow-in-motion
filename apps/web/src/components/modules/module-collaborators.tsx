@@ -1,5 +1,6 @@
 import {
   useMe,
+  useModuleCollaboratorContacts,
   useModuleCollaborators,
   useRemoveModuleCollaborator,
   type Membership,
@@ -23,7 +24,7 @@ export function ModuleCollaboratorsSummary({
   tenantId,
   moduleId,
 }: ModuleCollaboratorsSummaryProps) {
-  const collaboratorsQuery = useModuleCollaborators(tenantId, moduleId);
+  const collaboratorsQuery = useModuleCollaboratorContacts(tenantId, moduleId);
   const me = useMe();
 
   if (collaboratorsQuery.isPending) {
@@ -65,7 +66,9 @@ export function ModuleCollaboratorsManager({
   }
 
   const collaboratorRows = collaboratorsQuery.data ?? [];
-  const owner = collaboratorRows.find((collaborator) => collaborator.role === "Owner");
+  const owner = collaboratorRows.find(
+    (collaborator) => collaborator.role === "Owner",
+  );
   const isOwner = owner?.userId === me.data?.id;
 
   const collaborators = collaboratorRows

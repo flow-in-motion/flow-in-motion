@@ -164,6 +164,7 @@ export interface ApiModule {
   pipelineStageChangedAt: string | null;
   dueDate: string | null;
   assignedToUserId: string | null;
+  assignedToInvitationId?: string | null;
   currentlyWithType?: PaperCurrentlyWithType | null;
   archivedAt: string | null;
   createdAt: string;
@@ -412,20 +413,10 @@ export interface InvitationPreview extends ApiInvitation {
 export const apiKeys = {
   me: ["api", "me"] as const,
   workspaces: ["api", "workspaces"] as const,
-  workspacesPage: (page = 1) =>
-    ["api", "workspaces", page] as const,
+  workspacesPage: (page = 1) => ["api", "workspaces", page] as const,
   currentWorkspace: ["api", "workspace", "current"] as const,
-  members: (
-    tenantId: string,
-    page = 1,
-  ) =>
-    [
-      "api",
-      "tenant",
-      tenantId,
-      "members",
-      page,
-    ] as const,
+  members: (tenantId: string, page = 1) =>
+    ["api", "tenant", tenantId, "members", page] as const,
   projects: (tenantId: string) =>
     ["api", "tenant", tenantId, "projects"] as const,
   projectsPage: (
@@ -470,6 +461,7 @@ export const apiKeys = {
     stages: readonly string[] = [],
     currentlyWithTypes: readonly PaperCurrentlyWithType[] = [],
     currentlyWithUserIds: readonly string[] = [],
+    currentlyWithInvitationIds: readonly string[] = [],
   ) =>
     [
       "api",
@@ -486,15 +478,31 @@ export const apiKeys = {
       stages,
       currentlyWithTypes,
       currentlyWithUserIds,
+      currentlyWithInvitationIds,
     ] as const,
   module: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", "detail", moduleId] as const,
   paperVenueSuggestions: (tenantId: string) =>
     ["api", "tenant", tenantId, "modules", "venue-suggestions"] as const,
   paperCurrentlyWithCollaborators: (tenantId: string) =>
-    ["api", "tenant", tenantId, "modules", "currently-with-collaborators"] as const,
+    [
+      "api",
+      "tenant",
+      tenantId,
+      "modules",
+      "currently-with-collaborators",
+    ] as const,
   moduleCollaborators: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", moduleId, "collaborators"] as const,
+  moduleCollaboratorContacts: (tenantId: string, moduleId: string) =>
+    [
+      "api",
+      "tenant",
+      tenantId,
+      "modules",
+      moduleId,
+      "collaborator-contacts",
+    ] as const,
   moduleInvitations: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", moduleId, "invitations"] as const,
   modulePipelineStages: (tenantId: string) =>
@@ -546,17 +554,8 @@ export const apiKeys = {
     ["api", "tenant", tenantId, "notes", noteId, "members"] as const,
   noteInvitations: (tenantId: string, noteId: string) =>
     ["api", "tenant", tenantId, "notes", noteId, "invitations"] as const,
-  conferences: (
-    tenantId: string,
-    page = 1,
-  ) =>
-    [
-      "api",
-      "tenant",
-      tenantId,
-      "conferences",
-      page,
-    ] as const,
+  conferences: (tenantId: string, page = 1) =>
+    ["api", "tenant", tenantId, "conferences", page] as const,
   conference: (tenantId: string, conferenceId: string) =>
     ["api", "tenant", tenantId, "conferences", conferenceId] as const,
   conferenceLinkOptions: (tenantId: string, search: string) =>
@@ -569,17 +568,8 @@ export const apiKeys = {
   ) => ["api", "tenant", tenantId, "fundings", page, pageSize, search] as const,
   funding: (tenantId: string, fundingId: string) =>
     ["api", "tenant", tenantId, "fundings", "detail", fundingId] as const,
-  calendarEvents: (
-    tenantId: string,
-    page = 1,
-  ) =>
-    [
-      "api",
-      "tenant",
-      tenantId,
-      "calendar-events",
-      page,
-    ] as const,
+  calendarEvents: (tenantId: string, page = 1) =>
+    ["api", "tenant", tenantId, "calendar-events", page] as const,
   accountPreferences: ["api", "me", "preferences"] as const,
   workspacePreferences: (tenantId: string) =>
     ["api", "tenant", tenantId, "me", "preferences"] as const,
@@ -853,30 +843,21 @@ export function useDeleteWorkspace() {
   });
 }
 
-export function useMembers(
-  tenantId: string,
-  page = 1,
-  enabled = true,
-) {
+export function useMembers(tenantId: string, page = 1, enabled = true) {
   return useQuery({
     queryKey: apiKeys.members(tenantId, page),
     enabled: Boolean(tenantId) && enabled,
     queryFn: async () => {
-      const result = await apiClient.GET(
-        "/api/v1/tenant/{tenantId}/members",
-        {
-          params: {
-            path: { tenantId },
-            query: { page },
-          } as never,
-        },
-      );
+      const result = await apiClient.GET("/api/v1/tenant/{tenantId}/members", {
+        params: {
+          path: { tenantId },
+          query: { page },
+        } as never,
+      });
 
       // The generated MembershipResponseDto mis-describes `joinedAt` as `{}`
       // because the backend DTO lacks an explicit Swagger type hint.
-      return responseData<PaginatedResponse<Membership>>(
-        result as never,
-      );
+      return responseData<PaginatedResponse<Membership>>(result as never);
     },
   });
 }
@@ -897,8 +878,7 @@ export interface CreateProjectInput {
   targetJournals?: string;
 }
 export type UpdateProjectInput = Partial<CreateProjectInput>;
-export interface ProjectsPageResponse
-  extends PaginatedResponse<ApiProject> {
+export interface ProjectsPageResponse extends PaginatedResponse<ApiProject> {
   generalProject: ApiProject | null;
 }
 export function useProjects(
@@ -987,12 +967,15 @@ export function useCreateProject(tenantId: string) {
       // invalidate and let it refetch instead of guessing where to splice it
       // in. The "my projects" list is a plain array, so it can be patched
       // directly.
-      queryClient.setQueryData<ApiProject[]>(["api", "me", "projects"], (current) => {
-        if (!current) return [project];
-        return current.some((item) => item.id === project.id)
-          ? current
-          : [project, ...current];
-      });
+      queryClient.setQueryData<ApiProject[]>(
+        ["api", "me", "projects"],
+        (current) => {
+          if (!current) return [project];
+          return current.some((item) => item.id === project.id)
+            ? current
+            : [project, ...current];
+        },
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: apiKeys.projects(tenantId) }),
         queryClient.invalidateQueries({ queryKey: ["api", "me", "projects"] }),
@@ -1099,22 +1082,16 @@ export function usePermanentlyDeleteProject(tenantId: string) {
         { method: "DELETE" },
       ),
     async onSuccess() {
-      await queryClient.invalidateQueries({ queryKey: apiKeys.archive(tenantId) });
+      await queryClient.invalidateQueries({
+        queryKey: apiKeys.archive(tenantId),
+      });
     },
   });
 }
 
-const myProjectsKey = [
-  "api",
-  "me",
-  "projects",
-] as const;
+const myProjectsKey = ["api", "me", "projects"] as const;
 
-const myProjectsPageKey = (page = 1) =>
-  [
-    ...myProjectsKey,
-    page,
-  ] as const;
+const myProjectsPageKey = (page = 1) => [...myProjectsKey, page] as const;
 
 const myProjectKey = (projectId: string) =>
   ["api", "me", "projects", projectId] as const;
@@ -1127,7 +1104,10 @@ const myProjectKey = (projectId: string) =>
  * keeps showing pre-edit data until the tab is reloaded, since editing via
  * a "My*" endpoint never touches that list's cache entry.
  */
-function invalidateResourceEverywhere(queryClient: QueryClient, resource: string) {
+function invalidateResourceEverywhere(
+  queryClient: QueryClient,
+  resource: string,
+) {
   return queryClient.invalidateQueries({
     predicate: (query) => query.queryKey.includes(resource),
   });
@@ -1138,10 +1118,7 @@ function invalidateResourceEverywhere(queryClient: QueryClient, resource: string
  * regardless of which workspace it lives in — see MyProjectsController on
  * the backend.
  */
-export function useMyProjects(
-  page = 1,
-  enabled = true,
-) {
+export function useMyProjects(page = 1, enabled = true) {
   return useQuery({
     queryKey: myProjectsPageKey(page),
     enabled,
@@ -1384,7 +1361,20 @@ export interface CreateModuleInput {
   assignedToUserId?: string;
   currentlyWithType?: PaperCurrentlyWithType;
 }
-export type UpdateModuleInput = Partial<CreateModuleInput>;
+export type UpdateModuleInput = Omit<
+  Partial<CreateModuleInput>,
+  "assignedToUserId"
+> & {
+  assignedToUserId?: string | null;
+  assignedToInvitationId?: string | null;
+};
+type GeneratedModuleUpdateInput = Omit<
+  UpdateModuleInput,
+  "assignedToUserId" | "assignedToInvitationId"
+> & {
+  assignedToUserId?: string;
+  assignedToInvitationId?: string;
+};
 export type ModuleSortField = "dateAdded" | "alphabetical" | "progress";
 export type SortDirection = "asc" | "desc";
 
@@ -1394,7 +1384,17 @@ export interface PaperVenueSuggestions {
 }
 
 export interface PaperCurrentlyWithCollaborator {
-  userId: string;
+  id: string;
+  userIds: string[];
+  invitationIds: string[];
+  displayName: string | null;
+  affiliation: string | null;
+}
+
+export interface PaperCollaboratorContact {
+  id: string;
+  userId: string | null;
+  invitationId: string | null;
   displayName: string | null;
   affiliation: string | null;
 }
@@ -1413,6 +1413,7 @@ export function useModules(
     stages?: readonly string[];
     currentlyWithTypes?: readonly PaperCurrentlyWithType[];
     currentlyWithUserIds?: readonly string[];
+    currentlyWithInvitationIds?: readonly string[];
   },
 ) {
   const pageSize = options?.pageSize ?? 20;
@@ -1422,7 +1423,12 @@ export function useModules(
   const statuses = [...(options?.statuses ?? [])].sort();
   const stages = [...(options?.stages ?? [])].sort();
   const currentlyWithTypes = [...(options?.currentlyWithTypes ?? [])].sort();
-  const currentlyWithUserIds = [...(options?.currentlyWithUserIds ?? [])].sort();
+  const currentlyWithUserIds = [
+    ...(options?.currentlyWithUserIds ?? []),
+  ].sort();
+  const currentlyWithInvitationIds = [
+    ...(options?.currentlyWithInvitationIds ?? []),
+  ].sort();
   return useQuery({
     queryKey: apiKeys.modules(
       tenantId,
@@ -1436,11 +1442,16 @@ export function useModules(
       stages,
       currentlyWithTypes,
       currentlyWithUserIds,
+      currentlyWithInvitationIds,
     ),
     enabled: Boolean(tenantId) && enabled,
     // Keep the search field mounted while a new result page is loading.
     // Never carry data across workspace boundaries.
-    placeholderData: (previous, query) => query?.queryKey[2] === tenantId && query.queryKey[4] === (projectId ?? "all") ? keepPreviousData(previous) : undefined,
+    placeholderData: (previous, query) =>
+      query?.queryKey[2] === tenantId &&
+      query.queryKey[4] === (projectId ?? "all")
+        ? keepPreviousData(previous)
+        : undefined,
     retry: false,
     queryFn: async () =>
       responseData<PaginatedResponse<ApiModule>>(
@@ -1460,6 +1471,9 @@ export function useModules(
               ...(stages.length ? { stages } : {}),
               ...(currentlyWithTypes.length ? { currentlyWithTypes } : {}),
               ...(currentlyWithUserIds.length ? { currentlyWithUserIds } : {}),
+              ...(currentlyWithInvitationIds.length
+                ? { currentlyWithInvitationIds }
+                : {}),
             } as {
               projectId: string;
               page: number;
@@ -1471,6 +1485,7 @@ export function useModules(
               stages?: string[];
               currentlyWithTypes?: PaperCurrentlyWithType[];
               currentlyWithUserIds?: string[];
+              currentlyWithInvitationIds?: string[];
             },
           },
         }),
@@ -1534,12 +1549,15 @@ export function useCreateModule(tenantId: string) {
       // invalidate and let it refetch instead of guessing where to splice it
       // in. The "my modules" list is a plain array, so it can be patched
       // directly.
-      queryClient.setQueryData<ApiModule[]>(["api", "me", "modules"], (current) => {
-        if (!current) return [module];
-        return current.some((item) => item.id === module.id)
-          ? current
-          : [module, ...current];
-      });
+      queryClient.setQueryData<ApiModule[]>(
+        ["api", "me", "modules"],
+        (current) => {
+          if (!current) return [module];
+          return current.some((item) => item.id === module.id)
+            ? current
+            : [module, ...current];
+        },
+      );
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["api", "tenant", tenantId, "modules"],
@@ -1569,7 +1587,7 @@ export function useUpdateModule(tenantId: string) {
           // The generated type only allows `string | undefined` for
           // projectId, but the backend accepts an explicit `null` to unlink
           // the module — see ProjectModulesService.update.
-          body: input as typeof input & { projectId?: string },
+          body: input as GeneratedModuleUpdateInput,
         }),
       ),
     async onSuccess(module) {
@@ -1653,7 +1671,9 @@ export function usePermanentlyDeleteModule(tenantId: string) {
         { method: "DELETE" },
       ),
     async onSuccess() {
-      await queryClient.invalidateQueries({ queryKey: apiKeys.archive(tenantId) });
+      await queryClient.invalidateQueries({
+        queryKey: apiKeys.archive(tenantId),
+      });
     },
   });
 }
@@ -1676,6 +1696,21 @@ export function useModuleCollaborators(
   });
 }
 
+export function useModuleCollaboratorContacts(
+  tenantId: string,
+  moduleId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: apiKeys.moduleCollaboratorContacts(tenantId, moduleId),
+    enabled: Boolean(tenantId) && Boolean(moduleId) && enabled,
+    queryFn: () =>
+      authenticatedJson<PaperCollaboratorContact[]>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/modules/${encodeURIComponent(moduleId)}/collaborators/contacts`,
+      ),
+  });
+}
+
 export function useAddModuleCollaborator(tenantId: string, moduleId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -1687,9 +1722,17 @@ export function useAddModuleCollaborator(tenantId: string, moduleId: string) {
         ),
       ),
     async onSuccess() {
-      await queryClient.invalidateQueries({
-        queryKey: apiKeys.moduleCollaborators(tenantId, moduleId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.moduleCollaborators(tenantId, moduleId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.moduleCollaboratorContacts(tenantId, moduleId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
+        }),
+      ]);
     },
   });
 }
@@ -1708,17 +1751,25 @@ export function useRemoveModuleCollaborator(
         ),
       ),
     async onSuccess() {
-      await queryClient.invalidateQueries({
-        queryKey: apiKeys.moduleCollaborators(tenantId, moduleId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.moduleCollaborators(tenantId, moduleId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.moduleCollaboratorContacts(tenantId, moduleId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
+        }),
+        invalidateResourceEverywhere(queryClient, "modules"),
+      ]);
     },
   });
 }
 
 const myModulesKey = ["api", "me", "modules"] as const;
 
-const myModulesPageKey = (page = 1) =>
-  [...myModulesKey, page] as const;
+const myModulesPageKey = (page = 1) => [...myModulesKey, page] as const;
 
 const myModuleKey = (moduleId: string) =>
   ["api", "me", "modules", moduleId] as const;
@@ -1770,7 +1821,7 @@ export function useUpdateMyModule() {
           params: { path: { moduleId } },
           // See the tenant-scoped useUpdateModule above — the generated type
           // doesn't know `projectId: null` is valid for unlinking.
-          body: input as typeof input & { projectId?: string },
+          body: input as GeneratedModuleUpdateInput,
         }),
       ),
     async onSuccess(module) {
@@ -1830,7 +1881,14 @@ export interface SubmissionInput {
 }
 
 function moduleSubmissionsKey(tenantId: string, moduleId: string) {
-  return ["api", "tenant", tenantId, "modules", moduleId, "submissions"] as const;
+  return [
+    "api",
+    "tenant",
+    tenantId,
+    "modules",
+    moduleId,
+    "submissions",
+  ] as const;
 }
 
 export function useModuleSubmissions(
@@ -1930,7 +1988,10 @@ export interface CreateTaskInput {
   estimatedHours?: string;
   dueDate?: string;
 }
-export type UpdateTaskInput = Omit<Partial<CreateTaskInput>, "projectId" | "moduleId"> & {
+export type UpdateTaskInput = Omit<
+  Partial<CreateTaskInput>,
+  "projectId" | "moduleId"
+> & {
   /** `null` clears the link (project unset, or unlinked from its module); omit to leave unchanged. */
   projectId?: string | null;
   moduleId?: string | null;
@@ -1941,16 +2002,28 @@ export function useTasks(
   projectId?: string,
   page = 1,
   enabled = true,
-  options?: { pageSize?: number | "all"; search?: string; projectOnly?: boolean },
+  options?: {
+    pageSize?: number | "all";
+    search?: string;
+    projectOnly?: boolean;
+  },
 ) {
   const pageSize = options?.pageSize ?? 20;
   const search = options?.search?.trim() ?? "";
   return useQuery({
-    queryKey: [...apiKeys.tasks(tenantId, projectId, page, pageSize, search), options?.projectOnly ?? false],
+    queryKey: [
+      ...apiKeys.tasks(tenantId, projectId, page, pageSize, search),
+      options?.projectOnly ?? false,
+    ],
     enabled: Boolean(tenantId) && enabled,
     // Keep the search field mounted while a new result page is loading.
     // Never carry data across workspace boundaries.
-    placeholderData: (previous, query) => query?.queryKey[2] === tenantId && query.queryKey[4] === (projectId ?? "all") && query.queryKey[8] === (options?.projectOnly ?? false) ? keepPreviousData(previous) : undefined,
+    placeholderData: (previous, query) =>
+      query?.queryKey[2] === tenantId &&
+      query.queryKey[4] === (projectId ?? "all") &&
+      query.queryKey[8] === (options?.projectOnly ?? false)
+        ? keepPreviousData(previous)
+        : undefined,
     retry: false,
     queryFn: async () =>
       responseData<PaginatedResponse<ApiTask>>(
@@ -2023,7 +2096,10 @@ export function useUpdateTask(tenantId: string) {
           // The generated type only allows `string | undefined` for
           // projectId/moduleId, but the backend accepts an explicit `null`
           // to clear either link — see TasksService.resolveLinkage.
-          body: input as typeof input & { projectId?: string; moduleId?: string },
+          body: input as typeof input & {
+            projectId?: string;
+            moduleId?: string;
+          },
         }),
       ),
     async onSuccess(task) {
@@ -2100,7 +2176,10 @@ export function useUpdateMyTask() {
         await apiClient.PATCH("/api/v1/me/tasks/{taskId}", {
           params: { path: { taskId } },
           // See the tenant-scoped useUpdateTask above.
-          body: input as typeof input & { projectId?: string; moduleId?: string },
+          body: input as typeof input & {
+            projectId?: string;
+            moduleId?: string;
+          },
         }),
       ),
     async onSuccess(task) {
@@ -2202,7 +2281,10 @@ export interface CreateNoteInput {
   visibility?: string;
   followUpDate?: string;
 }
-export type UpdateNoteInput = Omit<Partial<CreateNoteInput>, "projectId" | "moduleId"> & {
+export type UpdateNoteInput = Omit<
+  Partial<CreateNoteInput>,
+  "projectId" | "moduleId"
+> & {
   /** `null` clears the link (project unset, or unlinked from its module); omit to leave unchanged. */
   projectId?: string | null;
   moduleId?: string | null;
@@ -2213,16 +2295,28 @@ export function useNotes(
   projectId?: string,
   page = 1,
   enabled = true,
-  options?: { pageSize?: number | "all"; search?: string; projectOnly?: boolean },
+  options?: {
+    pageSize?: number | "all";
+    search?: string;
+    projectOnly?: boolean;
+  },
 ) {
   const pageSize = options?.pageSize ?? 20;
   const search = options?.search?.trim() ?? "";
   return useQuery({
-    queryKey: [...apiKeys.notes(tenantId, projectId, page, pageSize, search), options?.projectOnly ?? false],
+    queryKey: [
+      ...apiKeys.notes(tenantId, projectId, page, pageSize, search),
+      options?.projectOnly ?? false,
+    ],
     enabled: Boolean(tenantId) && enabled,
     // Keep the search field mounted while a new result page is loading.
     // Never carry data across workspace boundaries.
-    placeholderData: (previous, query) => query?.queryKey[2] === tenantId && query.queryKey[4] === (projectId ?? "all") && query.queryKey[8] === (options?.projectOnly ?? false) ? keepPreviousData(previous) : undefined,
+    placeholderData: (previous, query) =>
+      query?.queryKey[2] === tenantId &&
+      query.queryKey[4] === (projectId ?? "all") &&
+      query.queryKey[8] === (options?.projectOnly ?? false)
+        ? keepPreviousData(previous)
+        : undefined,
     retry: false,
     queryFn: async () =>
       responseData<PaginatedResponse<ApiNote>>(
@@ -2297,7 +2391,10 @@ export function useUpdateNote(tenantId: string) {
           // The generated type only allows `string | undefined` for
           // projectId/moduleId, but the backend accepts an explicit `null`
           // to clear either link — see NotesService.resolveLinkage.
-          body: input as typeof input & { projectId?: string; moduleId?: string },
+          body: input as typeof input & {
+            projectId?: string;
+            moduleId?: string;
+          },
         }),
       ),
     async onSuccess(note) {
@@ -2430,7 +2527,10 @@ export function useUpdateMyNote() {
         await apiClient.PATCH("/api/v1/me/notes/{noteId}", {
           params: { path: { noteId } },
           // See the tenant-scoped useUpdateNote above.
-          body: input as typeof input & { projectId?: string; moduleId?: string },
+          body: input as typeof input & {
+            projectId?: string;
+            moduleId?: string;
+          },
         }),
       ),
     async onSuccess(note) {
@@ -2459,11 +2559,7 @@ export function useDeleteMyNote() {
 // Conferences
 // ---------------------------------------------------------------------------
 
-export function useConferences(
-  tenantId: string,
-  page = 1,
-  enabled = true,
-) {
+export function useConferences(tenantId: string, page = 1, enabled = true) {
   return useQuery({
     queryKey: apiKeys.conferences(tenantId, page),
     enabled: Boolean(tenantId) && enabled,
@@ -2733,11 +2829,7 @@ export function useDetachFundingTask(tenantId: string, fundingId: string) {
 // Calendar events
 // ---------------------------------------------------------------------------
 
-export function useCalendarEvents(
-  tenantId: string,
-  page = 1,
-  enabled = true,
-) {
+export function useCalendarEvents(tenantId: string, page = 1, enabled = true) {
   return useQuery({
     queryKey: apiKeys.calendarEvents(tenantId, page),
     enabled: Boolean(tenantId) && enabled,
@@ -2894,9 +2986,12 @@ export function useModulePipelineStagePool(tenantId: string, enabled = true) {
     enabled: Boolean(tenantId) && enabled,
     queryFn: async () =>
       responseData<ApiPipelineStage[]>(
-        await apiClient.GET("/api/v1/tenant/{tenantId}/module-pipeline-stages", {
-          params: { path: { tenantId } },
-        }),
+        await apiClient.GET(
+          "/api/v1/tenant/{tenantId}/module-pipeline-stages",
+          {
+            params: { path: { tenantId } },
+          },
+        ),
       ),
   });
 }
@@ -2993,9 +3088,24 @@ export function useCreateDraftInvitation(
     mutationFn: (input: DraftCollaboratorInput) =>
       createDraftInvitation(target, tenantId, entityId, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: invitationQueryKey(target, tenantId, entityId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: invitationQueryKey(target, tenantId, entityId),
+        }),
+        ...(target === "module"
+          ? [
+              queryClient.invalidateQueries({
+                queryKey: apiKeys.moduleCollaboratorContacts(
+                  tenantId,
+                  entityId,
+                ),
+              }),
+              queryClient.invalidateQueries({
+                queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
+              }),
+            ]
+          : []),
+      ]);
     },
   });
 }
@@ -3030,9 +3140,25 @@ export function useRevokeCollaboratorInvitation(
         { method: "DELETE" },
       ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: invitationQueryKey(target, tenantId, entityId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: invitationQueryKey(target, tenantId, entityId),
+        }),
+        ...(target === "module"
+          ? [
+              queryClient.invalidateQueries({
+                queryKey: apiKeys.moduleCollaboratorContacts(
+                  tenantId,
+                  entityId,
+                ),
+              }),
+              queryClient.invalidateQueries({
+                queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
+              }),
+              invalidateResourceEverywhere(queryClient, "modules"),
+            ]
+          : []),
+      ]);
     },
   });
 }
@@ -3158,9 +3284,20 @@ export function useTrackEvent(tenantId: string) {
   };
 }
 
-export function useAnalyticsSummary(tenantId: string, days?: number, enabled = true) {
+export function useAnalyticsSummary(
+  tenantId: string,
+  days?: number,
+  enabled = true,
+) {
   return useQuery({
-    queryKey: ["api", "tenant", tenantId, "analytics", "summary", days ?? 30] as const,
+    queryKey: [
+      "api",
+      "tenant",
+      tenantId,
+      "analytics",
+      "summary",
+      days ?? 30,
+    ] as const,
     enabled: Boolean(tenantId) && enabled,
     queryFn: async () =>
       responseData<ApiAnalyticsSummary>(

@@ -69,4 +69,11 @@ export class ListModulesQueryDto extends ProjectScopedPaginationQueryDto {
   @IsArray()
   @IsUUID('4', { each: true })
   currentlyWithUserIds?: string[];
+
+  @ApiPropertyOptional({ type: [String], format: 'uuid' })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => toStringArray(value))
+  @IsArray()
+  @IsUUID('4', { each: true })
+  currentlyWithInvitationIds?: string[];
 }

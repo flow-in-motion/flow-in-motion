@@ -1,0 +1,2 @@
+ALTER TABLE "modules" ADD COLUMN "assigned_to_invitation_id" uuid;--> statement-breakpoint
+CREATE INDEX "modules_assigned_to_invitation_id_idx" ON "modules" USING btree ("assigned_to_invitation_id") WHERE "modules"."assigned_to_invitation_id" IS NOT NULL;
