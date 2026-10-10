@@ -73,6 +73,13 @@ export class ProjectModulesService {
     return { journals, conferences };
   }
 
+  async listCurrentlyWithCollaborators(tenantId: string, callerUserId: string) {
+    return this.repository.findCurrentlyWithCollaborators(
+      tenantId,
+      callerUserId,
+    );
+  }
+
   /**
    * A module with a parent project inherits that project's visibility
    * (owner or project_collaborators — the owner is always inserted as a
@@ -115,6 +122,7 @@ export class ProjectModulesService {
     statuses?: string[],
     stages?: string[],
     currentlyWithTypes?: CurrentlyWithType[],
+    currentlyWithUserIds?: string[],
   ) {
     const limit = listPageSize(pageSize);
     const requestedPage = pageSize === 'all' ? 1 : page;
@@ -133,6 +141,7 @@ export class ProjectModulesService {
         statuses,
         stages,
         currentlyWithTypes,
+        currentlyWithUserIds,
       );
 
     assertAllFits(pageSize, totalItems);
@@ -236,6 +245,7 @@ export class ProjectModulesService {
       targetConference?: string;
       backupConference?: string;
       status?: string;
+      priority?: string;
       pipelineStage?: string;
       assignedToUserId?: string;
       currentlyWithType?: CurrentlyWithType;
@@ -247,7 +257,10 @@ export class ProjectModulesService {
       input.projectId,
       callerUserId,
     );
-    const statusId = await this.resolveEnum('project_status', input.status);
+    const [statusId, priorityId] = await Promise.all([
+      this.resolveEnum('project_status', input.status),
+      this.resolveEnum('importance', input.priority),
+    ]);
     const pipelineStageId = input.pipelineStage
       ? await this.resolveModulePipelineStage(tenantId, input.pipelineStage)
       : undefined;
@@ -271,6 +284,7 @@ export class ProjectModulesService {
       targetConference: input.targetConference,
       backupConference: input.backupConference,
       statusId,
+      priorityId,
       pipelineStageId,
       pipelineStageChangedAt: new Date(),
       assignedToUserId: currentlyWith.assignedToUserId,
@@ -315,6 +329,7 @@ export class ProjectModulesService {
       backupConference: string;
       projectId: string;
       status: string;
+      priority: string;
       pipelineStage: string;
       assignedToUserId: string;
       currentlyWithType: CurrentlyWithType;
@@ -336,9 +351,12 @@ export class ProjectModulesService {
       );
     }
 
-    const [statusId, pipelineStageId] = await Promise.all([
+    const [statusId, priorityId, pipelineStageId] = await Promise.all([
       input.status
         ? this.resolveEnum('project_status', input.status)
+        : undefined,
+      input.priority
+        ? this.resolveEnum('importance', input.priority)
         : undefined,
       input.pipelineStage
         ? this.resolveModulePipelineStage(tenantId, input.pipelineStage)
@@ -373,6 +391,7 @@ export class ProjectModulesService {
       backupConference: input.backupConference,
       projectId: input.projectId,
       statusId,
+      priorityId,
       pipelineStageId,
       pipelineStageChangedAt: stageChanged ? new Date() : undefined,
       assignedToUserId: currentlyWith?.assignedToUserId,
@@ -541,17 +560,19 @@ export class ProjectModulesService {
     T extends {
       id: string;
       statusId: string | null;
+      priorityId: string | null;
       pipelineStageId: string | null;
     },
   >(rows: T[], _callerUserId: string) {
     const enumIds = rows
-      .flatMap((row) => [row.statusId, row.pipelineStageId])
+      .flatMap((row) => [row.statusId, row.priorityId, row.pipelineStageId])
       .filter((id): id is string => id !== null);
     const valuesById = await this.enumRepository.findValuesByIds(enumIds);
 
-    return rows.map(({ statusId, pipelineStageId, ...rest }) => ({
+    return rows.map(({ statusId, priorityId, pipelineStageId, ...rest }) => ({
       ...rest,
       status: statusId ? (valuesById.get(statusId) ?? null) : null,
+      priority: priorityId ? (valuesById.get(priorityId) ?? null) : null,
       pipelineStage: pipelineStageId
         ? (valuesById.get(pipelineStageId) ?? null)
         : null,

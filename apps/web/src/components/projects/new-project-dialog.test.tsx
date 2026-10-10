@@ -89,6 +89,7 @@ describe("NewProjectDialog", () => {
 
     expect(screen.getByText("Collaborators (optional)")).toBeInTheDocument();
     expect(screen.getByLabelText("Collaborator email")).not.toBeRequired();
+    expect(screen.queryByText("Importance")).not.toBeInTheDocument();
   });
 
   it("does not allow the owner to be added as their own collaborator", () => {

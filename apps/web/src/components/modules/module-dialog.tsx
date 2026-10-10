@@ -48,6 +48,7 @@ import {
 } from "@/components/modules/paper-stage-celebration";
 
 const MODULE_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
+const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 
 export interface ModuleFormInput {
   shortTitle: string;
@@ -60,6 +61,7 @@ export interface ModuleFormInput {
   backupConference: string;
   projectId: string;
   status: string;
+  priority: string;
   pipelineStage: string;
   dueDate: string;
   assignedToUserId: string | null;
@@ -91,6 +93,7 @@ const INITIAL_FORM: ModuleFormInput = {
   backupConference: "",
   projectId: "",
   status: "Active",
+  priority: "Medium",
   pipelineStage: "",
   dueDate: "",
   assignedToUserId: null,
@@ -201,6 +204,7 @@ const generalProjectOption =
         backupConference: module.backupConference ?? "",
         projectId: module.projectId ?? "",
         status: module.status ?? "Active",
+        priority: module.priority ?? "",
         pipelineStage: module.pipelineStage ?? "",
         dueDate: module.dueDate ?? "",
         assignedToUserId: module.assignedToUserId,
@@ -428,6 +432,26 @@ const generalProjectOption =
                 <SelectContent>
                   {MODULE_STATUSES.map((status) => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField label="Priority" htmlFor="module-priority">
+              <Select
+                value={form.priority}
+                onValueChange={(value) =>
+                  setForm((current) => ({ ...current, priority: value }))
+                }
+              >
+                <SelectTrigger id="module-priority">
+                  <SelectValue placeholder="Select a priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAPER_PRIORITIES.map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priority}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

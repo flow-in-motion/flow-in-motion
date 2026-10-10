@@ -13,6 +13,7 @@ describe('ProjectModulesController', () => {
     update: jest.Mock;
     archive: jest.Mock;
     listVenueSuggestions: jest.Mock;
+    listCurrentlyWithCollaborators: jest.Mock;
   };
   let usersService: { findByExternalAuthId: jest.Mock };
   let configService: {
@@ -27,6 +28,7 @@ describe('ProjectModulesController', () => {
       update: jest.fn(),
       archive: jest.fn(),
       listVenueSuggestions: jest.fn(),
+      listCurrentlyWithCollaborators: jest.fn(),
     };
     usersService = {
       findByExternalAuthId: jest.fn().mockResolvedValue({ id: 'user-1' }),
@@ -100,6 +102,7 @@ describe('ProjectModulesController', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
 
       expect(result).toBe(response);
@@ -126,6 +129,7 @@ describe('ProjectModulesController', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
     });
 
@@ -137,6 +141,7 @@ describe('ProjectModulesController', () => {
         statuses: ['Complete', 'Stalled'],
         stages: ['Literature Review', 'Submitted, Under Review'],
         currentlyWithTypes: ['collaborator', 'journal'],
+        currentlyWithUserIds: ['11111111-1111-4111-8111-111111111111'],
       });
 
       expect(modulesService.listActive).toHaveBeenCalledWith(
@@ -151,7 +156,30 @@ describe('ProjectModulesController', () => {
         ['Complete', 'Stalled'],
         ['Literature Review', 'Submitted, Under Review'],
         ['collaborator', 'journal'],
+        ['11111111-1111-4111-8111-111111111111'],
       );
+    });
+  });
+
+  describe('listCurrentlyWithCollaborators', () => {
+    it('resolves the caller and returns accessible paper holders', async () => {
+      const collaborators = [
+        {
+          userId: 'user-2',
+          displayName: 'Sam Coauthor',
+          affiliation: 'Research Institute',
+        },
+      ];
+      modulesService.listCurrentlyWithCollaborators.mockResolvedValue(
+        collaborators,
+      );
+
+      await expect(
+        controller.listCurrentlyWithCollaborators('tenant-1', req),
+      ).resolves.toEqual(collaborators);
+      expect(
+        modulesService.listCurrentlyWithCollaborators,
+      ).toHaveBeenCalledWith('tenant-1', 'user-1');
     });
   });
 

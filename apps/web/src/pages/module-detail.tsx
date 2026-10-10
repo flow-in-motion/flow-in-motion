@@ -89,6 +89,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 const MODULE_STATUSES = ["Active", "Review", "Stalled", "Complete"];
+const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 
 interface EditableModule {
   shortTitle: string;
@@ -100,6 +101,7 @@ interface EditableModule {
   targetConference: string;
   backupConference: string;
   status: string;
+  priority: string;
   pipelineStage: string;
   dueDate: string;
   assignedToUserId: string;
@@ -121,6 +123,7 @@ function editableValues(
     targetConference: module.targetConference ?? "",
     backupConference: module.backupConference ?? "",
     status: module.status ?? "Active",
+    priority: module.priority ?? "",
     pipelineStage: module.pipelineStage ?? "",
     dueDate: module.dueDate ?? "",
     assignedToUserId: module.assignedToUserId ?? "",
@@ -628,6 +631,7 @@ export default function ModuleDetailPage() {
         targetConference: form.targetConference.trim() || undefined,
         backupConference: form.backupConference.trim() || undefined,
         status: form.status,
+        priority: form.priority || undefined,
         pipelineStage: form.pipelineStage,
         dueDate: form.dueDate || undefined,
         assignedToUserId: form.assignedToUserId || undefined,
@@ -825,6 +829,7 @@ export default function ModuleDetailPage() {
               <HeaderStat label="Formal title" value={module.title} />
             ) : null}
             <HeaderStat label="Status" value={module.status ?? "—"} />
+            <HeaderStat label="Priority" value={module.priority ?? "—"} />
             <HeaderStat
               label="Pipeline stage"
               value={module.pipelineStage ?? "Unassigned"}
@@ -1034,6 +1039,25 @@ export default function ModuleDetailPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {MODULE_STATUSES.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+                <FormField label="Priority" htmlFor="edit-module-priority">
+                  <Select
+                    value={form.priority}
+                    onValueChange={(value) =>
+                      setForm({ ...form, priority: value })
+                    }
+                  >
+                    <SelectTrigger id="edit-module-priority">
+                      <SelectValue placeholder="Select a priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAPER_PRIORITIES.map((value) => (
                         <SelectItem key={value} value={value}>
                           {value}
                         </SelectItem>

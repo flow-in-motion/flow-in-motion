@@ -7,6 +7,7 @@ import {
   modules,
   projectCollaborators,
   projects,
+  users,
 } from '@research-tracker/migrations';
 import {
   and,
@@ -80,6 +81,70 @@ export class ProjectModulesRepository {
     ]);
 
     return { paperValues, projectValues, conferenceValues };
+  }
+
+  async findCurrentlyWithCollaborators(tenantId: string, callerUserId: string) {
+    const visibilityCondition = or(
+      exists(
+        this.drizzle.db
+          .select({ id: projectCollaborators.id })
+          .from(projectCollaborators)
+          .where(
+            and(
+              eq(projectCollaborators.tenantId, tenantId),
+              eq(projectCollaborators.projectId, modules.projectId),
+              eq(projectCollaborators.userId, callerUserId),
+            ),
+          ),
+      ),
+      and(
+        isNull(modules.projectId),
+        exists(
+          this.drizzle.db
+            .select({ id: moduleCollaborators.id })
+            .from(moduleCollaborators)
+            .where(
+              and(
+                eq(moduleCollaborators.tenantId, tenantId),
+                eq(moduleCollaborators.moduleId, modules.id),
+                eq(moduleCollaborators.userId, callerUserId),
+              ),
+            ),
+        ),
+      ),
+    );
+
+    return this.drizzle.db
+      .selectDistinct({
+        userId: users.id,
+        displayName: users.displayName,
+        affiliation: users.institution,
+      })
+      .from(modules)
+      .innerJoin(users, eq(users.id, modules.assignedToUserId))
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          isNull(modules.archivedAt),
+          eq(modules.currentlyWithType, 'collaborator'),
+          or(
+            isNull(modules.projectId),
+            exists(
+              this.drizzle.db
+                .select({ id: projects.id })
+                .from(projects)
+                .where(
+                  and(
+                    eq(projects.id, modules.projectId),
+                    isNull(projects.archivedAt),
+                  ),
+                ),
+            ),
+          ),
+          visibilityCondition,
+        ),
+      )
+      .orderBy(asc(users.displayName), asc(users.id));
   }
 
   async findById(tenantId: string, moduleId: string) {
@@ -208,6 +273,7 @@ export class ProjectModulesRepository {
     statuses?: string[],
     stages?: string[],
     currentlyWithTypes?: CurrentlyWithType[],
+    currentlyWithUserIds?: string[],
   ) {
     const visibilityCondition = or(
       exists(
@@ -316,8 +382,25 @@ export class ProjectModulesRepository {
         ),
       );
     }
-    if (currentlyWithTypes?.length) {
+    if (currentlyWithTypes?.length && currentlyWithUserIds?.length) {
+      conditions.push(
+        or(
+          inArray(modules.currentlyWithType, currentlyWithTypes),
+          and(
+            eq(modules.currentlyWithType, 'collaborator'),
+            inArray(modules.assignedToUserId, currentlyWithUserIds),
+          ),
+        ),
+      );
+    } else if (currentlyWithTypes?.length) {
       conditions.push(inArray(modules.currentlyWithType, currentlyWithTypes));
+    } else if (currentlyWithUserIds?.length) {
+      conditions.push(
+        and(
+          eq(modules.currentlyWithType, 'collaborator'),
+          inArray(modules.assignedToUserId, currentlyWithUserIds),
+        ),
+      );
     }
 
     const whereCondition = and(...conditions);
@@ -471,6 +554,7 @@ export class ProjectModulesRepository {
     targetConference?: string;
     backupConference?: string;
     statusId?: string;
+    priorityId?: string;
     pipelineStageId?: string;
     pipelineStageChangedAt?: Date;
     assignedToUserId?: string | null;
@@ -515,6 +599,7 @@ export class ProjectModulesRepository {
       backupConference: string;
       projectId: string | null;
       statusId: string;
+      priorityId: string;
       pipelineStageId: string;
       pipelineStageChangedAt: Date;
       assignedToUserId: string | null;

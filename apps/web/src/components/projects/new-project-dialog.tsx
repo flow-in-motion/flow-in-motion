@@ -39,7 +39,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const PROJECT_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 const PROJECT_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
 
 export interface NewProjectInput {
@@ -47,7 +46,6 @@ export interface NewProjectInput {
   description: string;
   researchArea: string;
   status: string;
-  priority: string;
   scheduledFor: string;
   dueDate: string;
   totalBudget: string;
@@ -66,7 +64,6 @@ const INITIAL_FORM: NewProjectInput = {
   description: "",
   researchArea: "",
   status: "Active",
-  priority: "Medium",
   scheduledFor: "",
   dueDate: "",
   totalBudget: "",
@@ -257,20 +254,6 @@ export function NewProjectDialog({
                 }
                 placeholder="e.g. Structural biology"
               />
-            </FormField>
-
-            <FormField label="Importance" htmlFor="project-priority">
-              <Select
-                value={form.priority}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, priority: value }))}
-              >
-                <SelectTrigger id="project-priority"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PROJECT_PRIORITIES.map((priority) => (
-                    <SelectItem key={priority} value={priority}>{priority}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </FormField>
 
             <FormField label="Status" htmlFor="project-status">

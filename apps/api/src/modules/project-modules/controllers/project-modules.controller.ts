@@ -72,6 +72,7 @@ export class ProjectModulesController {
       query.statuses,
       query.stages,
       query.currentlyWithTypes,
+      query.currentlyWithUserIds,
     );
   }
 
@@ -98,6 +99,22 @@ export class ProjectModulesController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.modulesService.listVenueSuggestions(tenantId, user.id);
+  }
+
+  @ApiOperation({
+    summary: 'List collaborators who currently hold accessible papers',
+  })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Get('currently-with-collaborators')
+  async listCurrentlyWithCollaborators(
+    @Param('tenantId') tenantId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.modulesService.listCurrentlyWithCollaborators(
+      tenantId,
+      user.id,
+    );
   }
 
   @ApiOperation({ summary: 'Get a single module' })

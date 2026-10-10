@@ -1,6 +1,13 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Search, X } from "lucide-react";
 
-import { type ApiModule, type ApiProject, type ApiTask } from "@/api/hooks";
+import {
+  useModule,
+  useModules,
+  type ApiModule,
+  type ApiProject,
+  type ApiTask,
+} from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
@@ -115,9 +122,158 @@ function linkTargetPillClass(selected: boolean) {
   );
 }
 
+function TaskPaperSearch({
+  tenantId,
+  modules,
+  moduleId,
+  onChange,
+}: {
+  tenantId: string;
+  modules: ApiModule[];
+  moduleId: string;
+  onChange: (moduleId: string) => void;
+}) {
+  const [paperSearch, setPaperSearch] = useState("");
+  const [paperRequestSearch, setPaperRequestSearch] = useState("");
+  const [paperPickerOpen, setPaperPickerOpen] = useState(false);
+  const [selectedPaper, setSelectedPaper] = useState<ApiModule | null>(null);
+  const suppliedLinkedPaper = modules.find((module) => module.id === moduleId);
+  const selectedLinkedPaper = selectedPaper?.id === moduleId ? selectedPaper : undefined;
+  const linkedPaperQuery = useModule(
+    tenantId,
+    moduleId,
+    Boolean(moduleId) && !suppliedLinkedPaper && !selectedLinkedPaper,
+  );
+  const linkedPaper = selectedLinkedPaper ?? suppliedLinkedPaper ?? linkedPaperQuery.data;
+  const selectedPaperLabel = linkedPaper ? paperDisplayTitle(linkedPaper) : "";
+  const normalizedPaperSearch = paperSearch.trim();
+  const paperSearchQuery = useModules(
+    tenantId,
+    undefined,
+    1,
+    paperPickerOpen && paperRequestSearch.length > 0,
+    { pageSize: "all", search: paperRequestSearch },
+  );
+  const paperResults = paperSearchQuery.data?.data ?? [];
+  const isWaitingForPaperSearch =
+    normalizedPaperSearch !== paperRequestSearch || paperSearchQuery.isFetching;
+
+  useEffect(() => {
+    if (!paperPickerOpen || !normalizedPaperSearch) {
+      setPaperRequestSearch("");
+      return;
+    }
+    const timer = window.setTimeout(
+      () => setPaperRequestSearch(normalizedPaperSearch),
+      300,
+    );
+    return () => window.clearTimeout(timer);
+  }, [normalizedPaperSearch, paperPickerOpen]);
+
+  function selectPaper(module: ApiModule) {
+    setSelectedPaper(module);
+    onChange(module.id);
+    setPaperSearch("");
+    setPaperPickerOpen(false);
+  }
+
+  return (
+    <FormField label="Paper" htmlFor="task-module" required>
+      <div
+        className="relative"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) {
+            setPaperPickerOpen(false);
+          }
+        }}
+      >
+        <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          id="task-module"
+          role="combobox"
+          aria-expanded={paperPickerOpen}
+          aria-controls="task-paper-results"
+          aria-autocomplete="list"
+          value={paperPickerOpen ? paperSearch : selectedPaperLabel}
+          onFocus={() => {
+            setPaperSearch("");
+            setPaperPickerOpen(true);
+          }}
+          onChange={(event) => {
+            setPaperSearch(event.target.value);
+            setSelectedPaper(null);
+            onChange("");
+          }}
+          placeholder="Search all papers…"
+          autoComplete="off"
+          className="pl-9 pr-8"
+        />
+        {!paperPickerOpen && moduleId ? (
+          <button
+            type="button"
+            onClick={() => {
+              onChange("");
+              setSelectedPaper(null);
+              setPaperSearch("");
+            }}
+            aria-label="Clear selected paper"
+            className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+        {paperPickerOpen ? (
+          <div
+            id="task-paper-results"
+            role="listbox"
+            aria-label="Paper search results"
+            className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+          >
+            {!normalizedPaperSearch ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">
+                Type to search all papers.
+              </p>
+            ) : isWaitingForPaperSearch ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">
+                Searching all papers…
+              </p>
+            ) : paperResults.length ? (
+              paperResults.map((module) => (
+                <button
+                  key={module.id}
+                  type="button"
+                  role="option"
+                  aria-selected={moduleId === module.id}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => selectPaper(module)}
+                  className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                >
+                  <span className="text-sm font-medium">
+                    {paperDisplayTitle(module)}
+                  </span>
+                  {module.displayId ? (
+                    <span className="text-xs text-muted-foreground">
+                      {module.displayId}
+                    </span>
+                  ) : null}
+                </button>
+              ))
+            ) : (
+              <p className="px-3 py-2 text-sm text-muted-foreground">
+                No papers found.
+              </p>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </FormField>
+  );
+}
+
 export function TaskDialog({
   open,
   onOpenChange,
+  tenantId,
   projects,
   modules,
   task,
@@ -242,20 +398,12 @@ export function TaskDialog({
           ) : null}
 
           {form.linkTarget === "module" ? (
-            <FormField label="Paper" htmlFor="task-module" required>
-              <Select
-                value={form.moduleId}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, moduleId: value }))}
-                required
-              >
-                <SelectTrigger id="task-module"><SelectValue placeholder="Select a paper" /></SelectTrigger>
-                <SelectContent>
-                  {modules.map((module) => (
-                    <SelectItem key={module.id} value={module.id}>{paperDisplayTitle(module)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
+            <TaskPaperSearch
+              tenantId={tenantId}
+              modules={modules}
+              moduleId={form.moduleId}
+              onChange={(moduleId) => setForm((prev) => ({ ...prev, moduleId }))}
+            />
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">

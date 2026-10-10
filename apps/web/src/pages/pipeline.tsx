@@ -390,6 +390,7 @@ export default function PipelinePage() {
       backupConference: input.backupConference || undefined,
       projectId: input.projectId ?? undefined,
       status: input.status,
+      priority: input.priority || undefined,
       pipelineStage: input.pipelineStage,
       dueDate: input.dueDate || undefined,
       assignedToUserId: input.assignedToUserId ?? undefined,
