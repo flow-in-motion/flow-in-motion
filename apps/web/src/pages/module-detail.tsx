@@ -25,7 +25,7 @@ import {
   useCurrentWorkspace,
   useDeleteModuleSubmission,
   useMembers,
-  useModuleCollaborators,
+  useModuleCollaboratorContacts,
   useModulePipelineStagePool,
   useModuleSubmissions,
   useMyModule,
@@ -105,6 +105,7 @@ interface EditableModule {
   pipelineStage: string;
   dueDate: string;
   assignedToUserId: string;
+  assignedToInvitationId: string;
   currentlyWithType: PaperCurrentlyWithType | null;
   projectId: string;
 }
@@ -127,6 +128,7 @@ function editableValues(
     pipelineStage: module.pipelineStage ?? "",
     dueDate: module.dueDate ?? "",
     assignedToUserId: module.assignedToUserId ?? "",
+    assignedToInvitationId: module.assignedToInvitationId ?? "",
     currentlyWithType:
       module.currentlyWithType ??
       (module.assignedToUserId
@@ -219,9 +221,9 @@ function ModuleTasksDetails({
           <p className="text-sm text-muted-foreground">
             No tasks are linked to this module.
           </p>
-      ) : (
-        <div className="grid gap-2">
-          {tasks.map((task) => (
+        ) : (
+          <div className="grid gap-2">
+            {tasks.map((task) => (
               <div
                 key={task.id}
                 className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
@@ -230,40 +232,40 @@ function ModuleTasksDetails({
                   to={`/tasks/${task.id}`}
                   className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    {task.displayId ? (
-                      <span className="block font-mono text-[10px] text-muted-foreground">
-                        {task.displayId}
-                      </span>
-                    ) : null}
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      {task.displayId ? (
+                        <span className="block font-mono text-[10px] text-muted-foreground">
+                          {task.displayId}
+                        </span>
+                      ) : null}
                       <span className="block text-sm font-semibold">
                         {task.title}
                       </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <StatusBadge status={task.status ?? "—"} />
+                      <StatusBadge status={task.priority ?? "—"} />
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    <StatusBadge status={task.status ?? "—"} />
-                    <StatusBadge status={task.priority ?? "—"} />
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>Due {formatDate(task.dueDate)}</span>
                   </div>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span>Due {formatDate(task.dueDate)}</span>
-                </div>
-              </Link>
-              {onUnlinkTask ? (
-                <button
-                  type="button"
-                  onClick={() => onUnlinkTask(task)}
-                  aria-label={`Unlink ${task.title} from this module`}
-                  title="Unlink"
-                  className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Unlink className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-            </div>
-          ))}
-        </div>
+                </Link>
+                {onUnlinkTask ? (
+                  <button
+                    type="button"
+                    onClick={() => onUnlinkTask(task)}
+                    aria-label={`Unlink ${task.title} from this module`}
+                    title="Unlink"
+                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Unlink className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -310,9 +312,9 @@ function ModuleNotesDetails({
           <p className="text-sm text-muted-foreground">
             No notes are linked to this module.
           </p>
-      ) : (
-        <div className="grid gap-2">
-          {notes.map((note) => (
+        ) : (
+          <div className="grid gap-2">
+            {notes.map((note) => (
               <div
                 key={note.id}
                 className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
@@ -321,27 +323,27 @@ function ModuleNotesDetails({
                   to={`/daily-notes/${note.id}`}
                   className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                <span className="text-sm font-semibold">{note.title}</span>
-                {note.content ? (
+                  <span className="text-sm font-semibold">{note.title}</span>
+                  {note.content ? (
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
                       {note.content}
                     </p>
+                  ) : null}
+                </Link>
+                {onUnlinkNote ? (
+                  <button
+                    type="button"
+                    onClick={() => onUnlinkNote(note)}
+                    aria-label={`Unlink ${note.title} from this module`}
+                    title="Unlink"
+                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Unlink className="h-3.5 w-3.5" />
+                  </button>
                 ) : null}
-              </Link>
-              {onUnlinkNote ? (
-                <button
-                  type="button"
-                  onClick={() => onUnlinkNote(note)}
-                  aria-label={`Unlink ${note.title} from this module`}
-                  title="Unlink"
-                  className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Unlink className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -470,7 +472,7 @@ export default function ModuleDetailPage() {
   const updateTask = useUpdateTask(tenantId);
   const updateNote = useUpdateNote(tenantId);
   const trackEvent = useTrackEvent(tenantId);
-  
+
   const module = moduleQuery.data;
   const sameTenant = Boolean(
     module && tenantId && module.tenantId === tenantId,
@@ -480,7 +482,7 @@ export default function ModuleDetailPage() {
     module?.projectId ?? "",
     Boolean(module?.projectId),
   );
-  const collaboratorsQuery = useModuleCollaborators(
+  const collaboratorsQuery = useModuleCollaboratorContacts(
     tenantId,
     module?.id ?? "",
     sameTenant,
@@ -613,12 +615,12 @@ export default function ModuleDetailPage() {
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form || !module) return;
-  
+
     const shouldCelebrate = enteredSubmittedUnderReview(
       module.pipelineStage,
       form.pipelineStage,
     );
-  
+
     await updateModule.mutateAsync({
       moduleId,
       input: {
@@ -634,15 +636,16 @@ export default function ModuleDetailPage() {
         priority: form.priority || undefined,
         pipelineStage: form.pipelineStage,
         dueDate: form.dueDate || undefined,
-        assignedToUserId: form.assignedToUserId || undefined,
+        assignedToUserId: form.assignedToUserId || null,
+        assignedToInvitationId: form.assignedToInvitationId || null,
         currentlyWithType: form.currentlyWithType || undefined,
         projectId:
           form.projectId !== module.projectId ? form.projectId : undefined,
       },
     });
-  
+
     setForm(null);
-  
+
     if (shouldCelebrate) {
       setIsPaperCelebrationOpen(true);
     }
@@ -766,14 +769,25 @@ export default function ModuleDetailPage() {
   }
   for (const collaborator of paperCollaborators) {
     if (collaborator.displayName) {
-      currentlyWithNameById.set(collaborator.userId, collaborator.displayName);
+      if (collaborator.userId) {
+        currentlyWithNameById.set(
+          collaborator.userId,
+          collaborator.displayName,
+        );
+      }
+      if (collaborator.invitationId) {
+        currentlyWithNameById.set(
+          collaborator.invitationId,
+          collaborator.displayName,
+        );
+      }
     }
   }
   const currentlyWith = paperCurrentlyWithLabel(
     module,
     me.data?.id,
     currentlyWithNameById,
-    );
+  );
   const moduleTasks = tasks.filter((task) => task.moduleId === module.id);
   const moduleNotes = notes.filter((note) => note.moduleId === module.id);
 
@@ -873,12 +887,12 @@ export default function ModuleDetailPage() {
           <CardHeader>
             <CardTitle>Edit paper details</CardTitle>
           </CardHeader>
-        <CardContent className="grid gap-6">
+          <CardContent className="grid gap-6">
             <form
               id="edit-module-details-form"
               onSubmit={(event) => void handleSave(event)}
             >
-            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2">
                 <FormField
                   label="Short title"
                   htmlFor="edit-module-short-title"
@@ -1023,10 +1037,10 @@ export default function ModuleDetailPage() {
                     suggestions={venueSuggestions.data?.conferences}
                   />
                 </FormField>
-              <p className="text-xs text-muted-foreground sm:col-span-2">
+                <p className="text-xs text-muted-foreground sm:col-span-2">
                   Type a name and press comma or Enter to add it — you can add
                   multiple journals or conferences.
-              </p>
+                </p>
                 <FormField label="Status" htmlFor="edit-module-status">
                   <Select
                     value={form.status}
@@ -1102,24 +1116,30 @@ export default function ModuleDetailPage() {
                     id="edit-module-currently-with"
                     currentlyWithType={form.currentlyWithType}
                     assignedToUserId={form.assignedToUserId || null}
+                    assignedToInvitationId={form.assignedToInvitationId || null}
                     currentUserId={me.data?.id}
                     collaborators={paperCollaborators}
-                    onChange={(currentlyWithType, assignedToUserId) =>
+                    onChange={(
+                      currentlyWithType,
+                      assignedToUserId,
+                      assignedToInvitationId,
+                    ) =>
                       setForm({
                         ...form,
                         currentlyWithType,
                         assignedToUserId: assignedToUserId ?? "",
+                        assignedToInvitationId: assignedToInvitationId ?? "",
                       })
                     }
                   />
                 </FormField>
-            </div>
-            {updateModule.isError ? (
-              <p role="alert" className="mt-6 text-sm text-destructive">
-                {updateModule.error.message}
-              </p>
-            ) : null}
-          </form>
+              </div>
+              {updateModule.isError ? (
+                <p role="alert" className="mt-6 text-sm text-destructive">
+                  {updateModule.error.message}
+                </p>
+              ) : null}
+            </form>
             <div className="border-t pt-5">
               <h3 className="mb-3 text-sm font-semibold">Collaborators</h3>
               {sameTenant ? (
@@ -1148,7 +1168,7 @@ export default function ModuleDetailPage() {
                 <Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}
               </Button>
             </div>
-        </CardContent>
+          </CardContent>
         </Card>
       ) : null}
 
@@ -1168,11 +1188,11 @@ export default function ModuleDetailPage() {
             </Button>
           </CardHeader>
           {isAbstractVisible ? (
-          <CardContent id="module-abstract-content">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-              {module.abstract}
-            </p>
-          </CardContent>
+            <CardContent id="module-abstract-content">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                {module.abstract}
+              </p>
+            </CardContent>
           ) : null}
         </Card>
       ) : null}
@@ -1201,67 +1221,67 @@ export default function ModuleDetailPage() {
             </Button>
           </CardHeader>
           {isPublishingTargetsVisible ? (
-          <CardContent
-            id="module-publishing-targets-content"
-            className="grid gap-3 sm:grid-cols-2"
-          >
-            {module.targetJournal ? (
-              <div>
+            <CardContent
+              id="module-publishing-targets-content"
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              {module.targetJournal ? (
+                <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Target journals
                   </p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {splitEntries(module.targetJournal).map((entry) => (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {splitEntries(module.targetJournal).map((entry) => (
                       <Badge key={entry} variant="secondary">
                         {entry}
                       </Badge>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {module.backupJournal ? (
-              <div>
+              ) : null}
+              {module.backupJournal ? (
+                <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Backup journals
                   </p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {splitEntries(module.backupJournal).map((entry) => (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {splitEntries(module.backupJournal).map((entry) => (
                       <Badge key={entry} variant="secondary">
                         {entry}
                       </Badge>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {module.targetConference ? (
-              <div>
+              ) : null}
+              {module.targetConference ? (
+                <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Target conferences
                   </p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {splitEntries(module.targetConference).map((entry) => (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {splitEntries(module.targetConference).map((entry) => (
                       <Badge key={entry} variant="secondary">
                         {entry}
                       </Badge>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {module.backupConference ? (
-              <div>
+              ) : null}
+              {module.backupConference ? (
+                <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Backup conferences
                   </p>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {splitEntries(module.backupConference).map((entry) => (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {splitEntries(module.backupConference).map((entry) => (
                       <Badge key={entry} variant="secondary">
                         {entry}
                       </Badge>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </CardContent>
+              ) : null}
+            </CardContent>
           ) : null}
         </Card>
       ) : null}
@@ -1323,22 +1343,22 @@ export default function ModuleDetailPage() {
 
         {sameTenant ? (
           <section aria-labelledby="module-submission-history-heading">
-          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <h2
                 id="module-submission-history-heading"
                 className="text-lg font-semibold"
               >
                 Submission history
               </h2>
-            <Button
-              variant="outline"
-              size="sm"
+              <Button
+                variant="outline"
+                size="sm"
                 aria-expanded={isSubmissionHistoryVisible}
                 aria-controls="module-submission-history-content"
                 onClick={() =>
                   setIsSubmissionHistoryVisible((visible) => !visible)
                 }
-            >
+              >
                 {isSubmissionHistoryVisible ? <ChevronUp /> : <ChevronDown />}
                 {isSubmissionHistoryVisible
                   ? "Hide submission history"

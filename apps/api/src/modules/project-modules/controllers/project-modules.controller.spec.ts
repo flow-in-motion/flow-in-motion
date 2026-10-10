@@ -103,6 +103,7 @@ describe('ProjectModulesController', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
 
       expect(result).toBe(response);
@@ -130,6 +131,7 @@ describe('ProjectModulesController', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
     });
 
@@ -142,6 +144,7 @@ describe('ProjectModulesController', () => {
         stages: ['Literature Review', 'Submitted, Under Review'],
         currentlyWithTypes: ['collaborator', 'journal'],
         currentlyWithUserIds: ['11111111-1111-4111-8111-111111111111'],
+        currentlyWithInvitationIds: ['22222222-2222-4222-8222-222222222222'],
       });
 
       expect(modulesService.listActive).toHaveBeenCalledWith(
@@ -157,6 +160,7 @@ describe('ProjectModulesController', () => {
         ['Literature Review', 'Submitted, Under Review'],
         ['collaborator', 'journal'],
         ['11111111-1111-4111-8111-111111111111'],
+        ['22222222-2222-4222-8222-222222222222'],
       );
     });
   });

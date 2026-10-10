@@ -1,6 +1,9 @@
 // apps/api/src/modules/module-collaborators/repositories/module-collaborators.repository.ts
 import { Injectable } from '@nestjs/common';
-import { moduleCollaborators } from '@research-tracker/migrations';
+import {
+  moduleCollaborators,
+  moduleInvitations,
+} from '@research-tracker/migrations';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 
@@ -18,6 +21,18 @@ export class ModuleCollaboratorsRepository {
           eq(moduleCollaborators.moduleId, moduleId),
         ),
       );
+  }
+
+  async findInvitationContactsByModule(moduleId: string) {
+    return this.drizzle.db
+      .select({
+        invitationId: moduleInvitations.id,
+        email: moduleInvitations.email,
+        displayName: moduleInvitations.name,
+        affiliation: moduleInvitations.affiliation,
+      })
+      .from(moduleInvitations)
+      .where(eq(moduleInvitations.moduleId, moduleId));
   }
 
   async findByModuleAndUser(
@@ -83,15 +98,15 @@ export class ModuleCollaboratorsRepository {
 
   async delete(tenantId: string, moduleId: string, userId: string) {
     const [row] = await this.drizzle.db
-      .delete(moduleCollaborators)
-      .where(
-        and(
-          eq(moduleCollaborators.tenantId, tenantId),
-          eq(moduleCollaborators.moduleId, moduleId),
-          eq(moduleCollaborators.userId, userId),
-        ),
-      )
-      .returning();
+        .delete(moduleCollaborators)
+        .where(
+          and(
+            eq(moduleCollaborators.tenantId, tenantId),
+            eq(moduleCollaborators.moduleId, moduleId),
+            eq(moduleCollaborators.userId, userId),
+          ),
+        )
+        .returning();
     return row;
   }
   /**

@@ -74,9 +74,60 @@ export class ProjectModulesService {
   }
 
   async listCurrentlyWithCollaborators(tenantId: string, callerUserId: string) {
-    return this.repository.findCurrentlyWithCollaborators(
-      tenantId,
-      callerUserId,
+    const { registered, invited, callerEmail } =
+      await this.repository.findCurrentlyWithCollaborators(
+        tenantId,
+        callerUserId,
+      );
+    const callerKey = callerEmail?.trim().toLowerCase();
+    const contactsByEmail = new Map<
+      string,
+      {
+        id: string;
+        userIds: string[];
+        invitationIds: string[];
+        displayName: string | null;
+        affiliation: string | null;
+      }
+    >();
+
+    for (const collaborator of registered) {
+      const key = collaborator.email.trim().toLowerCase();
+      if (key === callerKey || collaborator.userId === callerUserId) continue;
+      contactsByEmail.set(key, {
+        id: `user:${collaborator.userId}`,
+        userIds: [collaborator.userId],
+        invitationIds: [],
+        displayName: collaborator.displayName,
+        affiliation: collaborator.affiliation,
+      });
+    }
+
+    for (const invitation of invited) {
+      const key = invitation.email.trim().toLowerCase();
+      if (key === callerKey) continue;
+      const existing = contactsByEmail.get(key);
+      if (existing) {
+        if (!existing.invitationIds.includes(invitation.invitationId)) {
+          existing.invitationIds.push(invitation.invitationId);
+        }
+        existing.displayName ??= invitation.displayName;
+        existing.affiliation ??= invitation.affiliation;
+        continue;
+      }
+      contactsByEmail.set(key, {
+        id: `invitation:${invitation.invitationId}`,
+        userIds: [],
+        invitationIds: [invitation.invitationId],
+        displayName: invitation.displayName,
+        affiliation: invitation.affiliation,
+      });
+    }
+
+    return [...contactsByEmail.values()].sort((left, right) =>
+      (left.displayName ?? left.affiliation ?? '').localeCompare(
+        right.displayName ?? right.affiliation ?? '',
+      ),
     );
   }
 
@@ -123,6 +174,7 @@ export class ProjectModulesService {
     stages?: string[],
     currentlyWithTypes?: CurrentlyWithType[],
     currentlyWithUserIds?: string[],
+    currentlyWithInvitationIds?: string[],
   ) {
     const limit = listPageSize(pageSize);
     const requestedPage = pageSize === 'all' ? 1 : page;
@@ -142,6 +194,7 @@ export class ProjectModulesService {
         stages,
         currentlyWithTypes,
         currentlyWithUserIds,
+        currentlyWithInvitationIds,
       );
 
     assertAllFits(pageSize, totalItems);
@@ -331,12 +384,17 @@ export class ProjectModulesService {
       status: string;
       priority: string;
       pipelineStage: string;
-      assignedToUserId: string;
+      assignedToUserId: string | null;
+      assignedToInvitationId: string | null;
       currentlyWithType: CurrentlyWithType;
       dueDate: string;
     }>,
   ) {
     const existing = await this.findOne(tenantId, moduleId, callerUserId);
+    const existingCurrentlyWith = existing as typeof existing & {
+      assignedToUserId?: string | null;
+      assignedToInvitationId?: string | null;
+    };
     if (Object.prototype.hasOwnProperty.call(input, 'projectId')) {
       if (!input.projectId) {
         throw new BadRequestException(
@@ -368,7 +426,8 @@ export class ProjectModulesService {
       input.pipelineStage !== existing?.pipelineStage;
     const hasCurrentlyWithUpdate =
       Object.prototype.hasOwnProperty.call(input, 'currentlyWithType') ||
-      Object.prototype.hasOwnProperty.call(input, 'assignedToUserId');
+      Object.prototype.hasOwnProperty.call(input, 'assignedToUserId') ||
+      Object.prototype.hasOwnProperty.call(input, 'assignedToInvitationId');
     const currentlyWith = hasCurrentlyWithUpdate
       ? await this.resolveUpdatedCurrentlyWith(
           tenantId,
@@ -376,7 +435,9 @@ export class ProjectModulesService {
           callerUserId,
           input.currentlyWithType,
           input.assignedToUserId,
-          existing?.assignedToUserId,
+          input.assignedToInvitationId,
+          existingCurrentlyWith.assignedToUserId,
+          existingCurrentlyWith.assignedToInvitationId,
         )
       : undefined;
 
@@ -395,6 +456,7 @@ export class ProjectModulesService {
       pipelineStageId,
       pipelineStageChangedAt: stageChanged ? new Date() : undefined,
       assignedToUserId: currentlyWith?.assignedToUserId,
+      assignedToInvitationId: currentlyWith?.assignedToInvitationId,
       currentlyWithType: currentlyWith?.currentlyWithType,
       dueDate: input.dueDate,
     });
@@ -593,7 +655,10 @@ export class ProjectModulesService {
         : 'me');
 
     if (currentlyWithType === 'me') {
-      return { currentlyWithType, assignedToUserId: callerUserId };
+      return {
+        currentlyWithType,
+        assignedToUserId: callerUserId,
+      };
     }
     if (currentlyWithType === 'collaborator') {
       if (!requestedUserId || requestedUserId === callerUserId) {
@@ -601,9 +666,15 @@ export class ProjectModulesService {
           'Choose a paper collaborator or coauthor',
         );
       }
-      return { currentlyWithType, assignedToUserId: requestedUserId };
+      return {
+        currentlyWithType,
+        assignedToUserId: requestedUserId,
+      };
     }
-    return { currentlyWithType, assignedToUserId: null };
+    return {
+      currentlyWithType,
+      assignedToUserId: null,
+    };
   }
 
   private async resolveUpdatedCurrentlyWith(
@@ -611,44 +682,88 @@ export class ProjectModulesService {
     moduleId: string,
     callerUserId: string,
     requestedType?: CurrentlyWithType,
-    requestedUserId?: string,
+    requestedUserId?: string | null,
+    requestedInvitationId?: string | null,
     existingUserId?: string | null,
+    existingInvitationId?: string | null,
   ) {
-    const selectedUserId = requestedUserId ?? existingUserId ?? undefined;
+    const selectedUserId =
+      requestedUserId === undefined ? existingUserId : requestedUserId;
+    const selectedInvitationId =
+      requestedInvitationId === undefined
+        ? existingInvitationId
+        : requestedInvitationId;
     const currentlyWithType =
       requestedType ??
-      (selectedUserId
+      (selectedUserId || selectedInvitationId
         ? selectedUserId === callerUserId
           ? 'me'
           : 'collaborator'
         : undefined);
 
     if (!currentlyWithType) {
-      return { currentlyWithType: null, assignedToUserId: null };
+      return {
+        currentlyWithType: null,
+        assignedToUserId: null,
+        assignedToInvitationId: null,
+      };
     }
     if (currentlyWithType === 'me') {
-      return { currentlyWithType, assignedToUserId: callerUserId };
+      return {
+        currentlyWithType,
+        assignedToUserId: callerUserId,
+        assignedToInvitationId: null,
+      };
     }
     if (currentlyWithType === 'collaborator') {
-      if (!selectedUserId || selectedUserId === callerUserId) {
+      if (
+        (!selectedUserId && !selectedInvitationId) ||
+        selectedUserId === callerUserId ||
+        (selectedUserId && selectedInvitationId)
+      ) {
         throw new BadRequestException(
           'Choose a paper collaborator or coauthor',
         );
       }
-      const collaborator =
-        await this.collaboratorsRepository.findByModuleAndUser(
-          tenantId,
-          moduleId,
-          selectedUserId,
-        );
-      if (!collaborator) {
+      if (selectedUserId) {
+        const collaborator =
+          await this.collaboratorsRepository.findByModuleAndUser(
+            tenantId,
+            moduleId,
+            selectedUserId,
+          );
+        if (!collaborator) {
+          throw new BadRequestException(
+            'Currently With can only select a collaborator on this paper',
+          );
+        }
+        return {
+          currentlyWithType,
+          assignedToUserId: selectedUserId,
+          assignedToInvitationId: null,
+        };
+      }
+
+      const invitation = await this.repository.findInvitationById(
+        moduleId,
+        selectedInvitationId!,
+      );
+      if (!invitation) {
         throw new BadRequestException(
           'Currently With can only select a collaborator on this paper',
         );
       }
-      return { currentlyWithType, assignedToUserId: selectedUserId };
+      return {
+        currentlyWithType,
+        assignedToUserId: null,
+        assignedToInvitationId: selectedInvitationId!,
+      };
     }
-    return { currentlyWithType, assignedToUserId: null };
+    return {
+      currentlyWithType,
+      assignedToUserId: null,
+      assignedToInvitationId: null,
+    };
   }
 
   private async resolveEnum(

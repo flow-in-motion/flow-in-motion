@@ -110,6 +110,64 @@ export class ModuleCollaboratorsService {
     return this.withDisplayValues(rows);
   }
 
+  async listContacts(tenantId: string, moduleId: string, callerUserId: string) {
+    const [collaborators, invitations, callerSummaries] = await Promise.all([
+      this.list(tenantId, moduleId, callerUserId),
+      this.repository.findInvitationContactsByModule(moduleId),
+      this.usersService.findSummariesByIds([callerUserId]),
+    ]);
+    const contactsByEmail = new Map<
+      string,
+      {
+        id: string;
+        userId: string | null;
+        invitationId: string | null;
+        displayName: string | null;
+        affiliation: string | null;
+      }
+    >();
+    const callerEmail = callerSummaries[0]?.email.trim().toLowerCase();
+
+    for (const collaborator of collaborators) {
+      if (collaborator.userId === callerUserId) continue;
+      const key =
+        collaborator.email?.trim().toLowerCase() ||
+        `user:${collaborator.userId}`;
+      contactsByEmail.set(key, {
+        id: `user:${collaborator.userId}`,
+        userId: collaborator.userId,
+        invitationId: null,
+        displayName: collaborator.displayName ?? null,
+        affiliation: collaborator.affiliation ?? null,
+      });
+    }
+
+    for (const invitation of invitations) {
+      const key = invitation.email.trim().toLowerCase();
+      if (key === callerEmail) continue;
+      const existing = contactsByEmail.get(key);
+      if (existing) {
+        existing.invitationId ??= invitation.invitationId;
+        existing.displayName ??= invitation.displayName;
+        existing.affiliation ??= invitation.affiliation;
+        continue;
+      }
+      contactsByEmail.set(key, {
+        id: `invitation:${invitation.invitationId}`,
+        userId: null,
+        invitationId: invitation.invitationId,
+        displayName: invitation.displayName,
+        affiliation: invitation.affiliation,
+      });
+    }
+
+    return [...contactsByEmail.values()].sort((left, right) =>
+      (left.displayName ?? left.affiliation ?? '').localeCompare(
+        right.displayName ?? right.affiliation ?? '',
+      ),
+    );
+  }
+
   async add(tenantId: string, moduleId: string, userId: string, role: string) {
     const module = await this.modulesRepository.findById(tenantId, moduleId);
     if (!module) {

@@ -1,10 +1,16 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ModuleCollaboratorsManager } from "@/components/modules/module-collaborators";
+import {
+  ModuleCollaboratorsManager,
+  ModuleCollaboratorsSummary,
+} from "@/components/modules/module-collaborators";
 import type { ApiCollaborator, ApiInvitation, Membership } from "@/api/hooks";
 
-const timestamps = { createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+const timestamps = {
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
 
 const collaborators: ApiCollaborator[] = [
   {
@@ -44,21 +50,56 @@ const removeCollaboratorMutate = vi.fn();
 const createDraftMutate = vi.fn();
 
 vi.mock("@/api/hooks", async () => {
-  const actual = await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
+  const actual =
+    await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
   return {
     ...actual,
     useModuleCollaborators: () => ({ data: collaborators, isPending: false }),
-    useRemoveModuleCollaborator: () => ({ mutate: removeCollaboratorMutate, isPending: false }),
+    useModuleCollaboratorContacts: () => ({
+      data: [
+        {
+          id: "user:user-owner",
+          userId: "user-owner",
+          invitationId: null,
+          displayName: "Owner Person",
+          affiliation: "University of Melbourne",
+        },
+        {
+          id: "invitation:draft-1",
+          userId: null,
+          invitationId: "draft-1",
+          displayName: "Draft Collaborator",
+          affiliation: "Monash University",
+        },
+      ],
+      isPending: false,
+    }),
+    useRemoveModuleCollaborator: () => ({
+      mutate: removeCollaboratorMutate,
+      isPending: false,
+    }),
     useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
     useEnumValues: () => ({ data: [], isPending: false }),
-    useCollaboratorInvitations: () => ({ data: invitations, isPending: false, isError: false }),
+    useCollaboratorInvitations: () => ({
+      data: invitations,
+      isPending: false,
+      isError: false,
+    }),
     useCreateDraftInvitation: () => ({
       mutateAsync: createDraftMutate,
       isPending: false,
       isError: false,
     }),
-    useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+    useSendInvitation: () => ({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
+    useRevokeCollaboratorInvitation: () => ({
+      mutate: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
     useUserSearch: () => ({ data: [], isPending: false }),
   };
 });
@@ -66,6 +107,17 @@ vi.mock("@/api/hooks", async () => {
 const members: Membership[] = [];
 
 describe("ModuleCollaboratorsManager", () => {
+  it("shows a saved draft collaborator in the paper summary", () => {
+    render(
+      <ModuleCollaboratorsSummary tenantId="tenant-1" moduleId="module-1" />,
+    );
+
+    expect(screen.queryByText("Owner Person")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Draft Collaborator · Monash University"),
+    ).toBeInTheDocument();
+  });
+
   it("displays affiliations and filters collaborators by affiliation", () => {
     render(
       <ModuleCollaboratorsManager
@@ -77,7 +129,9 @@ describe("ModuleCollaboratorsManager", () => {
     );
 
     expect(screen.queryByText("Owner Person")).not.toBeInTheDocument();
-    expect(screen.queryByText("University of Melbourne")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("University of Melbourne"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("University of Sydney")).toBeInTheDocument();
     expect(screen.getByText("CSIRO")).toBeInTheDocument();
 
@@ -108,11 +162,14 @@ describe("ModuleCollaboratorsManager", () => {
     expect(screen.getByText("Alice Anders")).toBeInTheDocument();
     expect(screen.getByText("Bob Baker")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(
-      "Search collaborators by name, email, or affiliation",
-    ), {
-      target: { value: "bob" },
-    });
+    fireEvent.change(
+      screen.getByLabelText(
+        "Search collaborators by name, email, or affiliation",
+      ),
+      {
+        target: { value: "bob" },
+      },
+    );
 
     expect(screen.getByText("Bob Baker")).toBeInTheDocument();
     expect(screen.queryByText("Alice Anders")).not.toBeInTheDocument();
@@ -128,13 +185,18 @@ describe("ModuleCollaboratorsManager", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(
-      "Search collaborators by name, email, or affiliation",
-    ), {
-      target: { value: "zzz" },
-    });
+    fireEvent.change(
+      screen.getByLabelText(
+        "Search collaborators by name, email, or affiliation",
+      ),
+      {
+        target: { value: "zzz" },
+      },
+    );
 
-    expect(screen.getByText('No collaborators match "zzz".')).toBeInTheDocument();
+    expect(
+      screen.getByText('No collaborators match "zzz".'),
+    ).toBeInTheDocument();
   });
 
   it("only lets the owner add a draft collaborator", () => {
@@ -147,6 +209,8 @@ describe("ModuleCollaboratorsManager", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Add collaborator" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add collaborator" }),
+    ).toBeInTheDocument();
   });
 });

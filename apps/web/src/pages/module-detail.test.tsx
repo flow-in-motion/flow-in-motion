@@ -278,6 +278,25 @@ vi.mock("@/api/hooks", () => ({
     data: fixtures.collaborators,
     isPending: false,
   }),
+  useModuleCollaboratorContacts: () => ({
+    data: [
+      ...fixtures.collaborators.map((collaborator) => ({
+        id: `user:${collaborator.userId}`,
+        userId: collaborator.userId,
+        invitationId: null,
+        displayName: collaborator.displayName,
+        affiliation: collaborator.affiliation,
+      })),
+      {
+        id: "invitation:draft-1",
+        userId: null,
+        invitationId: "draft-1",
+        displayName: "Dana Draft",
+        affiliation: "Monash University",
+      },
+    ],
+    isPending: false,
+  }),
   useRemoveModuleCollaborator: () => ({ mutate: vi.fn(), isPending: false }),
   useCollaboratorInvitations: () => ({
     data: [],
@@ -377,19 +396,19 @@ describe("ModuleDetailPage", () => {
 
   it("celebrates after moving the paper into Submitted, Under Review", async () => {
     renderPage();
-  
+
     fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
-  
+
     fireEvent.click(screen.getByRole("combobox", { name: "Pipeline stage" }));
-  
+
     fireEvent.click(
       screen.getByRole("option", {
         name: "Submitted, Under Review",
       }),
     );
-  
+
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
-  
+
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -400,7 +419,7 @@ describe("ModuleDetailPage", () => {
         }),
       ),
     );
-  
+
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Paper submitted — congratulations!",
     );
@@ -639,7 +658,7 @@ describe("ModuleDetailPage", () => {
     fireEvent.change(
       screen.getByRole("textbox", { name: /Journal \/ venue/ }),
       {
-      target: { value: "Nature Communications" },
+        target: { value: "Nature Communications" },
       },
     );
     fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
@@ -729,6 +748,9 @@ describe("ModuleDetailPage", () => {
       screen.queryByText("Avi Researcher · University of Melbourne"),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Sam Lee · CSIRO")).toBeInTheDocument();
+    expect(
+      screen.getByText("Dana Draft · Monash University"),
+    ).toBeInTheDocument();
   });
 
   it("keeps Abstract collapsed by default and expands it on request", () => {

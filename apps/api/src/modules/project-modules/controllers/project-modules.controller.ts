@@ -73,6 +73,7 @@ export class ProjectModulesController {
       query.stages,
       query.currentlyWithTypes,
       query.currentlyWithUserIds,
+      query.currentlyWithInvitationIds,
     );
   }
 
@@ -102,7 +103,7 @@ export class ProjectModulesController {
   }
 
   @ApiOperation({
-    summary: 'List collaborators who currently hold accessible papers',
+    summary: 'List saved collaborators on accessible papers',
   })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Get('currently-with-collaborators')
