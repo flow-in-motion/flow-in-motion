@@ -74,7 +74,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const PROJECT_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 const PROJECT_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
 
 interface EditableProject {
@@ -82,7 +81,6 @@ interface EditableProject {
   description: string;
   researchArea: string;
   status: string;
-  importance: string;
   scheduledFor: string;
   dueDate: string;
   totalBudget: string;
@@ -95,7 +93,6 @@ function editableValues(project: ApiProject): EditableProject {
     description: project.description ?? "",
     researchArea: project.researchArea ?? "",
     status: project.status ?? "Active",
-    importance: project.importance ?? "Medium",
     scheduledFor: project.scheduledFor ?? "",
     dueDate: project.dueDate ?? "",
     totalBudget: project.totalBudget ?? "",
@@ -518,7 +515,6 @@ export default function ProjectDetailPage() {
         description: form.description.trim() || undefined,
         researchArea: form.researchArea.trim() || undefined,
         status: form.status,
-        importance: form.importance,
         scheduledFor: form.scheduledFor || undefined,
         dueDate: form.dueDate || undefined,
         totalBudget: form.totalBudget || undefined,
@@ -789,7 +785,6 @@ export default function ProjectDetailPage() {
         {!form ? (
           <div className="flex flex-wrap gap-2">
             <HeaderStat label="Role" value={myRole} />
-            <HeaderStat label="Importance" value={project.importance ?? "—"} />
             <HeaderStat
               label="Status"
               value={project.status ?? "Unknown status"}
@@ -871,26 +866,6 @@ export default function ProjectDetailPage() {
                       setForm({ ...form, researchArea: event.target.value })
                     }
                   />
-                </FormField>
-
-                <FormField label="Importance" htmlFor="edit-project-priority">
-                  <Select
-                    value={form.importance}
-                    onValueChange={(value) =>
-                      setForm({ ...form, importance: value })
-                    }
-                  >
-                    <SelectTrigger id="edit-project-priority">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PROJECT_PRIORITIES.map((priority) => (
-                        <SelectItem key={priority} value={priority}>
-                          {priority}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </FormField>
 
                 <FormField label="Status" htmlFor="edit-project-status">

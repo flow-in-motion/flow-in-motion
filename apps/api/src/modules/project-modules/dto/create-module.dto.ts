@@ -106,6 +106,14 @@ export class CreateModuleDto {
 
   @ApiProperty({
     required: false,
+    example: 'Medium',
+  })
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @ApiProperty({
+    required: false,
     example: 'Concept & Ideation',
   })
   @IsOptional()

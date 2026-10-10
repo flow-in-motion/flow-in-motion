@@ -25,6 +25,7 @@ describe('ProjectModulesService', () => {
     archive: jest.Mock;
     findAccessiblePageByUser: jest.Mock;
     findRememberedVenueValues: jest.Mock;
+    findCurrentlyWithCollaborators: jest.Mock;
   };
   let enumRepository: {
     findByCategoryAndValue: jest.Mock;
@@ -50,6 +51,7 @@ describe('ProjectModulesService', () => {
       archive: jest.fn(),
       findAccessiblePageByUser: jest.fn(),
       findRememberedVenueValues: jest.fn(),
+      findCurrentlyWithCollaborators: jest.fn(),
     };
     projectsRepository = {
       findById: jest.fn().mockResolvedValue({
@@ -111,6 +113,29 @@ describe('ProjectModulesService', () => {
         journals: ['Cell', 'Lancet', 'Nature', 'PLOS ONE'],
         conferences: ['ICLR', 'ICML', 'NeurIPS', 'Research Conference'],
       });
+    });
+  });
+
+  describe('listCurrentlyWithCollaborators', () => {
+    it('returns the repository list for accessible papers', async () => {
+      const collaborators = [
+        {
+          userId: 'user-2',
+          displayName: 'Sam Coauthor',
+          affiliation: 'Research Institute',
+        },
+      ];
+      repository.findCurrentlyWithCollaborators.mockResolvedValue(
+        collaborators,
+      );
+
+      await expect(
+        service.listCurrentlyWithCollaborators('tenant-1', 'user-1'),
+      ).resolves.toEqual(collaborators);
+      expect(repository.findCurrentlyWithCollaborators).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+      );
     });
   });
 
@@ -370,6 +395,7 @@ describe('ProjectModulesService', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
 
       expect(result.data.map((module) => module.id)).toEqual([
@@ -403,6 +429,7 @@ describe('ProjectModulesService', () => {
         ['Complete', 'Stalled'],
         ['Literature Review', 'Submitted, Under Review'],
         ['me', 'journal'],
+        ['user-2'],
       );
 
       expect(repository.findVisibleActiveByTenant).toHaveBeenCalledWith(
@@ -417,6 +444,7 @@ describe('ProjectModulesService', () => {
         ['Complete', 'Stalled'],
         ['Literature Review', 'Submitted, Under Review'],
         ['me', 'journal'],
+        ['user-2'],
       );
     });
   });
@@ -548,6 +576,31 @@ describe('ProjectModulesService', () => {
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           statusId: 'project_status-Active-id',
+        }),
+      );
+    });
+
+    it('resolves paper priority to its enum id', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        priorityId: 'importance-Critical-id',
+        pipelineStageId: null,
+      });
+
+      await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
+        shortTitle: 'Priority paper',
+        priority: 'Critical',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priorityId: 'importance-Critical-id',
         }),
       );
     });

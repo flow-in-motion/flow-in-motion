@@ -43,6 +43,9 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 vi.mock("@/api/hooks", () => ({
+  useModule: (_tenantId: string, moduleId: string) => ({
+    data: fixtures.modules.find((module) => module.id === moduleId),
+  }),
   usePaperVenueSuggestions: () => ({
     data: { journals: [], conferences: [] },
     isPending: false,
@@ -216,6 +219,11 @@ describe("ProjectDetailPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Project" }));
+
+    expect(screen.queryByText("Importance")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Importance" }),
+    ).not.toBeInTheDocument();
 
     const scheduledFor = screen.getByLabelText(/Scheduled for/);
     const dueDate = screen.getByLabelText(/Due date/);

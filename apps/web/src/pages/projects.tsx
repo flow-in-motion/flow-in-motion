@@ -54,7 +54,6 @@ const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
 const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
 const ROLE_OPTIONS = ["Owner", "Collaborator", "Supervisor", "Lead"] as const;
 const ROLE_FILTERS = ["All roles", ...ROLE_OPTIONS] as const;
-const IMPORTANCE_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
 
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 type RoleFilter = (typeof ROLE_FILTERS)[number];
@@ -62,7 +61,6 @@ type RoleFilter = (typeof ROLE_FILTERS)[number];
 const PROJECT_COLUMNS = [
   { id: "project", label: "Project", width: "minmax(240px,2fr)" },
   { id: "role", label: "My Role", width: "110px" },
-  { id: "importance", label: "Importance", width: "110px" },
   { id: "status", label: "Status", width: "110px" },
   { id: "papers", label: "Papers", width: "80px" },
   { id: "notes", label: "Notes", width: "80px" },
@@ -79,26 +77,6 @@ const PROJECT_STATUS_ORDER: Record<string, number> = {
   Stalled: 2,
   Complete: 3,
 };
-const PROJECT_IMPORTANCE_ORDER: Record<string, number> = {
-  Low: 0,
-  Medium: 1,
-  High: 2,
-  Critical: 3,
-};
-
-function priorityPillClass(priority: string | null) {
-  switch (priority) {
-    case "Critical":
-      return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-400";
-    case "High":
-      return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
-    case "Medium":
-      return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
-    default:
-      return "border-border text-muted-foreground";
-  }
-}
-
 function statusPillClass(status: string | null) {
   switch (status) {
     case "Active":
@@ -208,11 +186,6 @@ export default function ProjectsPage() {
         return a.title.localeCompare(b.title);
       case "role":
         return (a.role ?? "").localeCompare(b.role ?? "");
-      case "importance":
-        return (
-          (PROJECT_IMPORTANCE_ORDER[a.importance ?? ""] ?? 99) -
-          (PROJECT_IMPORTANCE_ORDER[b.importance ?? ""] ?? 99)
-        );
       case "status":
         return (
           (PROJECT_STATUS_ORDER[a.status ?? ""] ?? 99) -
@@ -285,7 +258,6 @@ export default function ProjectsPage() {
       description: input.description || undefined,
       researchArea: input.researchArea || undefined,
       status: input.status,
-      importance: input.priority,
       scheduledFor: input.scheduledFor || undefined,
       dueDate: input.dueDate || undefined,
       totalBudget: input.totalBudget || undefined,
@@ -556,28 +528,6 @@ export default function ProjectsPage() {
                       onError={(message) =>
                         setActionError(
                           `Could not update your role for “${project.title}”. ${message}`,
-                        )
-                      }
-                    />
-                  ) : null}
-
-                  {columns.isColumnVisible("importance") ? (
-                    <InlineFieldSelect
-                      value={project.importance}
-                      options={IMPORTANCE_OPTIONS}
-                      fieldLabel="importance"
-                      itemLabel={project.title}
-                      valueClassName={priorityPillClass}
-                      onChange={async (nextImportance) => {
-                        setActionError(null);
-                        await updateProject.mutateAsync({
-                          projectId: project.id,
-                          input: { importance: nextImportance },
-                        });
-                      }}
-                      onError={(message) =>
-                        setActionError(
-                          `Could not update the importance for “${project.title}”. ${message}`,
                         )
                       }
                     />

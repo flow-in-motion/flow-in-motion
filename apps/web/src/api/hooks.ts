@@ -159,6 +159,7 @@ export interface ApiModule {
   targetConference: string | null;
   backupConference: string | null;
   status: string | null;
+  priority: string | null;
   pipelineStage: string | null;
   pipelineStageChangedAt: string | null;
   dueDate: string | null;
@@ -468,6 +469,7 @@ export const apiKeys = {
     statuses: readonly string[] = [],
     stages: readonly string[] = [],
     currentlyWithTypes: readonly PaperCurrentlyWithType[] = [],
+    currentlyWithUserIds: readonly string[] = [],
   ) =>
     [
       "api",
@@ -483,11 +485,14 @@ export const apiKeys = {
       statuses,
       stages,
       currentlyWithTypes,
+      currentlyWithUserIds,
     ] as const,
   module: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", "detail", moduleId] as const,
   paperVenueSuggestions: (tenantId: string) =>
     ["api", "tenant", tenantId, "modules", "venue-suggestions"] as const,
+  paperCurrentlyWithCollaborators: (tenantId: string) =>
+    ["api", "tenant", tenantId, "modules", "currently-with-collaborators"] as const,
   moduleCollaborators: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", moduleId, "collaborators"] as const,
   moduleInvitations: (tenantId: string, moduleId: string) =>
@@ -994,6 +999,9 @@ export function useCreateProject(tenantId: string) {
         queryClient.invalidateQueries({
           queryKey: apiKeys.paperVenueSuggestions(tenantId),
         }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
+        }),
       ]);
     },
   });
@@ -1370,6 +1378,7 @@ export interface CreateModuleInput {
   backupConference?: string;
   projectId: string;
   status?: string;
+  priority?: string;
   pipelineStage?: string;
   dueDate?: string;
   assignedToUserId?: string;
@@ -1382,6 +1391,12 @@ export type SortDirection = "asc" | "desc";
 export interface PaperVenueSuggestions {
   journals: string[];
   conferences: string[];
+}
+
+export interface PaperCurrentlyWithCollaborator {
+  userId: string;
+  displayName: string | null;
+  affiliation: string | null;
 }
 
 export function useModules(
@@ -1397,6 +1412,7 @@ export function useModules(
     statuses?: readonly string[];
     stages?: readonly string[];
     currentlyWithTypes?: readonly PaperCurrentlyWithType[];
+    currentlyWithUserIds?: readonly string[];
   },
 ) {
   const pageSize = options?.pageSize ?? 20;
@@ -1406,6 +1422,7 @@ export function useModules(
   const statuses = [...(options?.statuses ?? [])].sort();
   const stages = [...(options?.stages ?? [])].sort();
   const currentlyWithTypes = [...(options?.currentlyWithTypes ?? [])].sort();
+  const currentlyWithUserIds = [...(options?.currentlyWithUserIds ?? [])].sort();
   return useQuery({
     queryKey: apiKeys.modules(
       tenantId,
@@ -1418,6 +1435,7 @@ export function useModules(
       statuses,
       stages,
       currentlyWithTypes,
+      currentlyWithUserIds,
     ),
     enabled: Boolean(tenantId) && enabled,
     // Keep the search field mounted while a new result page is loading.
@@ -1441,6 +1459,7 @@ export function useModules(
               ...(statuses.length ? { statuses } : {}),
               ...(stages.length ? { stages } : {}),
               ...(currentlyWithTypes.length ? { currentlyWithTypes } : {}),
+              ...(currentlyWithUserIds.length ? { currentlyWithUserIds } : {}),
             } as {
               projectId: string;
               page: number;
@@ -1451,9 +1470,25 @@ export function useModules(
               statuses?: string[];
               stages?: string[];
               currentlyWithTypes?: PaperCurrentlyWithType[];
+              currentlyWithUserIds?: string[];
             },
           },
         }),
+      ),
+  });
+}
+
+export function usePaperCurrentlyWithCollaborators(
+  tenantId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
+    enabled: Boolean(tenantId) && enabled,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () =>
+      authenticatedJson<PaperCurrentlyWithCollaborator[]>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/modules/currently-with-collaborators`,
       ),
   });
 }
@@ -1546,6 +1581,9 @@ export function useUpdateModule(tenantId: string) {
       await invalidateResourceEverywhere(queryClient, "modules");
       await queryClient.invalidateQueries({
         queryKey: apiKeys.paperVenueSuggestions(tenantId),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
       });
     },
   });

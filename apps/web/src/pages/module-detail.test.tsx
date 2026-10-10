@@ -100,6 +100,7 @@ const fixtures = vi.hoisted(() => ({
     backupConference: null as string | null,
     tag: "Research Paper",
     status: "Active",
+    priority: "High" as string | null,
     pipelineStage: "Concept",
     dueDate: "2026-09-15",
     assignedToUserId: null,
@@ -157,6 +158,14 @@ vi.mock("canvas-confetti", () => ({
   default: fixtures.confetti,
 }));
 vi.mock("@/api/hooks", () => ({
+  useModule: () => ({ data: fixtures.module }),
+  useModules: () => ({
+    data: {
+      data: [fixtures.module],
+      meta: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 },
+    },
+    isFetching: false,
+  }),
   usePaperVenueSuggestions: () => ({
     data: { journals: [], conferences: [] },
     isPending: false,
@@ -297,6 +306,7 @@ describe("ModuleDetailPage", () => {
   beforeEach(() => {
     fixtures.confetti.mockReset();
     fixtures.module.pipelineStage = "Concept";
+    fixtures.module.priority = "High";
     fixtures.module.projectId = "project-general";
     fixtures.module.abstract = null;
     fixtures.module.targetJournal = null;
@@ -343,6 +353,28 @@ describe("ModuleDetailPage", () => {
       </MemoryRouter>,
     );
   }
+
+  it("shows and edits paper priority", async () => {
+    renderPage();
+
+    expect(screen.getByText("Priority")).toBeInTheDocument();
+    expect(screen.getByText("High")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Priority" }));
+    fireEvent.click(screen.getByRole("option", { name: "Critical" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          moduleId: "module-1",
+          input: expect.objectContaining({ priority: "Critical" }),
+        }),
+      ),
+    );
+  });
+
   it("celebrates after moving the paper into Submitted, Under Review", async () => {
     renderPage();
   

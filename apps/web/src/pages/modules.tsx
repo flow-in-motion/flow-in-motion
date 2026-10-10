@@ -19,10 +19,12 @@ import {
   useModuleCollaborators,
   useModulePipelineStagePool,
   useModules,
+  usePaperCurrentlyWithCollaborators,
   useProjects,
   useTrackEvent,
   useUpdateModule,
   type ApiModule,
+  type PaperCurrentlyWithCollaborator,
   type PaperCurrentlyWithType,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
@@ -46,6 +48,9 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
@@ -54,12 +59,7 @@ import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
-const CURRENTLY_WITH_OPTIONS: readonly PaperCurrentlyWithType[] = [
-  "me",
-  "collaborator",
-  "journal",
-  "friendly_reviewer",
-];
+const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
 const CURRENTLY_WITH_FILTER_LABELS: Record<PaperCurrentlyWithType, string> = {
   me: "Me",
   collaborator: "Collaborators/Coauthors",
@@ -70,6 +70,7 @@ const MODULE_COLUMNS = [
   { id: "module", label: "Paper", width: "minmax(280px,2fr)" },
   { id: "project", label: "Project", width: "180px" },
   { id: "status", label: "Status", width: "110px" },
+  { id: "priority", label: "Priority", width: "110px" },
   { id: "progress", label: "Progress", width: "130px" },
   { id: "stage", label: "Stage", width: "170px" },
   { id: "due", label: "Follow up or Due Date", width: "170px" },
@@ -149,11 +150,159 @@ function MultiSelectFilter({
   );
 }
 
+interface CurrentlyWithFilterProps {
+  selectedTypes: ReadonlySet<string>;
+  selectedUserIds: ReadonlySet<string>;
+  collaborators: readonly PaperCurrentlyWithCollaborator[];
+  isLoading: boolean;
+  onOpenChange: (open: boolean) => void;
+  onToggleType: (value: PaperCurrentlyWithType) => void;
+  onToggleCollaborator: (userId: string) => void;
+  onClear: () => void;
+}
+
+function CurrentlyWithFilter({
+  selectedTypes,
+  selectedUserIds,
+  collaborators,
+  isLoading,
+  onOpenChange,
+  onToggleType,
+  onToggleCollaborator,
+  onClear,
+}: CurrentlyWithFilterProps) {
+  const selectionCount = selectedTypes.size + selectedUserIds.size;
+  const selectedCollaborator =
+    selectedUserIds.size === 1
+      ? collaborators.find((item) => selectedUserIds.has(item.userId))
+      : undefined;
+  const onlySelectedType =
+    selectedTypes.size === 1 && selectedUserIds.size === 0
+      ? ([...selectedTypes][0] as PaperCurrentlyWithType)
+      : undefined;
+  const triggerLabel =
+    selectionCount === 0
+      ? "All current holders"
+      : selectedCollaborator
+        ? selectedCollaborator.displayName ??
+          selectedCollaborator.affiliation ??
+          "Unnamed collaborator"
+        : onlySelectedType
+          ? CURRENTLY_WITH_FILTER_LABELS[onlySelectedType]
+          : `${selectionCount} current holders`;
+
+  return (
+    <DropdownMenu onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="justify-between gap-2 sm:w-52"
+          aria-label="Filter by current holders"
+        >
+          <span className="truncate">{triggerLabel}</span>
+          <ChevronDown
+            className="h-4 w-4 shrink-0 opacity-50"
+            aria-hidden="true"
+          />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-64">
+        <DropdownMenuCheckboxItem
+          checked={selectionCount === 0}
+          onSelect={(event) => event.preventDefault()}
+          onCheckedChange={onClear}
+        >
+          All current holders
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem
+          checked={selectedTypes.has("me")}
+          onSelect={(event) => event.preventDefault()}
+          onCheckedChange={() => onToggleType("me")}
+        >
+          Me
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <span>Collaborators/Coauthors</span>
+            {selectedTypes.has("collaborator") || selectedUserIds.size > 0 ? (
+              <span className="ml-auto text-xs text-muted-foreground">
+                {selectedTypes.has("collaborator")
+                  ? "All"
+                  : selectedUserIds.size}
+              </span>
+            ) : null}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="max-h-72 min-w-64 overflow-y-auto">
+            <DropdownMenuCheckboxItem
+              checked={selectedTypes.has("collaborator")}
+              onSelect={(event) => event.preventDefault()}
+              onCheckedChange={() => onToggleType("collaborator")}
+            >
+              All collaborators/coauthors
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            {isLoading ? (
+              <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                Loading collaborators…
+              </div>
+            ) : collaborators.length ? (
+              collaborators.map((collaborator) => (
+                <DropdownMenuCheckboxItem
+                  key={collaborator.userId}
+                  checked={selectedUserIds.has(collaborator.userId)}
+                  onSelect={(event) => event.preventDefault()}
+                  onCheckedChange={() =>
+                    onToggleCollaborator(collaborator.userId)
+                  }
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">
+                      {collaborator.displayName ?? "Unnamed collaborator"}
+                    </span>
+                    {collaborator.affiliation ? (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {collaborator.affiliation}
+                      </span>
+                    ) : null}
+                  </span>
+                </DropdownMenuCheckboxItem>
+              ))
+            ) : (
+              <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                No collaborators found.
+              </div>
+            )}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        {(["journal", "friendly_reviewer"] as const).map((option) => (
+          <DropdownMenuCheckboxItem
+            key={option}
+            checked={selectedTypes.has(option)}
+            onSelect={(event) => event.preventDefault()}
+            onCheckedChange={() => onToggleType(option)}
+          >
+            {CURRENTLY_WITH_FILTER_LABELS[option]}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 const MODULE_STATUS_ORDER: Record<string, number> = {
   Active: 0,
   Review: 1,
   Stalled: 2,
   Complete: 3,
+};
+const PAPER_PRIORITY_ORDER: Record<string, number> = {
+  Low: 0,
+  Medium: 1,
+  High: 2,
+  Critical: 3,
 };
 
 function statusPillClass(status: string | null) {
@@ -165,6 +314,19 @@ function statusPillClass(status: string | null) {
       return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
     case "Stalled":
       return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-400";
+    default:
+      return "border-border text-muted-foreground";
+  }
+}
+
+function priorityPillClass(priority: string | null) {
+  switch (priority) {
+    case "Critical":
+      return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-400";
+    case "High":
+      return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
+    case "Medium":
+      return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
     default:
       return "border-border text-muted-foreground";
   }
@@ -239,6 +401,10 @@ export default function ModulesPage() {
   const [selectedCurrentlyWith, setSelectedCurrentlyWith] = useState<
     Set<string>
   >(() => new Set());
+  const [selectedCurrentlyWithUsers, setSelectedCurrentlyWithUsers] = useState<
+    Set<string>
+  >(() => new Set());
+  const [currentlyWithFilterOpen, setCurrentlyWithFilterOpen] = useState(false);
 
   const modulesQuery = useModules(tenantId, undefined, page, true, {
     pageSize,
@@ -248,6 +414,7 @@ export default function ModulesPage() {
     currentlyWithTypes: [
       ...selectedCurrentlyWith,
     ] as PaperCurrentlyWithType[],
+    currentlyWithUserIds: [...selectedCurrentlyWithUsers],
   });
   const modules = modulesQuery.data?.data ?? [];
   const paginationMeta = modulesQuery.data?.meta;
@@ -255,6 +422,10 @@ export default function ModulesPage() {
   const projects = projectsQuery.data?.data ?? [];
   const generalProject = projectsQuery.data?.generalProject ?? null;
   const stagesQuery = useModulePipelineStagePool(tenantId);
+  const currentlyWithCollaboratorsQuery =
+    usePaperCurrentlyWithCollaborators(tenantId, currentlyWithFilterOpen);
+  const currentlyWithCollaborators =
+    currentlyWithCollaboratorsQuery.data ?? [];
   const me = useMe();
   const visibleStages = useMemo(
     () =>
@@ -282,6 +453,7 @@ export default function ModulesPage() {
     selectedStatuses,
     selectedStages,
     selectedCurrentlyWith,
+    selectedCurrentlyWithUsers,
     sortColumn,
     sortDirection,
   ]);
@@ -354,6 +526,11 @@ export default function ModulesPage() {
           (MODULE_STATUS_ORDER[a.status ?? ""] ?? 99) -
           (MODULE_STATUS_ORDER[b.status ?? ""] ?? 99)
         );
+      case "priority":
+        return (
+          (PAPER_PRIORITY_ORDER[a.priority ?? ""] ?? 99) -
+          (PAPER_PRIORITY_ORDER[b.priority ?? ""] ?? 99)
+        );
       case "progress": {
         const aPercent = progressByStage.get(a.pipelineStage ?? "") ?? 0;
         const bPercent = progressByStage.get(b.pipelineStage ?? "") ?? 0;
@@ -383,8 +560,14 @@ export default function ModulesPage() {
         return false;
       }
       if (
-        selectedCurrentlyWith.size > 0 &&
-        !selectedCurrentlyWith.has(module.currentlyWithType ?? "")
+        (selectedCurrentlyWith.size > 0 ||
+          selectedCurrentlyWithUsers.size > 0) &&
+        !selectedCurrentlyWith.has(module.currentlyWithType ?? "") &&
+        !(
+          module.currentlyWithType === "collaborator" &&
+          module.assignedToUserId &&
+          selectedCurrentlyWithUsers.has(module.assignedToUserId)
+        )
       ) {
         return false;
       }
@@ -401,6 +584,7 @@ export default function ModulesPage() {
     selectedStatuses,
     selectedStages,
     selectedCurrentlyWith,
+    selectedCurrentlyWithUsers,
     projectName,
     currentlyWithName,
     progressByStage,
@@ -412,7 +596,8 @@ export default function ModulesPage() {
     search !== "" ||
     selectedStatuses.size > 0 ||
     selectedStages.size > 0 ||
-    selectedCurrentlyWith.size > 0;
+    selectedCurrentlyWith.size > 0 ||
+    selectedCurrentlyWithUsers.size > 0;
 
   function toggleSelected(
     setter: Dispatch<SetStateAction<Set<string>>>,
@@ -438,6 +623,7 @@ export default function ModulesPage() {
       backupConference: input.backupConference || undefined,
       projectId: input.projectId ?? undefined,
       status: input.status,
+      priority: input.priority || undefined,
       pipelineStage: input.pipelineStage,
       dueDate: input.dueDate || undefined,
       assignedToUserId: input.assignedToUserId ?? undefined,
@@ -545,16 +731,30 @@ export default function ModulesPage() {
           onToggle={(value) => toggleSelected(setSelectedStages, value)}
           onClear={() => setSelectedStages(new Set())}
         />
-        <MultiSelectFilter
-          options={CURRENTLY_WITH_OPTIONS}
-          selected={selectedCurrentlyWith}
-          pluralLabel="current holders"
-          triggerClassName="sm:w-52"
-          optionLabel={(value) =>
-            CURRENTLY_WITH_FILTER_LABELS[value as PaperCurrentlyWithType]
-          }
-          onToggle={(value) => toggleSelected(setSelectedCurrentlyWith, value)}
-          onClear={() => setSelectedCurrentlyWith(new Set())}
+        <CurrentlyWithFilter
+          selectedTypes={selectedCurrentlyWith}
+          selectedUserIds={selectedCurrentlyWithUsers}
+          collaborators={currentlyWithCollaborators}
+          isLoading={currentlyWithCollaboratorsQuery.isLoading}
+          onOpenChange={setCurrentlyWithFilterOpen}
+          onToggleType={(value) => {
+            if (value === "collaborator") {
+              setSelectedCurrentlyWithUsers(new Set());
+            }
+            toggleSelected(setSelectedCurrentlyWith, value);
+          }}
+          onToggleCollaborator={(userId) => {
+            setSelectedCurrentlyWith((current) => {
+              const next = new Set(current);
+              next.delete("collaborator");
+              return next;
+            });
+            toggleSelected(setSelectedCurrentlyWithUsers, userId);
+          }}
+          onClear={() => {
+            setSelectedCurrentlyWith(new Set());
+            setSelectedCurrentlyWithUsers(new Set());
+          }}
         />
         <ColumnVisibilityMenu
           columns={MODULE_COLUMNS}
@@ -569,6 +769,7 @@ export default function ModulesPage() {
               setSelectedStatuses(new Set());
               setSelectedStages(new Set());
               setSelectedCurrentlyWith(new Set());
+              setSelectedCurrentlyWithUsers(new Set());
             }}
             className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
@@ -578,7 +779,7 @@ export default function ModulesPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
-        <div className="min-w-[970px]">
+        <div className="min-w-[1080px]">
           <div
             className="mb-1 grid gap-4 rounded-md bg-muted/65 px-4 py-3 text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground"
             style={{ gridTemplateColumns: gridTemplate }}
@@ -680,6 +881,27 @@ export default function ModulesPage() {
                       onError={(message) =>
                         setActionError(
                           `Could not update the status for “${paperDisplayTitle(module)}”. ${message}`,
+                        )
+                      }
+                    />
+                  ) : null}
+                  {columns.isColumnVisible("priority") ? (
+                    <InlineFieldSelect
+                      value={module.priority}
+                      options={PRIORITY_OPTIONS}
+                      fieldLabel="priority"
+                      itemLabel={paperDisplayTitle(module)}
+                      valueClassName={priorityPillClass}
+                      onChange={async (nextPriority) => {
+                        setActionError(null);
+                        await updateModule.mutateAsync({
+                          moduleId: module.id,
+                          input: { priority: nextPriority },
+                        });
+                      }}
+                      onError={(message) =>
+                        setActionError(
+                          `Could not update the priority for “${paperDisplayTitle(module)}”. ${message}`,
                         )
                       }
                     />

@@ -1,0 +1,2 @@
+ALTER TABLE "modules" ADD COLUMN "priority_id" uuid;--> statement-breakpoint
+ALTER TABLE "modules" ADD CONSTRAINT "modules_priority_id_enum_id_fk" FOREIGN KEY ("priority_id") REFERENCES "public"."enum"("id") ON DELETE no action ON UPDATE no action;

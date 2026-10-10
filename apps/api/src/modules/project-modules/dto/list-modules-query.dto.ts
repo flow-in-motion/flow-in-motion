@@ -5,6 +5,7 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
@@ -61,4 +62,11 @@ export class ListModulesQueryDto extends ProjectScopedPaginationQueryDto {
   @IsArray()
   @IsIn(CURRENTLY_WITH_TYPES, { each: true })
   currentlyWithTypes?: CurrentlyWithType[];
+
+  @ApiPropertyOptional({ type: [String], format: 'uuid' })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => toStringArray(value))
+  @IsArray()
+  @IsUUID('4', { each: true })
+  currentlyWithUserIds?: string[];
 }

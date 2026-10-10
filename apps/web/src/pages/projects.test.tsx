@@ -97,6 +97,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 vi.mock("@/api/hooks", () => ({
+  useModule: () => ({ data: undefined }),
   apiKeys: {
     projectCollaborators: (tenantId: string, projectId: string) => [
       "api",
@@ -281,7 +282,9 @@ describe("ProjectsPage", () => {
     });
 
     expect(editLink).toHaveAttribute("href", "/projects/PRJ-101?edit=true");
-    expect(screen.getByText("Low")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /Change importance/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("changes a project status directly from its list row", async () => {
@@ -302,22 +305,14 @@ describe("ProjectsPage", () => {
     );
   });
 
-  it("changes importance directly from a project row", async () => {
+  it("does not show project importance in the list", () => {
     renderPage();
 
-    fireEvent.click(
-      screen.getByRole("combobox", {
-        name: "Change importance for Enzyme Kinetics Inhibition Study Across Temperature Gradients",
-      }),
-    );
-    fireEvent.click(screen.getByRole("option", { name: "High" }));
-
-    await waitFor(() =>
-      expect(hookMocks.updateProject).toHaveBeenCalledWith({
-        projectId: "PRJ-101",
-        input: { importance: "High" },
-      }),
-    );
+    expect(screen.queryByText("Importance")).not.toBeInTheDocument();
+    expect(screen.queryByText("Low")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Sort by Importance/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("changes the current user's role directly from a project row", async () => {

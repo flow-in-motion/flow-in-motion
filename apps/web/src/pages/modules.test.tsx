@@ -13,6 +13,7 @@ type ModuleFixture = {
   title: string | null;
   description: string | null;
   status: string | null;
+  priority?: string | null;
   pipelineStage: string | null;
   dueDate: string | null;
   assignedToUserId: string | null;
@@ -55,6 +56,13 @@ const hookMocks = vi.hoisted(() => ({
   updateModule: vi.fn(),
   createDraftInvitation: vi.fn(),
   useModuleCollaborators: vi.fn(),
+  currentlyWithCollaborators: [
+    {
+      userId: "user-collaborator",
+      displayName: "Sam Coauthor",
+      affiliation: "Research Institute",
+    },
+  ],
   pagination: {
     totalItems: 1,
     totalPages: 1,
@@ -122,6 +130,10 @@ vi.mock("@/api/hooks", async () => {
     usePaperVenueSuggestions: () => ({
       data: { journals: [], conferences: [] },
       isPending: false,
+    }),
+    usePaperCurrentlyWithCollaborators: () => ({
+      data: hookMocks.currentlyWithCollaborators,
+      isLoading: false,
     }),
     useCurrentWorkspace: () => ({
       data: { id: fixtures.tenantId },
@@ -247,6 +259,7 @@ vi.mock("@/api/hooks", async () => {
           title: (input.title as string | undefined) ?? null,
           description: (input.description as string | undefined) ?? null,
           status: (input.status as string | undefined) ?? "Active",
+          priority: (input.priority as string | undefined) ?? null,
           pipelineStage: (input.pipelineStage as string | undefined) ?? null,
           dueDate: (input.dueDate as string | undefined) ?? null,
           assignedToUserId:
@@ -530,6 +543,9 @@ describe("ModulesPage", () => {
         screen.getByRole("combobox", { name: /Pipeline stage/ }),
       ).toHaveTextContent("Concept & Ideation"),
     );
+    expect(
+      screen.getByRole("combobox", { name: "Priority" }),
+    ).toHaveTextContent("Medium");
     fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
       target: { value: "Independent literature synthesis" },
     });
@@ -542,6 +558,7 @@ describe("ModulesPage", () => {
     );
     expect(screen.getAllByText("Independent paper").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Concept & Ideation").length).toBeGreaterThan(0);
+    expect(screen.getByText("Medium")).toBeInTheDocument();
     expect(hookMocks.createDraftInvitation).not.toHaveBeenCalled();
   });
 
@@ -990,6 +1007,59 @@ describe("ModulesPage", () => {
             "journal",
             "friendly_reviewer",
           ]),
+        }),
+      ),
+    );
+  });
+
+  it("filters by an individual collaborator before pagination", async () => {
+    store.setModules([
+      {
+        ...store.getModules()[0],
+        id: "module-sam",
+        shortTitle: "Paper with Sam",
+        title: "Paper with Sam",
+        currentlyWithType: "collaborator",
+        assignedToUserId: "user-collaborator",
+      },
+      {
+        ...store.getModules()[0],
+        id: "module-other",
+        shortTitle: "Paper with another collaborator",
+        title: "Paper with another collaborator",
+        currentlyWithType: "collaborator",
+        assignedToUserId: "user-other",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by current holders" }),
+      { key: "Enter" },
+    );
+    const collaboratorsSubmenu = await screen.findByRole("menuitem", {
+      name: /Collaborators\/Coauthors/,
+    });
+    fireEvent.focus(collaboratorsSubmenu);
+    fireEvent.pointerMove(collaboratorsSubmenu, { pointerType: "mouse" });
+    fireEvent.keyDown(collaboratorsSubmenu, { key: "ArrowRight" });
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: /Sam Coauthor/ }),
+    );
+
+    expect(screen.getByText("Paper with Sam")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Paper with another collaborator"),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          currentlyWithUserIds: ["user-collaborator"],
         }),
       ),
     );
