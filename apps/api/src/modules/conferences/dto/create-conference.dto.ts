@@ -3,11 +3,20 @@ import {
   ArrayUnique,
   IsArray,
   IsDateString,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
   Length,
 } from 'class-validator';
+
+export const CONFERENCE_INTENTS = [
+  'Considering',
+  'Submitting',
+  'Attending',
+] as const;
+
+export type ConferenceIntent = (typeof CONFERENCE_INTENTS)[number];
 
 export class CreateConferenceDto {
   @ApiPropertyOptional({ example: 'ASM', nullable: true })
@@ -49,6 +58,18 @@ export class CreateConferenceDto {
   @IsString()
   @Length(2, 100)
   submissionType?: string | null;
+
+  @ApiProperty({
+    type: [String],
+    enum: CONFERENCE_INTENTS,
+    description: 'How the user plans to engage with the conference',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsIn(CONFERENCE_INTENTS, { each: true })
+  intents?: ConferenceIntent[] = [];
 
   @ApiProperty({
     type: [String],

@@ -84,6 +84,10 @@ vi.mock("canvas-confetti", () => ({
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
+    usePaperVenueSuggestions: () => ({
+      data: { journals: [], conferences: [] },
+      isPending: false,
+    }),
     useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
     useMe: () => ({ data: { id: "user-owner", email: "owner@example.com", displayName: "Avi Researcher" } }),
     useProjects: () => ({

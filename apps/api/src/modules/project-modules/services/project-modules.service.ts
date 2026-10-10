@@ -23,6 +23,22 @@ import type {
 import type { CurrentlyWithType } from '../dto/create-module.dto';
 const ARCHIVE_RETENTION_DAYS = 14;
 
+function rememberedNames(values: Array<string | null | undefined>) {
+  const byNormalizedName = new Map<string, string>();
+  for (const value of values) {
+    for (const name of value?.split(',') ?? []) {
+      const trimmed = name.trim();
+      if (trimmed) {
+        const normalizedName = trimmed.toLocaleLowerCase();
+        if (!byNormalizedName.has(normalizedName)) {
+          byNormalizedName.set(normalizedName, trimmed);
+        }
+      }
+    }
+  }
+  return [...byNormalizedName.values()].sort((a, b) => a.localeCompare(b));
+}
+
 @Injectable()
 export class ProjectModulesService {
   constructor(
@@ -33,6 +49,29 @@ export class ProjectModulesService {
     private readonly projectsRepository: ProjectsRepository,
     private readonly sequences: TenantSequencesRepository,
   ) {}
+
+  async listVenueSuggestions(tenantId: string, callerUserId: string) {
+    const { paperValues, projectValues, conferenceValues } =
+      await this.repository.findRememberedVenueValues(tenantId, callerUserId);
+    const journals = rememberedNames([
+      ...paperValues.flatMap((paper) => [
+        paper.targetJournal,
+        paper.backupJournal,
+      ]),
+      ...projectValues.map((project) => project.targetJournals),
+    ]);
+    const conferences = rememberedNames([
+      ...paperValues.flatMap((paper) => [
+        paper.targetConference,
+        paper.backupConference,
+      ]),
+      ...conferenceValues.map(
+        (conference) => conference.acronym?.trim() || conference.name,
+      ),
+    ]);
+
+    return { journals, conferences };
+  }
 
   /**
    * A module with a parent project inherits that project's visibility

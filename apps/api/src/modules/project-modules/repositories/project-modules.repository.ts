@@ -1,6 +1,7 @@
 import { searchPattern } from '../../../common/pagination';
 import { Injectable } from '@nestjs/common';
 import {
+  conferences,
   enumTable,
   moduleCollaborators,
   modules,
@@ -30,6 +31,56 @@ import type { CurrentlyWithType } from '../dto/create-module.dto';
 @Injectable()
 export class ProjectModulesRepository {
   constructor(private readonly drizzle: DrizzleService) {}
+
+  async findRememberedVenueValues(tenantId: string, callerUserId: string) {
+    const ownsPaper = exists(
+      this.drizzle.db
+        .select({ id: moduleCollaborators.id })
+        .from(moduleCollaborators)
+        .innerJoin(enumTable, eq(enumTable.id, moduleCollaborators.roleId))
+        .where(
+          and(
+            eq(moduleCollaborators.tenantId, tenantId),
+            eq(moduleCollaborators.moduleId, modules.id),
+            eq(moduleCollaborators.userId, callerUserId),
+            eq(enumTable.category, 'project_role'),
+            eq(enumTable.value, 'Owner'),
+          ),
+        ),
+    );
+
+    const [paperValues, projectValues, conferenceValues] = await Promise.all([
+      this.drizzle.db
+        .select({
+          targetJournal: modules.targetJournal,
+          backupJournal: modules.backupJournal,
+          targetConference: modules.targetConference,
+          backupConference: modules.backupConference,
+        })
+        .from(modules)
+        .where(and(eq(modules.tenantId, tenantId), ownsPaper)),
+      this.drizzle.db
+        .select({ targetJournals: projects.targetJournals })
+        .from(projects)
+        .where(
+          and(
+            eq(projects.tenantId, tenantId),
+            eq(projects.userId, callerUserId),
+          ),
+        ),
+      this.drizzle.db
+        .select({ acronym: conferences.acronym, name: conferences.name })
+        .from(conferences)
+        .where(
+          and(
+            eq(conferences.tenantId, tenantId),
+            eq(conferences.ownerUserId, callerUserId),
+          ),
+        ),
+    ]);
+
+    return { paperValues, projectValues, conferenceValues };
+  }
 
   async findById(tenantId: string, moduleId: string) {
     const [module] = await this.drizzle.db

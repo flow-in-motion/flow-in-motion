@@ -1,0 +1,2 @@
+ALTER TABLE "conferences" ADD COLUMN "intents" text[] DEFAULT ARRAY[]::text[] NOT NULL;--> statement-breakpoint
+ALTER TABLE "conferences" ADD CONSTRAINT "conferences_intents_check" CHECK ("conferences"."intents" <@ ARRAY['Considering', 'Submitting', 'Attending']::text[] AND array_position("conferences"."intents", NULL) IS NULL);

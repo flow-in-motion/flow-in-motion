@@ -24,6 +24,7 @@ describe('ProjectModulesService', () => {
     update: jest.Mock;
     archive: jest.Mock;
     findAccessiblePageByUser: jest.Mock;
+    findRememberedVenueValues: jest.Mock;
   };
   let enumRepository: {
     findByCategoryAndValue: jest.Mock;
@@ -48,6 +49,7 @@ describe('ProjectModulesService', () => {
       update: jest.fn(),
       archive: jest.fn(),
       findAccessiblePageByUser: jest.fn(),
+      findRememberedVenueValues: jest.fn(),
     };
     projectsRepository = {
       findById: jest.fn().mockResolvedValue({
@@ -80,6 +82,36 @@ describe('ProjectModulesService', () => {
       projectsRepository as unknown as ProjectsRepository,
       sequences as unknown as TenantSequencesRepository,
     );
+  });
+
+  describe('listVenueSuggestions', () => {
+    it('deduplicates and sorts remembered paper, project and conference names', async () => {
+      repository.findRememberedVenueValues.mockResolvedValue({
+        paperValues: [
+          {
+            targetJournal: 'Nature, Cell',
+            backupJournal: 'nature, PLOS ONE',
+            targetConference: 'ICML',
+            backupConference: 'NeurIPS',
+          },
+        ],
+        projectValues: [{ targetJournals: 'Lancet' }],
+        conferenceValues: [
+          {
+            acronym: 'ICLR',
+            name: 'International Conference on Learning Representations',
+          },
+          { acronym: null, name: 'Research Conference' },
+        ],
+      });
+
+      await expect(
+        service.listVenueSuggestions('tenant-1', 'user-1'),
+      ).resolves.toEqual({
+        journals: ['Cell', 'Lancet', 'Nature', 'PLOS ONE'],
+        conferences: ['ICLR', 'ICML', 'NeurIPS', 'Research Conference'],
+      });
+    });
   });
 
   describe('findOne', () => {

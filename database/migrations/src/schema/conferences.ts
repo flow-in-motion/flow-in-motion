@@ -5,7 +5,9 @@ import {
     date,
     timestamp,
     index,
+    check,
   } from 'drizzle-orm/pg-core';
+  import { sql } from 'drizzle-orm';
   import { tenants } from './tenants';
   import { users } from './users';
   
@@ -31,6 +33,10 @@ import {
       endDate: date('end_date'),
   
       submissionType: text('submission_type'),
+      intents: text('intents')
+        .array()
+        .notNull()
+        .default(sql`ARRAY[]::text[]`),
   
       createdAt: timestamp('created_at', { withTimezone: true })
         .defaultNow()
@@ -44,6 +50,10 @@ import {
       tenantIdx: index('conferences_tenant_id_idx').on(table.tenantId),
       submissionDueIdx: index('conferences_submission_due_idx').on(
         table.submissionDue,
+      ),
+      intentsCheck: check(
+        'conferences_intents_check',
+        sql`${table.intents} <@ ARRAY['Considering', 'Submitting', 'Attending']::text[] AND array_position(${table.intents}, NULL) IS NULL`,
       ),
     }),
   );

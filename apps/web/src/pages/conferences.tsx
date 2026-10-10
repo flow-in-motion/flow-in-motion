@@ -49,6 +49,7 @@ const CONFERENCE_COLUMNS = [
   { id: "submissionDue", label: "Submission Due", width: "150px" },
   { id: "conferenceDates", label: "Conference Dates", width: "180px" },
   { id: "type", label: "Type", width: "120px" },
+  { id: "intent", label: "Intent", width: "150px" },
   { id: "linkedProjects", label: "Linked Projects/Papers", width: "minmax(200px,1.3fr)" },
 ] as const;
 
@@ -140,6 +141,8 @@ export default function ConferencesPage() {
         );
       case "type":
         return (a.submissionType ?? "").localeCompare(b.submissionType ?? "");
+      case "intent":
+        return a.intents.join(", ").localeCompare(b.intents.join(", "));
       case "linkedProjects":
         return (a.projects.length + (a.papers ?? []).length) -
           (b.projects.length + (b.papers ?? []).length);
@@ -399,6 +402,13 @@ export default function ConferencesPage() {
                       <Badge variant="outline" className={conferenceTypeBadgeClass(conference.submissionType)}>
                         {conference.submissionType ?? "—"}
                       </Badge>
+                    ) : null}
+                    {columns.isColumnVisible("intent") ? (
+                      <div className="flex flex-wrap gap-1">
+                        {conference.intents.length > 0 ? conference.intents.map((intent) => (
+                          <Badge key={intent} variant="secondary">{intent}</Badge>
+                        )) : <span className="text-sm text-muted-foreground">—</span>}
+                      </div>
                     ) : null}
                     {columns.isColumnVisible("linkedProjects") ? (
                       <div className="flex flex-wrap gap-1">

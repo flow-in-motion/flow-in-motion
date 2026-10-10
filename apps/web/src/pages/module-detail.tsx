@@ -30,6 +30,7 @@ import {
   useModuleSubmissions,
   useMyModule,
   useNotes,
+  usePaperVenueSuggestions,
   useProject,
   useProjects,
   useTasks,
@@ -515,6 +516,10 @@ export default function ModuleDetailPage() {
     module?.id ?? "",
   );
   const [form, setForm] = useState<EditableModule | null>(null);
+  const venueSuggestions = usePaperVenueSuggestions(
+    tenantId,
+    sameTenant && Boolean(form),
+  );
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
@@ -968,6 +973,7 @@ export default function ModuleDetailPage() {
                       setForm({ ...form, targetJournal: value })
                     }
                     placeholder="e.g. Nature Communications, Cell"
+                    suggestions={venueSuggestions.data?.journals}
                   />
                 </FormField>
                 <FormField
@@ -981,6 +987,7 @@ export default function ModuleDetailPage() {
                       setForm({ ...form, backupJournal: value })
                     }
                     placeholder="e.g. Scientific Reports, PLOS ONE"
+                    suggestions={venueSuggestions.data?.journals}
                   />
                 </FormField>
                 <FormField
@@ -994,6 +1001,7 @@ export default function ModuleDetailPage() {
                       setForm({ ...form, targetConference: value })
                     }
                     placeholder="e.g. ICML, NeurIPS"
+                    suggestions={venueSuggestions.data?.conferences}
                   />
                 </FormField>
                 <FormField
@@ -1007,6 +1015,7 @@ export default function ModuleDetailPage() {
                       setForm({ ...form, backupConference: value })
                     }
                     placeholder="e.g. NeurIPS Workshop, ICLR Workshop"
+                    suggestions={venueSuggestions.data?.conferences}
                   />
                 </FormField>
               <p className="text-xs text-muted-foreground sm:col-span-2">

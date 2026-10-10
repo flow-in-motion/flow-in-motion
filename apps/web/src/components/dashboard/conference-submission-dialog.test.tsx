@@ -52,6 +52,7 @@ const linkedConference: ApiConference = {
   startDate: null,
   endDate: null,
   submissionType: null,
+  intents: ["Considering"],
   daysRemaining: null,
   projects: [{ id: "project-1", displayId: "PRJ-001", title: "Genome Project" }],
   papers: [{
@@ -118,9 +119,35 @@ describe("ConferenceSubmissionDialog", () => {
       startDate: null,
       endDate: null,
       submissionType: null,
+      intents: [],
       projectIds: [],
       moduleIds: [],
     }));
+  });
+
+  it("allows more than one conference intent to be selected", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ConferenceSubmissionDialog open onOpenChange={vi.fn()} tenantId="tenant-1" onSave={onSave} />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), {
+      target: { value: "Conference 2028" },
+    });
+    fireEvent.keyDown(screen.getByRole("button", { name: "Intent: Not specified" }), {
+      key: "Enter",
+    });
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Submitting" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Attending" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ intents: ["Submitting", "Attending"] }),
+      ),
+    );
   });
 
   it("defaults the end date to the day after the start date just entered", () => {

@@ -119,6 +119,10 @@ vi.mock("@/api/client", () => ({
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore: useStore } = await import("react");
   return {
+    usePaperVenueSuggestions: () => ({
+      data: { journals: [], conferences: [] },
+      isPending: false,
+    }),
     useCurrentWorkspace: () => ({
       data: { id: fixtures.tenantId },
       isPending: false,

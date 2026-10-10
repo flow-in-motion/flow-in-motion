@@ -4,6 +4,7 @@ import {
   createDraftInvitation,
   useModulePipelineStagePool,
   useNotes,
+  usePaperVenueSuggestions,
   useTasks,
   useUpdateNote,
   useUpdateTask,
@@ -137,6 +138,7 @@ export function ModuleDialog({
   const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
   const isEditing = Boolean(module);
   const me = useMe();
+  const venueSuggestions = usePaperVenueSuggestions(tenantId, open);
 
 const generalProjectOption =
   generalProject && generalProject.userId === me.data?.id
@@ -375,6 +377,7 @@ const generalProjectOption =
                   setForm((current) => ({ ...current, targetJournal: value }))
                 }
                 placeholder="e.g. Nature Communications, Cell"
+                suggestions={venueSuggestions.data?.journals}
               />
             </FormField>
 
@@ -386,6 +389,7 @@ const generalProjectOption =
                   setForm((current) => ({ ...current, backupJournal: value }))
                 }
                 placeholder="e.g. Scientific Reports, PLOS ONE"
+                suggestions={venueSuggestions.data?.journals}
               />
             </FormField>
 
@@ -397,6 +401,7 @@ const generalProjectOption =
                   setForm((current) => ({ ...current, targetConference: value }))
                 }
                 placeholder="e.g. ICML, NeurIPS"
+                suggestions={venueSuggestions.data?.conferences}
               />
             </FormField>
 
@@ -408,6 +413,7 @@ const generalProjectOption =
                   setForm((current) => ({ ...current, backupConference: value }))
                 }
                 placeholder="e.g. NeurIPS Workshop, ICLR Workshop"
+                suggestions={venueSuggestions.data?.conferences}
               />
             </FormField>
           </div>

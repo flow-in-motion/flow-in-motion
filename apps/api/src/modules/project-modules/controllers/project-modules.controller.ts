@@ -86,6 +86,20 @@ export class ProjectModulesController {
     return this.modulesService.listArchived(tenantId, user.id);
   }
 
+  @ApiOperation({
+    summary:
+      'List journal and conference names remembered by the current owner',
+  })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Get('venue-suggestions')
+  async listVenueSuggestions(
+    @Param('tenantId') tenantId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.modulesService.listVenueSuggestions(tenantId, user.id);
+  }
+
   @ApiOperation({ summary: 'Get a single module' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard, ModuleAccessGuard)
   @Get(':moduleId')

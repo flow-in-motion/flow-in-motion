@@ -157,6 +157,10 @@ vi.mock("canvas-confetti", () => ({
   default: fixtures.confetti,
 }));
 vi.mock("@/api/hooks", () => ({
+  usePaperVenueSuggestions: () => ({
+    data: { journals: [], conferences: [] },
+    isPending: false,
+  }),
   useCurrentWorkspace: () => ({
     data: { id: "workspace-1" },
     isPending: false,

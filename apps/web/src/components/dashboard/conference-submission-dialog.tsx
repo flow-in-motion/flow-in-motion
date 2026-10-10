@@ -2,9 +2,11 @@ import { Search, X } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import {
+  CONFERENCE_INTENTS,
   useConferenceLinkOptions,
   type ApiConference,
   type ApiConferenceLinkOption,
+  type ConferenceIntent,
   type ConferenceInput,
 } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,12 @@ import {
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { paperDisplayTitle } from "@/lib/paper-title";
 
@@ -27,6 +35,7 @@ interface ConferenceFormState {
   startDate: string;
   endDate: string;
   submissionType: string;
+  intents: ConferenceIntent[];
   projectIds: string[];
   moduleIds: string[];
 }
@@ -44,7 +53,7 @@ interface ConferenceSubmissionDialogProps {
 
 const INITIAL_FORM: ConferenceFormState = {
   acronym: "", name: "", location: "", submissionDue: "", startDate: "",
-  endDate: "", submissionType: "", projectIds: [], moduleIds: [],
+  endDate: "", submissionType: "", intents: [], projectIds: [], moduleIds: [],
 };
 
 function nextDate(value: string) {
@@ -121,6 +130,7 @@ export function ConferenceSubmissionDialog({
       startDate: conference.startDate ?? "",
       endDate: conference.endDate ?? "",
       submissionType: conference.submissionType ?? "",
+      intents: conference.intents ?? [],
       projectIds: conference.projects.map((project) => project.id),
       moduleIds: (conference.papers ?? []).map((paper) => paper.id),
     } : INITIAL_FORM);
@@ -282,6 +292,35 @@ export function ConferenceSubmissionDialog({
                 <SelectItem value="Poster">Poster</SelectItem>
               </SelectContent>
             </Select>
+          </FormField>
+
+          <FormField label="Intent" htmlFor="conference-intent">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button id="conference-intent" type="button" variant="outline" className="justify-start font-normal" aria-label={`Intent: ${form.intents.length > 0 ? form.intents.join(", ") : "Not specified"}`}>
+                  {form.intents.length > 0 ? form.intents.join(", ") : "Not specified"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                {CONFERENCE_INTENTS.map((intent) => (
+                  <DropdownMenuCheckboxItem
+                    key={intent}
+                    checked={form.intents.includes(intent)}
+                    onSelect={(event) => event.preventDefault()}
+                    onCheckedChange={() =>
+                      setForm((current) => ({
+                        ...current,
+                        intents: current.intents.includes(intent)
+                          ? current.intents.filter((value) => value !== intent)
+                          : [...current.intents, intent],
+                      }))
+                    }
+                  >
+                    {intent}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </FormField>
 
           <FormField label="Linked project" htmlFor="conference-project-link">
