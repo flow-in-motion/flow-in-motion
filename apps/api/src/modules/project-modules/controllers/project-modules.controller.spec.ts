@@ -12,6 +12,7 @@ describe('ProjectModulesController', () => {
     create: jest.Mock;
     update: jest.Mock;
     archive: jest.Mock;
+    listVenueSuggestions: jest.Mock;
   };
   let usersService: { findByExternalAuthId: jest.Mock };
   let configService: {
@@ -25,6 +26,7 @@ describe('ProjectModulesController', () => {
       create: jest.fn(),
       update: jest.fn(),
       archive: jest.fn(),
+      listVenueSuggestions: jest.fn(),
     };
     usersService = {
       findByExternalAuthId: jest.fn().mockResolvedValue({ id: 'user-1' }),
@@ -38,6 +40,23 @@ describe('ProjectModulesController', () => {
       usersService as unknown as UsersService,
       configService as unknown as ConfigService,
     );
+  });
+
+  describe('listVenueSuggestions', () => {
+    it('resolves the caller and returns their remembered venue names', async () => {
+      modulesService.listVenueSuggestions.mockResolvedValue({
+        journals: ['Nature'],
+        conferences: ['ICML'],
+      });
+
+      await expect(
+        controller.listVenueSuggestions('tenant-1', req),
+      ).resolves.toEqual({ journals: ['Nature'], conferences: ['ICML'] });
+      expect(modulesService.listVenueSuggestions).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+      );
+    });
   });
 
   const req = {

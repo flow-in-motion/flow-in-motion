@@ -15,6 +15,7 @@ type ConferenceFixture = {
   startDate: string | null;
   endDate: string | null;
   submissionType: string | null;
+  intents: Array<"Considering" | "Submitting" | "Attending">;
   daysRemaining: number | null;
   projects: Array<{ id: string; displayId: string; title: string }>;
   papers: Array<{
@@ -66,6 +67,7 @@ const fixtures = vi.hoisted(() => ({
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
+    CONFERENCE_INTENTS: ["Considering", "Submitting", "Attending"],
     useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
     useTrackEvent: () => vi.fn(),
     useMe: () => ({ data: { id: fixtures.userId }, isPending: false }),
@@ -122,6 +124,7 @@ vi.mock("@/api/hooks", async () => {
           startDate: (input.startDate as string | null | undefined) ?? null,
           endDate: (input.endDate as string | null | undefined) ?? null,
           submissionType: (input.submissionType as string | null | undefined) ?? null,
+          intents: (input.intents as ConferenceFixture["intents"] | undefined) ?? [],
           daysRemaining: input.submissionDue ? 90 : null,
           projects: (input.projectIds as string[] | undefined)?.length ? [{
               id: fixtures.project.id,

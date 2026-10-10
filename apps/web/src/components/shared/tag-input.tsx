@@ -10,6 +10,7 @@ interface TagInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  suggestions?: string[];
 }
 
 function parseTags(value: string): string[] {
@@ -19,9 +20,15 @@ function parseTags(value: string): string[] {
     .filter(Boolean);
 }
 
-export function TagInput({ id, value, onChange, placeholder, className }: TagInputProps) {
+export function TagInput({ id, value, onChange, placeholder, className, suggestions = [] }: TagInputProps) {
   const tags = parseTags(value);
   const [draft, setDraft] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const normalizedTags = new Set(tags.map((tag) => tag.toLocaleLowerCase()));
+  const matchingSuggestions = suggestions
+    .filter((suggestion) => !normalizedTags.has(suggestion.toLocaleLowerCase()))
+    .filter((suggestion) => suggestion.toLocaleLowerCase().includes(draft.trim().toLocaleLowerCase()))
+    .slice(0, 8);
 
   function commitDraft(nextTags: string[] = tags) {
     const trimmed = draft.trim();
@@ -35,6 +42,12 @@ export function TagInput({ id, value, onChange, placeholder, className }: TagInp
 
   function removeTag(index: number) {
     onChange(tags.filter((_, i) => i !== index).join(", "));
+  }
+
+  function addSuggestion(suggestion: string) {
+    onChange([...tags, suggestion].join(", "));
+    setDraft("");
+    document.getElementById(id)?.focus();
   }
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -63,17 +76,18 @@ export function TagInput({ id, value, onChange, placeholder, className }: TagInp
   }
 
   return (
-    <div
-      className={cn(
-        "flex min-h-[var(--control-height)] w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-card px-2 py-1.5 text-sm transition-colors hover:border-primary/35 focus-within:border-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-ring/15",
-        className,
-      )}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          document.getElementById(id)?.focus();
-        }
-      }}
-    >
+    <div className="relative">
+      <div
+        className={cn(
+          "flex min-h-[var(--control-height)] w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-card px-2 py-1.5 text-sm transition-colors hover:border-primary/35 focus-within:border-primary focus-within:outline-none focus-within:ring-2 focus-within:ring-ring/15",
+          className,
+        )}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            document.getElementById(id)?.focus();
+          }
+        }}
+      >
       {tags.map((tag, index) => (
         <Badge key={`${tag}-${index}`} variant="secondary" className="gap-1 py-0.5">
           {tag}
@@ -92,11 +106,36 @@ export function TagInput({ id, value, onChange, placeholder, className }: TagInp
         value={draft}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        onBlur={() => commitDraft()}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => {
+          setIsFocused(false);
+          commitDraft();
+        }}
         placeholder={tags.length === 0 ? placeholder : undefined}
         className="min-w-[8rem] flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-muted-foreground/80"
         autoComplete="off"
+        role="combobox"
+        aria-expanded={isFocused && matchingSuggestions.length > 0}
+        aria-controls={`${id}-suggestions`}
       />
+      </div>
+      {isFocused && matchingSuggestions.length > 0 ? (
+        <div id={`${id}-suggestions`} role="listbox" className="absolute z-50 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+          {matchingSuggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              role="option"
+              aria-selected="false"
+              className="flex w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => addSuggestion(suggestion)}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

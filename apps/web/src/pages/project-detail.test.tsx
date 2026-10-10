@@ -43,6 +43,10 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 vi.mock("@/api/hooks", () => ({
+  usePaperVenueSuggestions: () => ({
+    data: { journals: [], conferences: [] },
+    isPending: false,
+  }),
   useProjects: () => ({
     data: {
       generalProject: {

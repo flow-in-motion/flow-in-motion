@@ -13,6 +13,7 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 vi.mock("@/api/hooks", () => ({
+  CONFERENCE_INTENTS: ["Considering", "Submitting", "Attending"],
   useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
   useMe: () => ({ data: { id: "user-owner", displayName: "Avi Researcher", email: "owner@example.com" } }),
   useConferences: () => ({
@@ -71,6 +72,7 @@ describe("ConferencesPage", () => {
         startDate: "2026-07-01",
         endDate: "2026-07-05",
         submissionType: "Abstract",
+        intents: ["Submitting", "Attending"],
         daysRemaining: 10,
         projects: [{ id: "project-1", title: "Genome Sequencing Study", displayId: "PRJ-1" }],
         createdAt: "2026-01-01T00:00:00.000Z",
@@ -87,6 +89,7 @@ describe("ConferencesPage", () => {
         startDate: "2026-12-01",
         endDate: "2026-12-06",
         submissionType: "Full paper",
+        intents: [],
         daysRemaining: -5,
         projects: [],
         createdAt: "2026-01-01T00:00:00.000Z",
@@ -153,6 +156,7 @@ describe("ConferencesPage", () => {
         startDate: null,
         endDate: null,
         submissionType: null,
+        intents: [],
         daysRemaining: null,
         projects: [],
         createdAt: "2026-01-01T00:00:00.000Z",

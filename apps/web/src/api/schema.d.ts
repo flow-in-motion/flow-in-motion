@@ -1283,6 +1283,8 @@ export interface components {
             endDate: string;
             /** @example Abstract */
             submissionType?: string;
+            /** @description How the user plans to engage with the conference */
+            intents?: ("Considering" | "Submitting" | "Attending")[];
             /** @description Projects linked to this conference */
             projectIds?: string[];
         };
@@ -1301,6 +1303,8 @@ export interface components {
             endDate?: string;
             /** @example Abstract */
             submissionType?: string;
+            /** @description How the user plans to engage with the conference */
+            intents?: ("Considering" | "Submitting" | "Attending")[];
             /** @description Projects linked to this conference */
             projectIds?: string[];
         };

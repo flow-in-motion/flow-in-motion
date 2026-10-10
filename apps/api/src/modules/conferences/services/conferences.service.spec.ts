@@ -81,6 +81,7 @@ describe('ConferencesService', () => {
           startDate: null,
           endDate: null,
           submissionType: undefined,
+          intents: [],
         },
         [],
         [],
@@ -102,6 +103,26 @@ describe('ConferencesService', () => {
       expect(repository.findOwnedProjectIds).not.toHaveBeenCalled();
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({ tenantId, ownerUserId: callerUserId }),
+        [],
+        [],
+      );
+    });
+
+    it('stores every selected conference intent', async () => {
+      repository.create.mockResolvedValue({
+        id: 'conference-1',
+        submissionDue: null,
+      });
+
+      await service.create(tenantId, callerUserId, {
+        name: 'Multi-purpose conference',
+        intents: ['Submitting', 'Attending'],
+        projectIds: [],
+        moduleIds: [],
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ intents: ['Submitting', 'Attending'] }),
         [],
         [],
       );

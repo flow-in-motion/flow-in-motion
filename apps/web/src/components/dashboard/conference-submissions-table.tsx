@@ -42,6 +42,7 @@ const CONFERENCE_COLUMNS = [
   { id: "submissionDue", label: "Submission Due" },
   { id: "conferenceDates", label: "Conference Dates" },
   { id: "type", label: "Type" },
+  { id: "intent", label: "Intent" },
   { id: "linkedProjects", label: "Linked Projects or Modules/Papers" },
   { id: "actions", label: "Actions" },
 ] as const;
@@ -174,6 +175,7 @@ export function ConferenceSubmissionsTable({
             {columns.isColumnVisible("submissionDue") ? <TableHead>Submission Due</TableHead> : null}
             {columns.isColumnVisible("conferenceDates") ? <TableHead>Conference Dates</TableHead> : null}
             {columns.isColumnVisible("type") ? <TableHead>Type</TableHead> : null}
+            {columns.isColumnVisible("intent") ? <TableHead>Intent</TableHead> : null}
             {columns.isColumnVisible("linkedProjects") ? <TableHead>Linked Projects or Modules/Papers</TableHead> : null}
             {columns.isColumnVisible("actions") ? <TableHead className="text-right">Actions</TableHead> : null}
           </TableRow></TableHeader>
@@ -192,6 +194,7 @@ export function ConferenceSubmissionsTable({
                     <span className={cn("text-xs", urgencyClass(row.daysRemaining))}>{urgencyLabel(row.daysRemaining)}</span></div></TableCell> : null}
                   {columns.isColumnVisible("conferenceDates") ? <TableCell className="text-muted-foreground">{formatConferenceDates(row.startDate, row.endDate)}</TableCell> : null}
                   {columns.isColumnVisible("type") ? <TableCell><Badge variant="outline" className={typeBadgeClass(row.submissionType)}>{row.submissionType ?? "—"}</Badge></TableCell> : null}
+                  {columns.isColumnVisible("intent") ? <TableCell><div className="flex flex-wrap gap-1">{row.intents.length > 0 ? row.intents.map((intent) => <Badge key={intent} variant="secondary">{intent}</Badge>) : <span className="text-xs text-muted-foreground">—</span>}</div></TableCell> : null}
                   {columns.isColumnVisible("linkedProjects") ? <TableCell><div className="flex flex-wrap gap-1">{row.projects.length === 0 && (row.papers ?? []).length === 0 ? <span className="text-xs text-muted-foreground">—</span> : <>
                     {row.projects.map((project) => <Link key={`project:${project.id}`}
                       to={`/projects/${project.id}`}

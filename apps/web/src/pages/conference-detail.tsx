@@ -131,6 +131,7 @@ export default function ConferenceDetailPage() {
           <CardContent className="grid gap-5 text-sm sm:grid-cols-2">
             <DetailItem label="Location"><span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" />{conference.location ?? "—"}</span></DetailItem>
             <DetailItem label="Submission type"><Badge variant="outline">{conference.submissionType ?? "—"}</Badge></DetailItem>
+            <DetailItem label="Intent"><span className="flex flex-wrap gap-1">{conference.intents.length > 0 ? conference.intents.map((intent) => <Badge key={intent} variant="secondary">{intent}</Badge>) : "—"}</span></DetailItem>
             <DetailItem label="Conference starts"><span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4 text-muted-foreground" />{formatDate(conference.startDate)}</span></DetailItem>
             <DetailItem label="Conference ends">{formatDate(conference.endDate)}</DetailItem>
           </CardContent>

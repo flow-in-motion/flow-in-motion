@@ -50,4 +50,26 @@ describe("TagInput", () => {
 
     expect(onChange).toHaveBeenCalledWith("Nature");
   });
+
+  it("filters remembered suggestions and adds one without preventing new entries", () => {
+    const onChange = vi.fn();
+    render(
+      <TagInput
+        id="journals"
+        value="Nature"
+        onChange={onChange}
+        suggestions={["Nature", "Cell", "PLOS ONE"]}
+      />,
+    );
+
+    const input = document.getElementById("journals") as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "cell" } });
+
+    expect(screen.queryByRole("option", { name: "Nature" })).not.toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole("option", { name: "Cell" }));
+    fireEvent.click(screen.getByRole("option", { name: "Cell" }));
+
+    expect(onChange).toHaveBeenCalledWith("Nature, Cell");
+  });
 });

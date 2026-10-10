@@ -10,6 +10,15 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
   DropdownMenuContent: ({ children }: { children: ReactNode }) => <div role="menu">{children}</div>,
+  DropdownMenuCheckboxItem: ({ children, checked, onCheckedChange }: {
+    children: ReactNode;
+    checked?: boolean;
+    onCheckedChange?: () => void;
+  }) => (
+    <button type="button" role="menuitemcheckbox" aria-checked={checked} onClick={onCheckedChange}>
+      {children}
+    </button>
+  ),
   DropdownMenuSub: ({ children }: { children: ReactNode }) => <>{children}</>,
   DropdownMenuSubTrigger: ({ children }: { children: ReactNode }) => (
     <button type="button" role="menuitem">{children}</button>
@@ -43,6 +52,11 @@ const queryState = vi.hoisted(() => ({
 }));
 
 vi.mock("@/api/hooks", () => ({
+  CONFERENCE_INTENTS: ["Considering", "Submitting", "Attending"],
+  usePaperVenueSuggestions: () => ({
+    data: { journals: [], conferences: [] },
+    isPending: false,
+  }),
   useCurrentWorkspace: () => ({
     data: {
       id: "workspace-1",

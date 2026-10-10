@@ -230,6 +230,14 @@ export interface ApiConferenceLinkOption {
   projectTitle: string;
 }
 
+export const CONFERENCE_INTENTS = [
+  "Considering",
+  "Submitting",
+  "Attending",
+] as const;
+
+export type ConferenceIntent = (typeof CONFERENCE_INTENTS)[number];
+
 export interface ApiConference {
   id: string;
   tenantId: string;
@@ -241,6 +249,7 @@ export interface ApiConference {
   startDate: string | null;
   endDate: string | null;
   submissionType: string | null;
+  intents: ConferenceIntent[];
   daysRemaining: number | null;
   projects: ApiConferenceProject[];
   papers: ApiConferencePaper[];
@@ -256,6 +265,7 @@ export interface ConferenceInput {
   startDate?: string | null;
   endDate?: string | null;
   submissionType?: string | null;
+  intents: ConferenceIntent[];
   projectIds: string[];
   moduleIds: string[];
 }
@@ -476,6 +486,8 @@ export const apiKeys = {
     ] as const,
   module: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", "detail", moduleId] as const,
+  paperVenueSuggestions: (tenantId: string) =>
+    ["api", "tenant", tenantId, "modules", "venue-suggestions"] as const,
   moduleCollaborators: (tenantId: string, moduleId: string) =>
     ["api", "tenant", tenantId, "modules", moduleId, "collaborators"] as const,
   moduleInvitations: (tenantId: string, moduleId: string) =>
@@ -979,6 +991,9 @@ export function useCreateProject(tenantId: string) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: apiKeys.projects(tenantId) }),
         queryClient.invalidateQueries({ queryKey: ["api", "me", "projects"] }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.paperVenueSuggestions(tenantId),
+        }),
       ]);
     },
   });
@@ -1005,9 +1020,14 @@ export function useUpdateProject(tenantId: string) {
       ),
     async onSuccess(project) {
       queryClient.setQueryData(apiKeys.project(tenantId, project.id), project);
-      await queryClient.invalidateQueries({
-        queryKey: apiKeys.projects(tenantId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.projects(tenantId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.paperVenueSuggestions(tenantId),
+        }),
+      ]);
     },
   });
 }
@@ -1359,6 +1379,11 @@ export type UpdateModuleInput = Partial<CreateModuleInput>;
 export type ModuleSortField = "dateAdded" | "alphabetical" | "progress";
 export type SortDirection = "asc" | "desc";
 
+export interface PaperVenueSuggestions {
+  journals: string[];
+  conferences: string[];
+}
+
 export function useModules(
   tenantId: string,
   projectId?: string,
@@ -1433,6 +1458,18 @@ export function useModules(
   });
 }
 
+export function usePaperVenueSuggestions(tenantId: string, enabled = true) {
+  return useQuery({
+    queryKey: apiKeys.paperVenueSuggestions(tenantId),
+    enabled: Boolean(tenantId) && enabled,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () =>
+      authenticatedJson<PaperVenueSuggestions>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/modules/venue-suggestions`,
+      ),
+  });
+}
+
 export function useModule(tenantId: string, moduleId: string, enabled = true) {
   return useQuery({
     queryKey: apiKeys.module(tenantId, moduleId),
@@ -1473,6 +1510,9 @@ export function useCreateModule(tenantId: string) {
           queryKey: ["api", "tenant", tenantId, "modules"],
         }),
         queryClient.invalidateQueries({ queryKey: ["api", "me", "modules"] }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.paperVenueSuggestions(tenantId),
+        }),
       ]);
     },
   });
@@ -1504,6 +1544,9 @@ export function useUpdateModule(tenantId: string) {
       // useMyModule) — invalidate both, or the module's own detail page
       // keeps showing its pre-link state until a hard refresh.
       await invalidateResourceEverywhere(queryClient, "modules");
+      await queryClient.invalidateQueries({
+        queryKey: apiKeys.paperVenueSuggestions(tenantId),
+      });
     },
   });
 }
@@ -2435,9 +2478,14 @@ export function useCreateConference(tenantId: string) {
         { method: "POST", body: JSON.stringify(input) },
       ),
     async onSuccess() {
-      await queryClient.invalidateQueries({
-        queryKey: apiKeys.conferences(tenantId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.conferences(tenantId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.paperVenueSuggestions(tenantId),
+        }),
+      ]);
     },
   });
 }
@@ -2461,9 +2509,14 @@ export function useUpdateConference(tenantId: string) {
         apiKeys.conference(tenantId, conference.id),
         conference,
       );
-      await queryClient.invalidateQueries({
-        queryKey: apiKeys.conferences(tenantId),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.conferences(tenantId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.paperVenueSuggestions(tenantId),
+        }),
+      ]);
     },
   });
 }

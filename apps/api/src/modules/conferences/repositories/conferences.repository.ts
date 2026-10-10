@@ -21,6 +21,7 @@ import {
 } from 'drizzle-orm';
 import { searchPattern } from '../../../common/pagination';
 import { DrizzleService } from '../../../db/drizzle.service';
+import type { ConferenceIntent } from '../dto/create-conference.dto';
 
 interface CreateConferenceValues {
   tenantId: string;
@@ -32,6 +33,7 @@ interface CreateConferenceValues {
   startDate: string | null;
   endDate: string | null;
   submissionType?: string | null;
+  intents: ConferenceIntent[];
 }
 
 interface UpdateConferenceValues {
@@ -42,6 +44,7 @@ interface UpdateConferenceValues {
   startDate?: string | null;
   endDate?: string | null;
   submissionType?: string | null;
+  intents?: ConferenceIntent[];
 }
 
 @Injectable()
