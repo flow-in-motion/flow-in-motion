@@ -2,7 +2,12 @@ import { useMemo, useState } from "react";
 import { ListTodo } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { useCurrentWorkspace, useModules, useProjects, useTasks } from "@/api/hooks";
+import {
+  useCurrentWorkspace,
+  useModules,
+  useProjects,
+  useTasks,
+} from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import { priorityBadgeClass } from "@/components/dashboard/priority-badge-styles";
 import { SortableHeader } from "@/components/shared/sortable-header";
@@ -41,7 +46,12 @@ const TASK_COLUMNS = [
   { id: "due", label: "Due" },
   { id: "priority", label: "Priority" },
 ] as const;
-const PRIORITY_ORDER: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+const PRIORITY_ORDER: Record<string, number> = {
+  Critical: 0,
+  High: 1,
+  Medium: 2,
+  Low: 3,
+};
 
 type PriorityFilter = (typeof PRIORITY_FILTERS)[number];
 type SortColumn = (typeof TASK_COLUMNS)[number]["id"];
@@ -63,6 +73,7 @@ export function PriorityTasksTable() {
   const tasks = tasksQuery.data?.data ?? [];
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
+  const generalProject = projectsQuery.data?.generalProject ?? null;
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
 
@@ -77,12 +88,23 @@ export function PriorityTasksTable() {
 
   const projectById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const project of projects) map.set(project.id, project.title);
+
+    for (const project of projects) {
+      map.set(project.id, project.title);
+    }
+
+    if (generalProject) {
+      map.set(generalProject.id, generalProject.title);
+    }
+
     return map;
-  }, [projects]);
+  }, [projects, generalProject]);
+
   const moduleById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const module of modules) map.set(module.id, paperDisplayTitle(module));
+    for (const module of modules) {
+      map.set(module.id, paperDisplayTitle(module));
+    }
     return map;
   }, [modules]);
 
@@ -141,8 +163,10 @@ export function PriorityTasksTable() {
           if (!a.priority && !b.priority) comparison = 0;
           else if (!a.priority) return 1;
           else if (!b.priority) return -1;
-          else comparison =
-            (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99);
+          else
+            comparison =
+              (PRIORITY_ORDER[a.priority] ?? 99) -
+              (PRIORITY_ORDER[b.priority] ?? 99);
           break;
       }
 
@@ -160,7 +184,7 @@ export function PriorityTasksTable() {
 
   function handleSort(column: SortColumn) {
     if (column === sortColumn) {
-      setSortDirection((current) => current === "asc" ? "desc" : "asc");
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
       return;
     }
     setSortColumn(column);
@@ -222,7 +246,7 @@ export function PriorityTasksTable() {
           <TableHeader>
             <TableRow>
               {TASK_COLUMNS.filter((column) =>
-                columns.isColumnVisible(column.id)
+                columns.isColumnVisible(column.id),
               ).map((column) => (
                 <TableHead key={column.id}>
                   <SortableHeader
@@ -282,7 +306,9 @@ export function PriorityTasksTable() {
                   ) : null}
                   {columns.isColumnVisible("due") ? (
                     <TableCell
-                      className={cn(row.overdue && "font-medium text-destructive")}
+                      className={cn(
+                        row.overdue && "font-medium text-destructive",
+                      )}
                     >
                       {row.due}
                     </TableCell>

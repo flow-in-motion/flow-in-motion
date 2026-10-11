@@ -76,8 +76,18 @@ const TASK_COLUMNS = [
   { id: "created", label: "Created", width: "150px" },
 ] as const;
 
-const STATUS_ORDER: Record<string, number> = { "To do": 0, Underway: 1, Waiting: 2, Complete: 3 };
-const PRIORITY_ORDER: Record<string, number> = { Low: 0, Medium: 1, High: 2, Critical: 3 };
+const STATUS_ORDER: Record<string, number> = {
+  "To do": 0,
+  Underway: 1,
+  Waiting: 2,
+  Complete: 3,
+};
+const PRIORITY_ORDER: Record<string, number> = {
+  Low: 0,
+  Medium: 1,
+  High: 2,
+  Critical: 3,
+};
 
 function statusPillClass(status: string | null) {
   switch (status) {
@@ -116,11 +126,15 @@ export default function TasksPage() {
   const { page, setPage, search, setSearch, requestSearch } = useListSearch();
   const [pageSize, setPageSize] = useState<number | "all">(20);
 
-  const tasksQuery = useTasks(tenantId, undefined, page, true, { pageSize, search: requestSearch });
+  const tasksQuery = useTasks(tenantId, undefined, page, true, {
+    pageSize,
+    search: requestSearch,
+  });
   const tasks = tasksQuery.data?.data ?? [];
   const paginationMeta = tasksQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
+  const generalProject = projectsQuery.data?.generalProject ?? null;
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
 
@@ -142,15 +156,11 @@ export default function TasksPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   useEffect(() => {
     setPage(1);
-  }, [
-    setPage,
-    tenantId,
-    status,
-    priority,
-    sortColumn,
-    sortDirection,
-  ]);
-  const columns = useColumnVisibility(TASK_COLUMNS.map((column) => column.id), "tasks");
+  }, [setPage, tenantId, status, priority, sortColumn, sortDirection]);
+  const columns = useColumnVisibility(
+    TASK_COLUMNS.map((column) => column.id),
+    "tasks",
+  );
   const gridTemplate = TASK_COLUMNS.filter((column) =>
     columns.visibleColumns.has(column.id),
   )
@@ -159,9 +169,17 @@ export default function TasksPage() {
 
   const projectById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const project of projects) map.set(project.id, project.title);
+
+    for (const project of projects) {
+      map.set(project.id, project.title);
+    }
+
+    if (generalProject) {
+      map.set(generalProject.id, generalProject.title);
+    }
+
     return map;
-  }, [projects]);
+  }, [projects, generalProject]);
 
   const moduleById = useMemo(() => {
     const map = new Map<string, string>();
@@ -171,7 +189,8 @@ export default function TasksPage() {
 
   function linkTargetLabel(task: ApiTask) {
     if (task.moduleId) return moduleById.get(task.moduleId) ?? "Unknown module";
-    if (task.projectId) return projectById.get(task.projectId) ?? "Unknown project";
+    if (task.projectId)
+      return projectById.get(task.projectId) ?? "Unknown project";
     return "General";
   }
 
@@ -193,9 +212,15 @@ export default function TasksPage() {
       case "project":
         return linkTargetLabel(a).localeCompare(linkTargetLabel(b));
       case "status":
-        return (STATUS_ORDER[a.status ?? ""] ?? 99) - (STATUS_ORDER[b.status ?? ""] ?? 99);
+        return (
+          (STATUS_ORDER[a.status ?? ""] ?? 99) -
+          (STATUS_ORDER[b.status ?? ""] ?? 99)
+        );
       case "priority":
-        return (PRIORITY_ORDER[a.priority ?? ""] ?? 99) - (PRIORITY_ORDER[b.priority ?? ""] ?? 99);
+        return (
+          (PRIORITY_ORDER[a.priority ?? ""] ?? 99) -
+          (PRIORITY_ORDER[b.priority ?? ""] ?? 99)
+        );
       case "due":
         return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
       case "est":
@@ -212,12 +237,23 @@ export default function TasksPage() {
       return true;
     });
     return [...filtered].sort(
-      (a, b) => compareTasks(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
+      (a, b) =>
+        compareTasks(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, search, status, priority, sortColumn, sortDirection, projectById, moduleById]);
+  }, [
+    tasks,
+    search,
+    status,
+    priority,
+    sortColumn,
+    sortDirection,
+    projectById,
+    moduleById,
+  ]);
 
-  const hasActiveFilters = search !== "" || status !== "All" || priority !== "All";
+  const hasActiveFilters =
+    search !== "" || status !== "All" || priority !== "All";
 
   function clearFilters() {
     setSearch("");
@@ -241,7 +277,9 @@ export default function TasksPage() {
   }
 
   async function handleDeleteTask(task: ApiTask) {
-    if (!window.confirm(`Delete "${task.title}"? This action cannot be undone.`)) {
+    if (
+      !window.confirm(`Delete "${task.title}"? This action cannot be undone.`)
+    ) {
       return;
     }
     await deleteTask.mutateAsync(task.id);
@@ -255,7 +293,9 @@ export default function TasksPage() {
       <ErrorState
         title="Tasks could not be loaded"
         description={tasksQuery.error.message}
-        onRetry={() => pageSize === "all" ? setPageSize(20) : void tasksQuery.refetch()}
+        onRetry={() =>
+          pageSize === "all" ? setPageSize(20) : void tasksQuery.refetch()
+        }
       />
     );
   }
@@ -268,7 +308,9 @@ export default function TasksPage() {
         eyebrow="Workflows"
         title="Tasks and To Do"
         description="Everything outstanding across your projects — filter by status or priority, then sort any column."
-        actions={<Button onClick={() => setIsNewTaskOpen(true)}>New Task</Button>}
+        actions={
+          <Button onClick={() => setIsNewTaskOpen(true)}>New Task</Button>
+        }
       />
 
       <TaskDialog
@@ -304,7 +346,8 @@ export default function TasksPage() {
           <DialogHeader>
             <DialogTitle>Task collaborators</DialogTitle>
             <DialogDescription>
-              Invite collaborators to {sharingTask?.title ?? "this task"} by email and manage pending access.
+              Invite collaborators to {sharingTask?.title ?? "this task"} by
+              email and manage pending access.
             </DialogDescription>
           </DialogHeader>
           {sharingTask ? (
@@ -328,7 +371,10 @@ export default function TasksPage() {
           placeholder="Search tasks…"
           className="sm:max-w-xs"
         />
-        <Select value={status} onValueChange={(value) => setStatus(value as StatusFilter)}>
+        <Select
+          value={status}
+          onValueChange={(value) => setStatus(value as StatusFilter)}
+        >
           <SelectTrigger className="sm:w-40">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -340,7 +386,10 @@ export default function TasksPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={priority} onValueChange={(value) => setPriority(value as PriorityFilter)}>
+        <Select
+          value={priority}
+          onValueChange={(value) => setPriority(value as PriorityFilter)}
+        >
           <SelectTrigger className="sm:w-40">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
@@ -401,135 +450,144 @@ export default function TasksPage() {
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
                   {columns.isColumnVisible("task") ? (
-                  <div className="flex flex-col gap-0.5">
-                    {task.displayId ? (
-                      <span className="font-mono text-[11px] text-muted-foreground">{task.displayId}</span>
-                    ) : null}
-                    <div className="flex items-start gap-2">
-                      <Link
-                        to={`/tasks/${task.id}`}
-                        className="font-semibold leading-tight text-foreground transition-colors hover:text-primary hover:underline"
-                      >
-                        {task.title}
-                      </Link>
-                      {task.visibility === "Shared" && task.createdBy === me.data?.id ? (
-                        <button
-                          type="button"
-                          onClick={() => setSharingTask(task)}
-                          aria-label={`Manage collaborators for ${task.title}`}
-                          title="Manage collaborators"
+                    <div className="flex flex-col gap-0.5">
+                      {task.displayId ? (
+                        <span className="font-mono text-[11px] text-muted-foreground">
+                          {task.displayId}
+                        </span>
+                      ) : null}
+                      <div className="flex items-start gap-2">
+                        <Link
+                          to={`/tasks/${task.id}`}
+                          className="font-semibold leading-tight text-foreground transition-colors hover:text-primary hover:underline"
+                        >
+                          {task.title}
+                        </Link>
+                        {task.visibility === "Shared" &&
+                        task.createdBy === me.data?.id ? (
+                          <button
+                            type="button"
+                            onClick={() => setSharingTask(task)}
+                            aria-label={`Manage collaborators for ${task.title}`}
+                            title="Manage collaborators"
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <UserPlus className="h-3.5 w-3.5" />
+                          </button>
+                        ) : null}
+                        <Link
+                          to={`/tasks/${task.id}?edit=true`}
+                          aria-label={`Edit ${task.title}`}
+                          title="Edit task"
                           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <UserPlus className="h-3.5 w-3.5" />
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteTask(task)}
+                          aria-label={`Delete ${task.title}`}
+                          title="Delete task"
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
-                      ) : null}
-                      <Link
-                        to={`/tasks/${task.id}?edit=true`}
-                        aria-label={`Edit ${task.title}`}
-                        title="Edit task"
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteTask(task)}
-                        aria-label={`Delete ${task.title}`}
-                        title="Delete task"
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      </div>
                     </div>
-                  </div>
                   ) : null}
 
                   {columns.isColumnVisible("description") ? (
-                  <span className="line-clamp-3 min-w-0 text-sm leading-5 text-muted-foreground">
-                    {task.description || "—"}
-                  </span>
+                    <span className="line-clamp-3 min-w-0 text-sm leading-5 text-muted-foreground">
+                      {task.description || "—"}
+                    </span>
                   ) : null}
 
                   {columns.isColumnVisible("project") ? (
-                  task.projectId || task.moduleId ? (
-                    <Link
-                      to={task.moduleId ? `/modules/${task.moduleId}` : `/projects/${task.projectId}`}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      {linkTargetLabel(task)}
-                    </Link>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">General</span>
-                  )
+                    task.projectId || task.moduleId ? (
+                      <Link
+                        to={
+                          task.moduleId
+                            ? `/modules/${task.moduleId}`
+                            : `/projects/${task.projectId}`
+                        }
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
+                        {linkTargetLabel(task)}
+                      </Link>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        General
+                      </span>
+                    )
                   ) : null}
 
                   {columns.isColumnVisible("status") ? (
-                  <InlineFieldSelect
-                    value={task.status}
-                    options={STATUS_OPTIONS}
-                    fieldLabel="status"
-                    itemLabel={task.title}
-                    valueClassName={statusPillClass}
-                    onChange={async (nextStatus) => {
-                      setActionError(null);
-                      await updateTask.mutateAsync({
-                        taskId: task.id,
-                        input: { status: nextStatus },
-                      });
-                    }}
-                    onError={(message) =>
-                      setActionError(
-                        `Could not update the status for “${task.title}”. ${message}`,
-                      )
-                    }
-                  />
+                    <InlineFieldSelect
+                      value={task.status}
+                      options={STATUS_OPTIONS}
+                      fieldLabel="status"
+                      itemLabel={task.title}
+                      valueClassName={statusPillClass}
+                      onChange={async (nextStatus) => {
+                        setActionError(null);
+                        await updateTask.mutateAsync({
+                          taskId: task.id,
+                          input: { status: nextStatus },
+                        });
+                      }}
+                      onError={(message) =>
+                        setActionError(
+                          `Could not update the status for “${task.title}”. ${message}`,
+                        )
+                      }
+                    />
                   ) : null}
 
                   {columns.isColumnVisible("priority") ? (
-                  <InlineFieldSelect
-                    value={task.priority}
-                    options={PRIORITY_OPTIONS}
-                    fieldLabel="priority"
-                    itemLabel={task.title}
-                    valueClassName={priorityPillClass}
-                    onChange={async (nextPriority) => {
-                      setActionError(null);
-                      await updateTask.mutateAsync({
-                        taskId: task.id,
-                        input: { priority: nextPriority },
-                      });
-                    }}
-                    onError={(message) =>
-                      setActionError(
-                        `Could not update the priority for “${task.title}”. ${message}`,
-                      )
-                    }
-                  />
+                    <InlineFieldSelect
+                      value={task.priority}
+                      options={PRIORITY_OPTIONS}
+                      fieldLabel="priority"
+                      itemLabel={task.title}
+                      valueClassName={priorityPillClass}
+                      onChange={async (nextPriority) => {
+                        setActionError(null);
+                        await updateTask.mutateAsync({
+                          taskId: task.id,
+                          input: { priority: nextPriority },
+                        });
+                      }}
+                      onError={(message) =>
+                        setActionError(
+                          `Could not update the priority for “${task.title}”. ${message}`,
+                        )
+                      }
+                    />
                   ) : null}
 
                   {columns.isColumnVisible("due") ? (
-                  <span
-                    className={cn(
-                      "text-sm tabular-nums",
-                      isOverdue(task.dueDate, task.status === "Complete")
-                        ? "font-semibold text-destructive"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {formatListDate(task.dueDate)}
-                  </span>
+                    <span
+                      className={cn(
+                        "text-sm tabular-nums",
+                        isOverdue(task.dueDate, task.status === "Complete")
+                          ? "font-semibold text-destructive"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {formatListDate(task.dueDate)}
+                    </span>
                   ) : null}
 
                   {columns.isColumnVisible("est") ? (
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
-                  </span>
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
+                    </span>
                   ) : null}
 
                   {columns.isColumnVisible("created") ? (
-                  <span className="text-sm tabular-nums text-muted-foreground">
-                    {formatListDate(task.createdAt)}
-                  </span>
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      {formatListDate(task.createdAt)}
+                    </span>
                   ) : null}
                 </div>
               ))
