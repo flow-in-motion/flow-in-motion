@@ -442,12 +442,12 @@ export default function DailyNotesPage() {
                     </span>
                   ) : null}
                   {columns.isColumnVisible("linkedTo") ? (
-                    note.projectId || note.moduleId ? (
+                    note.moduleId || note.projectId || generalProject ? (
                       <Link
                         to={
                           note.moduleId
                             ? `/modules/${note.moduleId}`
-                            : `/projects/${note.projectId}`
+                            : `/projects/${note.projectId ?? generalProject!.id}`
                         }
                         className="text-sm font-medium text-primary hover:underline"
                       >

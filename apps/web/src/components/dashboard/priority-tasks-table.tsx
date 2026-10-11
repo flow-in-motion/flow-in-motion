@@ -115,7 +115,7 @@ export function PriorityTasksTable() {
       .filter((task) => task.status !== "Complete")
       .map((task) => ({
         id: task.id,
-        projectId: task.projectId,
+        projectId: task.projectId ?? generalProject?.id ?? null,
         moduleId: task.moduleId,
         project: task.moduleId
           ? (moduleById.get(task.moduleId) ?? "Unknown module")
@@ -128,7 +128,7 @@ export function PriorityTasksTable() {
         overdue: Boolean(task.dueDate && task.dueDate < today),
         priority: task.priority,
       }));
-  }, [tasks, projectById, moduleById, today]);
+  }, [tasks, projectById, moduleById, generalProject, today]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();

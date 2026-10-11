@@ -503,12 +503,12 @@ export default function TasksPage() {
                   ) : null}
 
                   {columns.isColumnVisible("project") ? (
-                    task.projectId || task.moduleId ? (
+                    task.moduleId || task.projectId || generalProject ? (
                       <Link
                         to={
                           task.moduleId
                             ? `/modules/${task.moduleId}`
-                            : `/projects/${task.projectId}`
+                            : `/projects/${task.projectId ?? generalProject!.id}`
                         }
                         className="text-sm font-medium text-primary hover:underline"
                       >
