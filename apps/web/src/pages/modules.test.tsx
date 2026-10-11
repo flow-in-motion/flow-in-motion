@@ -125,7 +125,9 @@ const fixtures = vi.hoisted(() => ({
     },
   ],
 }));
-
+vi.mock("canvas-confetti", () => ({
+  default: vi.fn(),
+}));
 vi.mock("@/api/client", () => ({
   apiClient: {
     POST: vi.fn().mockResolvedValue({
@@ -490,9 +492,16 @@ describe("ModulesPage", () => {
     await waitFor(() =>
       expect(hookMocks.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: { status: "Review" },
+        input: {
+          status: "Review",
+          pipelineStage: "Submitted, Under Review",
+        },
       }),
     );
+
+    expect(
+      await screen.findByText("Paper submitted — congratulations!"),
+    ).toBeInTheDocument();
   });
 
   it("requests the next modules page when Next is clicked", () => {

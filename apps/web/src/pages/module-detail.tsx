@@ -54,6 +54,7 @@ import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-w
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
+  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 import {
   SubmissionDialog,
@@ -632,7 +633,10 @@ export default function ModuleDetailPage() {
         backupJournal: form.backupJournal.trim() || undefined,
         targetConference: form.targetConference.trim() || undefined,
         backupConference: form.backupConference.trim() || undefined,
-        status: form.status,
+        status:
+          form.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
+            ? "Review"
+            : form.status,
         priority: form.priority || undefined,
         pipelineStage: form.pipelineStage,
         dueDate: form.dueDate || undefined,
