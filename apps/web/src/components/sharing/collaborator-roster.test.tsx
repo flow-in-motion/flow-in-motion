@@ -152,6 +152,58 @@ describe("CollaboratorRoster", () => {
 
     expect(revokeInvitationMutate).toHaveBeenCalledWith("invite-2");
   });
+
+  it("finds a reusable contact by name", () => {
+    userSearchResults.current = [
+      {
+        id: "contact:sam@example.com",
+        displayName: "Sam Invited",
+        email: "sam@example.com",
+        affiliation: "Example Institute",
+      },
+    ];
+
+    render(
+      <CollaboratorRoster
+        target="module"
+        tenantId="tenant-1"
+        entityId="module-1"
+        entityTitle="Literature review"
+        members={[]}
+        collaborators={[]}
+        onRemoveCollaborator={vi.fn()}
+        canManage
+      />,
+    );
+
+    const nameInput = screen.getByLabelText("Collaborator name");
+
+    fireEvent.focus(nameInput);
+    fireEvent.change(nameInput, {
+      target: { value: "Sam" },
+    });
+
+    expect(
+      screen.getByRole("listbox", {
+        name: "Available collaborator names",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("option", {
+        name: /Sam Invited/,
+      }),
+    );
+
+    expect(nameInput).toHaveValue("Sam Invited");
+    expect(screen.getByLabelText("Collaborator email")).toHaveValue(
+      "sam@example.com",
+    );
+    expect(screen.getByLabelText("Collaborator affiliation")).toHaveValue(
+      "Example Institute",
+    );
+  });
+
   it("reuses a contact from a previous invitation", async () => {
     userSearchResults.current = [
       {
@@ -161,7 +213,7 @@ describe("CollaboratorRoster", () => {
         affiliation: "Example Institute",
       },
     ];
-  
+
     render(
       <CollaboratorRoster
         target="note"
@@ -174,20 +226,20 @@ describe("CollaboratorRoster", () => {
         canManage
       />,
     );
-  
+
     const emailInput = screen.getByLabelText("Collaborator email");
-  
+
     fireEvent.focus(emailInput);
     fireEvent.change(emailInput, {
       target: { value: "sam" },
     });
-  
+
     fireEvent.click(
       screen.getByRole("option", {
         name: /Sam Invited/,
       }),
     );
-  
+
     expect(screen.getByLabelText("Collaborator name")).toHaveValue(
       "Sam Invited",
     );
@@ -195,13 +247,13 @@ describe("CollaboratorRoster", () => {
     expect(screen.getByLabelText("Collaborator affiliation")).toHaveValue(
       "Example Institute",
     );
-  
+
     fireEvent.click(
       screen.getByRole("button", {
         name: "Add collaborator",
       }),
     );
-  
+
     await waitFor(() =>
       expect(createDraftMutate).toHaveBeenCalledWith({
         email: "sam@example.com",
@@ -210,7 +262,7 @@ describe("CollaboratorRoster", () => {
       }),
     );
   });
-  
+
   it("hides the add-collaborator form and management actions when the viewer can't manage", () => {
     invitations.current = [];
 
