@@ -32,6 +32,11 @@ import {
   ModuleDialog,
   type ModuleFormInput,
 } from "@/components/modules/module-dialog";
+import {
+  enteredSubmittedUnderReview,
+  PaperStageCelebration,
+  SUBMITTED_UNDER_REVIEW_STAGE,
+} from "@/components/modules/paper-stage-celebration";
 import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
@@ -447,6 +452,8 @@ export default function ModulesPage() {
   );
   const [isNewModuleOpen, setIsNewModuleOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
+  const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
   const workspaceMembers = useMembers(tenantId, 1, isNewModuleOpen);
   const members = workspaceMembers.data?.data ?? [];
   const createModule = useCreateModule(tenantId);
@@ -687,6 +694,11 @@ export default function ModulesPage() {
 
   return (
     <div className="page-stack">
+      <PaperStageCelebration
+        open={isPaperCelebrationOpen}
+        onOpenChange={setIsPaperCelebrationOpen}
+        paperTitle={celebrationPaperTitle}
+      />
       <PageHeading
         tone="violet"
         icon={FileStack}
@@ -890,10 +902,29 @@ export default function ModulesPage() {
                       valueClassName={statusPillClass}
                       onChange={async (nextStatus) => {
                         setActionError(null);
+
+                        const shouldCelebrate =
+                          nextStatus === "Review" &&
+                          enteredSubmittedUnderReview(
+                            module.pipelineStage,
+                            SUBMITTED_UNDER_REVIEW_STAGE,
+                          );
+
                         await updateModule.mutateAsync({
                           moduleId: module.id,
-                          input: { status: nextStatus },
+                          input:
+                            nextStatus === "Review"
+                              ? {
+                                  status: nextStatus,
+                                  pipelineStage: SUBMITTED_UNDER_REVIEW_STAGE,
+                                }
+                              : { status: nextStatus },
                         });
+
+                        if (shouldCelebrate) {
+                          setCelebrationPaperTitle(paperDisplayTitle(module));
+                          setIsPaperCelebrationOpen(true);
+                        }
                       }}
                       onError={(message) =>
                         setActionError(
