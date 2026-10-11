@@ -48,7 +48,8 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 const VISIBILITY_FILTERS = ["All", "Private", "Shared"] as const;
 type VisibilityFilter = (typeof VISIBILITY_FILTERS)[number];
 
-type SortColumn = "note" | "content" | "linkedTo" | "visibility" | "followUp" | "created";
+type SortColumn =
+  "note" | "content" | "linkedTo" | "visibility" | "followUp" | "created";
 type SortDirection = "asc" | "desc";
 
 const NOTE_COLUMNS = [
@@ -84,17 +85,25 @@ export default function DailyNotesPage() {
   const { page, setPage, search, setSearch, requestSearch } = useListSearch();
   const [pageSize, setPageSize] = useState<number | "all">(20);
 
-  const notesQuery = useNotes(tenantId, undefined, page, true, { pageSize, search: requestSearch });
+  const notesQuery = useNotes(tenantId, undefined, page, true, {
+    pageSize,
+    search: requestSearch,
+  });
   const notes = notesQuery.data?.data ?? [];
   const paginationMeta = notesQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
+  const generalProject = projectsQuery.data?.generalProject ?? null;
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
 
   const [isNewNoteOpen, setIsNewNoteOpen] = useState(false);
-  const [newNoteInitialProjectId, setNewNoteInitialProjectId] = useState<string | undefined>();
-  const [newNoteInitialModuleId, setNewNoteInitialModuleId] = useState<string | undefined>();
+  const [newNoteInitialProjectId, setNewNoteInitialProjectId] = useState<
+    string | undefined
+  >();
+  const [newNoteInitialModuleId, setNewNoteInitialModuleId] = useState<
+    string | undefined
+  >();
   const [sharingNote, setSharingNote] = useState<ApiNote | null>(null);
   const me = useMe();
   const membersQuery = useMembers(tenantId, 1, sharingNote !== null);
@@ -116,7 +125,9 @@ export default function DailyNotesPage() {
     const linkedProjectId = searchParams.get("projectId") ?? "";
     const linkedModuleId = searchParams.get("moduleId") ?? "";
     setNewNoteInitialModuleId(linkedModuleId || undefined);
-    setNewNoteInitialProjectId(linkedModuleId ? undefined : linkedProjectId || undefined);
+    setNewNoteInitialProjectId(
+      linkedModuleId ? undefined : linkedProjectId || undefined,
+    );
     setIsNewNoteOpen(true);
     setSearchParams(
       (params) => {
@@ -129,7 +140,10 @@ export default function DailyNotesPage() {
     );
   }, [searchParams, setSearchParams]);
 
-  const columns = useColumnVisibility(NOTE_COLUMNS.map((column) => column.id), "daily-notes");
+  const columns = useColumnVisibility(
+    NOTE_COLUMNS.map((column) => column.id),
+    "daily-notes",
+  );
   const gridTemplate = NOTE_COLUMNS.filter((column) =>
     columns.visibleColumns.has(column.id),
   )
@@ -138,9 +152,17 @@ export default function DailyNotesPage() {
 
   const projectById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const project of projects) map.set(project.id, project.title);
+
+    for (const project of projects) {
+      map.set(project.id, project.title);
+    }
+
+    if (generalProject) {
+      map.set(generalProject.id, generalProject.title);
+    }
+
     return map;
-  }, [projects]);
+  }, [projects, generalProject]);
 
   const moduleById = useMemo(() => {
     const map = new Map<string, string>();
@@ -150,7 +172,8 @@ export default function DailyNotesPage() {
 
   function linkTargetLabel(note: ApiNote) {
     if (note.moduleId) return moduleById.get(note.moduleId) ?? "Unknown paper";
-    if (note.projectId) return projectById.get(note.projectId) ?? "Unknown project";
+    if (note.projectId)
+      return projectById.get(note.projectId) ?? "Unknown project";
     return "General";
   }
 
@@ -182,14 +205,24 @@ export default function DailyNotesPage() {
 
   const visibleNotes = useMemo(() => {
     const filtered = notes.filter((note) => {
-      if (visibility !== "All" && (note.visibility ?? "Private") !== visibility) return false;
+      if (visibility !== "All" && (note.visibility ?? "Private") !== visibility)
+        return false;
       return true;
     });
     return [...filtered].sort(
-      (a, b) => compareNotes(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
+      (a, b) =>
+        compareNotes(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes, search, visibility, sortColumn, sortDirection, projectById, moduleById]);
+  }, [
+    notes,
+    search,
+    visibility,
+    sortColumn,
+    sortDirection,
+    projectById,
+    moduleById,
+  ]);
 
   const hasActiveFilters = search !== "" || visibility !== "All";
 
@@ -217,7 +250,8 @@ export default function DailyNotesPage() {
   }
 
   async function handleDeleteNote(note: ApiNote) {
-    if (!window.confirm(`Delete "${noteTitle(note)}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete "${noteTitle(note)}"? This cannot be undone.`))
+      return;
     await deleteNote.mutateAsync(note.id);
   }
 
@@ -229,7 +263,9 @@ export default function DailyNotesPage() {
       <ErrorState
         title="Notes could not be loaded"
         description={notesQuery.error.message}
-        onRetry={() => pageSize === "all" ? setPageSize(20) : void notesQuery.refetch()}
+        onRetry={() =>
+          pageSize === "all" ? setPageSize(20) : void notesQuery.refetch()
+        }
       />
     );
   }
@@ -265,7 +301,9 @@ export default function DailyNotesPage() {
           <DialogHeader>
             <DialogTitle>Note collaborators</DialogTitle>
             <DialogDescription>
-              Invite collaborators to {sharingNote ? noteTitle(sharingNote) : "this note"} by email and manage pending access.
+              Invite collaborators to{" "}
+              {sharingNote ? noteTitle(sharingNote) : "this note"} by email and
+              manage pending access.
             </DialogDescription>
           </DialogHeader>
           {sharingNote ? (
@@ -289,7 +327,10 @@ export default function DailyNotesPage() {
           placeholder="Search notes…"
           className="sm:max-w-xs"
         />
-        <Select value={visibility} onValueChange={(value) => setVisibility(value as VisibilityFilter)}>
+        <Select
+          value={visibility}
+          onValueChange={(value) => setVisibility(value as VisibilityFilter)}
+        >
           <SelectTrigger className="sm:w-40">
             <SelectValue placeholder="Visibility" />
           </SelectTrigger>
@@ -352,7 +393,9 @@ export default function DailyNotesPage() {
                   {columns.isColumnVisible("note") ? (
                     <div className="flex flex-col gap-0.5">
                       {note.displayId ? (
-                        <span className="font-mono text-[11px] text-muted-foreground">{note.displayId}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground">
+                          {note.displayId}
+                        </span>
                       ) : null}
                       <div className="flex items-start gap-2">
                         <Link
@@ -361,7 +404,8 @@ export default function DailyNotesPage() {
                         >
                           {noteTitle(note)}
                         </Link>
-                        {note.visibility === "Shared" && note.createdBy === me.data?.id ? (
+                        {note.visibility === "Shared" &&
+                        note.createdBy === me.data?.id ? (
                           <button
                             type="button"
                             onClick={() => setSharingNote(note)}
@@ -398,19 +442,28 @@ export default function DailyNotesPage() {
                     </span>
                   ) : null}
                   {columns.isColumnVisible("linkedTo") ? (
-                    note.projectId || note.moduleId ? (
+                    note.moduleId || note.projectId || generalProject ? (
                       <Link
-                        to={note.moduleId ? `/modules/${note.moduleId}` : `/projects/${note.projectId}`}
+                        to={
+                          note.moduleId
+                            ? `/modules/${note.moduleId}`
+                            : `/projects/${note.projectId ?? generalProject!.id}`
+                        }
                         className="text-sm font-medium text-primary hover:underline"
                       >
                         {linkTargetLabel(note)}
                       </Link>
                     ) : (
-                      <span className="text-sm text-muted-foreground">General</span>
+                      <span className="text-sm text-muted-foreground">
+                        General
+                      </span>
                     )
                   ) : null}
                   {columns.isColumnVisible("visibility") ? (
-                    <Badge variant="outline" className={visibilityPillClass(note.visibility)}>
+                    <Badge
+                      variant="outline"
+                      className={visibilityPillClass(note.visibility)}
+                    >
                       {note.visibility ?? "Private"}
                     </Badge>
                   ) : null}
