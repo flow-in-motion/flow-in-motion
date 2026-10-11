@@ -116,8 +116,16 @@ export function CollaboratorRoster({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [affiliation, setAffiliation] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const userSearch = useUserSearch(email, pickerOpen);
+  const [activePicker, setActivePicker] = useState<
+    "name" | "email" | null
+  >(null);
+  const searchQuery =
+    activePicker === "name"
+      ? name
+      : activePicker === "email"
+        ? email
+        : "";
+  const userSearch = useUserSearch(searchQuery, activePicker !== null);
   const [filterQuery, setFilterQuery] = useState("");
 
   const memberByUserId = useMemo(() => {
@@ -169,7 +177,7 @@ export function CollaboratorRoster({
     setName("");
     setEmail("");
     setAffiliation("");
-    setPickerOpen(false);
+    setActivePicker(null);
   }
 
   async function handleAddDraft(event: FormEvent<HTMLFormElement>) {
@@ -199,6 +207,55 @@ export function CollaboratorRoster({
     } finally {
       setSendingId(null);
     }
+  }
+
+  function selectUser(user: (typeof availableUsers)[number]) {
+    setEmail(user.email);
+    setName(user.displayName);
+    setAffiliation(user.affiliation ?? "");
+    setActivePicker(null);
+  }
+
+  function renderUserPicker(id: string, label: string) {
+    return (
+      <div
+        id={id}
+        role="listbox"
+        aria-label={label}
+        className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+      >
+        {userSearch.isPending ? (
+          <p className="px-3 py-2 text-sm text-muted-foreground">
+            Searching…
+          </p>
+        ) : availableUsers.length ? (
+          availableUsers.map((user) => (
+            <button
+              key={user.id}
+              type="button"
+              role="option"
+              aria-selected="false"
+              className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => selectUser(user)}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">
+                  {user.displayName}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {user.email}
+                </span>
+              </span>
+            </button>
+          ))
+        ) : (
+          <p className="px-3 py-2 text-sm text-muted-foreground">
+            No matching collaborators. You can still enter their details.
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -327,75 +384,74 @@ export function CollaboratorRoster({
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
-            <Input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Name"
-              aria-label="Collaborator name"
-            />
+
             <div
               className="relative"
               onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setPickerOpen(false);
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setActivePicker(null);
+                }
+              }}
+            >
+              <Input
+                role="combobox"
+                value={name}
+                onFocus={() => setActivePicker("name")}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  setActivePicker("name");
+                }}
+                placeholder="Name"
+                aria-label="Collaborator name"
+                aria-expanded={activePicker === "name" && Boolean(name.trim())}
+                aria-controls="collaborator-roster-name-options"
+                aria-autocomplete="list"
+                autoComplete="off"
+              />
+
+              {activePicker === "name" && name.trim()
+                ? renderUserPicker(
+                    "collaborator-roster-name-options",
+                    "Available collaborator names",
+                  )
+                : null}
+            </div>
+
+            <div
+              className="relative"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setActivePicker(null);
+                }
               }}
             >
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+
               <Input
                 type="email"
                 role="combobox"
                 value={email}
-                onFocus={() => setPickerOpen(true)}
+                onFocus={() => setActivePicker("email")}
                 onChange={(event) => {
                   setEmail(event.target.value);
-                  setPickerOpen(true);
+                  setActivePicker("email");
                 }}
                 placeholder="Email"
                 aria-label="Collaborator email"
-                aria-expanded={pickerOpen && Boolean(email.trim())}
+                aria-expanded={activePicker === "email" && Boolean(email.trim())}
                 aria-controls="collaborator-roster-email-options"
                 aria-autocomplete="list"
                 autoComplete="off"
                 className="pl-9"
                 required
               />
-              {pickerOpen && email.trim() ? (
-                <div
-                  id="collaborator-roster-email-options"
-                  role="listbox"
-                  aria-label="Available collaborator emails"
-                  className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
-                >
-                  {userSearch.isPending ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">Searching…</p>
-                  ) : availableUsers.length ? (
-                    availableUsers.map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        role="option"
-                        aria-selected="false"
-                        className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => {
-                          setEmail(user.email);
-                          setName(user.displayName);
-                          setAffiliation(user.affiliation ?? "");
-                          setPickerOpen(false);
-                        }}
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium">{user.displayName}</span>
-                          <span className="block truncate text-xs text-muted-foreground">{user.email}</span>
-                        </span>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">
-                      No matching users. You can still enter a complete email address.
-                    </p>
-                  )}
-                </div>
-              ) : null}
+
+              {activePicker === "email" && email.trim()
+                ? renderUserPicker(
+                    "collaborator-roster-email-options",
+                    "Available collaborator emails",
+                  )
+                : null}
             </div>
             <Input
               value={affiliation}
