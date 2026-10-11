@@ -414,6 +414,13 @@
       "when": 1791631778993,
       "tag": "0074_faulty_skullbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1791678757466,
+      "tag": "0075_lowly_molten_man",
+      "breakpoints": true
     }
   ]
 }

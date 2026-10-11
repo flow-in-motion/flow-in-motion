@@ -8,12 +8,16 @@ export const PAPER_CURRENTLY_WITH_LABELS: Record<
   collaborator: "Collaborator/Coauthor",
   journal: "Journal",
   friendly_reviewer: "Friendly reviewer",
+  others: "Others",
 };
 
 export function paperCurrentlyWithLabel(
   paper: Pick<
     ApiModule,
-    "assignedToUserId" | "assignedToInvitationId" | "currentlyWithType"
+    | "assignedToUserId"
+    | "assignedToInvitationId"
+    | "assignedToDisplayName"
+    | "currentlyWithType"
   >,
   currentUserId?: string,
   nameByAssigneeId?: ReadonlyMap<string, string>,
@@ -30,11 +34,14 @@ export function paperCurrentlyWithLabel(
   }
   if (paper.assignedToUserId) {
     return (
-      nameByAssigneeId?.get(paper.assignedToUserId) ?? "Collaborator/Coauthor"
+      paper.assignedToDisplayName ??
+      nameByAssigneeId?.get(paper.assignedToUserId) ??
+      "Collaborator/Coauthor"
     );
   }
   if (paper.assignedToInvitationId) {
     return (
+      paper.assignedToDisplayName ??
       nameByAssigneeId?.get(paper.assignedToInvitationId) ??
       "Collaborator/Coauthor"
     );

@@ -69,7 +69,7 @@ export const modules = pgTable(
       .where(sql`${table.assignedToInvitationId} IS NOT NULL`),
     currentlyWithTypeCheck: check(
       "modules_currently_with_type_check",
-      sql`${table.currentlyWithType} IS NULL OR ${table.currentlyWithType} IN ('me', 'collaborator', 'journal', 'friendly_reviewer')`,
+      sql`${table.currentlyWithType} IS NULL OR ${table.currentlyWithType} IN ('me', 'collaborator', 'journal', 'friendly_reviewer', 'others')`,
     ),
   }),
 );

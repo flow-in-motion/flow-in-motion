@@ -22,6 +22,7 @@ interface PaperCurrentlyWithSelectProps {
   currentlyWithType: PaperCurrentlyWithType | null;
   assignedToUserId: string | null;
   assignedToInvitationId: string | null;
+  assignedToDisplayName?: string | null;
   currentUserId?: string;
   collaborators: PaperCollaboratorContact[];
   collaboratorsPending?: boolean;
@@ -41,6 +42,7 @@ export function PaperCurrentlyWithSelect({
   currentlyWithType,
   assignedToUserId,
   assignedToInvitationId,
+  assignedToDisplayName,
   currentUserId,
   collaborators,
   collaboratorsPending = false,
@@ -62,6 +64,7 @@ export function PaperCurrentlyWithSelect({
   const label =
     currentlyWithType === "collaborator"
       ? (selectedCollaborator?.displayName ??
+        assignedToDisplayName ??
         PAPER_CURRENTLY_WITH_LABELS.collaborator)
       : currentlyWithType
         ? PAPER_CURRENTLY_WITH_LABELS[currentlyWithType]
@@ -139,6 +142,9 @@ export function PaperCurrentlyWithSelect({
           onSelect={() => onChange("friendly_reviewer", null, null)}
         >
           Friendly reviewer
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onChange("others", null, null)}>
+          Others
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

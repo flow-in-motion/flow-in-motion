@@ -165,6 +165,7 @@ export interface ApiModule {
   dueDate: string | null;
   assignedToUserId: string | null;
   assignedToInvitationId?: string | null;
+  assignedToDisplayName?: string | null;
   currentlyWithType?: PaperCurrentlyWithType | null;
   archivedAt: string | null;
   createdAt: string;
@@ -172,7 +173,7 @@ export interface ApiModule {
 }
 
 export type PaperCurrentlyWithType =
-  "me" | "collaborator" | "journal" | "friendly_reviewer";
+  "me" | "collaborator" | "journal" | "friendly_reviewer" | "others";
 
 export interface ApiTask {
   id: string;

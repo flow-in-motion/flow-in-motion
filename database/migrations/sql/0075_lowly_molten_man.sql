@@ -1,0 +1,2 @@
+ALTER TABLE "modules" DROP CONSTRAINT "modules_currently_with_type_check";--> statement-breakpoint
+ALTER TABLE "modules" ADD CONSTRAINT "modules_currently_with_type_check" CHECK ("modules"."currently_with_type" IS NULL OR "modules"."currently_with_type" IN ('me', 'collaborator', 'journal', 'friendly_reviewer', 'others'));
