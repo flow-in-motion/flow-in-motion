@@ -896,6 +896,41 @@ describe('ProjectModulesService', () => {
       );
     });
 
+    it('stores Others without a collaborator assignment', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+        assignedToUserId: 'user-2',
+        assignedToInvitationId: null,
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'owner-role-id',
+      });
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+      });
+
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        currentlyWithType: 'others',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({
+          currentlyWithType: 'others',
+          assignedToUserId: null,
+          assignedToInvitationId: null,
+        }),
+      );
+    });
+
     it("rejects moving a paper into another user's project", async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',

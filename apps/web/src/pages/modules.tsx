@@ -65,6 +65,7 @@ const CURRENTLY_WITH_FILTER_LABELS: Record<PaperCurrentlyWithType, string> = {
   collaborator: "Collaborators/Coauthors",
   journal: "Journal",
   friendly_reviewer: "Friendly reviewer",
+  others: "Others",
 };
 const MODULE_COLUMNS = [
   { id: "module", label: "Paper", width: "minmax(280px,2fr)" },
@@ -276,7 +277,7 @@ function CurrentlyWithFilter({
             )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        {(["journal", "friendly_reviewer"] as const).map((option) => (
+        {(["journal", "friendly_reviewer", "others"] as const).map((option) => (
           <DropdownMenuCheckboxItem
             key={option}
             checked={selectedTypes.has(option)}
@@ -375,6 +376,7 @@ function InlinePaperCurrentlyWith({
       currentlyWithType={paper.currentlyWithType ?? null}
       assignedToUserId={paper.assignedToUserId}
       assignedToInvitationId={paper.assignedToInvitationId ?? null}
+      assignedToDisplayName={paper.assignedToDisplayName}
       currentUserId={currentUserId}
       collaborators={collaboratorsQuery.data ?? []}
       collaboratorsPending={collaboratorsQuery.isPending}

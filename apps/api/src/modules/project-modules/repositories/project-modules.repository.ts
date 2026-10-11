@@ -16,6 +16,7 @@ import {
   desc,
   eq,
   exists,
+  getTableColumns,
   ilike,
   inArray,
   isNotNull,
@@ -497,8 +498,18 @@ export class ProjectModulesRepository {
 
     const [data, countResult] = await Promise.all([
       this.drizzle.db
-        .select()
+        .select({
+          ...getTableColumns(modules),
+          assignedToDisplayName: sql<
+            string | null
+          >`coalesce(${users.displayName}, ${moduleInvitations.name})`,
+        })
         .from(modules)
+        .leftJoin(users, eq(users.id, modules.assignedToUserId))
+        .leftJoin(
+          moduleInvitations,
+          eq(moduleInvitations.id, modules.assignedToInvitationId),
+        )
         .where(whereCondition)
         .orderBy(...orderBy)
         .limit(limit)

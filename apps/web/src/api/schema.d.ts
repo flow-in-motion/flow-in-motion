@@ -1139,7 +1139,7 @@ export interface components {
             pipelineStage?: string;
             assignedToUserId?: string;
             /** @description Who currently has the paper. */
-            currentlyWithType?: "me" | "collaborator" | "journal" | "friendly_reviewer";
+            currentlyWithType?: "me" | "collaborator" | "journal" | "friendly_reviewer" | "others";
             /**
              * @description Module due date in ISO date format
              * @example 2027-06-01
@@ -1189,7 +1189,7 @@ export interface components {
             pipelineStage?: string;
             assignedToUserId?: string;
             /** @description Who currently has the paper. */
-            currentlyWithType?: "me" | "collaborator" | "journal" | "friendly_reviewer";
+            currentlyWithType?: "me" | "collaborator" | "journal" | "friendly_reviewer" | "others";
             /**
              * @description Module due date in ISO date format
              * @example 2027-06-01
@@ -2155,7 +2155,7 @@ export interface operations {
             query?: {
                 page?: number;
                 projectId?: string;
-                currentlyWithTypes?: ("me" | "collaborator" | "journal" | "friendly_reviewer")[];
+                currentlyWithTypes?: ("me" | "collaborator" | "journal" | "friendly_reviewer" | "others")[];
             };
             header?: never;
             path: {

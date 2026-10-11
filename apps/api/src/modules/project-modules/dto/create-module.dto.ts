@@ -14,6 +14,7 @@ export const CURRENTLY_WITH_TYPES = [
   'collaborator',
   'journal',
   'friendly_reviewer',
+  'others',
 ] as const;
 
 export type CurrentlyWithType = (typeof CURRENTLY_WITH_TYPES)[number];

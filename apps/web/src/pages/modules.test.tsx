@@ -18,8 +18,9 @@ type ModuleFixture = {
   dueDate: string | null;
   assignedToUserId: string | null;
   assignedToInvitationId?: string | null;
+  assignedToDisplayName?: string | null;
   currentlyWithType?:
-    "me" | "collaborator" | "journal" | "friendly_reviewer" | null;
+    "me" | "collaborator" | "journal" | "friendly_reviewer" | "others" | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -1009,6 +1010,61 @@ describe("ModulesPage", () => {
     );
   });
 
+  it("shows the saved collaborator name before opening the dropdown", () => {
+    store.setModules([
+      {
+        ...store.getModules()[0],
+        currentlyWithType: "collaborator",
+        assignedToInvitationId: "invite-draft",
+        assignedToDisplayName: "Dana Draft",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("combobox", {
+        name: "Change Currently With for Literature synthesis",
+      }),
+    ).toHaveTextContent("Dana Draft");
+    expect(hookMocks.useModuleCollaborators).toHaveBeenCalledWith(
+      fixtures.tenantId,
+      "module-1",
+      false,
+    );
+  });
+
+  it("can assign Currently With to Others", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("combobox", {
+        name: "Change Currently With for Literature synthesis",
+      }),
+      { key: "Enter" },
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Others" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: {
+          currentlyWithType: "others",
+          assignedToUserId: null,
+          assignedToInvitationId: null,
+        },
+      }),
+    );
+  });
+
   it("filters by multiple Currently With categories before pagination", async () => {
     store.setModules([
       {
@@ -1031,6 +1087,14 @@ describe("ModulesPage", () => {
         title: "Paper with me",
         currentlyWithType: "me",
       },
+      {
+        ...store.getModules()[0],
+        id: "module-4",
+        displayId: "MOD-004",
+        shortTitle: "Paper with others",
+        title: "Paper with others",
+        currentlyWithType: "others",
+      },
     ]);
 
     render(
@@ -1047,9 +1111,11 @@ describe("ModulesPage", () => {
     fireEvent.click(
       screen.getByRole("menuitemcheckbox", { name: "Friendly reviewer" }),
     );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Others" }));
 
     expect(screen.getByText("Literature synthesis")).toBeInTheDocument();
     expect(screen.getByText("Friendly review paper")).toBeInTheDocument();
+    expect(screen.getByText("Paper with others")).toBeInTheDocument();
     expect(screen.queryByText("Paper with me")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
@@ -1057,6 +1123,7 @@ describe("ModulesPage", () => {
           currentlyWithTypes: expect.arrayContaining([
             "journal",
             "friendly_reviewer",
+            "others",
           ]),
         }),
       ),
