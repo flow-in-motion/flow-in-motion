@@ -351,6 +351,7 @@ vi.mock("@/api/hooks", async () => {
 
 describe("ModulesPage", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     store.setModules([
       {
         id: "module-1",
@@ -439,6 +440,64 @@ describe("ModulesPage", () => {
       }
     },
   );
+
+  it("restores paper search and status filters after returning", async () => {
+    const first = render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Search papers…"), {
+      target: { value: "Literature" },
+    });
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by statuses" }),
+      { key: "Enter" },
+    );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Review" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+
+    await waitFor(() =>
+      expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: "Literature",
+          statuses: ["Review"],
+        }),
+      ),
+    );
+
+    first.unmount();
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByPlaceholderText("Search papers…")).toHaveValue(
+      "Literature",
+    );
+
+    await waitFor(() =>
+      expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          search: "Literature",
+          statuses: ["Review"],
+        }),
+      ),
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by statuses" }),
+      { key: "Enter" },
+    );
+
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "Review" }),
+    ).toHaveAttribute("aria-checked", "true");
+  });
 
   it("updates progress when selected stages are reordered", () => {
     const originalStages = fixtures.stageValues;

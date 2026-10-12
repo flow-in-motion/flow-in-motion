@@ -1,8 +1,18 @@
-import { useState } from "react";
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ACTIVITY_Y_MAX, ACTIVITY_Y_TICKS, weeklyActivity } from "@/data/weekly-activity";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ACTIVITY_Y_MAX,
+  ACTIVITY_Y_TICKS,
+  weeklyActivity,
+} from "@/data/weekly-activity";
 import { cn } from "@/lib/utils";
+import { useCurrentWorkspace, useMe } from "@/api/hooks";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 const TIME_RANGES = ["Today", "Week", "Month", "Year", "All time"] as const;
 type TimeRange = (typeof TIME_RANGES)[number];
@@ -24,7 +34,17 @@ function yFor(value: number) {
 }
 
 export function ActivityOverviewChart() {
-  const [range, setRange] = useState<TimeRange>("Week");
+  const workspace = useCurrentWorkspace();
+  const tenantId = workspace.data?.id ?? "";
+  const me = useMe();
+
+  const [range, setRange] = useSessionListState<TimeRange>(
+    me.data?.id,
+    tenantId,
+    "dashboard-activity:range",
+    "Week",
+  );
+
   const bandWidth = PLOT_WIDTH / weeklyActivity.length;
   const pairWidth = BAR_WIDTH * 2 + BAR_GAP;
 
@@ -102,8 +122,10 @@ export function ActivityOverviewChart() {
           {weeklyActivity.map((entry, index) => {
             const bandX = PLOT_LEFT + index * bandWidth;
             const startX = bandX + (bandWidth - pairWidth) / 2;
-            const taskHeight = (entry.tasksCompleted / ACTIVITY_Y_MAX) * PLOT_HEIGHT;
-            const noteHeight = (entry.notesWritten / ACTIVITY_Y_MAX) * PLOT_HEIGHT;
+            const taskHeight =
+              (entry.tasksCompleted / ACTIVITY_Y_MAX) * PLOT_HEIGHT;
+            const noteHeight =
+              (entry.notesWritten / ACTIVITY_Y_MAX) * PLOT_HEIGHT;
 
             return (
               <g key={entry.day}>

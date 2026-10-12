@@ -1,6 +1,7 @@
 import { useMemo, useState, type DragEvent } from "react";
 import { GripVertical, Pencil, Workflow } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
   useCreateModule,
@@ -15,7 +16,10 @@ import {
   useUpdateModule,
   type ApiPipelineStage,
 } from "@/api/hooks";
-import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
+import {
+  ModuleDialog,
+  type ModuleFormInput,
+} from "@/components/modules/module-dialog";
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
@@ -40,7 +44,13 @@ import { cn } from "@/lib/utils";
 const VIEW_OPTIONS = ["List", "Columns"] as const;
 type ViewOption = (typeof VIEW_OPTIONS)[number];
 
-const STATUS_FILTERS = ["All", "Active", "Review", "Stalled", "Complete"] as const;
+const STATUS_FILTERS = [
+  "All",
+  "Active",
+  "Review",
+  "Stalled",
+  "Complete",
+] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 const ALL_ENTITIES = "All";
@@ -119,7 +129,11 @@ function ItemEditLink({ row }: { row: PipelineRow }) {
   );
 }
 
-function StageSelect({ row, stages, onStageChange }: {
+function StageSelect({
+  row,
+  stages,
+  onStageChange,
+}: {
   row: PipelineRow;
   stages: readonly ApiPipelineStage[];
   onStageChange: (id: string, stageIndex: number) => void;
@@ -133,9 +147,13 @@ function StageSelect({ row, stages, onStageChange }: {
       title="Change pipeline stage"
       className="h-7 max-w-44 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
     >
-      <option value="" disabled>Select a stage</option>
+      <option value="" disabled>
+        Select a stage
+      </option>
       {stages.map((stage, index) => (
-        <option key={stage.id} value={index}>{stage.value}</option>
+        <option key={stage.id} value={index}>
+          {stage.value}
+        </option>
       ))}
     </select>
   );
@@ -171,14 +189,19 @@ function PipelineItemRow({
       >
         <div className="flex items-start justify-between gap-2">
           <span className="flex items-center gap-1">
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+            <GripVertical
+              className="h-3.5 w-3.5 text-muted-foreground"
+              aria-hidden="true"
+            />
             <span className={ITEM_ID_CLASS}>{row.displayId ?? row.id}</span>
           </span>
           <div className="flex items-center gap-1">
             <ItemEditLink row={row} />
           </div>
         </div>
-        <span className={cn(ITEM_TITLE_CLASS, "leading-snug")}>{row.title}</span>
+        <span className={cn(ITEM_TITLE_CLASS, "leading-snug")}>
+          {row.title}
+        </span>
         <div className="flex flex-wrap items-center gap-1.5">
           {row.assignee ? (
             <Badge variant="outline">{row.assignee}</Badge>
@@ -210,15 +233,16 @@ function PipelineItemRow({
       )}
     >
       <span className="flex items-center gap-1">
-        <GripVertical className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <GripVertical
+          className="h-4 w-4 text-muted-foreground"
+          aria-hidden="true"
+        />
         <span className={ITEM_ID_CLASS}>{row.displayId ?? row.id}</span>
       </span>
       <span className={ITEM_TITLE_CLASS}>{row.title}</span>
       <ItemEditLink row={row} />
       <div className="ml-auto flex flex-wrap items-center gap-3">
-        {row.assignee ? (
-          <Badge variant="outline">{row.assignee}</Badge>
-        ) : null}
+        {row.assignee ? <Badge variant="outline">{row.assignee}</Badge> : null}
         <Badge variant="outline" className={statusPillClass(row.status)}>
           {row.status ?? "—"}
         </Badge>
@@ -254,12 +278,38 @@ export default function PipelinePage() {
   const createModule = useCreateModule(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [view, setView] = useState<ViewOption>("List");
-  const [moduleStatus, setModuleStatus] = useState<StatusFilter>("All");
-  const [assignee, setAssignee] = useState<string>("All");
-  const [moduleProjectFilter, setModuleProjectFilter] = useState<string>(ALL_ENTITIES);
+  const [view, setView] = useSessionListState<ViewOption>(
+    me.data?.id,
+    tenantId,
+    "pipeline:view",
+    "List",
+  );
+
+  const [moduleStatus, setModuleStatus] = useSessionListState<StatusFilter>(
+    me.data?.id,
+    tenantId,
+    "pipeline:status",
+    "All",
+  );
+
+  const [assignee, setAssignee] = useSessionListState<string>(
+    me.data?.id,
+    tenantId,
+    "pipeline:assignee",
+    "All",
+  );
+
+  const [moduleProjectFilter, setModuleProjectFilter] =
+    useSessionListState<string>(
+      me.data?.id,
+      tenantId,
+      "pipeline:project",
+      ALL_ENTITIES,
+    );
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverStageIndex, setDragOverStageIndex] = useState<number | null>(null);
+  const [dragOverStageIndex, setDragOverStageIndex] = useState<number | null>(
+    null,
+  );
   const [isNewPaperOpen, setIsNewPaperOpen] = useState(false);
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
@@ -276,7 +326,10 @@ export default function PipelinePage() {
     stages.forEach((stage, index) => map.set(stage.value, index));
     return map;
   }, [stages]);
-  const progressByStage = useMemo(() => buildPaperProgressByStage(stages), [stages]);
+  const progressByStage = useMemo(
+    () => buildPaperProgressByStage(stages),
+    [stages],
+  );
 
   const taskCountByModule = useMemo(() => {
     const counts = new Map<string, { completed: number; total: number }>();
@@ -332,7 +385,10 @@ export default function PipelinePage() {
   const moduleRows: PipelineRow[] = useMemo(
     () =>
       modules.map((module) => {
-        const counts = taskCountByModule.get(module.id) ?? { completed: 0, total: 0 };
+        const counts = taskCountByModule.get(module.id) ?? {
+          completed: 0,
+          total: 0,
+        };
         const currentlyWith = paperCurrentlyWithLabel(
           module,
           me.data?.id,
@@ -347,20 +403,37 @@ export default function PipelinePage() {
           projectId: module.projectId,
           completion: progressByStage.get(module.pipelineStage ?? "") ?? 0,
           outstanding: counts.total - counts.completed,
-          stageIndex: module.pipelineStage ? stageIndexByValue.get(module.pipelineStage) : undefined,
+          stageIndex: module.pipelineStage
+            ? stageIndexByValue.get(module.pipelineStage)
+            : undefined,
         };
       }),
-    [modules, taskCountByModule, progressByStage, stageIndexByValue, memberNameById, me.data?.id],
+    [
+      modules,
+      taskCountByModule,
+      progressByStage,
+      stageIndexByValue,
+      memberNameById,
+      me.data?.id,
+    ],
   );
 
-  const unassignedCount = moduleRows.filter((row) => row.stageIndex === undefined).length;
+  const unassignedCount = moduleRows.filter(
+    (row) => row.stageIndex === undefined,
+  ).length;
 
   const filteredRows = useMemo(() => {
     return moduleRows.filter((row) => {
       if (moduleStatus !== "All" && row.status !== moduleStatus) return false;
       if (assignee === "Not set" && row.assignee !== null) return false;
-      if (assignee !== "All" && assignee !== "Not set" && row.assignee !== assignee) return false;
-      if (moduleProjectFilter === "None" && row.projectId !== null) return false;
+      if (
+        assignee !== "All" &&
+        assignee !== "Not set" &&
+        row.assignee !== assignee
+      )
+        return false;
+      if (moduleProjectFilter === "None" && row.projectId !== null)
+        return false;
       if (
         moduleProjectFilter !== ALL_ENTITIES &&
         moduleProjectFilter !== "None" &&
@@ -376,7 +449,9 @@ export default function PipelinePage() {
     () => groupByStage(filteredRows, stages.length),
     [filteredRows, stages.length],
   );
-  const unassignedRows = filteredRows.filter((row) => row.stageIndex === undefined);
+  const unassignedRows = filteredRows.filter(
+    (row) => row.stageIndex === undefined,
+  );
 
   async function handleCreateModule(input: ModuleFormInput) {
     const module = await createModule.mutateAsync({
@@ -404,12 +479,10 @@ export default function PipelinePage() {
     const row = moduleRows.find((item) => item.id === id);
     const nextStage = stages[stageIndex]?.value;
     const previousStage =
-      row?.stageIndex === undefined
-        ? undefined
-        : stages[row.stageIndex]?.value;
-  
+      row?.stageIndex === undefined ? undefined : stages[row.stageIndex]?.value;
+
     if (!row || !nextStage || previousStage === nextStage) return;
-  
+
     void updateModule
       .mutateAsync({
         moduleId: id,
@@ -429,7 +502,10 @@ export default function PipelinePage() {
     setDraggedId(row.id);
   }
 
-  function handleDragOver(event: DragEvent<HTMLDivElement>, stageIndex: number) {
+  function handleDragOver(
+    event: DragEvent<HTMLDivElement>,
+    stageIndex: number,
+  ) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     setDragOverStageIndex(stageIndex);
@@ -448,7 +524,12 @@ export default function PipelinePage() {
     setDragOverStageIndex(null);
   }
 
-  if (workspace.isPending || projectsQuery.isPending || modulesQuery.isPending || stagesQuery.isPending) {
+  if (
+    workspace.isPending ||
+    projectsQuery.isPending ||
+    modulesQuery.isPending ||
+    stagesQuery.isPending
+  ) {
     return <LoadingState title="Loading pipeline" className="min-h-[50vh]" />;
   }
   if (modulesQuery.isError) {
@@ -469,18 +550,20 @@ export default function PipelinePage() {
         eyebrow="Workflows"
         title="Paper pipeline"
         description="Papers grouped by their current stage in the shared workspace pipeline."
-        actions={<Button onClick={() => setIsNewPaperOpen(true)}>New Paper</Button>}
+        actions={
+          <Button onClick={() => setIsNewPaperOpen(true)}>New Paper</Button>
+        }
       />
 
-    <ModuleDialog
-      open={isNewPaperOpen}
-      onOpenChange={setIsNewPaperOpen}
-      tenantId={tenantId}
-      projects={projects}
-      generalProject={generalProject}
-      members={members}
-      onSave={handleCreateModule}
-    />
+      <ModuleDialog
+        open={isNewPaperOpen}
+        onOpenChange={setIsNewPaperOpen}
+        tenantId={tenantId}
+        projects={projects}
+        generalProject={generalProject}
+        members={members}
+        onSave={handleCreateModule}
+      />
       <PaperStageCelebration
         open={isPaperCelebrationOpen}
         onOpenChange={setIsPaperCelebrationOpen}
@@ -506,7 +589,10 @@ export default function PipelinePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Select value={moduleProjectFilter} onValueChange={setModuleProjectFilter}>
+          <Select
+            value={moduleProjectFilter}
+            onValueChange={setModuleProjectFilter}
+          >
             <SelectTrigger className="sm:w-48" aria-label="Filter by project">
               <SelectValue placeholder="Project" />
             </SelectTrigger>
@@ -518,7 +604,10 @@ export default function PipelinePage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={moduleStatus} onValueChange={(value) => setModuleStatus(value as StatusFilter)}>
+          <Select
+            value={moduleStatus}
+            onValueChange={(value) => setModuleStatus(value as StatusFilter)}
+          >
             <SelectTrigger className="sm:w-40">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -549,7 +638,8 @@ export default function PipelinePage() {
         {unassignedCount > 0 ? (
           <p className="text-xs text-muted-foreground">
             {unassignedCount} paper{unassignedCount === 1 ? "" : "s"} without a
-            pipeline stage {unassignedCount === 1 ? "is" : "are"} shown in Unassigned.
+            pipeline stage {unassignedCount === 1 ? "is" : "are"} shown in
+            Unassigned.
           </p>
         ) : null}
       </div>
@@ -596,7 +686,9 @@ export default function PipelinePage() {
                   <span
                     className={cn(
                       "mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2",
-                      hasItems ? "border-primary bg-primary" : "border-border bg-background",
+                      hasItems
+                        ? "border-primary bg-primary"
+                        : "border-border bg-background",
                     )}
                   />
                   {!isLast ? <span className="w-px flex-1 bg-border" /> : null}
@@ -611,12 +703,16 @@ export default function PipelinePage() {
                     "min-h-24 flex-1 rounded-lg border border-transparent bg-card/35 p-3 transition-colors",
                     !isLast && "mb-6",
                     draggedId && "border border-dashed border-primary/30",
-                    dragOverStageIndex === index && "border-primary bg-primary/5 ring-2 ring-primary/30",
+                    dragOverStageIndex === index &&
+                      "border-primary bg-primary/5 ring-2 ring-primary/30",
                   )}
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <h3
-                      className={cn(STAGE_TITLE_CLASS, !hasItems && "text-muted-foreground")}
+                      className={cn(
+                        STAGE_TITLE_CLASS,
+                        !hasItems && "text-muted-foreground",
+                      )}
                     >
                       {stage.value}
                     </h3>
@@ -651,7 +747,9 @@ export default function PipelinePage() {
         <div className="overflow-x-auto">
           <div
             className="flex gap-4"
-            style={{ minWidth: `${(stages.length + (unassignedRows.length ? 1 : 0)) * 260}px` }}
+            style={{
+              minWidth: `${(stages.length + (unassignedRows.length ? 1 : 0)) * 260}px`,
+            }}
           >
             {unassignedRows.length > 0 ? (
               <div className="flex min-h-48 w-64 shrink-0 flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/30 p-3 dark:border-amber-900/50 dark:bg-amber-950/15">
@@ -691,7 +789,8 @@ export default function PipelinePage() {
                   className={cn(
                     "flex min-h-48 w-64 shrink-0 flex-col gap-3 rounded-lg border bg-card p-3 transition-colors",
                     draggedId && "border-dashed border-primary/30",
-                    dragOverStageIndex === index && "border-primary bg-primary/5 ring-2 ring-primary/30",
+                    dragOverStageIndex === index &&
+                      "border-primary bg-primary/5 ring-2 ring-primary/30",
                   )}
                 >
                   <div className="flex items-center gap-2">

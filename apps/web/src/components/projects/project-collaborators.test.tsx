@@ -1,10 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import { ProjectCollaborators } from "@/components/projects/project-collaborators";
 import type { ApiCollaborator, ApiInvitation, Membership } from "@/api/hooks";
 
-const timestamps = { createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+const timestamps = {
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
 
 const collaborators: ApiCollaborator[] = [
   {
@@ -35,25 +38,45 @@ const createDraftMutate = vi.fn();
 const sendInvitationMutate = vi.fn();
 const revokeInvitationMutate = vi.fn();
 
+beforeEach(() => {
+  window.sessionStorage.clear();
+});
 vi.mock("@/api/hooks", async () => {
-  const actual = await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
+  const actual =
+    await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
+
   return {
     ...actual,
     useProjectCollaborators: () => ({ data: collaborators, isPending: false }),
-    useRemoveProjectCollaborator: () => ({ mutate: removeCollaboratorMutate, isPending: false }),
-    useCollaboratorInvitations: () => ({ data: invitations, isPending: false, isError: false }),
+    useRemoveProjectCollaborator: () => ({
+      mutate: removeCollaboratorMutate,
+      isPending: false,
+    }),
+    useCollaboratorInvitations: () => ({
+      data: invitations,
+      isPending: false,
+      isError: false,
+    }),
     useCreateDraftInvitation: () => ({
       mutateAsync: createDraftMutate,
       isPending: false,
       isError: false,
     }),
-    useSendInvitation: () => ({ mutateAsync: sendInvitationMutate, isPending: false, isError: false }),
+    useSendInvitation: () => ({
+      mutateAsync: sendInvitationMutate,
+      isPending: false,
+      isError: false,
+    }),
     useRevokeCollaboratorInvitation: () => ({
       mutate: revokeInvitationMutate,
       isPending: false,
       isError: false,
     }),
     useUserSearch: () => ({ data: [], isPending: false }),
+    useMe: () => ({
+      data: { id: "user-owner" },
+      isPending: false,
+    }),
   };
 });
 
@@ -104,11 +127,14 @@ describe("ProjectCollaborators", () => {
     expect(screen.getByText("Alice Anders")).toBeInTheDocument();
     expect(screen.getByText("Bob Baker")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(
-      "Search collaborators by name, email, or affiliation",
-    ), {
-      target: { value: "ali" },
-    });
+    fireEvent.change(
+      screen.getByLabelText(
+        "Search collaborators by name, email, or affiliation",
+      ),
+      {
+        target: { value: "ali" },
+      },
+    );
 
     expect(screen.getByText("Alice Anders")).toBeInTheDocument();
     expect(screen.queryByText("Bob Baker")).not.toBeInTheDocument();
@@ -126,13 +152,18 @@ describe("ProjectCollaborators", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(
-      "Search collaborators by name, email, or affiliation",
-    ), {
-      target: { value: "zzz" },
-    });
+    fireEvent.change(
+      screen.getByLabelText(
+        "Search collaborators by name, email, or affiliation",
+      ),
+      {
+        target: { value: "zzz" },
+      },
+    );
 
-    expect(screen.getByText('No collaborators match "zzz".')).toBeInTheDocument();
+    expect(
+      screen.getByText('No collaborators match "zzz".'),
+    ).toBeInTheDocument();
   });
 
   it("adds a draft collaborator by name, email, and affiliation without sending anything", async () => {

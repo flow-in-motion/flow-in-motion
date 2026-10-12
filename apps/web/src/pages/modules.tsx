@@ -9,6 +9,7 @@ import {
 } from "react";
 import { ChevronDown, FileStack, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
   useArchiveModule,
@@ -397,24 +398,48 @@ function InlinePaperCurrentlyWith({
 export default function ModulesPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
-  const { page, setPage, search, setSearch, requestSearch } = useListSearch();
-  const [pageSize, setPageSize] = useState<number | "all">(20);
+  const me = useMe();
 
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
-    () => new Set(),
+  const { page, setPage, search, setSearch, requestSearch } = useListSearch({
+    userId: me.data?.id,
+    workspaceId: tenantId,
+    preferenceKey: "papers",
+  });
+
+  const [pageSize, setPageSize] = useSessionListState<number | "all">(
+    me.data?.id,
+    tenantId,
+    "papers:page-size",
+    20,
   );
-  const [selectedStages, setSelectedStages] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [selectedCurrentlyWith, setSelectedCurrentlyWith] = useState<
+
+  const [selectedStatuses, setSelectedStatuses] = useSessionListState<
     Set<string>
-  >(() => new Set());
+  >(me.data?.id, tenantId, "papers:statuses", () => new Set());
+
+  const [selectedStages, setSelectedStages] = useSessionListState<Set<string>>(
+    me.data?.id,
+    tenantId,
+    "papers:stages",
+    () => new Set(),
+  );
+
+  const [selectedCurrentlyWith, setSelectedCurrentlyWith] = useSessionListState<
+    Set<string>
+  >(me.data?.id, tenantId, "papers:currently-with", () => new Set());
+
   const [selectedCurrentlyWithContacts, setSelectedCurrentlyWithContacts] =
-    useState<Set<string>>(() => new Set());
+    useSessionListState<Set<string>>(
+      me.data?.id,
+      tenantId,
+      "papers:currently-with-contacts",
+      () => new Set(),
+    );
+
   const [currentlyWithFilterOpen, setCurrentlyWithFilterOpen] = useState(false);
   const currentlyWithCollaboratorsQuery = usePaperCurrentlyWithCollaborators(
     tenantId,
-    currentlyWithFilterOpen,
+    currentlyWithFilterOpen || selectedCurrentlyWithContacts.size > 0,
   );
   const currentlyWithCollaborators = currentlyWithCollaboratorsQuery.data ?? [];
   const selectedCollaborators = currentlyWithCollaborators.filter((contact) =>
@@ -442,7 +467,6 @@ export default function ModulesPage() {
   const projects = projectsQuery.data?.data ?? [];
   const generalProject = projectsQuery.data?.generalProject ?? null;
   const stagesQuery = useModulePipelineStagePool(tenantId);
-  const me = useMe();
   const visibleStages = useMemo(
     () =>
       [...(stagesQuery.data ?? [])]
@@ -461,8 +485,19 @@ export default function ModulesPage() {
   const archiveModule = useArchiveModule(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [sortColumn, setSortColumn] = useState<SortColumn>("module");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
+    me.data?.id,
+    tenantId,
+    "papers:sort-column",
+    "module",
+  );
+
+  const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
+    me.data?.id,
+    tenantId,
+    "papers:sort-direction",
+    "asc",
+  );
   useEffect(() => {
     setPage(1);
   }, [

@@ -68,33 +68,44 @@ vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
     CONFERENCE_INTENTS: ["Considering", "Submitting", "Attending"],
-    useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
+    useCurrentWorkspace: () => ({
+      data: { id: fixtures.tenantId },
+      isPending: false,
+    }),
     useTrackEvent: () => vi.fn(),
     useMe: () => ({ data: { id: fixtures.userId }, isPending: false }),
-    useProjects: () => ({ data: { data: [fixtures.project], meta: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 } }, isPending: false }),
+    useProjects: () => ({
+      data: {
+        data: [fixtures.project],
+        meta: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 },
+      },
+      isPending: false,
+    }),
     useModules: () => ({ data: [], isPending: false }),
-    useConferenceLinkOptions: (_tenantId: string, _search: string, enabled: boolean) => ({
-      data: enabled ? [{
-        kind: "project",
-        id: fixtures.project.id,
-        projectId: fixtures.project.id,
-        displayId: fixtures.project.displayId,
-        label: fixtures.project.title,
-        projectTitle: fixtures.project.title,
-      }] : undefined,
+    useConferenceLinkOptions: (
+      _tenantId: string,
+      _search: string,
+      enabled: boolean,
+    ) => ({
+      data: enabled
+        ? [
+            {
+              kind: "project",
+              id: fixtures.project.id,
+              projectId: fixtures.project.id,
+              displayId: fixtures.project.displayId,
+              label: fixtures.project.title,
+              projectTitle: fixtures.project.title,
+            },
+          ]
+        : undefined,
       isFetching: false,
     }),
-    useConferences: (
-      tenantId: string,
-      page = 1,
-    ) => {
+    useConferences: (tenantId: string, page = 1) => {
       hookMocks.useConferences(tenantId, page);
-    
-      const conferences = useSyncExternalStore(
-        store.subscribe,
-        store.get,
-      );
-    
+
+      const conferences = useSyncExternalStore(store.subscribe, store.get);
+
       return {
         data: {
           data: conferences,
@@ -120,17 +131,24 @@ vi.mock("@/api/hooks", async () => {
           acronym: (input.acronym as string | null | undefined) ?? null,
           name: input.name as string,
           location: (input.location as string | null | undefined) ?? null,
-          submissionDue: (input.submissionDue as string | null | undefined) ?? null,
+          submissionDue:
+            (input.submissionDue as string | null | undefined) ?? null,
           startDate: (input.startDate as string | null | undefined) ?? null,
           endDate: (input.endDate as string | null | undefined) ?? null,
-          submissionType: (input.submissionType as string | null | undefined) ?? null,
-          intents: (input.intents as ConferenceFixture["intents"] | undefined) ?? [],
+          submissionType:
+            (input.submissionType as string | null | undefined) ?? null,
+          intents:
+            (input.intents as ConferenceFixture["intents"] | undefined) ?? [],
           daysRemaining: input.submissionDue ? 90 : null,
-          projects: (input.projectIds as string[] | undefined)?.length ? [{
-              id: fixtures.project.id,
-              displayId: fixtures.project.displayId,
-              title: fixtures.project.title,
-            }] : [],
+          projects: (input.projectIds as string[] | undefined)?.length
+            ? [
+                {
+                  id: fixtures.project.id,
+                  displayId: fixtures.project.displayId,
+                  title: fixtures.project.title,
+                },
+              ]
+            : [],
           papers: [],
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
@@ -140,16 +158,27 @@ vi.mock("@/api/hooks", async () => {
       }),
     }),
     useUpdateConference: () => ({
-      mutateAsync: vi.fn(async ({ conferenceId, input }: {
-        conferenceId: string;
-        input: Record<string, unknown>;
-      }) => {
-        store.set(store.get().map((row) => row.id === conferenceId ? {
-          ...row,
-          ...input,
-          projects: row.projects,
-        } : row));
-      }),
+      mutateAsync: vi.fn(
+        async ({
+          conferenceId,
+          input,
+        }: {
+          conferenceId: string;
+          input: Record<string, unknown>;
+        }) => {
+          store.set(
+            store.get().map((row) =>
+              row.id === conferenceId
+                ? {
+                    ...row,
+                    ...input,
+                    projects: row.projects,
+                  }
+                : row,
+            ),
+          );
+        },
+      ),
     }),
     useDeleteConference: () => ({
       mutateAsync: vi.fn(async (conferenceId: string) => {
@@ -161,6 +190,7 @@ vi.mock("@/api/hooks", async () => {
 
 describe("ConferenceSubmissionsTable", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     store.set([]);
     hookMocks.useConferences.mockClear();
     hookMocks.pagination.totalItems = 0;
@@ -169,38 +199,35 @@ describe("ConferenceSubmissionsTable", () => {
   it("requests the next conferences page on the full Conferences table", () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;
-  
+
     render(
       <MemoryRouter>
         <ConferenceSubmissionsTable showPast />
       </MemoryRouter>,
     );
-  
-    expect(hookMocks.useConferences).toHaveBeenCalledWith(
-      fixtures.tenantId,
-      1,
-    );
-  
+
+    expect(hookMocks.useConferences).toHaveBeenCalledWith(fixtures.tenantId, 1);
+
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  
+
     expect(hookMocks.useConferences).toHaveBeenLastCalledWith(
       fixtures.tenantId,
       2,
     );
-  
+
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
-  
+
   it("does not show pagination controls in dashboard view", () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;
-  
+
     render(
       <MemoryRouter>
         <ConferenceSubmissionsTable dashboardView />
       </MemoryRouter>,
     );
-  
+
     expect(
       screen.queryByRole("navigation", { name: "Pagination" }),
     ).not.toBeInTheDocument();
@@ -208,14 +235,25 @@ describe("ConferenceSubmissionsTable", () => {
 
   it("creates, edits, and deletes a conference through the API hooks", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(<MemoryRouter><ConferenceSubmissionsTable showPast /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <ConferenceSubmissionsTable showPast />
+      </MemoryRouter>,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "New Conference" }));
-    fireEvent.change(screen.getByRole("textbox", { name: /Acronym/ }), { target: { value: "Test" } });
-    fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), { target: { value: "Test Research Conference 2027" } });
-    fireEvent.change(screen.getByRole("textbox", { name: /Location/ }), { target: { value: "Sydney, Australia" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /Acronym/ }), {
+      target: { value: "Test" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), {
+      target: { value: "Test Research Conference 2027" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Location/ }), {
+      target: { value: "Sydney, Australia" },
+    });
 
-    const dateInputs = document.querySelectorAll<HTMLInputElement>('input[type="date"]');
+    const dateInputs =
+      document.querySelectorAll<HTMLInputElement>('input[type="date"]');
     fireEvent.change(dateInputs[0], { target: { value: "2026-12-01" } });
     fireEvent.change(dateInputs[1], { target: { value: "2027-03-04" } });
     fireEvent.change(dateInputs[2], { target: { value: "2027-03-06" } });
@@ -223,20 +261,46 @@ describe("ConferenceSubmissionsTable", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Linked project" }), {
       target: { value: "Genome" },
     });
-    fireEvent.click(await screen.findByRole("option", { name: /Genome Project/ }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: /Genome Project/ }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
 
-    await waitFor(() => expect(screen.getByText("Test Research Conference 2027")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText("Test Research Conference 2027"),
+      ).toBeInTheDocument(),
+    );
     expect(screen.getByText("PRJ-001")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit Test Research Conference 2027" }));
-    fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), { target: { value: "Updated Research Conference 2027" } });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Edit Test Research Conference 2027",
+      }),
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), {
+      target: { value: "Updated Research Conference 2027" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
-    await waitFor(() => expect(screen.getByText("Updated Research Conference 2027")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Delete Updated Research Conference 2027" }));
+    await waitFor(() =>
+      expect(
+        screen.getByText("Updated Research Conference 2027"),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Delete Updated Research Conference 2027",
+      }),
+    );
 
-    expect(confirm).toHaveBeenCalledWith('Delete "Updated Research Conference 2027"? This action cannot be undone.');
-    await waitFor(() => expect(screen.queryByText("Updated Research Conference 2027")).not.toBeInTheDocument());
+    expect(confirm).toHaveBeenCalledWith(
+      'Delete "Updated Research Conference 2027"? This action cannot be undone.',
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Updated Research Conference 2027"),
+      ).not.toBeInTheDocument(),
+    );
   });
 });

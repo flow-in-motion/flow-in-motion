@@ -2,6 +2,7 @@ import { useListSearch } from "@/hooks/use-list-search";
 import { useEffect, useMemo, useState } from "react";
 import { NotebookPen, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
   useCreateNote,
@@ -80,10 +81,21 @@ function visibilityPillClass(visibility: string | null) {
 export default function DailyNotesPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
+  const me = useMe();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { page, setPage, search, setSearch, requestSearch } = useListSearch();
-  const [pageSize, setPageSize] = useState<number | "all">(20);
+  const { page, setPage, search, setSearch, requestSearch } = useListSearch({
+    userId: me.data?.id,
+    workspaceId: tenantId,
+    preferenceKey: "notes",
+  });
+
+  const [pageSize, setPageSize] = useSessionListState<number | "all">(
+    me.data?.id,
+    tenantId,
+    "notes:page-size",
+    20,
+  );
 
   const notesQuery = useNotes(tenantId, undefined, page, true, {
     pageSize,
@@ -105,7 +117,6 @@ export default function DailyNotesPage() {
     string | undefined
   >();
   const [sharingNote, setSharingNote] = useState<ApiNote | null>(null);
-  const me = useMe();
   const membersQuery = useMembers(tenantId, 1, sharingNote !== null);
   const members = membersQuery.data?.data ?? [];
 
@@ -113,9 +124,24 @@ export default function DailyNotesPage() {
   const deleteNote = useDeleteNote(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [visibility, setVisibility] = useState<VisibilityFilter>("All");
-  const [sortColumn, setSortColumn] = useState<SortColumn>("created");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [visibility, setVisibility] = useSessionListState<VisibilityFilter>(
+    me.data?.id,
+    tenantId,
+    "notes:visibility",
+    "All",
+  );
+  const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
+    me.data?.id,
+    tenantId,
+    "notes:sort-column",
+    "created",
+  );
+  const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
+    me.data?.id,
+    tenantId,
+    "notes:sort-direction",
+    "desc",
+  );
   useEffect(() => {
     setPage(1);
   }, [setPage, tenantId, visibility, sortColumn, sortDirection]);

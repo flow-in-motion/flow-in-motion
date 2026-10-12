@@ -49,6 +49,7 @@ import { formatListDate, isOverdue } from "@/lib/list-format";
 import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { PaginationControls } from "@/components/shared/pagination-controls";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
 const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
@@ -126,7 +127,9 @@ export default function ProjectsPage() {
 
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [archivingProject, setArchivingProject] = useState<ApiProject | null>(null);
+  const [archivingProject, setArchivingProject] = useState<ApiProject | null>(
+    null,
+  );
   const [sharingProject, setSharingProject] = useState<ApiProject | null>(null);
   const archiveImpact = useProjectArchiveImpact(
     tenantId,
@@ -135,14 +138,39 @@ export default function ProjectsPage() {
   );
   const membersQuery = useMembers(tenantId, 1, sharingProject !== null);
   const members = membersQuery.data?.data ?? [];
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("All");
-  const [role, setRole] = useState<RoleFilter>("All roles");
-  const [sortColumn, setSortColumn] = useState<SortColumn>("due");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [search, setSearch] = useSessionListState<string>(
+    me.data?.id,
+    tenantId,
+    "projects:search",
+    "",
+  );
+  const [status, setStatus] = useSessionListState<StatusFilter>(
+    me.data?.id,
+    tenantId,
+    "projects:status",
+    "All",
+  );
+  const [role, setRole] = useSessionListState<RoleFilter>(
+    me.data?.id,
+    tenantId,
+    "projects:role",
+    "All roles",
+  );
+  const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
+    me.data?.id,
+    tenantId,
+    "projects:sort-column",
+    "due",
+  );
+  const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
+    me.data?.id,
+    tenantId,
+    "projects:sort-direction",
+    "asc",
+  );
   useEffect(() => {
     setPage(1);
-  }, [tenantId, search, status, role, sortColumn, sortDirection]);
+  }, [me.data?.id, tenantId, search, status, role, sortColumn, sortDirection]);
   const columns = useColumnVisibility(
     PROJECT_COLUMNS.map((column) => column.id),
     "projects",
@@ -294,7 +322,9 @@ export default function ProjectsPage() {
         description="Track research work by stage, dates, collaborators and outstanding tasks."
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={() => setIsNewProjectOpen(true)}>New Project</Button>
+            <Button onClick={() => setIsNewProjectOpen(true)}>
+              New Project
+            </Button>
           </div>
         }
       />
@@ -517,7 +547,9 @@ export default function ProjectsPage() {
                       onChange={async (nextRole) => {
                         setActionError(null);
                         if (!me.data?.id) {
-                          throw new Error("Your account could not be identified.");
+                          throw new Error(
+                            "Your account could not be identified.",
+                          );
                         }
                         await updateProjectRole.mutateAsync({
                           projectId: project.id,

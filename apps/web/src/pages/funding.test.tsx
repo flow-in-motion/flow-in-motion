@@ -56,6 +56,7 @@ function renderPage() {
 
 describe("FundingPage", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     fixtures.deleteFunding.mockReset();
     fixtures.deleteFunding.mockResolvedValue({});
     fixtures.useFundings.mockReset();

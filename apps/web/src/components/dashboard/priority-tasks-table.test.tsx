@@ -53,6 +53,7 @@ const fixtures = vi.hoisted(() => ({
 
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({ data: { id: "workspace-1" } }),
+  useMe: () => ({ data: { id: "user-1" } }),
   useTasks: () => ({ data: { data: fixtures.tasks } }),
   useProjects: () => ({ data: { data: fixtures.projects } }),
   useModules: () => ({ data: { data: [] } }),
@@ -61,6 +62,7 @@ vi.mock("@/api/hooks", () => ({
 describe("PriorityTasksTable", () => {
   beforeEach(() => {
     window.localStorage?.clear();
+    window.sessionStorage.clear();
   });
 
   it("sorts Task, Project, Due, and Priority and reverses the active column", () => {
@@ -70,43 +72,103 @@ describe("PriorityTasksTable", () => {
       </MemoryRouter>,
     );
 
-    const taskNames = () => screen.getAllByRole("link")
+    const taskNames = () =>
+      screen
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("href")?.startsWith("/tasks/"))
+        .map((link) => link.textContent);
+
+    expect(taskNames()).toEqual([
+      "Middle task",
+      "Zulu task",
+      "Alpha task",
+      "Bravo task",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
+    expect(taskNames()).toEqual([
+      "Alpha task",
+      "Bravo task",
+      "Middle task",
+      "Zulu task",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
+    expect(taskNames()).toEqual([
+      "Zulu task",
+      "Middle task",
+      "Bravo task",
+      "Alpha task",
+    ]);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sort by Project/paper" }),
+    );
+    expect(taskNames()).toEqual([
+      "Zulu task",
+      "Alpha task",
+      "Bravo task",
+      "Middle task",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Due" }));
+    expect(taskNames()).toEqual([
+      "Zulu task",
+      "Bravo task",
+      "Middle task",
+      "Alpha task",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Due" }));
+    expect(taskNames()).toEqual([
+      "Middle task",
+      "Bravo task",
+      "Zulu task",
+      "Alpha task",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Priority" }));
+    expect(taskNames()).toEqual([
+      "Middle task",
+      "Zulu task",
+      "Alpha task",
+      "Bravo task",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Priority" }));
+    expect(taskNames()).toEqual([
+      "Bravo task",
+      "Alpha task",
+      "Zulu task",
+      "Middle task",
+    ]);
+  });
+
+  it("restores descending task sorting after leaving and returning", () => {
+    const first = render(
+      <MemoryRouter>
+        <PriorityTasksTable />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
+
+    first.unmount();
+
+    render(
+      <MemoryRouter>
+        <PriorityTasksTable />
+      </MemoryRouter>,
+    );
+
+    const taskNames = screen
+      .getAllByRole("link")
       .filter((link) => link.getAttribute("href")?.startsWith("/tasks/"))
       .map((link) => link.textContent);
 
-    expect(taskNames()).toEqual([
-      "Middle task",
-      "Zulu task",
-      "Alpha task",
-      "Bravo task",
-    ]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
-    expect(taskNames()).toEqual(["Alpha task", "Bravo task", "Middle task", "Zulu task"]);
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
-    expect(taskNames()).toEqual(["Zulu task", "Middle task", "Bravo task", "Alpha task"]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Project/paper" }));
-    expect(taskNames()).toEqual(["Zulu task", "Alpha task", "Bravo task", "Middle task"]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Due" }));
-    expect(taskNames()).toEqual(["Zulu task", "Bravo task", "Middle task", "Alpha task"]);
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Due" }));
-    expect(taskNames()).toEqual(["Middle task", "Bravo task", "Zulu task", "Alpha task"]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Priority" }));
-    expect(taskNames()).toEqual([
-      "Middle task",
-      "Zulu task",
-      "Alpha task",
-      "Bravo task",
-    ]);
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Priority" }));
-    expect(taskNames()).toEqual([
-      "Bravo task",
-      "Alpha task",
+    expect(taskNames).toEqual([
       "Zulu task",
       "Middle task",
+      "Bravo task",
+      "Alpha task",
     ]);
   });
 });

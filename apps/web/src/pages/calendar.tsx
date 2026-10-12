@@ -28,13 +28,17 @@ import {
   type ApiProject,
   type ApiTask,
 } from "@/api/hooks";
-import { CalendarEventDialog, type CalendarEventFormInput } from "@/components/calendar/calendar-event-dialog";
+import {
+  CalendarEventDialog,
+  type CalendarEventFormInput,
+} from "@/components/calendar/calendar-event-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
 import { Button } from "@/components/ui/button";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 type CalendarEvent = {
   id: string;
@@ -47,9 +51,23 @@ type CalendarEvent = {
 
 type CalendarFilter = CalendarEvent["kind"];
 
-const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const shortDateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-const monthFormatter = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" });
+const WEEKDAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+});
+const monthFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "long",
+  year: "numeric",
+});
 
 function dateKey(year: number, month: number, day: number) {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -68,8 +86,10 @@ function startOfCalendarGrid(month: Date) {
 
 function buildCalendarDays(month: Date) {
   const start = startOfCalendarGrid(month);
-  return Array.from({ length: 42 }, (_, index) =>
-    new Date(start.getFullYear(), start.getMonth(), start.getDate() + index),
+  return Array.from(
+    { length: 42 },
+    (_, index) =>
+      new Date(start.getFullYear(), start.getMonth(), start.getDate() + index),
   );
 }
 
@@ -151,9 +171,17 @@ export default function CalendarPage() {
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
-  const [activeFilter, setActiveFilter] = useState<CalendarFilter | null>(null);
+  const [activeFilter, setActiveFilter] =
+    useSessionListState<CalendarFilter | null>(
+      me.data?.id,
+      tenantId,
+      "calendar:filter",
+      null,
+    );
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<ApiCalendarEvent | null>(null);
+  const [editingEvent, setEditingEvent] = useState<ApiCalendarEvent | null>(
+    null,
+  );
 
   const projectById = useMemo(
     () => new Map(projects.map((project) => [project.id, project])),
@@ -189,7 +217,9 @@ export default function CalendarPage() {
           title: paperDisplayTitle(module),
           dueDate: module.dueDate,
           href: `/modules/${module.id}`,
-          meta: module.projectId ? (projectById.get(module.projectId)?.title ?? null) : "Independent paper",
+          meta: module.projectId
+            ? (projectById.get(module.projectId)?.title ?? null)
+            : "Independent paper",
         });
       }
     }
@@ -225,13 +255,21 @@ export default function CalendarPage() {
           for (
             let date = new Date(`${eventStart}T00:00:00`);
             date <= new Date(`${eventEnd}T00:00:00`);
-            date = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+            date = new Date(
+              date.getFullYear(),
+              date.getMonth(),
+              date.getDate() + 1,
+            )
           ) {
             rows.push({
               id: `${conference.id}-event-${dateKey(date.getFullYear(), date.getMonth(), date.getDate())}`,
               kind: "conference",
               title: conference.name,
-              dueDate: dateKey(date.getFullYear(), date.getMonth(), date.getDate()),
+              dueDate: dateKey(
+                date.getFullYear(),
+                date.getMonth(),
+                date.getDate(),
+              ),
               href: `/conferences/${conference.id}`,
               meta: conference.location,
             });
@@ -265,12 +303,24 @@ export default function CalendarPage() {
       }
     }
     return rows.sort((a, b) => a.title.localeCompare(b.title));
-  }, [activeFilter, calendarEvents, conferences, modules, notes, projectById, projects, tasks]);
+  }, [
+    activeFilter,
+    calendarEvents,
+    conferences,
+    modules,
+    notes,
+    projectById,
+    projects,
+    tasks,
+  ]);
 
   const eventsByDate = useMemo(() => {
     const grouped = new Map<string, CalendarEvent[]>();
     for (const event of events) {
-      grouped.set(event.dueDate, [...(grouped.get(event.dueDate) ?? []), event]);
+      grouped.set(event.dueDate, [
+        ...(grouped.get(event.dueDate) ?? []),
+        event,
+      ]);
     }
     return grouped;
   }, [events]);
@@ -279,7 +329,10 @@ export default function CalendarPage() {
   const currentTodayKey = todayKey();
 
   function changeMonth(offset: number) {
-    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+    setVisibleMonth(
+      (current) =>
+        new Date(current.getFullYear(), current.getMonth() + offset, 1),
+    );
   }
 
   function goToToday() {
@@ -288,7 +341,7 @@ export default function CalendarPage() {
   }
 
   function toggleFilter(filter: CalendarFilter) {
-    setActiveFilter((current) => current === filter ? null : filter);
+    setActiveFilter((current) => (current === filter ? null : filter));
   }
 
   async function handleCreateEvent(input: CalendarEventFormInput) {
@@ -305,17 +358,47 @@ export default function CalendarPage() {
     await deleteCalendarEvent.mutateAsync(editingEvent.id);
   }
 
-  if (workspace.isPending || projectsQuery.isPending || modulesQuery.isPending || tasksQuery.isPending || conferencesQuery.isPending || calendarEventsQuery.isPending || notesQuery.isPending) {
+  if (
+    workspace.isPending ||
+    projectsQuery.isPending ||
+    modulesQuery.isPending ||
+    tasksQuery.isPending ||
+    conferencesQuery.isPending ||
+    calendarEventsQuery.isPending ||
+    notesQuery.isPending
+  ) {
     return <LoadingState title="Loading calendar" className="min-h-[50vh]" />;
   }
 
-  if (projectsQuery.isError || modulesQuery.isError || tasksQuery.isError || conferencesQuery.isError || calendarEventsQuery.isError || notesQuery.isError) {
-    const error = projectsQuery.error ?? modulesQuery.error ?? tasksQuery.error ?? conferencesQuery.error ?? calendarEventsQuery.error ?? notesQuery.error;
+  if (
+    projectsQuery.isError ||
+    modulesQuery.isError ||
+    tasksQuery.isError ||
+    conferencesQuery.isError ||
+    calendarEventsQuery.isError ||
+    notesQuery.isError
+  ) {
+    const error =
+      projectsQuery.error ??
+      modulesQuery.error ??
+      tasksQuery.error ??
+      conferencesQuery.error ??
+      calendarEventsQuery.error ??
+      notesQuery.error;
     return (
       <ErrorState
         title="Calendar could not be loaded"
         description={error?.message ?? "Please try again."}
-        onRetry={() => void Promise.all([projectsQuery.refetch(), modulesQuery.refetch(), tasksQuery.refetch(), conferencesQuery.refetch(), calendarEventsQuery.refetch(), notesQuery.refetch()])}
+        onRetry={() =>
+          void Promise.all([
+            projectsQuery.refetch(),
+            modulesQuery.refetch(),
+            tasksQuery.refetch(),
+            conferencesQuery.refetch(),
+            calendarEventsQuery.refetch(),
+            notesQuery.refetch(),
+          ])
+        }
       />
     );
   }
@@ -328,7 +411,9 @@ export default function CalendarPage() {
         eyebrow="Planning"
         title="Calendar"
         description="See project, paper, task, conference, and note follow-up dates together, month by month."
-        actions={<Button onClick={() => setIsNewEventOpen(true)}>New Event</Button>}
+        actions={
+          <Button onClick={() => setIsNewEventOpen(true)}>New Event</Button>
+        }
       />
 
       <CalendarEventDialog
@@ -349,20 +434,40 @@ export default function CalendarPage() {
       <section className="overflow-hidden rounded-lg border bg-card">
         <div className="flex flex-col gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={goToToday}>Today</Button>
-            <Button variant="outline" size="icon" onClick={() => changeMonth(-1)} aria-label="Previous month">
+            <Button variant="outline" size="sm" onClick={goToToday}>
+              Today
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => changeMonth(-1)}
+              aria-label="Previous month"
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => changeMonth(1)} aria-label="Next month">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => changeMonth(1)}
+              aria-label="Next month"
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <h2 className="ml-1 text-lg font-semibold sm:text-xl" aria-live="polite">
+            <h2
+              className="ml-1 text-lg font-semibold sm:text-xl"
+              aria-live="polite"
+            >
               {monthFormatter.format(visibleMonth)}
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2" aria-label="Calendar filters">
-            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Show</span>
+          <div
+            className="flex flex-wrap items-center gap-2"
+            aria-label="Calendar filters"
+          >
+            <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Show
+            </span>
             <button
               type="button"
               aria-pressed={activeFilter === "project"}
@@ -446,7 +551,10 @@ export default function CalendarPage() {
 
         <div className="hidden grid-cols-7 border-b border-primary/10 bg-accent/45 md:grid">
           {WEEKDAYS.map((day) => (
-            <div key={day} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <div
+              key={day}
+              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >
               {day.slice(0, 3)}
             </div>
           ))}
@@ -454,7 +562,11 @@ export default function CalendarPage() {
 
         <div className="hidden grid-cols-7 md:grid">
           {days.map((day) => {
-            const key = dateKey(day.getFullYear(), day.getMonth(), day.getDate());
+            const key = dateKey(
+              day.getFullYear(),
+              day.getMonth(),
+              day.getDate(),
+            );
             const dayEvents = eventsByDate.get(key) ?? [];
             const inMonth = day.getMonth() === visibleMonth.getMonth();
             const isToday = key === currentTodayKey;
@@ -467,11 +579,14 @@ export default function CalendarPage() {
                 )}
               >
                 <div className="mb-1 flex justify-end">
-                  <span className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full text-sm",
-                    isToday && "bg-primary font-semibold text-primary-foreground",
-                    !inMonth && !isToday && "text-muted-foreground/60",
-                  )}>
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full text-sm",
+                      isToday &&
+                        "bg-primary font-semibold text-primary-foreground",
+                      !inMonth && !isToday && "text-muted-foreground/60",
+                    )}
+                  >
                     {day.getDate()}
                   </span>
                 </div>
@@ -486,16 +601,27 @@ export default function CalendarPage() {
 
                     if (event.href) {
                       return (
-                        <Link key={key} to={event.href} title={title} className={pillClassName}>
+                        <Link
+                          key={key}
+                          to={event.href}
+                          title={title}
+                          className={pillClassName}
+                        >
                           {event.title}
                         </Link>
                       );
                     }
 
-                    const canEdit = calendarEventById.get(event.id)?.createdBy === me.data?.id;
+                    const canEdit =
+                      calendarEventById.get(event.id)?.createdBy ===
+                      me.data?.id;
                     if (!canEdit) {
                       return (
-                        <span key={key} title={title} className={cn(pillClassName, "cursor-default")}>
+                        <span
+                          key={key}
+                          title={title}
+                          className={cn(pillClassName, "cursor-default")}
+                        >
                           {event.title}
                         </span>
                       );
@@ -506,7 +632,11 @@ export default function CalendarPage() {
                         key={key}
                         type="button"
                         title={title}
-                        onClick={() => setEditingEvent(calendarEventById.get(event.id) ?? null)}
+                        onClick={() =>
+                          setEditingEvent(
+                            calendarEventById.get(event.id) ?? null,
+                          )
+                        }
                         className={pillClassName}
                       >
                         {event.title}
@@ -523,7 +653,11 @@ export default function CalendarPage() {
           {days
             .filter((day) => day.getMonth() === visibleMonth.getMonth())
             .map((day) => {
-              const key = dateKey(day.getFullYear(), day.getMonth(), day.getDate());
+              const key = dateKey(
+                day.getFullYear(),
+                day.getMonth(),
+                day.getDate(),
+              );
               const dayEvents = eventsByDate.get(key) ?? [];
               if (dayEvents.length === 0) return null;
               return (
@@ -532,7 +666,9 @@ export default function CalendarPage() {
                     <div className="text-xs font-semibold uppercase text-muted-foreground">
                       {WEEKDAYS[(day.getDay() + 6) % 7].slice(0, 3)}
                     </div>
-                    <div className="text-sm font-semibold">{shortDateFormatter.format(day)}</div>
+                    <div className="text-sm font-semibold">
+                      {shortDateFormatter.format(day)}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {dayEvents.map((event) => {
@@ -545,23 +681,36 @@ export default function CalendarPage() {
                         <>
                           <span className="font-medium">{event.title}</span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {kindLabel(event.kind)}{event.meta ? ` · ${event.meta}` : ""}
+                            {kindLabel(event.kind)}
+                            {event.meta ? ` · ${event.meta}` : ""}
                           </span>
                         </>
                       );
 
                       if (event.href) {
                         return (
-                          <Link key={key} to={event.href} className={rowClassName}>
+                          <Link
+                            key={key}
+                            to={event.href}
+                            className={rowClassName}
+                          >
                             {body}
                           </Link>
                         );
                       }
 
-                      const canEdit = calendarEventById.get(event.id)?.createdBy === me.data?.id;
+                      const canEdit =
+                        calendarEventById.get(event.id)?.createdBy ===
+                        me.data?.id;
                       if (!canEdit) {
                         return (
-                          <div key={key} className={cn(rowClassName, "cursor-default hover:bg-transparent")}>
+                          <div
+                            key={key}
+                            className={cn(
+                              rowClassName,
+                              "cursor-default hover:bg-transparent",
+                            )}
+                          >
                             {body}
                           </div>
                         );
@@ -571,7 +720,11 @@ export default function CalendarPage() {
                         <button
                           key={key}
                           type="button"
-                          onClick={() => setEditingEvent(calendarEventById.get(event.id) ?? null)}
+                          onClick={() =>
+                            setEditingEvent(
+                              calendarEventById.get(event.id) ?? null,
+                            )
+                          }
                           className={rowClassName}
                         >
                           {body}
@@ -582,7 +735,15 @@ export default function CalendarPage() {
                 </div>
               );
             })}
-          {events.filter((event) => event.dueDate.startsWith(dateKey(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1).slice(0, 7))).length === 0 ? (
+          {events.filter((event) =>
+            event.dueDate.startsWith(
+              dateKey(
+                visibleMonth.getFullYear(),
+                visibleMonth.getMonth(),
+                1,
+              ).slice(0, 7),
+            ),
+          ).length === 0 ? (
             <div className="p-10 text-center text-sm text-muted-foreground">
               No due dates to show this month.
             </div>

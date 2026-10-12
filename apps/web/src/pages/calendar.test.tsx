@@ -94,10 +94,21 @@ const fixtures = vi.hoisted(() => {
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
-    useCurrentWorkspace: () => ({ data: { id: "workspace-1" }, isPending: false }),
+    useCurrentWorkspace: () => ({
+      data: { id: "workspace-1" },
+      isPending: false,
+    }),
     useMe: () => ({ data: { id: "user-owner" } }),
     useProjects: () => ({
-      data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } },
+      data: {
+        data: fixtures.projects,
+        meta: {
+          page: 1,
+          pageSize: 20,
+          totalItems: fixtures.projects.length,
+          totalPages: 1,
+        },
+      },
       isPending: false,
       isError: false,
       error: null,
@@ -170,7 +181,12 @@ vi.mock("@/api/hooks", async () => {
       return {
         data: {
           data: events,
-          meta: { page: 1, pageSize: 20, totalItems: events.length, totalPages: 1 },
+          meta: {
+            page: 1,
+            pageSize: 20,
+            totalItems: events.length,
+            totalPages: 1,
+          },
         },
         isPending: false,
         isError: false,
@@ -179,27 +195,37 @@ vi.mock("@/api/hooks", async () => {
       };
     },
     useCreateCalendarEvent: () => ({
-      mutateAsync: vi.fn(async (input: { title: string; eventDate: string }) => {
-        const current = calendarEventsStore.get();
-        const event: CalendarEventFixture = {
-          id: `event-${current.length + 1}`,
-          tenantId: "workspace-1",
-          createdBy: "user-owner",
-          title: input.title,
-          eventDate: input.eventDate,
-          createdAt: "2026-01-01T00:00:00.000Z",
-          updatedAt: "2026-01-01T00:00:00.000Z",
-        };
-        calendarEventsStore.set([...current, event]);
-        return event;
-      }),
+      mutateAsync: vi.fn(
+        async (input: { title: string; eventDate: string }) => {
+          const current = calendarEventsStore.get();
+          const event: CalendarEventFixture = {
+            id: `event-${current.length + 1}`,
+            tenantId: "workspace-1",
+            createdBy: "user-owner",
+            title: input.title,
+            eventDate: input.eventDate,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: "2026-01-01T00:00:00.000Z",
+          };
+          calendarEventsStore.set([...current, event]);
+          return event;
+        },
+      ),
     }),
     useUpdateCalendarEvent: () => ({
       mutateAsync: vi.fn(
-        async ({ eventId, input }: { eventId: string; input: { title: string; eventDate: string } }) => {
+        async ({
+          eventId,
+          input,
+        }: {
+          eventId: string;
+          input: { title: string; eventDate: string };
+        }) => {
           const updated = calendarEventsStore
             .get()
-            .map((item) => (item.id === eventId ? { ...item, ...input } : item));
+            .map((item) =>
+              item.id === eventId ? { ...item, ...input } : item,
+            );
           calendarEventsStore.set(updated);
           return updated.find((item) => item.id === eventId);
         },
@@ -217,6 +243,7 @@ vi.mock("@/api/hooks", async () => {
 
 describe("CalendarPage", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     calendarEventsStore.set([]);
   });
 
@@ -227,18 +254,48 @@ describe("CalendarPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByRole("link", { name: "Research launch" })).not.toHaveLength(0);
-    expect(screen.getAllByRole("link", { name: "Analysis module" })).not.toHaveLength(0);
-    expect(screen.getAllByRole("link", { name: "Submit ethics application" })).not.toHaveLength(0);
-    expect(screen.getAllByRole("link", { name: "Research Conference — submission deadline" })).not.toHaveLength(0);
-    expect(screen.getAllByRole("link", { name: "Follow up with collaborator" })).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", { name: "Research launch" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", { name: "Analysis module" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", { name: "Submit ethics application" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", {
+        name: "Research Conference — submission deadline",
+      }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", { name: "Follow up with collaborator" }),
+    ).not.toHaveLength(0);
 
-    expect(screen.getByRole("button", { name: /Projects/ })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /Papers/ })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /Tasks/ })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /Conferences/ })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /Events/ })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: /Notes/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: /Projects/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: /Papers/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: /Tasks/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: /Conferences/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: /Events/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: /Notes/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 
   it("shows only note follow-ups when Notes is selected", () => {
@@ -250,10 +307,18 @@ describe("CalendarPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Notes/ }));
 
-    expect(screen.getAllByRole("link", { name: "Follow up with collaborator" })).not.toHaveLength(0);
-    expect(screen.queryByRole("link", { name: "Research launch" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Analysis module" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Submit ethics application" })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Follow up with collaborator" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.queryByRole("link", { name: "Research launch" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Analysis module" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Submit ethics application" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows only project due dates when Projects is selected", () => {
@@ -265,10 +330,18 @@ describe("CalendarPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Projects/ }));
 
-    expect(screen.getAllByRole("link", { name: "Research launch" })).not.toHaveLength(0);
-    expect(screen.queryByRole("link", { name: "Analysis module" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Submit ethics application" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Research Conference" })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Research launch" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.queryByRole("link", { name: "Analysis module" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Submit ethics application" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Research Conference" }),
+    ).not.toBeInTheDocument();
   });
 
   it("switches exclusively between module, task, and conference due dates", () => {
@@ -279,22 +352,44 @@ describe("CalendarPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Papers/ }));
-    expect(screen.getAllByRole("link", { name: "Analysis module" })).not.toHaveLength(0);
-    expect(screen.queryByRole("link", { name: "Research launch" })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Analysis module" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.queryByRole("link", { name: "Research launch" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Tasks/ }));
-    expect(screen.getAllByRole("link", { name: "Submit ethics application" })).not.toHaveLength(0);
-    expect(screen.queryByRole("link", { name: "Analysis module" })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", { name: "Submit ethics application" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.queryByRole("link", { name: "Analysis module" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Conferences/ }));
-    expect(screen.getAllByRole("link", { name: "Research Conference — submission deadline" })).not.toHaveLength(0);
-    expect(screen.getAllByRole("link", { name: "Research Conference" })).not.toHaveLength(0);
-    expect(screen.queryByRole("link", { name: "Submit ethics application" })).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("link", {
+        name: "Research Conference — submission deadline",
+      }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", { name: "Research Conference" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.queryByRole("link", { name: "Submit ethics application" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Conferences/ }));
-    expect(screen.getAllByRole("link", { name: "Research launch" })).not.toHaveLength(0);
-    expect(screen.getAllByRole("link", { name: "Analysis module" })).not.toHaveLength(0);
-    expect(screen.getAllByRole("link", { name: "Submit ethics application" })).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", { name: "Research launch" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", { name: "Analysis module" }),
+    ).not.toHaveLength(0);
+    expect(
+      screen.getAllByRole("link", { name: "Submit ethics application" }),
+    ).not.toHaveLength(0);
   });
 
   it("does not create invalid calendar entries for a conference with no dates", () => {
@@ -306,7 +401,9 @@ describe("CalendarPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Conferences/ }));
 
-    expect(screen.queryByRole("link", { name: "Conference details pending" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Conference details pending" }),
+    ).not.toBeInTheDocument();
   });
 
   it("supports month navigation and returning to today", () => {
@@ -318,9 +415,13 @@ describe("CalendarPage", () => {
 
     const initialMonth = screen.getByRole("heading", { level: 2 }).textContent;
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));
-    expect(screen.getByRole("heading", { level: 2 })).not.toHaveTextContent(initialMonth ?? "");
+    expect(screen.getByRole("heading", { level: 2 })).not.toHaveTextContent(
+      initialMonth ?? "",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Today" }));
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(initialMonth ?? "");
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
+      initialMonth ?? "",
+    );
   });
 
   it("creates a standalone calendar event with just a title and date", async () => {
@@ -344,7 +445,9 @@ describe("CalendarPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add Event" }));
 
     await waitFor(() =>
-      expect(screen.getAllByText("Lab equipment booking closes").length).toBeGreaterThan(0),
+      expect(
+        screen.getAllByText("Lab equipment booking closes").length,
+      ).toBeGreaterThan(0),
     );
   });
 
@@ -369,7 +472,9 @@ describe("CalendarPage", () => {
 
     fireEvent.click(screen.getAllByText("Existing reminder")[0]!);
 
-    expect(screen.getByRole("heading", { name: "Edit event" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Edit event" }),
+    ).toBeInTheDocument();
 
     vi.spyOn(window, "confirm").mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
