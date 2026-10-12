@@ -4,6 +4,7 @@ import {
   enumTable,
   modules,
   projects,
+  taskDescriptionEntries,
   taskMembers,
   tasks,
 } from '@research-tracker/migrations';
@@ -19,10 +20,25 @@ import {
   sql,
 } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
+import { getRequestContext } from '../../../db/request-context';
 
 @Injectable()
 export class TasksRepository {
   constructor(private readonly drizzle: DrizzleService) {}
+
+  private async withinTransaction<T>(
+    operation: (
+      db: Pick<DrizzleService['db'], 'insert' | 'update'>,
+    ) => Promise<T>,
+  ): Promise<T> {
+    const context = getRequestContext();
+
+    if (context) {
+      return operation(context.tx);
+    }
+
+    return this.drizzle.db.transaction((tx) => operation(tx));
+  }
 
   private activeParentCondition() {
     return and(
@@ -224,11 +240,21 @@ export class TasksRepository {
     dueDate?: string;
     displayId?: string;
   }) {
-    const [task] = await this.drizzle.db
-      .insert(tasks)
-      .values(values)
-      .returning();
-    return task;
+    return this.withinTransaction(async (tx) => {
+      const [task] = await tx.insert(tasks).values(values).returning();
+
+      if (!task) return undefined;
+
+      if (task.description?.trim()) {
+        await tx.insert(taskDescriptionEntries).values({
+          taskId: task.id,
+          content: task.description,
+          createdAt: task.createdAt,
+        });
+      }
+
+      return task;
+    });
   }
 
   async update(
@@ -261,5 +287,69 @@ export class TasksRepository {
       .where(and(eq(tasks.tenantId, tenantId), eq(tasks.id, taskId)))
       .returning();
     return task;
+  }
+
+  async findDescriptionEntries(tenantId: string, taskId: string) {
+    return this.drizzle.db
+      .select({
+        id: taskDescriptionEntries.id,
+        taskId: taskDescriptionEntries.taskId,
+        content: taskDescriptionEntries.content,
+        createdAt: taskDescriptionEntries.createdAt,
+      })
+      .from(taskDescriptionEntries)
+      .innerJoin(tasks, eq(tasks.id, taskDescriptionEntries.taskId))
+      .where(
+        and(
+          eq(tasks.tenantId, tenantId),
+          eq(tasks.id, taskId),
+          this.activeParentCondition(),
+        ),
+      )
+      .orderBy(
+        desc(taskDescriptionEntries.createdAt),
+        desc(taskDescriptionEntries.id),
+      );
+  }
+
+  async appendDescriptionEntry(
+    tenantId: string,
+    taskId: string,
+    content: string,
+  ) {
+    return this.withinTransaction(async (tx) => {
+      // Lock the parent row while prepending content, preserving
+      // concurrent additions.
+      const [task] = await tx
+        .update(tasks)
+        .set({
+          description: sql<string>`
+            CASE
+              WHEN ${tasks.description} IS NULL
+                OR btrim(${tasks.description}) = ''
+              THEN ${content}
+              ELSE ${content} || E'\n\n' || ${tasks.description}
+            END
+          `,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(tasks.tenantId, tenantId),
+            eq(tasks.id, taskId),
+            this.activeParentCondition(),
+          ),
+        )
+        .returning();
+
+      if (!task) return undefined;
+
+      await tx.insert(taskDescriptionEntries).values({
+        taskId: task.id,
+        content,
+      });
+
+      return task;
+    });
   }
 }

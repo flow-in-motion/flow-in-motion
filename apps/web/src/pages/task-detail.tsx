@@ -15,6 +15,8 @@ import {
   type ApiModule,
   type ApiProject,
   type ApiTask,
+  useAddMyTaskDescriptionEntry,
+  type ApiTaskDescriptionEntry,
 } from "@/api/hooks";
 import type { TaskFormInput } from "@/components/tasks/task-dialog";
 import { TaskMembersManager } from "@/components/tasks/task-members";
@@ -90,7 +92,7 @@ function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
 function formValues(task: ApiTask): TaskFormInput {
   return {
     title: task.title,
-    description: task.description ?? "",
+    description: "",
     linkTarget: resolveLinkTargetType(task),
     projectId: task.projectId ?? "",
     moduleId: task.moduleId ?? "",
@@ -258,6 +260,39 @@ function LinkedWorkCard({
   );
 }
 
+function groupDescriptionEntries(entries: ApiTaskDescriptionEntry[]) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const groups = new Map<
+    string,
+    { date: string; entries: ApiTaskDescriptionEntry[] }
+  >();
+
+  const sorted = [...entries].sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime() ||
+      b.id.localeCompare(a.id),
+  );
+
+  for (const entry of sorted) {
+    const date = formatter.format(new Date(entry.createdAt));
+    const group = groups.get(date);
+
+    if (group) {
+      group.entries.push(entry);
+    } else {
+      groups.set(date, { date, entries: [entry] });
+    }
+  }
+
+  return [...groups.values()];
+}
+
 export default function TaskDetailPage() {
   const { taskId = "" } = useParams();
   const navigate = useNavigate();
@@ -272,6 +307,7 @@ export default function TaskDetailPage() {
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
   const updateTask = useUpdateMyTask();
+  const addDescriptionEntry = useAddMyTaskDescriptionEntry();
   const task = taskQuery.data;
   const trackEvent = useTrackEvent(task?.tenantId ?? "");
   const linkedProjectQuery = useProject(tenantId, task?.projectId ?? "", Boolean(task?.projectId));
@@ -320,23 +356,42 @@ export default function TaskDetailPage() {
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form) return;
-    await updateTask.mutateAsync({
-      taskId,
-      input: {
-        title: form.title.trim(),
-        description: form.description.trim() || undefined,
-        status: form.status,
-        priority: form.priority,
-        visibility: form.visibility,
-        estimatedHours: form.estimatedHours || undefined,
-        dueDate: form.dueDate || undefined,
-      },
-    });
-    if (form.status === "Complete" && task?.status !== "Complete") {
-      trackEvent({ name: "task_completed" });
+
+    if (
+      !form ||
+      updateTask.isPending ||
+      addDescriptionEntry.isPending
+    ) {
+      return;
     }
-    setForm(null);
+
+    const content = form.description.trim();
+
+    try {
+      await updateTask.mutateAsync({
+        taskId,
+        input: {
+          title: form.title.trim(),
+          status: form.status,
+          priority: form.priority,
+          visibility: form.visibility,
+          estimatedHours: form.estimatedHours || undefined,
+          dueDate: form.dueDate || undefined,
+        },
+      });
+
+      if (form.status === "Complete" && task?.status !== "Complete") {
+        trackEvent({ name: "task_completed" });
+      }
+
+      if (content) {
+        await addDescriptionEntry.mutateAsync({ taskId, content });
+      }
+
+      setForm(null);
+    } catch {
+      // Preserve the edit form and description draft after a failed save.
+    }
   }
 
   async function handleChangeLink(linkTarget: LinkTargetType, newProjectId: string, newModuleId: string) {
@@ -363,6 +418,12 @@ export default function TaskDetailPage() {
   const linkedModule = task.moduleId
     ? (modules).find((module) => module.id === task.moduleId)
     : undefined;
+
+  const descriptionGroups = groupDescriptionEntries(
+      task.descriptionEntries ?? [],
+    );
+  const isSaving =
+      updateTask.isPending || addDescriptionEntry.isPending;
 
   return (
     <div className="page-stack">
@@ -400,31 +461,48 @@ export default function TaskDetailPage() {
           </div>
         ) : null}
       </PageHeading>
-      {!form ? (
-        <section aria-labelledby="task-description-heading">
-          <Card className="overflow-hidden">
-            <CardHeader className="border-b border-border/60 bg-muted/20">
-              <CardTitle
-                id="task-description-heading"
-                className="text-base"
-              >
-                Description
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-5 sm:p-6">
-              {task.description?.trim() ? (
-                <div className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]">
-                  {task.description}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No description added yet.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </section>
-      ) : null}
+      <section aria-labelledby="task-description-heading">
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-border/60 bg-muted/20">
+            <CardTitle
+              id="task-description-heading"
+              className="text-base"
+            >
+              Description
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5 sm:p-6">
+            {descriptionGroups.length > 0 ? (
+              <div className="space-y-6">
+                {descriptionGroups.map((group) => (
+                  <div key={group.date} className="space-y-2">
+                    <time
+                      dateTime={group.date.split("/").reverse().join("-")}
+                      className="block text-xs font-medium text-muted-foreground"
+                    >
+                      {group.date}
+                    </time>
+                    <div className="space-y-3">
+                      {group.entries.map((entry) => (
+                        <p
+                          key={entry.id}
+                          className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]"
+                        >
+                          {entry.content}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No description added yet.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
 
       {form ? (
         <Card>
@@ -435,8 +513,21 @@ export default function TaskDetailPage() {
                 <FormField label="Task title" htmlFor="edit-task-title" className="sm:col-span-2">
                   <Input id="edit-task-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required autoFocus />
                 </FormField>
-                <FormField label="Description" htmlFor="edit-task-description" className="sm:col-span-2">
-                  <Textarea id="edit-task-description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} rows={3} />
+                <FormField
+                  label="Description"
+                  htmlFor="edit-task-description"
+                  className="sm:col-span-2"
+                >
+                  <Textarea
+                    id="edit-task-description"
+                    value={form.description}
+                    onChange={(event) =>
+                      setForm({ ...form, description: event.target.value })
+                    }
+                    placeholder="Write new description content…"
+                    rows={4}
+                    disabled={isSaving}
+                  />
                 </FormField>
                 <FormField label="Link to" htmlFor="edit-task-link" className="sm:col-span-2">
                   <div id="edit-task-link" className="flex flex-wrap gap-2">{LINK_TARGETS.map((option) => <button key={option.value} type="button" aria-pressed={form.linkTarget === option.value}
@@ -474,7 +565,26 @@ export default function TaskDetailPage() {
                   {updateTask.error.message}
                 </p>
               ) : null}
-              <div className="flex justify-end gap-3 border-t pt-5"><Button type="button" variant="outline" onClick={cancelEditing}>Cancel</Button><Button type="submit" disabled={updateTask.isPending}><Save /> {updateTask.isPending ? "Saving…" : "Save Changes"}</Button></div>
+              {addDescriptionEntry.isError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {addDescriptionEntry.error.message}
+                </p>
+              ) : null}
+              <div className="flex justify-end gap-3 border-t pt-5">
+                disabled={isSaving}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelEditing}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSaving}>
+                  <Save />
+                  {isSaving ? "Saving…" : "Save Changes"}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
@@ -498,8 +608,8 @@ export default function TaskDetailPage() {
                 linkedProjectTitle={linkedProjectQuery.data?.title}
                 linkedProjectError={linkedProjectQuery.isError}
                 linkedModuleTitle={linkedModule ? paperDisplayTitle(linkedModule) : undefined}
-                isSaving={updateTask.isPending}
                 onChangeLink={handleChangeLink}
+                isSaving={isSaving}
               />
             </div>
           ) : null}

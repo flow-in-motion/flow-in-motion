@@ -28,6 +28,7 @@ import { TasksService } from '../services/tasks.service';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { ConfigService } from '@nestjs/config';
 import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { CreateTaskDescriptionEntryDto } from '../dto/create-task-description-entry.dto';
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
 }
@@ -54,7 +55,8 @@ export class TasksController {
     @Query() query: ProjectScopedPaginationQueryDto,
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
-    const pageSize = query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
+    const pageSize =
+      query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
 
     return this.tasksService.list(
       tenantId,
@@ -105,6 +107,28 @@ export class TasksController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.tasksService.update(tenantId, taskId, user.id, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Add a dated description entry to a task',
+  })
+  @ApiResponse({ status: 201 })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Post(':taskId/description-entries')
+  async appendDescriptionEntry(
+    @Param('tenantId') tenantId: string,
+    @Param('taskId') taskId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateTaskDescriptionEntryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.tasksService.appendDescriptionEntry(
+      tenantId,
+      taskId,
+      user.id,
+      dto,
+    );
   }
 
   @ApiOperation({ summary: 'Delete a task' })

@@ -8,6 +8,7 @@ import {
   Patch,
   Req,
   UseGuards,
+  Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -16,6 +17,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { UsersService } from '../../users/users.service';
 import { UpdateTaskDto } from '../dto/update-task.dto';
 import { TasksService } from '../services/tasks.service';
+import { CreateTaskDescriptionEntryDto } from '../dto/create-task-description-entry.dto';
 
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
@@ -69,6 +71,25 @@ export class MyTasksController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.tasksService.updateForCaller(taskId, user.id, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Add a dated description entry to a task the caller can access',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Post(':taskId/description-entries')
+  async appendDescriptionEntry(
+    @Param('taskId') taskId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateTaskDescriptionEntryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.tasksService.appendDescriptionEntryForCaller(
+      taskId,
+      user.id,
+      dto,
+    );
   }
 
   @ApiOperation({ summary: 'Delete a task the caller can access' })

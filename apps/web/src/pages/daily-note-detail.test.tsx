@@ -176,38 +176,64 @@ describe("DailyNoteDetailPage", () => {
     ]);
   });
 
-  it("saves only the new addition and clears the draft after success", async () => {
+  it("shows previous dated content while editing and reveals the Note field", () => {
     renderNote();
 
-    const textarea = screen.getByLabelText("Add update");
-    fireEvent.change(textarea, {
+    expect(screen.queryByLabelText("Note")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add update" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
+
+    const content = screen.getByRole("region", { name: "Content" });
+    expect(content).toHaveTextContent("Baseline readings look consistent.");
+    expect(within(content).getByText("01/01/2026")).toBeInTheDocument();
+    expect(screen.getByLabelText("Note")).toHaveValue("");
+  });
+
+  it("saves new content through Edit Note and clears the draft after success", async () => {
+    renderNote();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
+    fireEvent.change(screen.getByLabelText("Note"), {
       target: { value: "  New observation  " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add update" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
-    await waitFor(() => {
+    await waitFor(() =>
       expect(fixtures.addEntry).toHaveBeenCalledWith({
         noteId: "note-1",
         content: "New observation",
-      });
-      expect(textarea).toHaveValue("");
-    });
+      }),
+    );
 
-    expect(fixtures.updateNote).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Edit Note" }),
+      ).toBeInTheDocument(),
+    );
+
+    expect(fixtures.updateNote.mock.calls[0][0].input)
+      .not.toHaveProperty("content");
+
     expect(
       screen.getByText("Baseline readings look consistent."),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
+    expect(screen.getByLabelText("Note")).toHaveValue("");
   });
 
-  it("keeps the draft when saving an addition fails", async () => {
+  it("keeps editing open and preserves the draft when saving content fails", async () => {
     fixtures.addEntry.mockRejectedValue(new Error("Unable to save"));
     renderNote();
 
-    const textarea = screen.getByLabelText("Add update");
-    fireEvent.change(textarea, {
+    fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
+    fireEvent.change(screen.getByLabelText("Note"), {
       target: { value: "Keep this draft" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add update" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
       expect(fixtures.addEntry).toHaveBeenCalledWith({
@@ -216,20 +242,31 @@ describe("DailyNoteDetailPage", () => {
       }),
     );
 
-    expect(textarea).toHaveValue("Keep this draft");
+    expect(screen.getByLabelText("Note")).toHaveValue("Keep this draft");
+    expect(
+      screen.getByRole("button", { name: "Save Changes" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Baseline readings look consistent."),
+    ).toBeInTheDocument();
   });
 
-  it("disables adding empty or whitespace-only content", () => {
+  it("allows metadata saves with whitespace-only Note content without adding an entry", async () => {
     renderNote();
 
-    const button = screen.getByRole("button", { name: "Add update" });
-    expect(button).toBeDisabled();
-
-    fireEvent.change(screen.getByLabelText("Add update"), {
+    fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
+    fireEvent.change(screen.getByLabelText("Note"), {
       target: { value: " \n\t " },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
-    expect(button).toBeDisabled();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Edit Note" }),
+      ).toBeInTheDocument(),
+    );
+
+    expect(fixtures.updateNote).toHaveBeenCalledTimes(1);
     expect(fixtures.addEntry).not.toHaveBeenCalled();
   });
 

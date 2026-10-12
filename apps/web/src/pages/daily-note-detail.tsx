@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Unlink } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
-
 import {
   useCurrentWorkspace,
   useMembers,
@@ -32,14 +31,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { resolveLinkTargetType, type LinkTargetType } from "@/lib/link-target";
 import { paperDisplayTitle } from "@/lib/paper-title";
-
 const VISIBILITY_OPTIONS = ["Private", "Shared"];
 const LINK_TARGETS: Array<{ value: LinkTargetType; label: string }> = [
   { value: "project", label: "Project" },
   { value: "module", label: "Paper" },
   { value: "none", label: "General" },
 ];
-
 interface NoteEditForm {
   title: string;
   linkTarget: LinkTargetType;
@@ -48,7 +45,6 @@ interface NoteEditForm {
   visibility: string;
   followUpDate: string;
 }
-
 function formatDate(iso: string | null | undefined) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-US", {
@@ -57,7 +53,6 @@ function formatDate(iso: string | null | undefined) {
     year: "numeric",
   });
 }
-
 function formatPlainDate(iso: string) {
   const [year, month, day] = iso.split("-");
   return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString("en-US", {
@@ -66,7 +61,6 @@ function formatPlainDate(iso: string) {
     year: "numeric",
   });
 }
-
 function formValues(note: ApiNote): NoteEditForm {
   return {
     title: note.title ?? "",
@@ -77,17 +71,14 @@ function formValues(note: ApiNote): NoteEditForm {
     followUpDate: note.followUpDate ?? "",
   };
 }
-
 function FormField({ label, htmlFor, children, className = "" }: { label: string; htmlFor: string; children: ReactNode; className?: string }) {
   return <div className={`grid gap-1.5 ${className}`}><label htmlFor={htmlFor} className="text-sm font-medium">{label}</label>{children}</div>;
 }
-
 function linkTargetPillClass(selected: boolean) {
   return selected
     ? "rounded-full border border-primary bg-primary px-3 py-1 text-xs font-medium text-primary-foreground"
     : "rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground";
 }
-
 function LinkedWorkCard({
   note,
   projects,
@@ -111,51 +102,24 @@ function LinkedWorkCard({
   const [linkTarget, setLinkTarget] = useState<LinkTargetType>(resolveLinkTargetType(note));
   const [projectId, setProjectId] = useState(note.projectId ?? "");
   const [moduleId, setModuleId] = useState(note.moduleId ?? "");
-
   function startEditing() {
     setLinkTarget(resolveLinkTargetType(note));
     setProjectId(note.projectId ?? "");
     setModuleId(note.moduleId ?? "");
     setIsEditing(true);
   }
-
-  async function handleSave(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!form || updateNote.isPending || addEntry.isPending) return;
-
-    const content = newContent.trim();
-
-    try {
-      await updateNote.mutateAsync({
-        noteId,
-        input: {
-          title: form.title.trim() || "Untitled note",
-          visibility: form.visibility,
-          followUpDate: form.followUpDate || undefined,
-        },
-      });
-
-      if (content) {
-        await addEntry.mutateAsync({ noteId, content });
-      }
-
-      setNewContent("");
-      setForm(null);
-    } catch {
-      // Keep editing open and preserve the draft after a failed save.
-    }
+  async function handleSave() {
+    if (isSaving) return;
+    await onChangeLink(linkTarget, projectId, moduleId);
+    setIsEditing(false);
   }
-
   async function handleUnlink() {
     if (!window.confirm("Unlink this note from its project or paper? It will become a general note.")) {
       return;
     }
     await onChangeLink("none", "", "");
   }
-
   const hasLink = Boolean(note.projectId || note.moduleId);
-
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
@@ -169,7 +133,7 @@ function LinkedWorkCard({
               </Button>
             ) : null}
             <Button variant="ghost" size="sm" onClick={startEditing}>
-              <Pencil />
+            <Pencil />
               Change link
             </Button>
           </div>
@@ -203,96 +167,90 @@ function LinkedWorkCard({
             ) : null}
             {linkTarget === "module" ? (
               <Select value={moduleId} onValueChange={setModuleId}>
-                <SelectTrigger aria-label="Paper"><SelectValue placeholder="Select a paper" /></SelectTrigger>
-                <SelectContent>
-                  {modules.map((module) => (
-                    <SelectItem key={module.id} value={module.id}>{paperDisplayTitle(module)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void handleSave()}
-                disabled={isSaving || (linkTarget === "project" && !projectId) || (linkTarget === "module" && !moduleId)}
-              >
-                {isSaving ? "Saving…" : "Save"}
-              </Button>
-            </div>
+              <SelectTrigger aria-label="Paper"><SelectValue placeholder="Select a paper" /></SelectTrigger>
+              <SelectContent>
+                {modules.map((module) => (
+                  <SelectItem key={module.id} value={module.id}>{paperDisplayTitle(module)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handleSave()}
+              disabled={isSaving || (linkTarget === "project" && !projectId) || (linkTarget === "module" && !moduleId)}
+            >
+              {isSaving ? "Saving…" : "Save"}
+            </Button>
           </div>
-        ) : note.moduleId ? (
-          <div className="flex flex-col gap-2">
-            <Link to={`/modules/${note.moduleId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
-              <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? "Loading…"}</span>
-            </Link>
-            {note.projectId ? (
-              <Link to={`/projects/${note.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parent project</span>
-                <span className="mt-1 block font-semibold text-primary">
-                  {linkedProjectTitle ?? (linkedProjectError ? "Unknown project" : "Loading…")}
-                </span>
-              </Link>
-            ) : null}
-          </div>
-        ) : note.projectId ? (
-          <Link to={`/projects/${note.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project</span>
+        </div>
+      ) : note.moduleId ? (
+        <div className="flex flex-col gap-2">
+          <Link to={`/modules/${note.moduleId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
+            <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? "Loading…"}</span>
+          </Link>
+          {note.projectId ? (
+            <Link to={`/projects/${note.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parent project</span>
             <span className="mt-1 block font-semibold text-primary">
               {linkedProjectTitle ?? (linkedProjectError ? "Unknown project" : "Loading…")}
             </span>
           </Link>
-        ) : (
-          <p className="text-sm text-muted-foreground">This is a general note with no linked project or paper.</p>
-        )}
-      </CardContent>
-    </Card>
-  );
+        ) : null}
+      </div>
+    ) : note.projectId ? (
+      <Link to={`/projects/${note.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Project</span>
+        <span className="mt-1 block font-semibold text-primary">
+          {linkedProjectTitle ?? (linkedProjectError ? "Unknown project" : "Loading…")}
+        </span>
+      </Link>
+    ) : (
+      <p className="text-sm text-muted-foreground">This is a general note with no linked project or paper.</p>
+    )}
+  </CardContent>
+</Card>
+);
 }
-
 function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-2.5 py-1 text-xs">
-      <span className="font-medium text-muted-foreground">{label}</span>
-      <span className="font-semibold text-foreground">{value}</span>
-    </span>
-  );
+return (
+<span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-2.5 py-1 text-xs">
+  <span className="font-medium text-muted-foreground">{label}</span>
+  <span className="font-semibold text-foreground">{value}</span>
+</span>
+);
 }
 function groupNoteEntries(entries: ApiNoteEntry[]) {
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
+const formatter = new Intl.DateTimeFormat("en-GB", {
+day: "2-digit",
+month: "2-digit",
+year: "numeric",
   });
-
   const groups = new Map<
     string,
     { date: string; entries: ApiNoteEntry[] }
   >();
-
   const sorted = [...entries].sort(
     (a, b) =>
       new Date(b.createdAt).getTime() -
         new Date(a.createdAt).getTime() ||
       b.id.localeCompare(a.id),
   );
-
   for (const entry of sorted) {
     const date = formatter.format(new Date(entry.createdAt));
     const group = groups.get(date);
-
     if (group) {
       group.entries.push(entry);
     } else {
       groups.set(date, { date, entries: [entry] });
     }
   }
-
   return [...groups.values()];
 }
 export default function DailyNoteDetailPage() {
@@ -302,7 +260,6 @@ export default function DailyNoteDetailPage() {
   const [searchParams] = useSearchParams();
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
-
   const noteQuery = useMyNote(noteId);
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
@@ -317,22 +274,19 @@ export default function DailyNoteDetailPage() {
   const [form, setForm] = useState<NoteEditForm | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
-  const [isMembersVisible, setIsMembersVisible] = useState(true);  
+  const [isMembersVisible, setIsMembersVisible] = useState(true);
   const addEntry = useAddMyNoteEntry();
   const [newContent, setNewContent] = useState("");
-
-
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && note) {
+      setNewContent("");
       setForm(formValues(note));
       setOpenedRequestedEdit(true);
     }
   }, [openedRequestedEdit, searchParams, note]);
-
   if (workspace.isPending || noteQuery.isPending) {
     return <LoadingState title="Loading note" className="min-h-[50vh]" />;
   }
-
   if (noteQuery.isError) {
     return (
       <ErrorState
@@ -342,7 +296,6 @@ export default function DailyNoteDetailPage() {
       />
     );
   }
-
   if (!note) {
     return (
       <EmptyState
@@ -356,21 +309,28 @@ export default function DailyNoteDetailPage() {
       />
     );
   }
-
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form) return;
-    await updateNote.mutateAsync({
-      noteId,
-      input: {
-        title: form.title.trim() || "Untitled note",
-        visibility: form.visibility,
-        followUpDate: form.followUpDate || undefined,
-      },
-    });
-    setForm(null);
+    if (!form || updateNote.isPending || addEntry.isPending) return;
+    const content = newContent.trim();
+    try {
+      await updateNote.mutateAsync({
+        noteId,
+        input: {
+          title: form.title.trim() || "Untitled note",
+          visibility: form.visibility,
+          followUpDate: form.followUpDate || undefined,
+        },
+      });
+      if (content) {
+        await addEntry.mutateAsync({ noteId, content });
+      }
+      setNewContent("");
+      setForm(null);
+    } catch {
+      // Keep editing open and preserve the draft after a failed save.
+    }
   }
-
   async function handleChangeLink(linkTarget: LinkTargetType, newProjectId: string, newModuleId: string) {
     const input =
       linkTarget === "project"
@@ -380,8 +340,8 @@ export default function DailyNoteDetailPage() {
           : { projectId: null, moduleId: null };
     await updateNote.mutateAsync({ noteId, input });
   }
-
   function cancelEditing() {
+    setNewContent("");
     setForm(null);
     if (searchParams.get("edit") === "true") {
       if (location.key === "default") {
@@ -391,16 +351,13 @@ export default function DailyNoteDetailPage() {
       }
     }
   }
-
   const linkedModule = note.moduleId
     ? modules.find((module) => module.id === note.moduleId)
     : undefined;
   const entryGroups = groupNoteEntries(note.entries ?? []);
-
   return (
     <div className="page-stack">
       <BackButton fallback="/daily-notes" label="Back" />
-
       <PageHeading
         tone="violet"
         icon={NotebookPen}
@@ -413,7 +370,16 @@ export default function DailyNoteDetailPage() {
               <Badge variant="outline">{note.visibility ?? "Private"}</Badge>
             ) : null}
             {form ? null : (
-               <Button type="button" onClick={() => setForm(formValues(note))}><Pencil /> Edit Note</Button>)}
+               <Button
+                 type="button"
+                 onClick={() => {
+                   setNewContent("");
+                   setForm(formValues(note));
+                 }}
+               >
+                 <Pencil />
+                 Edit Note
+               </Button>)}
           </div>
         }
         >
@@ -428,76 +394,81 @@ export default function DailyNoteDetailPage() {
               value={
                 note.followUpDate ? (
                   <Link
-                    to="/calendar"
-                    className="inline-flex items-center gap-1.5 text-primary hover:underline"
-                  >
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    {formatPlainDate(note.followUpDate)}
-                  </Link>
-                ) : (
-                  "—"
-                )
-              }
-            />
-          </div>
-        ) : null}
-      </PageHeading>
-      {!form ? (
-        <section aria-labelledby="note-content-heading">
-          <Card className="overflow-hidden">
-            <CardHeader className="border-b border-border/60 bg-muted/20">
-              <CardTitle
-                id="note-content-heading"
-                className="text-base"
-              >
-                Content
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6 p-5 sm:p-6">
-              {entryGroups.length > 0 ? (
-                <div className="space-y-6">
-                  {entryGroups.map((group) => (
-                    <div key={group.date} className="space-y-2">
-                      <time
-                        dateTime={group.date.split("/").reverse().join("-")}
-                        className="block text-xs font-medium text-muted-foreground"
-                      >
-                        {group.date}
-                      </time>
-
-                      <div className="space-y-3">
-                        {group.entries.map((entry) => (
-                          <p
-                            key={entry.id}
-                            className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]"
-                          >
-                            {entry.content}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                  to="/calendar"
+                  className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                >
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  {formatPlainDate(note.followUpDate)}
+                </Link>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  No content added yet.
-                </p>
-              )}
-
-              
-            </CardContent>
-          </Card>
-        </section>
+                "—"
+              )
+            }
+          />
+        </div>
       ) : null}
+    </PageHeading>
 
-      {form ? (
-        <Card>
-          <CardHeader><CardTitle>Edit note details</CardTitle></CardHeader>
-          <CardContent>
-            <form onSubmit={(event) => void handleSave(event)} className="grid gap-6">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <FormField label="Note title" htmlFor="edit-note-title" className="sm:col-span-2">
-                  <Input id="edit-note-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required autoFocus />
+      <section aria-labelledby="note-content-heading">
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-border/60 bg-muted/20">
+            <CardTitle
+              id="note-content-heading"
+              className="text-base"
+            >
+              Content
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6 p-5 sm:p-6">
+            {entryGroups.length > 0 ? (
+              <div className="space-y-6">
+                {entryGroups.map((group) => (
+                  <div key={group.date} className="space-y-2">
+                    <time
+                      dateTime={group.date.split("/").reverse().join("-")}
+                      className="block text-xs font-medium text-muted-foreground"
+                      >
+                      {group.date}
+                    </time>
+                    <div className="space-y-3">
+                      {group.entries.map((entry) => (
+                        <p
+                          key={entry.id}
+                          className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]"
+                        >
+                          {entry.content}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No content added yet.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+    {form ? (
+      <Card>
+        <CardHeader><CardTitle>Edit note details</CardTitle></CardHeader>
+        <CardContent>
+          <form onSubmit={(event) => void handleSave(event)} className="grid gap-6">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <FormField label="Note title" htmlFor="edit-note-title" className="sm:col-span-2">
+              <Input id="edit-note-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required autoFocus />
+                </FormField>
+                <FormField label="Note" htmlFor="edit-note-content" className="sm:col-span-2">
+                  <Textarea
+                    id="edit-note-content"
+                    value={newContent}
+                    onChange={(event) => setNewContent(event.target.value)}
+                    placeholder="Write new content…"
+                    rows={6}
+                    disabled={updateNote.isPending || addEntry.isPending}
+                  />
                 </FormField>
                 {TASK_NOTE_SHARING_ENABLED ? (
                   <FormField label="Visibility" htmlFor="edit-note-visibility">
@@ -525,17 +496,35 @@ export default function DailyNoteDetailPage() {
                   {updateNote.error.message}
                 </p>
               ) : null}
-              <div className="flex justify-end gap-3 border-t pt-5"><Button type="button" variant="outline" onClick={cancelEditing}>Cancel</Button><Button type="submit" disabled={updateNote.isPending}><Save /> {updateNote.isPending ? "Saving…" : "Save Changes"}</Button></div>
+              {addEntry.isError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {addEntry.error.message}
+                </p>
+              ) : null}
+              <div className="flex justify-end gap-3 border-t pt-5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelEditing}
+                  disabled={updateNote.isPending || addEntry.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={updateNote.isPending || addEntry.isPending}
+                >
+                  <Save />
+                  {updateNote.isPending || addEntry.isPending ? "Saving…" : "Save Changes"}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
       ) : null}
-
       <div className="flex flex-col gap-6">
-
-
         <section aria-labelledby="note-linked-work-heading">
-          <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="note-linked-work-heading" className="text-lg font-semibold">Linked work</h2>
             <Button variant="outline" size="sm" aria-expanded={isLinkedWorkVisible} aria-controls="note-linked-work-content" onClick={() => setIsLinkedWorkVisible((visible) => !visible)}>
               {isLinkedWorkVisible ? <ChevronUp /> : <ChevronDown />}
@@ -551,13 +540,12 @@ export default function DailyNoteDetailPage() {
                 linkedProjectTitle={linkedProjectQuery.data?.title}
                 linkedProjectError={linkedProjectQuery.isError}
                 linkedModuleTitle={linkedModule ? paperDisplayTitle(linkedModule) : undefined}
-                isSaving={updateNote.isPending}
+                isSaving={updateNote.isPending || addEntry.isPending}
                 onChangeLink={handleChangeLink}
               />
             </div>
           ) : null}
         </section>
-
         {TASK_NOTE_SHARING_ENABLED ? (
         <section aria-labelledby="note-members-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -569,35 +557,35 @@ export default function DailyNoteDetailPage() {
           </div>
           {isMembersVisible ? (
             <Card id="note-members-content">
-              <CardHeader>
-                <CardTitle>Manage who has access</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {note.visibility === "Shared" && sameTenant ? (
-                  <NoteMembersManager
-                    tenantId={tenantId}
-                    noteId={note.id}
-                    noteTitle={note.title || "Untitled note"}
-                    ownerUserId={note.createdBy}
-                    members={members}
-                  />
-                ) : note.visibility === "Shared" ? (
-                  <p className="text-sm text-muted-foreground">
-                    This note was shared with you from another workspace. Only members of that
-                    workspace can manage who has access.
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    This note is private — only you can see it. Switch its visibility to Shared to
-                    add members.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-        </section>
+            <CardHeader>
+              <CardTitle>Manage who has access</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {note.visibility === "Shared" && sameTenant ? (
+                <NoteMembersManager
+                  tenantId={tenantId}
+                  noteId={note.id}
+                  noteTitle={note.title || "Untitled note"}
+                  ownerUserId={note.createdBy}
+                  members={members}
+                />
+              ) : note.visibility === "Shared" ? (
+                <p className="text-sm text-muted-foreground">
+                  This note was shared with you from another workspace. Only members of that
+                  workspace can manage who has access.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  This note is private — only you can see it. Switch its visibility to Shared to
+                  add members.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         ) : null}
-      </div>
+      </section>
+      ) : null}
     </div>
-  );
+  </div>
+);
 }
