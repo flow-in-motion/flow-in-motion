@@ -384,6 +384,22 @@ export default function DailyNotesPage() {
         ) : null}
       </div>
 
+      {paginationMeta ? (
+        <PaginationControls
+          page={paginationMeta.page}
+          pageSize={paginationMeta.pageSize}
+          selectedPageSize={pageSize}
+          totalItems={paginationMeta.totalItems}
+          totalPages={paginationMeta.totalPages}
+          isPending={notesQuery.isFetching}
+          onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
+        />
+      ) : null}
+
       <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
         <div className="min-w-[1050px]">
           <div
@@ -514,21 +530,6 @@ export default function DailyNotesPage() {
               ))
             )}
           </div>
-          {paginationMeta ? (
-            <PaginationControls
-              page={paginationMeta.page}
-              pageSize={paginationMeta.pageSize}
-              selectedPageSize={pageSize}
-              totalItems={paginationMeta.totalItems}
-              totalPages={paginationMeta.totalPages}
-              isPending={notesQuery.isFetching}
-              onPageChange={setPage}
-              onPageSizeChange={(nextPageSize) => {
-                setPageSize(nextPageSize);
-                setPage(1);
-              }}
-            />
-          ) : null}
         </div>
       </div>
     </div>
