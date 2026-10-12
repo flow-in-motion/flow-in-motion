@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -88,8 +94,17 @@ vi.mock("@/api/hooks", async () => {
       data: { journals: [], conferences: [] },
       isPending: false,
     }),
-    useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
-    useMe: () => ({ data: { id: "user-owner", email: "owner@example.com", displayName: "Avi Researcher" } }),
+    useCurrentWorkspace: () => ({
+      data: { id: fixtures.tenantId },
+      isPending: false,
+    }),
+    useMe: () => ({
+      data: {
+        id: "user-owner",
+        email: "owner@example.com",
+        displayName: "Avi Researcher",
+      },
+    }),
     useProjects: () => ({
       data: {
         generalProject: {
@@ -168,9 +183,19 @@ vi.mock("@/api/hooks", async () => {
     }),
     useUpdateModule: () => ({
       mutateAsync: vi.fn(
-        async ({ moduleId, input }: { moduleId: string; input: Record<string, unknown> }) => {
+        async ({
+          moduleId,
+          input,
+        }: {
+          moduleId: string;
+          input: Record<string, unknown>;
+        }) => {
           modules.set(
-            modules.get().map((item) => (item.id === moduleId ? { ...item, ...input } : item)),
+            modules
+              .get()
+              .map((item) =>
+                item.id === moduleId ? { ...item, ...input } : item,
+              ),
           );
         },
       ),
@@ -188,7 +213,8 @@ vi.mock("@/api/hooks", async () => {
           description: (input.description as string | undefined) ?? null,
           status: (input.status as string | undefined) ?? "Active",
           pipelineStage: (input.pipelineStage as string | undefined) ?? null,
-          assignedToUserId: (input.assignedToUserId as string | undefined) ?? null,
+          assignedToUserId:
+            (input.assignedToUserId as string | undefined) ?? null,
           archivedAt: null,
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
@@ -271,6 +297,7 @@ function baseModules(): ModuleFixture[] {
 
 describe("PipelinePage", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     stages.set(baseStages());
     modules.set(baseModules());
     fixtures.projects = [];
@@ -279,7 +306,11 @@ describe("PipelinePage", () => {
   });
 
   it("requests all accessible papers for the pipeline", () => {
-    render(<MemoryRouter><PipelinePage /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <PipelinePage />
+      </MemoryRouter>,
+    );
 
     expect(fixtures.moduleQueryArgs).toEqual([
       "workspace-1",
@@ -291,15 +322,21 @@ describe("PipelinePage", () => {
   });
 
   it("uses the selected stage order for percentages in both pipeline views", () => {
-    stages.set(Array.from({ length: 15 }, (_, index) => ({
-      ...baseStages()[0]!,
-      id: `stage-${index + 1}`,
-      value: `Stage ${index + 1}`,
-      sortOrder: index,
-      hidden: index < 5,
-    })).reverse());
+    stages.set(
+      Array.from({ length: 15 }, (_, index) => ({
+        ...baseStages()[0]!,
+        id: `stage-${index + 1}`,
+        value: `Stage ${index + 1}`,
+        sortOrder: index,
+        hidden: index < 5,
+      })).reverse(),
+    );
     modules.set([{ ...baseModules()[0]!, pipelineStage: "Stage 8" }]);
-    render(<MemoryRouter><PipelinePage /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <PipelinePage />
+      </MemoryRouter>,
+    );
     expect(screen.getByText("30%")).toBeVisible();
     expect(screen.getByText("0 outstanding")).toBeVisible();
 
@@ -362,9 +399,7 @@ describe("PipelinePage", () => {
   });
 
   it("shows papers without a matching stage in the Unassigned column", () => {
-    modules.set([
-      { ...baseModules()[0]!, pipelineStage: null },
-    ]);
+    modules.set([{ ...baseModules()[0]!, pipelineStage: null }]);
     render(
       <MemoryRouter>
         <PipelinePage />
@@ -471,11 +506,15 @@ describe("PipelinePage", () => {
     expect(screen.getByText("Sample Preparation Protocol")).toBeInTheDocument();
     expect(screen.getByText("Reagent Calibration")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Filter by project" }));
+    fireEvent.click(
+      screen.getByRole("combobox", { name: "Filter by project" }),
+    );
     fireEvent.click(screen.getByRole("option", { name: "Genome Project" }));
 
     expect(screen.getByText("Reagent Calibration")).toBeInTheDocument();
-    expect(screen.queryByText("Sample Preparation Protocol")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Sample Preparation Protocol"),
+    ).not.toBeInTheDocument();
   });
   it("celebrates when a paper is dragged into Submitted, Under Review", async () => {
     render(
@@ -483,13 +522,13 @@ describe("PipelinePage", () => {
         <PipelinePage />
       </MemoryRouter>,
     );
-  
+
     const title = "Sample Preparation Protocol";
     const card = screen.getByText(title).closest('[draggable="true"]');
     const targetStage = screen.getByRole("group", {
       name: "Submitted, Under Review stage drop zone",
     });
-  
+
     const data = new Map<string, string>();
     const dataTransfer = {
       effectAllowed: "none",
@@ -497,17 +536,17 @@ describe("PipelinePage", () => {
       setData: (type: string, value: string) => data.set(type, value),
       getData: (type: string) => data.get(type) ?? "",
     };
-  
+
     expect(card).not.toBeNull();
-  
+
     fireEvent.dragStart(card!, { dataTransfer });
     fireEvent.dragOver(targetStage, { dataTransfer });
     fireEvent.drop(targetStage, { dataTransfer });
-  
+
     await waitFor(() =>
       expect(within(targetStage).getByText(title)).toBeInTheDocument(),
     );
-  
+
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Paper submitted — congratulations!",
     );

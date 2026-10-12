@@ -1,6 +1,8 @@
 import { DollarSign, Pencil, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useListSearch } from "@/hooks/use-list-search";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
   type ApiFunding,
@@ -88,15 +90,37 @@ export default function FundingPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
   const meQuery = useMe();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number | "all">(20);
-  const [search, setSearch] = useState("");
-  const [requestSearch, setRequestSearch] = useState("");
+  const { page, setPage, search, setSearch, requestSearch } = useListSearch(
+    {
+      userId: meQuery.data?.id,
+      workspaceId: tenantId,
+      preferenceKey: "funding",
+    },
+    300,
+  );
+
+  const [pageSize, setPageSize] = useSessionListState<number | "all">(
+    meQuery.data?.id,
+    tenantId,
+    "funding:page-size",
+    20,
+  );
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingFunding, setEditingFunding] = useState<ApiFunding | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [sortColumn, setSortColumn] = useState<FundingColumn | null>(null);
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [sortColumn, setSortColumn] = useSessionListState<FundingColumn | null>(
+    meQuery.data?.id,
+    tenantId,
+    "funding:sort-column",
+    null,
+  );
+
+  const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
+    meQuery.data?.id,
+    tenantId,
+    "funding:sort-direction",
+    "asc",
+  );
 
   const fundingsQuery = useFundings(tenantId, page, true, {
     pageSize,
@@ -121,14 +145,8 @@ export default function FundingPage() {
     .join(" ");
 
   useEffect(() => {
-    const trimmedSearch = search.trim();
-    const timer = window.setTimeout(() => setRequestSearch(trimmedSearch), 300);
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
-  useEffect(() => {
     setPage(1);
-  }, [tenantId, requestSearch, pageSize, sortColumn, sortDirection]);
+  }, [setPage, tenantId, pageSize, sortColumn, sortDirection]);
 
   function handleSort(column: FundingColumn) {
     if (column === sortColumn) {
@@ -242,7 +260,6 @@ export default function FundingPage() {
               type="button"
               onClick={() => {
                 setSearch("");
-                setRequestSearch("");
               }}
               aria-label="Clear funding search"
               className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"

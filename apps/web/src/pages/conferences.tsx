@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Presentation, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Pencil,
+  Presentation,
+  Trash2,
+} from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
   useConferences,
@@ -13,7 +21,10 @@ import {
   type ApiConference,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
-import { ConferenceSubmissionDialog, type ConferenceSubmissionInput } from "@/components/dashboard/conference-submission-dialog";
+import {
+  ConferenceSubmissionDialog,
+  type ConferenceSubmissionInput,
+} from "@/components/dashboard/conference-submission-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PaginationControls } from "@/components/shared/pagination-controls";
@@ -50,7 +61,11 @@ const CONFERENCE_COLUMNS = [
   { id: "conferenceDates", label: "Conference Dates", width: "180px" },
   { id: "type", label: "Type", width: "120px" },
   { id: "intent", label: "Intent", width: "150px" },
-  { id: "linkedProjects", label: "Linked Projects/Papers", width: "minmax(200px,1.3fr)" },
+  {
+    id: "linkedProjects",
+    label: "Linked Projects/Papers",
+    width: "minmax(200px,1.3fr)",
+  },
 ] as const;
 
 type SortColumn = (typeof CONFERENCE_COLUMNS)[number]["id"];
@@ -64,9 +79,19 @@ interface SortableHeaderProps {
   onSort: (column: SortColumn) => void;
 }
 
-function SortableHeader({ label, column, sortColumn, sortDirection, onSort }: SortableHeaderProps) {
+function SortableHeader({
+  label,
+  column,
+  sortColumn,
+  sortDirection,
+  onSort,
+}: SortableHeaderProps) {
   const active = column === sortColumn;
-  const Icon = active ? (sortDirection === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  const Icon = active
+    ? sortDirection === "asc"
+      ? ArrowUp
+      : ArrowDown
+    : ArrowUpDown;
   return (
     <button
       type="button"
@@ -97,17 +122,51 @@ export default function ConferencesPage() {
   const deleteConference = useDeleteConference(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState<ConferenceTypeFilter>("All");
-  const [deadline, setDeadline] = useState<ConferenceDeadlineFilter>("All");
-  const [sortColumn, setSortColumn] = useState<SortColumn>("submissionDue");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [search, setSearch] = useSessionListState<string>(
+    meQuery.data?.id,
+    tenantId,
+    "conferences:search",
+    "",
+  );
+  const [type, setType] = useSessionListState<ConferenceTypeFilter>(
+    meQuery.data?.id,
+    tenantId,
+    "conferences:type",
+    "All",
+  );
+  const [deadline, setDeadline] = useSessionListState<ConferenceDeadlineFilter>(
+    meQuery.data?.id,
+    tenantId,
+    "conferences:deadline",
+    "All",
+  );
+  const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
+    meQuery.data?.id,
+    tenantId,
+    "conferences:sort-column",
+    "submissionDue",
+  );
+  const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
+    meQuery.data?.id,
+    tenantId,
+    "conferences:sort-direction",
+    "asc",
+  );
   useEffect(() => {
     setPage(1);
-  }, [tenantId, search, type, deadline, sortColumn, sortDirection]);
+  }, [
+    meQuery.data?.id,
+    tenantId,
+    search,
+    type,
+    deadline,
+    sortColumn,
+    sortDirection,
+  ]);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingConference, setEditingConference] = useState<ApiConference | null>(null);
+  const [editingConference, setEditingConference] =
+    useState<ApiConference | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const columns = useColumnVisibility(
@@ -129,7 +188,11 @@ export default function ConferencesPage() {
     }
   }
 
-  function compareConferences(a: ApiConference, b: ApiConference, column: SortColumn) {
+  function compareConferences(
+    a: ApiConference,
+    b: ApiConference,
+    column: SortColumn,
+  ) {
     switch (column) {
       case "conference":
         return a.name.localeCompare(b.name);
@@ -144,8 +207,11 @@ export default function ConferencesPage() {
       case "intent":
         return a.intents.join(", ").localeCompare(b.intents.join(", "));
       case "linkedProjects":
-        return (a.projects.length + (a.papers ?? []).length) -
-          (b.projects.length + (b.papers ?? []).length);
+        return (
+          a.projects.length +
+          (a.papers ?? []).length -
+          (b.projects.length + (b.papers ?? []).length)
+        );
     }
   }
 
@@ -153,37 +219,46 @@ export default function ConferencesPage() {
     const query = search.trim().toLowerCase();
     const filtered = conferences.filter((conference) => {
       if (type !== "All" && conference.submissionType !== type) return false;
-      if (!matchesConferenceDeadline(conference.daysRemaining, deadline)) return false;
+      if (!matchesConferenceDeadline(conference.daysRemaining, deadline))
+        return false;
       return (
         !query ||
         conference.name.toLowerCase().includes(query) ||
         conference.acronym?.toLowerCase().includes(query) ||
         conference.location?.toLowerCase().includes(query) ||
-        conference.projects.some((project) => project.title.toLowerCase().includes(query)) ||
+        conference.projects.some((project) =>
+          project.title.toLowerCase().includes(query),
+        ) ||
         (conference.papers ?? []).some((paper) =>
           paperDisplayTitle(paper).toLowerCase().includes(query),
         )
       );
     });
     return [...filtered].sort((a, b) => {
-      const aDate = sortColumn === "submissionDue"
-        ? a.submissionDue
-        : sortColumn === "conferenceDates"
-          ? a.startDate ?? a.endDate
-          : undefined;
-      const bDate = sortColumn === "submissionDue"
-        ? b.submissionDue
-        : sortColumn === "conferenceDates"
-          ? b.startDate ?? b.endDate
-          : undefined;
+      const aDate =
+        sortColumn === "submissionDue"
+          ? a.submissionDue
+          : sortColumn === "conferenceDates"
+            ? (a.startDate ?? a.endDate)
+            : undefined;
+      const bDate =
+        sortColumn === "submissionDue"
+          ? b.submissionDue
+          : sortColumn === "conferenceDates"
+            ? (b.startDate ?? b.endDate)
+            : undefined;
       if (aDate === null && bDate !== null) return 1;
       if (aDate !== null && bDate === null) return -1;
-      return compareConferences(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1);
+      return (
+        compareConferences(a, b, sortColumn) *
+        (sortDirection === "asc" ? 1 : -1)
+      );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conferences, search, type, deadline, sortColumn, sortDirection]);
 
-  const hasActiveFilters = search !== "" || type !== "All" || deadline !== "All";
+  const hasActiveFilters =
+    search !== "" || type !== "All" || deadline !== "All";
 
   function clearFilters() {
     setSearch("");
@@ -198,24 +273,39 @@ export default function ConferencesPage() {
 
   async function handleUpdateConference(input: ConferenceSubmissionInput) {
     if (!editingConference) return;
-    await updateConference.mutateAsync({ conferenceId: editingConference.id, input });
+    await updateConference.mutateAsync({
+      conferenceId: editingConference.id,
+      input,
+    });
     setEditingConference(null);
   }
 
   async function handleDeleteConference(conference: ApiConference) {
-    if (!window.confirm(`Delete "${conference.name}"? This action cannot be undone.`)) return;
+    if (
+      !window.confirm(
+        `Delete "${conference.name}"? This action cannot be undone.`,
+      )
+    )
+      return;
     setActionError(null);
     try {
       await deleteConference.mutateAsync(conference.id);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : "The conference could not be deleted.");
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The conference could not be deleted.",
+      );
     }
   }
 
-  const isLoading = workspace.isPending || conferencesQuery.isPending || meQuery.isPending;
+  const isLoading =
+    workspace.isPending || conferencesQuery.isPending || meQuery.isPending;
 
   if (isLoading) {
-    return <LoadingState title="Loading conferences" className="min-h-[50vh]" />;
+    return (
+      <LoadingState title="Loading conferences" className="min-h-[50vh]" />
+    );
   }
   if (conferencesQuery.isError) {
     return (
@@ -236,9 +326,7 @@ export default function ConferencesPage() {
         title="Conferences"
         description="Manage conference deadlines, event dates, submission types, and linked research projects."
         actions={
-          <Button onClick={() => setIsCreateOpen(true)}>
-            New Conference
-          </Button>
+          <Button onClick={() => setIsCreateOpen(true)}>New Conference</Button>
         }
       />
 
@@ -259,9 +347,18 @@ export default function ConferencesPage() {
       />
 
       {actionError ? (
-        <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
           <span>{actionError}</span>
-          <button type="button" className="font-medium underline" onClick={() => setActionError(null)}>Dismiss</button>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
         </div>
       ) : null}
 
@@ -272,8 +369,13 @@ export default function ConferencesPage() {
           placeholder="Search conference, project, or location…"
           className="sm:max-w-xs"
         />
-        <Select value={type} onValueChange={(value) => setType(value as ConferenceTypeFilter)}>
-          <SelectTrigger className="sm:w-40"><SelectValue placeholder="Type" /></SelectTrigger>
+        <Select
+          value={type}
+          onValueChange={(value) => setType(value as ConferenceTypeFilter)}
+        >
+          <SelectTrigger className="sm:w-40">
+            <SelectValue placeholder="Type" />
+          </SelectTrigger>
           <SelectContent>
             {CONFERENCE_TYPE_FILTERS.map((option) => (
               <SelectItem key={option} value={option}>
@@ -282,8 +384,15 @@ export default function ConferencesPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={deadline} onValueChange={(value) => setDeadline(value as ConferenceDeadlineFilter)}>
-          <SelectTrigger className="sm:w-40"><SelectValue placeholder="Deadline" /></SelectTrigger>
+        <Select
+          value={deadline}
+          onValueChange={(value) =>
+            setDeadline(value as ConferenceDeadlineFilter)
+          }
+        >
+          <SelectTrigger className="sm:w-40">
+            <SelectValue placeholder="Deadline" />
+          </SelectTrigger>
           <SelectContent>
             {CONFERENCE_DEADLINE_FILTERS.map((option) => (
               <SelectItem key={option} value={option}>
@@ -363,7 +472,9 @@ export default function ConferencesPage() {
                                   type="button"
                                   aria-label={`Edit ${conference.name}`}
                                   title="Edit conference"
-                                  onClick={() => setEditingConference(conference)}
+                                  onClick={() =>
+                                    setEditingConference(conference)
+                                  }
                                   className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
@@ -372,7 +483,9 @@ export default function ConferencesPage() {
                                   type="button"
                                   aria-label={`Delete ${conference.name}`}
                                   title="Delete conference"
-                                  onClick={() => void handleDeleteConference(conference)}
+                                  onClick={() =>
+                                    void handleDeleteConference(conference)
+                                  }
                                   disabled={deleteConference.isPending}
                                   className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
@@ -381,39 +494,67 @@ export default function ConferencesPage() {
                               </>
                             ) : null}
                           </div>
-                          <span className="text-xs text-muted-foreground">{conference.location ?? "—"}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {conference.location ?? "—"}
+                          </span>
                         </div>
                       </div>
                     ) : null}
                     {columns.isColumnVisible("submissionDue") ? (
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">{formatConferenceDate(conference.submissionDue)}</span>
-                        <span className={cn("text-xs", conferenceUrgencyClass(conference.daysRemaining))}>
+                        <span className="text-sm font-medium">
+                          {formatConferenceDate(conference.submissionDue)}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-xs",
+                            conferenceUrgencyClass(conference.daysRemaining),
+                          )}
+                        >
                           {conferenceUrgencyLabel(conference.daysRemaining)}
                         </span>
                       </div>
                     ) : null}
                     {columns.isColumnVisible("conferenceDates") ? (
                       <span className="text-sm text-muted-foreground">
-                        {formatConferenceDateRange(conference.startDate, conference.endDate)}
+                        {formatConferenceDateRange(
+                          conference.startDate,
+                          conference.endDate,
+                        )}
                       </span>
                     ) : null}
                     {columns.isColumnVisible("type") ? (
-                      <Badge variant="outline" className={conferenceTypeBadgeClass(conference.submissionType)}>
+                      <Badge
+                        variant="outline"
+                        className={conferenceTypeBadgeClass(
+                          conference.submissionType,
+                        )}
+                      >
                         {conference.submissionType ?? "—"}
                       </Badge>
                     ) : null}
                     {columns.isColumnVisible("intent") ? (
                       <div className="flex flex-wrap gap-1">
-                        {conference.intents.length > 0 ? conference.intents.map((intent) => (
-                          <Badge key={intent} variant="secondary">{intent}</Badge>
-                        )) : <span className="text-sm text-muted-foreground">—</span>}
+                        {conference.intents.length > 0 ? (
+                          conference.intents.map((intent) => (
+                            <Badge key={intent} variant="secondary">
+                              {intent}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            —
+                          </span>
+                        )}
                       </div>
                     ) : null}
                     {columns.isColumnVisible("linkedProjects") ? (
                       <div className="flex flex-wrap gap-1">
-                        {conference.projects.length === 0 && (conference.papers ?? []).length === 0 ? (
-                          <span className="text-xs text-muted-foreground">—</span>
+                        {conference.projects.length === 0 &&
+                        (conference.papers ?? []).length === 0 ? (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         ) : (
                           <>
                             {conference.projects.map((project) => (

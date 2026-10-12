@@ -1,4 +1,10 @@
-import type { AuthError, EmailOtpType, Session, User } from "@supabase/supabase-js";
+import type {
+  AuthError,
+  EmailOtpType,
+  Session,
+  User,
+} from "@supabase/supabase-js";
+import { clearSessionListState } from "@/hooks/use-session-list-state";
 import {
   createContext,
   useCallback,
@@ -64,8 +70,13 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      (event, nextSession) => {
         if (!active) return;
+
+        if (event === "SIGNED_OUT") {
+          clearSessionListState();
+        }
+
         setSession(nextSession);
         setIsLoading(false);
       },
@@ -138,18 +149,27 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     setError(null);
     const { error: signOutError } = await supabase.auth.signOut();
+
     if (signOutError) {
       const nextError = toError(signOutError)!;
       setError(nextError);
       throw nextError;
     }
+
+    clearSessionListState();
     setSession(null);
   }, []);
 
   const clearLocalSession = useCallback(async () => {
     setError(null);
-    const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+
+    const { error: signOutError } = await supabase.auth.signOut({
+      scope: "local",
+    });
+
+    clearSessionListState();
     setSession(null);
+
     if (signOutError) {
       const nextError = toError(signOutError)!;
       setError(nextError);

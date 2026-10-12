@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ListTodo } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
   useCurrentWorkspace,
+  useMe,
   useModules,
   useProjects,
   useTasks,
@@ -38,6 +39,7 @@ import {
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 const PRIORITY_FILTERS = ["All", "Critical", "High", "Medium", "Low"] as const;
 const TASK_COLUMNS = [
@@ -69,6 +71,7 @@ function formatDueDate(iso: string | null) {
 export function PriorityTasksTable() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
+  const me = useMe();
   const tasksQuery = useTasks(tenantId);
   const tasks = tasksQuery.data?.data ?? [];
   const projectsQuery = useProjects(tenantId);
@@ -77,10 +80,33 @@ export function PriorityTasksTable() {
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
 
-  const [search, setSearch] = useState("");
-  const [priority, setPriority] = useState<PriorityFilter>("All");
-  const [sortColumn, setSortColumn] = useState<SortColumn>("priority");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [search, setSearch] = useSessionListState<string>(
+    me.data?.id,
+    tenantId,
+    "dashboard-tasks:search",
+    "",
+  );
+
+  const [priority, setPriority] = useSessionListState<PriorityFilter>(
+    me.data?.id,
+    tenantId,
+    "dashboard-tasks:priority",
+    "All",
+  );
+
+  const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
+    me.data?.id,
+    tenantId,
+    "dashboard-tasks:sort-column",
+    "priority",
+  );
+
+  const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
+    me.data?.id,
+    tenantId,
+    "dashboard-tasks:sort-direction",
+    "asc",
+  );
   const columns = useColumnVisibility(
     TASK_COLUMNS.map((column) => column.id),
     "dashboard-priority-tasks",

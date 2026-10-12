@@ -1,9 +1,17 @@
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, Maximize2, Table2 } from "lucide-react";
+import { useMemo, type Dispatch, type SetStateAction } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  Maximize2,
+  Table2,
+} from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
   useCurrentWorkspace,
+  useMe,
   useModulePipelineStagePool,
   useModules,
   type ModuleSortField,
@@ -65,13 +73,19 @@ const PIPELINE_COLUMNS = [
   { id: "completion", label: "Progress" },
 ] as const;
 
-const PAPER_SORT_OPTIONS: readonly { value: ModuleSortField; label: string }[] = [
-  { value: "dateAdded", label: "Date added" },
-  { value: "alphabetical", label: "Alphabetical" },
-  { value: "progress", label: "Progress" },
-];
+const PAPER_SORT_OPTIONS: readonly { value: ModuleSortField; label: string }[] =
+  [
+    { value: "dateAdded", label: "Date added" },
+    { value: "alphabetical", label: "Alphabetical" },
+    { value: "progress", label: "Progress" },
+  ];
 
-const PAPER_STATUS_FILTERS = ["Active", "Review", "Stalled", "Complete"] as const;
+const PAPER_STATUS_FILTERS = [
+  "Active",
+  "Review",
+  "Stalled",
+  "Complete",
+] as const;
 
 interface MultiSelectFilterProps {
   options: readonly string[];
@@ -90,11 +104,12 @@ function MultiSelectFilter({
   onToggle,
   onClear,
 }: MultiSelectFilterProps) {
-  const triggerLabel = selected.size === 0
-    ? `All ${pluralLabel}`
-    : selected.size === 1
-      ? [...selected][0]
-      : `${selected.size} ${pluralLabel}`;
+  const triggerLabel =
+    selected.size === 0
+      ? `All ${pluralLabel}`
+      : selected.size === 1
+        ? [...selected][0]
+        : `${selected.size} ${pluralLabel}`;
 
   return (
     <DropdownMenu>
@@ -107,10 +122,16 @@ function MultiSelectFilter({
           aria-label={`Filter by ${pluralLabel}`}
         >
           <span className="truncate">{triggerLabel}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
+          <ChevronDown
+            className="h-4 w-4 shrink-0 opacity-50"
+            aria-hidden="true"
+          />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-72 min-w-64 overflow-y-auto">
+      <DropdownMenuContent
+        align="start"
+        className="max-h-72 min-w-64 overflow-y-auto"
+      >
         <DropdownMenuCheckboxItem
           checked={selected.size === 0}
           onSelect={(event) => event.preventDefault()}
@@ -137,8 +158,20 @@ function MultiSelectFilter({
 export function PipelineOverviewTable() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
-  const [sortBy, setSortBy] = useState<ModuleSortField>("dateAdded");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const me = useMe();
+  const [sortBy, setSortBy] = useSessionListState<ModuleSortField>(
+    me.data?.id,
+    tenantId,
+    "dashboard-papers:sort-by",
+    "dateAdded",
+  );
+
+  const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
+    me.data?.id,
+    tenantId,
+    "dashboard-papers:sort-direction",
+    "desc",
+  );
   const modulesQuery = useModules(tenantId, undefined, 1, true, {
     pageSize: "all",
     sortBy,
@@ -147,9 +180,23 @@ export function PipelineOverviewTable() {
   const papers = modulesQuery.data?.data ?? [];
   const pipelineStagesQuery = useModulePipelineStagePool(tenantId);
 
-  const [search, setSearch] = useState("");
-  const [selectedStages, setSelectedStages] = useState<Set<string>>(() => new Set());
-  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(() => new Set());
+  const [search, setSearch] = useSessionListState<string>(
+    me.data?.id,
+    tenantId,
+    "dashboard-papers:search",
+    "",
+  );
+
+  const [selectedStages, setSelectedStages] = useSessionListState<Set<string>>(
+    me.data?.id,
+    tenantId,
+    "dashboard-papers:stages",
+    () => new Set(),
+  );
+
+  const [selectedStatuses, setSelectedStatuses] = useSessionListState<
+    Set<string>
+  >(me.data?.id, tenantId, "dashboard-papers:statuses", () => new Set());
   const columns = useColumnVisibility(
     PIPELINE_COLUMNS.map((column) => column.id),
     "dashboard-pipeline",
@@ -171,47 +218,67 @@ export function PipelineOverviewTable() {
   }, [stages]);
   const pipelineWidth = `${Math.max(1280, stageNames.length * 128)}px`;
 
-  const progressByStage = useMemo(() => buildPaperProgressByStage(stages), [stages]);
+  const progressByStage = useMemo(
+    () => buildPaperProgressByStage(stages),
+    [stages],
+  );
 
   const paperRows = useMemo(
     () =>
       papers.map((paper) => {
-          const stageIndex = paper.pipelineStage
-            ? stageIndexByValue.get(paper.pipelineStage)
-            : undefined;
-          return {
-            id: paper.id,
-            name: paperDisplayTitle(paper),
-            createdAt: paper.createdAt ?? "",
-            status: paper.status ?? "",
-            stageIndex,
-            completion: progressByStage.get(paper.pipelineStage ?? "") ?? 0,
-          };
-        }),
+        const stageIndex = paper.pipelineStage
+          ? stageIndexByValue.get(paper.pipelineStage)
+          : undefined;
+        return {
+          id: paper.id,
+          name: paperDisplayTitle(paper),
+          createdAt: paper.createdAt ?? "",
+          status: paper.status ?? "",
+          stageIndex,
+          completion: progressByStage.get(paper.pipelineStage ?? "") ?? 0,
+        };
+      }),
     [papers, progressByStage, stageIndexByValue],
   );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     const matching = paperRows.filter((row) => {
-      const rowStage = row.stageIndex === undefined ? "Unassigned" : stageNames[row.stageIndex];
-      if (selectedStages.size > 0 && !selectedStages.has(rowStage)) return false;
-      if (selectedStatuses.size > 0 && !selectedStatuses.has(row.status)) return false;
+      const rowStage =
+        row.stageIndex === undefined
+          ? "Unassigned"
+          : stageNames[row.stageIndex];
+      if (selectedStages.size > 0 && !selectedStages.has(rowStage))
+        return false;
+      if (selectedStatuses.size > 0 && !selectedStatuses.has(row.status))
+        return false;
       if (query && !row.name.toLowerCase().includes(query)) return false;
       return true;
     });
     const multiplier = sortDirection === "asc" ? 1 : -1;
     return [...matching].sort((a, b) => {
-      const comparison = sortBy === "alphabetical"
-        ? a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true })
-        : sortBy === "progress"
-          ? a.completion - b.completion
-          : a.createdAt.localeCompare(b.createdAt);
+      const comparison =
+        sortBy === "alphabetical"
+          ? a.name.localeCompare(b.name, undefined, {
+              sensitivity: "base",
+              numeric: true,
+            })
+          : sortBy === "progress"
+            ? a.completion - b.completion
+            : a.createdAt.localeCompare(b.createdAt);
       return comparison !== 0
         ? comparison * multiplier
         : a.id.localeCompare(b.id) * multiplier;
     });
-  }, [paperRows, search, selectedStages, selectedStatuses, sortBy, sortDirection, stageNames]);
+  }, [
+    paperRows,
+    search,
+    selectedStages,
+    selectedStatuses,
+    sortBy,
+    sortDirection,
+    stageNames,
+  ]);
 
   const hasActiveFilters =
     search !== "" || selectedStages.size > 0 || selectedStatuses.size > 0;
@@ -265,7 +332,10 @@ export function PipelineOverviewTable() {
           onToggle={(value) => toggleSelected(setSelectedStatuses, value)}
           onClear={() => setSelectedStatuses(new Set())}
         />
-        <Select value={sortBy} onValueChange={(value) => changeSort(value as ModuleSortField)}>
+        <Select
+          value={sortBy}
+          onValueChange={(value) => changeSort(value as ModuleSortField)}
+        >
           <SelectTrigger className="sm:w-40" aria-label="Sort papers by">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
@@ -281,7 +351,9 @@ export function PipelineOverviewTable() {
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setSortDirection((current) => current === "asc" ? "desc" : "asc")}
+          onClick={() =>
+            setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
+          }
           aria-label={`Reverse sort order (currently ${sortDirection === "asc" ? "ascending" : "descending"})`}
           title="Reverse sort order"
         >
@@ -327,27 +399,42 @@ export function PipelineOverviewTable() {
       <Table className={enlarged ? "table-fixed" : undefined}>
         <TableHeader>
           <TableRow>
-            {columns.isColumnVisible("paper") ? <TableHead style={enlarged ? { width: "16%" } : undefined}>Paper</TableHead> : null}
+            {columns.isColumnVisible("paper") ? (
+              <TableHead style={enlarged ? { width: "16%" } : undefined}>
+                Paper
+              </TableHead>
+            ) : null}
             {columns.isColumnVisible("pipeline") ? (
-              <TableHead style={enlarged ? undefined : { minWidth: pipelineWidth }}>
+              <TableHead
+                style={enlarged ? undefined : { minWidth: pipelineWidth }}
+              >
                 {enlarged ? (
                   <div
                     className="grid py-3 font-medium uppercase text-primary/70"
-                    style={{ gridTemplateColumns: `repeat(${Math.max(stageNames.length, 1)}, minmax(0, 1fr))` }}
+                    style={{
+                      gridTemplateColumns: `repeat(${Math.max(stageNames.length, 1)}, minmax(0, 1fr))`,
+                    }}
                   >
                     {stageNames.map((name) => (
-                      <div key={name} className="flex min-w-0 items-end justify-center px-0 xl:px-1">
+                      <div
+                        key={name}
+                        className="flex min-w-0 items-end justify-center px-0 xl:px-1"
+                      >
                         <span className="min-w-0 max-w-full break-words text-center text-[11px] leading-tight tracking-tight max-xl:[writing-mode:vertical-rl] max-xl:rotate-180">
                           {name}
                         </span>
                       </div>
                     ))}
                   </div>
-                ) : <PipelineStageRuler stages={stageNames} />}
+                ) : (
+                  <PipelineStageRuler stages={stageNames} />
+                )}
               </TableHead>
             ) : null}
             {columns.isColumnVisible("completion") ? (
-              <TableHead style={enlarged ? { width: "8%" } : undefined}>Progress</TableHead>
+              <TableHead style={enlarged ? { width: "8%" } : undefined}>
+                Progress
+              </TableHead>
             ) : null}
           </TableRow>
         </TableHeader>
@@ -380,13 +467,26 @@ export function PipelineOverviewTable() {
                 ) : null}
 
                 {columns.isColumnVisible("pipeline") ? (
-                  <TableCell style={enlarged ? undefined : { minWidth: pipelineWidth }}>
+                  <TableCell
+                    style={enlarged ? undefined : { minWidth: pipelineWidth }}
+                  >
                     {row.stageIndex === undefined ? (
-                      <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                      <Badge
+                        variant="outline"
+                        className="border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+                      >
                         Unassigned — choose a stage in Papers
                       </Badge>
                     ) : (
-                      <div style={enlarged ? { marginInline: `${50 / Math.max(stageNames.length, 1)}%` } : undefined}>
+                      <div
+                        style={
+                          enlarged
+                            ? {
+                                marginInline: `${50 / Math.max(stageNames.length, 1)}%`,
+                              }
+                            : undefined
+                        }
+                      >
                         <PipelineBar
                           stageIndex={row.stageIndex}
                           stageCount={stageNames.length}
@@ -419,7 +519,8 @@ export function PipelineOverviewTable() {
               Pipeline Paper Overview
             </CardTitle>
             <CardDescription>
-              Every paper&rsquo;s individual position on the pipeline, searchable and filterable by stage.
+              Every paper&rsquo;s individual position on the pipeline,
+              searchable and filterable by stage.
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -434,7 +535,8 @@ export function PipelineOverviewTable() {
         <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>Pipeline Paper Overview</DialogTitle>
           <DialogDescription>
-            Every paper&rsquo;s individual position on the pipeline, searchable and filterable by stage.
+            Every paper&rsquo;s individual position on the pipeline, searchable
+            and filterable by stage.
           </DialogDescription>
         </DialogHeader>
         <div className="flex shrink-0 flex-wrap items-center gap-3">

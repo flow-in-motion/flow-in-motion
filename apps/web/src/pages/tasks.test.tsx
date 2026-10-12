@@ -71,14 +71,23 @@ const sharingMutations = vi.hoisted(() => ({
 
 vi.mock("@/api/client", () => ({
   apiClient: {
-    POST: vi.fn().mockResolvedValue({ data: {}, error: undefined, response: new Response() }),
+    POST: vi
+      .fn()
+      .mockResolvedValue({
+        data: {},
+        error: undefined,
+        response: new Response(),
+      }),
   },
 }));
 
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
-    useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
+    useCurrentWorkspace: () => ({
+      data: { id: fixtures.tenantId },
+      isPending: false,
+    }),
     useTrackEvent: () => vi.fn(),
     useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
     useMembers: () => ({
@@ -93,7 +102,19 @@ vi.mock("@/api/hooks", async () => {
       },
       isPending: false,
     }),
-    useProjects: () => ({ data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } }, isPending: false, isError: false }),
+    useProjects: () => ({
+      data: {
+        data: fixtures.projects,
+        meta: {
+          page: 1,
+          pageSize: 20,
+          totalItems: fixtures.projects.length,
+          totalPages: 1,
+        },
+      },
+      isPending: false,
+      isError: false,
+    }),
     useModules: () => ({
       data: {
         data: fixtures.modules,
@@ -115,12 +136,9 @@ vi.mock("@/api/hooks", async () => {
       void enabled;
       hookMocks.useTasks(tenantId, projectId, page);
       hookMocks.search(options?.search);
-    
-      const tasks = useSyncExternalStore(
-        store.subscribe,
-        store.getTasks,
-      );
-    
+
+      const tasks = useSyncExternalStore(store.subscribe, store.getTasks);
+
       return {
         data: {
           data: tasks,
@@ -174,16 +192,33 @@ vi.mock("@/api/hooks", async () => {
     useTaskMembers: () => ({ data: [], isPending: false }),
     useAddTaskMember: () => ({ mutate: sharingMutations.addTaskMember }),
     useRemoveTaskMember: () => ({ mutate: vi.fn() }),
-    useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
-    useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+    useCollaboratorInvitations: () => ({
+      data: [],
+      isPending: false,
+      isError: false,
+    }),
+    useCreateDraftInvitation: () => ({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
+    useSendInvitation: () => ({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
+    useRevokeCollaboratorInvitation: () => ({
+      mutate: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
     useUserSearch: () => ({ data: [], isPending: false, isError: false }),
   };
 });
 
 describe("TasksPage", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     sharingMutations.addTaskMember.mockClear();
     store.setTasks([
       {
@@ -194,7 +229,8 @@ describe("TasksPage", () => {
         moduleId: null,
         createdBy: "user-owner",
         title: "Submit interim safety report to IRB",
-        description: "Compile interim safety findings and submit the approved report package.",
+        description:
+          "Compile interim safety findings and submit the approved report package.",
         status: "To do",
         priority: "Critical",
         visibility: "Private",
@@ -219,9 +255,7 @@ describe("TasksPage", () => {
       }) => {
         const updated = store
           .getTasks()
-          .map((item) =>
-            item.id === taskId ? { ...item, ...input } : item,
-          );
+          .map((item) => (item.id === taskId ? { ...item, ...input } : item));
         store.setTasks(updated);
         return updated.find((item) => item.id === taskId);
       },
@@ -231,35 +265,53 @@ describe("TasksPage", () => {
     hookMocks.pagination.totalPages = 1;
   });
   it("preserves server matches when the linked paper is outside the loaded paper page", async () => {
-    store.setTasks(store.getTasks().map((task) => ({ ...task, moduleId: "paper-outside-page", title: "Prepare draft" })));
-    render(<MemoryRouter><TasksPage /></MemoryRouter>);
-    fireEvent.change(screen.getByPlaceholderText("Search tasks…"), { target: { value: "quantum paper" } });
-    await waitFor(() => expect(hookMocks.search).toHaveBeenLastCalledWith("quantum paper"));
-    expect(screen.getByRole("link", { name: "Prepare draft" })).toBeInTheDocument();
-  });
-
-  it("returns to page 1 when the search changes", async () => {
-    hookMocks.pagination.totalItems = 21;
-    hookMocks.pagination.totalPages = 2;
-  
+    store.setTasks(
+      store
+        .getTasks()
+        .map((task) => ({
+          ...task,
+          moduleId: "paper-outside-page",
+          title: "Prepare draft",
+        })),
+    );
     render(
       <MemoryRouter>
         <TasksPage />
       </MemoryRouter>,
     );
-  
+    fireEvent.change(screen.getByPlaceholderText("Search tasks…"), {
+      target: { value: "quantum paper" },
+    });
+    await waitFor(() =>
+      expect(hookMocks.search).toHaveBeenLastCalledWith("quantum paper"),
+    );
+    expect(
+      screen.getByRole("link", { name: "Prepare draft" }),
+    ).toBeInTheDocument();
+  });
+
+  it("returns to page 1 when the search changes", async () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+
+    render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  
+
     expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
       fixtures.tenantId,
       undefined,
       2,
     );
-  
+
     fireEvent.change(screen.getByPlaceholderText("Search tasks…"), {
       target: { value: "safety" },
     });
-  
+
     await waitFor(() => {
       expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
         fixtures.tenantId,
@@ -268,31 +320,31 @@ describe("TasksPage", () => {
       );
     });
   });
-  
+
   it("requests the next page when Next is clicked", () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;
-  
+
     render(
       <MemoryRouter>
         <TasksPage />
       </MemoryRouter>,
     );
-  
+
     expect(hookMocks.useTasks).toHaveBeenCalledWith(
       fixtures.tenantId,
       undefined,
       1,
     );
-  
+
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-  
+
     expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
       fixtures.tenantId,
       undefined,
       2,
     );
-  
+
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
   it("shows the due date in the table and new-task form", () => {
@@ -302,14 +354,18 @@ describe("TasksPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("button", { name: "Sort by Due" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Due" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "New Task" }));
 
     const dueDate = screen.getByLabelText(/Due date/);
     expect(dueDate).toHaveAttribute("placeholder", "DD/MM/YYYY");
     expect(dueDate).not.toBeRequired();
-    expect(screen.getByRole("button", { name: "Choose due date" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Choose due date" }),
+    ).toBeInTheDocument();
   });
 
   it("changes a task status directly from its list row", async () => {
@@ -363,7 +419,9 @@ describe("TasksPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("button", { name: "Sort by Created" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Created" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("01/01/2026")).toBeInTheDocument();
   });
 
@@ -417,7 +475,9 @@ describe("TasksPage", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Visibility" }));
     fireEvent.click(screen.getByRole("option", { name: "Shared" }));
 
-    expect(screen.queryByRole("combobox", { name: /Share with/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /Share with/ }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText(
         "After creating the task, open it to invite collaborators by email using a secure acceptance link.",
@@ -426,7 +486,9 @@ describe("TasksPage", () => {
   });
 
   it("shows the collaborators icon only for shared tasks the current user owns", () => {
-    store.setTasks(store.getTasks().map((task) => ({ ...task, visibility: "Shared" })));
+    store.setTasks(
+      store.getTasks().map((task) => ({ ...task, visibility: "Shared" })),
+    );
 
     render(
       <MemoryRouter>
@@ -461,7 +523,9 @@ describe("TasksPage", () => {
     );
 
     expect(
-      screen.getByRole("link", { name: "Edit Submit interim safety report to IRB" }),
+      screen.getByRole("link", {
+        name: "Edit Submit interim safety report to IRB",
+      }),
     ).toHaveAttribute("href", "/tasks/task-1?edit=true");
   });
 
@@ -474,11 +538,15 @@ describe("TasksPage", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Delete Submit interim safety report to IRB" }),
+      screen.getByRole("button", {
+        name: "Delete Submit interim safety report to IRB",
+      }),
     );
 
     await waitFor(() =>
-      expect(screen.getByText("No tasks match the current filters.")).toBeInTheDocument(),
+      expect(
+        screen.getByText("No tasks match the current filters."),
+      ).toBeInTheDocument(),
     );
   });
 });

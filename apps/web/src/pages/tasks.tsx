@@ -2,6 +2,7 @@ import { useListSearch } from "@/hooks/use-list-search";
 import { useEffect, useMemo, useState } from "react";
 import { ListTodo, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
   useCreateTask,
@@ -122,9 +123,20 @@ function priorityPillClass(priority: string | null) {
 export default function TasksPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
+  const me = useMe();
 
-  const { page, setPage, search, setSearch, requestSearch } = useListSearch();
-  const [pageSize, setPageSize] = useState<number | "all">(20);
+  const { page, setPage, search, setSearch, requestSearch } = useListSearch({
+    userId: me.data?.id,
+    workspaceId: tenantId,
+    preferenceKey: "tasks",
+  });
+
+  const [pageSize, setPageSize] = useSessionListState<number | "all">(
+    me.data?.id,
+    tenantId,
+    "tasks:page-size",
+    20,
+  );
 
   const tasksQuery = useTasks(tenantId, undefined, page, true, {
     pageSize,
@@ -141,7 +153,6 @@ export default function TasksPage() {
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [sharingTask, setSharingTask] = useState<ApiTask | null>(null);
-  const me = useMe();
   const membersQuery = useMembers(tenantId, 1, sharingTask !== null);
   const members = membersQuery.data?.data ?? [];
 
@@ -150,10 +161,30 @@ export default function TasksPage() {
   const deleteTask = useDeleteTask(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
-  const [status, setStatus] = useState<StatusFilter>("All");
-  const [priority, setPriority] = useState<PriorityFilter>("All");
-  const [sortColumn, setSortColumn] = useState<SortColumn>("due");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [status, setStatus] = useSessionListState<StatusFilter>(
+    me.data?.id,
+    tenantId,
+    "tasks:status",
+    "All",
+  );
+  const [priority, setPriority] = useSessionListState<PriorityFilter>(
+    me.data?.id,
+    tenantId,
+    "tasks:priority",
+    "All",
+  );
+  const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
+    me.data?.id,
+    tenantId,
+    "tasks:sort-column",
+    "due",
+  );
+  const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
+    me.data?.id,
+    tenantId,
+    "tasks:sort-direction",
+    "asc",
+  );
   useEffect(() => {
     setPage(1);
   }, [setPage, tenantId, status, priority, sortColumn, sortDirection]);

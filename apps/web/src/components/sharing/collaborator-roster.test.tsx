@@ -2,11 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CollaboratorRoster } from "@/components/sharing/collaborator-roster";
-import type {
-  ApiInvitation,
-  ApiUserSearchResult,
-} from "@/api/hooks";
-
+import type { ApiInvitation, ApiUserSearchResult } from "@/api/hooks";
 
 const invitations = vi.hoisted(() => ({ current: [] as ApiInvitation[] }));
 const userSearchResults = vi.hoisted(() => ({
@@ -17,7 +13,8 @@ const revokeInvitationMutate = vi.hoisted(() => vi.fn());
 const createDraftMutate = vi.hoisted(() => vi.fn().mockResolvedValue({}));
 
 vi.mock("@/api/hooks", async () => {
-  const actual = await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
+  const actual =
+    await vi.importActual<typeof import("@/api/hooks")>("@/api/hooks");
   return {
     ...actual,
     useCollaboratorInvitations: () => ({
@@ -40,6 +37,10 @@ vi.mock("@/api/hooks", async () => {
       isPending: false,
       isError: false,
     }),
+    useMe: () => ({
+      data: { id: "user-owner" },
+      isPending: false,
+    }),
     useUserSearch: () => ({
       data: userSearchResults.current,
       isPending: false,
@@ -47,10 +48,14 @@ vi.mock("@/api/hooks", async () => {
   };
 });
 
-const timestamps = { createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+const timestamps = {
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
 
 describe("CollaboratorRoster", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     invitations.current = [];
     userSearchResults.current = [];
     vi.clearAllMocks();
@@ -105,9 +110,15 @@ describe("CollaboratorRoster", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Invite" }));
 
-    await waitFor(() => expect(sendInvitationMutate).toHaveBeenCalledWith("invite-1"));
-    await waitFor(() => expect(window.location.href).toContain("mailto:jamie%40example.com"));
-    expect(window.location.href).toContain(encodeURIComponent("Draft literature review"));
+    await waitFor(() =>
+      expect(sendInvitationMutate).toHaveBeenCalledWith("invite-1"),
+    );
+    await waitFor(() =>
+      expect(window.location.href).toContain("mailto:jamie%40example.com"),
+    );
+    expect(window.location.href).toContain(
+      encodeURIComponent("Draft literature review"),
+    );
     expect(window.location.href).toContain("raw-token-123");
 
     Object.defineProperty(window, "location", {
@@ -148,7 +159,11 @@ describe("CollaboratorRoster", () => {
     expect(screen.getByText("pending@example.com")).toBeInTheDocument();
     expect(screen.getByText(/Pending/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Revoke invitation for pending@example.com" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Revoke invitation for pending@example.com",
+      }),
+    );
 
     expect(revokeInvitationMutate).toHaveBeenCalledWith("invite-2");
   });
@@ -274,7 +289,12 @@ describe("CollaboratorRoster", () => {
         entityTitle="Draft literature review"
         members={[]}
         collaborators={[
-          { id: "member-1", userId: "user-2", displayName: "Alice Anders", email: "alice@example.com" },
+          {
+            id: "member-1",
+            userId: "user-2",
+            displayName: "Alice Anders",
+            email: "alice@example.com",
+          },
         ]}
         onRemoveCollaborator={vi.fn()}
         canManage={false}
@@ -282,7 +302,11 @@ describe("CollaboratorRoster", () => {
     );
 
     expect(screen.getByText("Alice Anders")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add collaborator" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Remove/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add collaborator" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Remove/ }),
+    ).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi,beforeEach } from "vitest";
 
 import {
   ModuleCollaboratorsManager,
@@ -48,6 +48,10 @@ const collaborators: ApiCollaborator[] = [
 const invitations: ApiInvitation[] = [];
 const removeCollaboratorMutate = vi.fn();
 const createDraftMutate = vi.fn();
+
+beforeEach(() => {
+  window.sessionStorage.clear();
+});
 
 vi.mock("@/api/hooks", async () => {
   const actual =

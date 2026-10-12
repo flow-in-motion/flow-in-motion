@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -86,13 +92,11 @@ const hookMocks = vi.hoisted(() => ({
 
 vi.mock("@/api/client", () => ({
   apiClient: {
-    POST: vi
-      .fn()
-      .mockResolvedValue({
-        data: {},
-        error: undefined,
-        response: new Response(),
-      }),
+    POST: vi.fn().mockResolvedValue({
+      data: {},
+      error: undefined,
+      response: new Response(),
+    }),
   },
 }));
 
@@ -243,6 +247,7 @@ function renderPage() {
 
 describe("ProjectsPage", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     window.localStorage?.clear();
     fixtures.projects = [fixtures.project];
     fixtures.modules = [fixtures.module];

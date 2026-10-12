@@ -53,8 +53,17 @@ const fixtures = vi.hoisted(() => ({
     { id: "project-21", title: "Remote Telco Project", displayId: "PRJ-021" },
   ],
   modules: [
-    { id: "module-1", shortTitle: "Assay optimization", title: "Assay optimization" },
-    { id: "module-21", shortTitle: "Remote paper match", title: "Remote paper match", displayId: "PAP-021" },
+    {
+      id: "module-1",
+      shortTitle: "Assay optimization",
+      title: "Assay optimization",
+    },
+    {
+      id: "module-21",
+      shortTitle: "Remote paper match",
+      title: "Remote paper match",
+      displayId: "PAP-021",
+    },
   ],
 }));
 
@@ -63,17 +72,39 @@ const deleteNoteMock = vi.hoisted(() => vi.fn());
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
-    useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
+    useCurrentWorkspace: () => ({
+      data: { id: fixtures.tenantId },
+      isPending: false,
+    }),
     useTrackEvent: () => vi.fn(),
     useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
     useMembers: () => ({
-      data: { data: [], meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 } },
+      data: {
+        data: [],
+        meta: { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 },
+      },
       isPending: false,
     }),
-    useCollaboratorInvitations: () => ({ data: [], isPending: false, isError: false }),
-    useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
-    useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+    useCollaboratorInvitations: () => ({
+      data: [],
+      isPending: false,
+      isError: false,
+    }),
+    useCreateDraftInvitation: () => ({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
+    useSendInvitation: () => ({
+      mutateAsync: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
+    useRevokeCollaboratorInvitation: () => ({
+      mutate: vi.fn(),
+      isPending: false,
+      isError: false,
+    }),
     useUserSearch: () => ({ data: [], isPending: false, isError: false }),
     useNoteMembers: () => ({ data: [], isPending: false }),
     useRemoveNoteMember: () => ({ mutate: vi.fn(), isPending: false }),
@@ -96,7 +127,12 @@ vi.mock("@/api/hooks", async () => {
         data: {
           data,
           generalProject: null,
-          meta: { page: 1, pageSize: options?.pageSize ?? 20, totalItems: data.length, totalPages: 1 },
+          meta: {
+            page: 1,
+            pageSize: options?.pageSize ?? 20,
+            totalItems: data.length,
+            totalPages: 1,
+          },
         },
         isPending: false,
         isFetching: false,
@@ -116,18 +152,31 @@ vi.mock("@/api/hooks", async () => {
         ? []
         : search
           ? fixtures.modules.filter((module) =>
-              `${module.shortTitle} ${module.title}`.toLowerCase().includes(search),
+              `${module.shortTitle} ${module.title}`
+                .toLowerCase()
+                .includes(search),
             )
           : fixtures.modules.slice(0, 1);
       return {
         data: {
           data,
-          meta: { page: 1, pageSize: options?.pageSize ?? 20, totalItems: data.length, totalPages: 1 },
+          meta: {
+            page: 1,
+            pageSize: options?.pageSize ?? 20,
+            totalItems: data.length,
+            totalPages: 1,
+          },
         },
         isFetching: false,
       };
     },
-    useNotes: (tenantId: string, projectId?: string, page = 1, _enabled = true, options?: { search?: string }) => {
+    useNotes: (
+      tenantId: string,
+      projectId?: string,
+      page = 1,
+      _enabled = true,
+      options?: { search?: string },
+    ) => {
       void _enabled;
       hookMocks.useNotes(tenantId, projectId, page);
 
@@ -135,7 +184,13 @@ vi.mock("@/api/hooks", async () => {
 
       return {
         data: {
-          data: notes.filter((note) => !options?.search || `${note.title ?? ""} ${note.content ?? ""}`.toLowerCase().includes(options.search.toLowerCase())),
+          data: notes.filter(
+            (note) =>
+              !options?.search ||
+              `${note.title ?? ""} ${note.content ?? ""}`
+                .toLowerCase()
+                .includes(options.search.toLowerCase()),
+          ),
           meta: {
             page,
             pageSize: 20,
@@ -187,6 +242,7 @@ function renderPage(initialEntries: string[] = ["/daily-notes"]) {
 
 describe("DailyNotesPage", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     hookMocks.useNotes.mockClear();
     hookMocks.useModules.mockClear();
     hookMocks.useProjects.mockClear();
@@ -216,16 +272,26 @@ describe("DailyNotesPage", () => {
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Notes" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Initial observations" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sort by Note" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sort by Created" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Initial observations" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Note" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Created" }),
+    ).toBeInTheDocument();
   });
 
   it("shows note content in its own column, without needing to expand", () => {
     renderPage();
 
-    expect(screen.getByRole("button", { name: "Sort by Content" })).toBeInTheDocument();
-    expect(screen.getByText("Baseline readings look consistent.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Sort by Content" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Baseline readings look consistent."),
+    ).toBeInTheDocument();
   });
 
   it("requests the next notes page when Next is clicked", () => {
@@ -234,11 +300,19 @@ describe("DailyNotesPage", () => {
 
     renderPage();
 
-    expect(hookMocks.useNotes).toHaveBeenCalledWith(fixtures.tenantId, undefined, 1);
+    expect(hookMocks.useNotes).toHaveBeenCalledWith(
+      fixtures.tenantId,
+      undefined,
+      1,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
-    expect(hookMocks.useNotes).toHaveBeenLastCalledWith(fixtures.tenantId, undefined, 2);
+    expect(hookMocks.useNotes).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      undefined,
+      2,
+    );
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
 
@@ -252,7 +326,9 @@ describe("DailyNotesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Note" }));
 
     await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Reagent calibration notes" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("link", { name: "Reagent calibration notes" }),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -262,7 +338,9 @@ describe("DailyNotesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "New Note" }));
     fireEvent.click(screen.getByRole("button", { name: "Project" }));
 
-    expect(screen.getByPlaceholderText("Search all projects…")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Search all projects…"),
+    ).toBeInTheDocument();
   });
 
   it("searches all projects before pagination when linking a new note", async () => {
@@ -283,8 +361,12 @@ describe("DailyNotesPage", () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole("option", { name: /Remote Telco Project/ }));
-    expect(screen.getByDisplayValue("Remote Telco Project")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("option", { name: /Remote Telco Project/ }),
+    );
+    expect(
+      screen.getByDisplayValue("Remote Telco Project"),
+    ).toBeInTheDocument();
   });
 
   it("searches all papers before pagination when linking a new note", async () => {
@@ -336,8 +418,13 @@ describe("DailyNotesPage", () => {
   it("pre-fills and opens the create dialog when linked via a project's Add note action", () => {
     renderPage(["/daily-notes?projectId=project-1&new=true"]);
 
-    expect(screen.getByRole("dialog", { name: "Create a new note" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("dialog", { name: "Create a new note" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Project" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByDisplayValue("Genome Project")).toBeInTheDocument();
   });
 
@@ -365,17 +452,27 @@ describe("DailyNotesPage", () => {
       target: { value: "Reagent" },
     });
 
-    expect(screen.getByRole("link", { name: "Reagent calibration" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByRole("link", { name: "Initial observations" })).not.toBeInTheDocument());
+    expect(
+      screen.getByRole("link", { name: "Reagent calibration" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("link", { name: "Initial observations" }),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("shows the collaborators icon only for shared notes the current user owns", () => {
-    store.setNotes(store.getNotes().map((note) => ({ ...note, visibility: "Shared" })));
+    store.setNotes(
+      store.getNotes().map((note) => ({ ...note, visibility: "Shared" })),
+    );
 
     renderPage();
 
     expect(
-      screen.getByRole("button", { name: "Manage collaborators for Initial observations" }),
+      screen.getByRole("button", {
+        name: "Manage collaborators for Initial observations",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -391,7 +488,9 @@ describe("DailyNotesPage", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete Initial observations" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Initial observations" }),
+    );
 
     expect(deleteNoteMock).toHaveBeenCalledWith("note-1");
   });
@@ -420,10 +519,14 @@ describe("DailyNotesPage", () => {
 
     renderPage();
 
-    expect(screen.getByRole("link", { name: "Untitled note" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Untitled note" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Note" }));
 
-    expect(screen.getByRole("link", { name: "Untitled note" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Untitled note" }),
+    ).toBeInTheDocument();
   });
 });

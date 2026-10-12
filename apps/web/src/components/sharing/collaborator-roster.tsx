@@ -10,10 +10,12 @@ import {
   type ApiInvitation,
   type InvitationTarget,
   type Membership,
+  useMe,
 } from "@/api/hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 export interface RosterCollaborator {
   id: string;
@@ -52,7 +54,9 @@ function buildInvitationMailto(input: {
 }) {
   const subject = `Invitation to collaborate on ${input.entityTitle}`;
   const greeting = input.name ? `Hi ${input.name},` : "Hello,";
-  const expiry = input.expiresAt ? new Date(input.expiresAt).toLocaleDateString() : null;
+  const expiry = input.expiresAt
+    ? new Date(input.expiresAt).toLocaleDateString()
+    : null;
   const body = [
     greeting,
     "",
@@ -81,13 +85,17 @@ function formatContactLine(entry: {
       {entry.email ? (
         <>
           <span className="shrink-0 text-muted-foreground">·</span>
-          <span className="truncate text-xs text-muted-foreground">{entry.email}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {entry.email}
+          </span>
         </>
       ) : null}
       {entry.affiliation ? (
         <>
           <span className="shrink-0 text-muted-foreground">·</span>
-          <span className="truncate text-xs text-muted-foreground">{entry.affiliation}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {entry.affiliation}
+          </span>
         </>
       ) : null}
     </span>
@@ -107,26 +115,37 @@ export function CollaboratorRoster({
   canManage,
   noCollaboratorsMessage = "No additional collaborators yet.",
 }: CollaboratorRosterProps) {
-  const invitationsQuery = useCollaboratorInvitations(target, tenantId, entityId, canManage);
+  const me = useMe();
+  const invitationsQuery = useCollaboratorInvitations(
+    target,
+    tenantId,
+    entityId,
+    canManage,
+  );
   const createDraft = useCreateDraftInvitation(target, tenantId, entityId);
   const sendInvitation = useSendInvitation(target, tenantId, entityId);
-  const revokeInvitation = useRevokeCollaboratorInvitation(target, tenantId, entityId);
+  const revokeInvitation = useRevokeCollaboratorInvitation(
+    target,
+    tenantId,
+    entityId,
+  );
   const [sendingId, setSendingId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [affiliation, setAffiliation] = useState("");
-  const [activePicker, setActivePicker] = useState<
-    "name" | "email" | null
-  >(null);
+  const [activePicker, setActivePicker] = useState<"name" | "email" | null>(
+    null,
+  );
   const searchQuery =
-    activePicker === "name"
-      ? name
-      : activePicker === "email"
-        ? email
-        : "";
+    activePicker === "name" ? name : activePicker === "email" ? email : "";
   const userSearch = useUserSearch(searchQuery, activePicker !== null);
-  const [filterQuery, setFilterQuery] = useState("");
+  const [filterQuery, setFilterQuery] = useSessionListState<string>(
+    me.data?.id,
+    tenantId,
+    `collaborators:${target}:${entityId}:search`,
+    "",
+  );
 
   const memberByUserId = useMemo(() => {
     const map = new Map<string, Membership>();
@@ -143,20 +162,30 @@ export function CollaboratorRoster({
   const trimmedFilterQuery = filterQuery.trim().toLowerCase();
   const filteredCollaborators = trimmedFilterQuery
     ? collaborators.filter((collaborator) =>
-        [collaborator.displayName, collaborator.email, collaborator.affiliation].some((value) =>
-          value?.toLowerCase().includes(trimmedFilterQuery),
-        ),
+        [
+          collaborator.displayName,
+          collaborator.email,
+          collaborator.affiliation,
+        ].some((value) => value?.toLowerCase().includes(trimmedFilterQuery)),
       )
     : collaborators;
 
   const invitations = invitationsQuery.data ?? [];
-  const drafts = invitations.filter((invitation) => invitation.status === "draft");
-  const pending = invitations.filter((invitation) => invitation.status === "pending");
+  const drafts = invitations.filter(
+    (invitation) => invitation.status === "draft",
+  );
+  const pending = invitations.filter(
+    (invitation) => invitation.status === "pending",
+  );
 
   const collaboratorEmails = new Set(
-    collaborators.map((collaborator) => collaborator.email?.toLowerCase()).filter(Boolean),
+    collaborators
+      .map((collaborator) => collaborator.email?.toLowerCase())
+      .filter(Boolean),
   );
-  const pendingEmails = new Set(pending.map((invitation) => invitation.email.toLowerCase()));
+  const pendingEmails = new Set(
+    pending.map((invitation) => invitation.email.toLowerCase()),
+  );
   const availableUsers = (userSearch.data ?? []).filter(
     (user) =>
       user.id !== ownerUserId &&
@@ -165,7 +194,10 @@ export function CollaboratorRoster({
   );
 
   const hasNothingToShow =
-    !showOwnerRow && collaborators.length === 0 && drafts.length === 0 && pending.length === 0;
+    !showOwnerRow &&
+    collaborators.length === 0 &&
+    drafts.length === 0 &&
+    pending.length === 0;
   const filterMatchesNothing =
     trimmedFilterQuery.length > 0 &&
     filteredCollaborators.length === 0 &&
@@ -225,9 +257,7 @@ export function CollaboratorRoster({
         className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
       >
         {userSearch.isPending ? (
-          <p className="px-3 py-2 text-sm text-muted-foreground">
-            Searching…
-          </p>
+          <p className="px-3 py-2 text-sm text-muted-foreground">Searching…</p>
         ) : availableUsers.length ? (
           availableUsers.map((user) => (
             <button
@@ -284,7 +314,9 @@ export function CollaboratorRoster({
           >
             {formatContactLine(collaborator)}
             <div className="flex items-center gap-2">
-              <Badge variant="outline">{collaborator.role ?? "Collaborator"}</Badge>
+              <Badge variant="outline">
+                {collaborator.role ?? "Collaborator"}
+              </Badge>
               {canManage && collaborator.userId !== ownerUserId ? (
                 <button
                   type="button"
@@ -350,7 +382,10 @@ export function CollaboratorRoster({
                 affiliation: invitation.affiliation,
               })}
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Pending{invitation.expiresAt ? ` · expires ${new Date(invitation.expiresAt).toLocaleDateString()}` : ""}
+                Pending
+                {invitation.expiresAt
+                  ? ` · expires ${new Date(invitation.expiresAt).toLocaleDateString()}`
+                  : ""}
               </p>
             </div>
             {canManage ? (
@@ -369,22 +404,29 @@ export function CollaboratorRoster({
         ))}
 
         {filterMatchesNothing ? (
-          <p className="text-sm text-muted-foreground">No collaborators match &quot;{filterQuery.trim()}&quot;.</p>
+          <p className="text-sm text-muted-foreground">
+            No collaborators match &quot;{filterQuery.trim()}&quot;.
+          </p>
         ) : hasNothingToShow ? (
-          <p className="text-sm text-muted-foreground">{noCollaboratorsMessage}</p>
+          <p className="text-sm text-muted-foreground">
+            {noCollaboratorsMessage}
+          </p>
         ) : null}
       </div>
 
       {canManage ? (
-        <form onSubmit={(event) => void handleAddDraft(event)} className="grid gap-3 border-t border-border/70 pt-4">
+        <form
+          onSubmit={(event) => void handleAddDraft(event)}
+          className="grid gap-3 border-t border-border/70 pt-4"
+        >
           <div>
             <p className="text-sm font-semibold">Add a collaborator</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Enter their name, email, and affiliation. Nothing is sent until you click Invite.
+              Enter their name, email, and affiliation. Nothing is sent until
+              you click Invite.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
-
             <div
               className="relative"
               onBlur={(event) => {
@@ -438,7 +480,9 @@ export function CollaboratorRoster({
                 }}
                 placeholder="Email"
                 aria-label="Collaborator email"
-                aria-expanded={activePicker === "email" && Boolean(email.trim())}
+                aria-expanded={
+                  activePicker === "email" && Boolean(email.trim())
+                }
                 aria-controls="collaborator-roster-email-options"
                 aria-autocomplete="list"
                 autoComplete="off"
@@ -460,17 +504,28 @@ export function CollaboratorRoster({
               aria-label="Collaborator affiliation"
             />
           </div>
-          <Button type="submit" size="sm" className="w-fit" disabled={createDraft.isPending || !email.trim()}>
+          <Button
+            type="submit"
+            size="sm"
+            className="w-fit"
+            disabled={createDraft.isPending || !email.trim()}
+          >
             {createDraft.isPending ? "Adding…" : "Add collaborator"}
           </Button>
           {createDraft.isError ? (
-            <p className="text-xs text-destructive">{createDraft.error.message}</p>
+            <p className="text-xs text-destructive">
+              {createDraft.error.message}
+            </p>
           ) : null}
           {sendInvitation.isError ? (
-            <p className="text-xs text-destructive">{sendInvitation.error.message}</p>
+            <p className="text-xs text-destructive">
+              {sendInvitation.error.message}
+            </p>
           ) : null}
           {revokeInvitation.isError ? (
-            <p className="text-xs text-destructive">{revokeInvitation.error.message}</p>
+            <p className="text-xs text-destructive">
+              {revokeInvitation.error.message}
+            </p>
           ) : null}
         </form>
       ) : null}

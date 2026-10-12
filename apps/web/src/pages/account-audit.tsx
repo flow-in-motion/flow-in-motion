@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Search, ShieldCheck } from "lucide-react";
 
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -20,10 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  accountAuditEvents,
-  type AuditEventType,
-} from "@/data/account-audit";
+import { accountAuditEvents, type AuditEventType } from "@/data/account-audit";
+import { useCurrentWorkspace, useMe } from "@/api/hooks";
+import { useSessionListState } from "@/hooks/use-session-list-state";
 
 const ALL_EVENTS = "All event types";
 const ALL_RESULTS = "All results";
@@ -42,9 +41,30 @@ function formatAuditDate(iso: string) {
 }
 
 export default function AccountAuditPage() {
-  const [search, setSearch] = useState("");
-  const [eventType, setEventType] = useState<string>(ALL_EVENTS);
-  const [result, setResult] = useState<string>(ALL_RESULTS);
+  const workspace = useCurrentWorkspace();
+  const tenantId = workspace.data?.id ?? "";
+  const me = useMe();
+
+  const [search, setSearch] = useSessionListState<string>(
+    me.data?.id,
+    tenantId,
+    "account-audit:search",
+    "",
+  );
+
+  const [eventType, setEventType] = useSessionListState<string>(
+    me.data?.id,
+    tenantId,
+    "account-audit:event-type",
+    ALL_EVENTS,
+  );
+
+  const [result, setResult] = useSessionListState<string>(
+    me.data?.id,
+    tenantId,
+    "account-audit:result",
+    ALL_RESULTS,
+  );
 
   const filteredEvents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -78,20 +98,25 @@ export default function AccountAuditPage() {
         eyebrow="Security"
         title="Account Audit"
         description="Review security, sign-in and access events for your account."
-        actions={<div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search audit log…"
-            className="h-10 bg-card pl-9"
-          />
-        </div>}
+        actions={
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search audit log…"
+              className="h-10 bg-card pl-9"
+            />
+          </div>
+        }
       />
 
       <div className="surface-toolbar flex flex-col gap-3 sm:flex-row sm:items-center">
         <Select value={eventType} onValueChange={setEventType}>
-          <SelectTrigger className="w-full bg-card sm:w-52" aria-label="Filter by event type">
+          <SelectTrigger
+            className="w-full bg-card sm:w-52"
+            aria-label="Filter by event type"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -105,7 +130,10 @@ export default function AccountAuditPage() {
         </Select>
 
         <Select value={result} onValueChange={setResult}>
-          <SelectTrigger className="w-full bg-card sm:w-44" aria-label="Filter by result">
+          <SelectTrigger
+            className="w-full bg-card sm:w-44"
+            aria-label="Filter by result"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -116,7 +144,8 @@ export default function AccountAuditPage() {
         </Select>
 
         <span className="text-sm text-muted-foreground">
-          {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
+          {filteredEvents.length}{" "}
+          {filteredEvents.length === 1 ? "event" : "events"}
         </span>
       </div>
 
@@ -152,7 +181,9 @@ export default function AccountAuditPage() {
                   <TableCell className="whitespace-nowrap px-4 text-sm text-muted-foreground">
                     {formatAuditDate(entry.occurredAt)}
                   </TableCell>
-                  <TableCell className="px-4 font-semibold">{entry.event}</TableCell>
+                  <TableCell className="px-4 font-semibold">
+                    {entry.event}
+                  </TableCell>
                   <TableCell className="px-4">
                     <StatusBadge status={entry.result} />
                   </TableCell>
@@ -161,12 +192,17 @@ export default function AccountAuditPage() {
                       ? entry.device
                       : `${entry.device} · ${entry.location}`}
                   </TableCell>
-                  <TableCell className="px-4 text-muted-foreground">{entry.detail}</TableCell>
+                  <TableCell className="px-4 text-muted-foreground">
+                    {entry.detail}
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={5}
+                  className="h-32 text-center text-muted-foreground"
+                >
                   No audit events match the selected filters.
                 </TableCell>
               </TableRow>
