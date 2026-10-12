@@ -16,7 +16,6 @@ import {
   Trash2,
   Unlink,
   Users,
-  X,
 } from "lucide-react";
 import {
   Link,
@@ -756,29 +755,22 @@ export default function ProjectDetailPage() {
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={project.status ?? "—"} />
-            {form ? (
-              <Button type="button" variant="outline" onClick={cancelEditing}>
-                <X />
-                Cancel Editing
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsArchiveOpen(true)}
+              disabled={archiveProject.isPending}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 />
+              Delete Project
+            </Button>
+            {!form ? (
+              <Button type="button" onClick={beginEditing}>
+                <Pencil />
+                Edit Project
               </Button>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsArchiveOpen(true)}
-                  disabled={archiveProject.isPending}
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 />
-                  Delete Project
-                </Button>
-                <Button type="button" onClick={beginEditing}>
-                  <Pencil />
-                  Edit Project
-                </Button>
-              </>
-            )}
+            ) : null}
           </div>
         }
       >

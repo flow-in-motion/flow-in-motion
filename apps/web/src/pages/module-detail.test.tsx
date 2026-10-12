@@ -441,7 +441,7 @@ describe("ModuleDetailPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancel Editing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(
       screen.getByRole("heading", { name: "Pipeline" }),
@@ -458,7 +458,7 @@ describe("ModuleDetailPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancel Editing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(
       screen.getByRole("button", { name: "Edit Paper" }),
