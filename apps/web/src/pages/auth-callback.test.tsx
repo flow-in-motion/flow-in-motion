@@ -36,6 +36,32 @@ function renderPage(path: string) {
 }
 
 describe("AuthCallbackPage", () => {
+  it("rejects a seven-character password before calling auth", () => {
+    mockUseAuth.mockReturnValue({
+      error: null,
+      isLoading: false,
+      isAuthenticated: true,
+      confirmEmail,
+      updatePassword,
+    });
+
+    renderPage("/auth/callback?token_hash=def456&type=recovery");
+
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "Ab3!xyZ" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm password"), {
+      target: { value: "Ab3!xyZ" },
+    });
+
+    fireEvent.submit(screen.getByLabelText("New password").closest("form")!);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use at least 8 characters.",
+    );
+    expect(updatePassword).not.toHaveBeenCalled();
+  });
+
   it("verifies a recovery link's token_hash through supabase-js instead of relying on a raw Supabase redirect", async () => {
     renderPage("/auth/callback?token_hash=def456&type=recovery");
 
@@ -81,32 +107,42 @@ describe("AuthCallbackPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("lets a verified user choose a new password and continues into the app", async () => {
-    mockUseAuth.mockReturnValue({
-      error: null,
-      isLoading: false,
-      isAuthenticated: true,
-      confirmEmail,
-      updatePassword,
-    });
+  it.each(["Ab3!xyZ9", "a-strong-password"])(
+    "accepts an eight-character or longer recovery password: %s",
+    async (password) => {
+      mockUseAuth.mockReturnValue({
+        error: null,
+        isLoading: false,
+        isAuthenticated: true,
+        confirmEmail,
+        updatePassword,
+      });
 
-    renderPage("/auth/callback?token_hash=def456&type=recovery");
+      renderPage("/auth/callback?token_hash=def456&type=recovery");
 
-    fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "a-strong-password" },
-    });
-    fireEvent.change(screen.getByLabelText("Confirm password"), {
-      target: { value: "a-strong-password" },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Save password and continue" }),
-    );
+      expect(screen.getByLabelText("New password")).toHaveAttribute(
+        "minlength",
+        "8",
+      );
+      expect(screen.getByLabelText("Confirm password")).toHaveAttribute(
+        "minlength",
+        "8",
+      );
 
-    await waitFor(() =>
-      expect(updatePassword).toHaveBeenCalledWith("a-strong-password"),
-    );
-    await waitFor(() =>
-      expect(screen.getByText("Workspace home")).toBeInTheDocument(),
-    );
-  });
+      fireEvent.change(screen.getByLabelText("New password"), {
+        target: { value: password },
+      });
+      fireEvent.change(screen.getByLabelText("Confirm password"), {
+        target: { value: password },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Save password and continue" }),
+      );
+
+      await waitFor(() =>
+        expect(updatePassword).toHaveBeenCalledWith(password),
+      );
+      expect(await screen.findByText("Workspace home")).toBeInTheDocument();
+    },
+  );
 });

@@ -30,8 +30,8 @@ export default function SignUpPage() {
     event.preventDefault();
     setFormError(undefined);
 
-    if (password.length < 12) {
-      setFormError("Use at least 12 characters for your password.");
+    if (password.length < 8) {
+      setFormError("Use at least 8 characters for your password.");
       return;
     }
     if (password !== confirmation) {
@@ -123,7 +123,7 @@ export default function SignUpPage() {
                 id="sign-up-password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
-                minLength={12}
+                minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="pr-11"
@@ -140,7 +140,7 @@ export default function SignUpPage() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Use at least 12 characters.
+              Use at least 8 characters.
             </p>
           </div>
           <div className="grid gap-1.5">
@@ -154,7 +154,7 @@ export default function SignUpPage() {
               id="sign-up-confirmation"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
-              minLength={12}
+              minLength={8}
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value)}
               required

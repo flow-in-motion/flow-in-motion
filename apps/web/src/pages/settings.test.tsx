@@ -61,25 +61,25 @@ vi.mock("@/api/hooks", () => ({
         },
       ],
       useWorkspaces: () => ({
-  data: {
-    data: [
-      {
-        id: "workspace-1",
-        name: "Research Operations",
-        slug: "research-operations",
-        membershipRole: "owner",
-      },
-    ],
-    meta: {
-      page: 1,
-      pageSize: 20,
-      totalItems: 1,
-      totalPages: 1,
-    },
-  },
-  isPending: false,
-  isError: false,
-}),
+        data: {
+          data: [
+            {
+              id: "workspace-1",
+              name: "Research Operations",
+              slug: "research-operations",
+              membershipRole: "owner",
+            },
+          ],
+          meta: {
+            page: 1,
+            pageSize: 20,
+            totalItems: 1,
+            totalPages: 1,
+          },
+        },
+        isPending: false,
+        isError: false,
+      }),
     },
     isPending: false,
     isError: false,
@@ -131,11 +131,30 @@ const mockSetTextSize = vi.hoisted(() => vi.fn());
 
 vi.mock("@/theme/design-theme", () => ({
   DESIGN_THEMES: [
-    { value: "modern", label: "Modern", description: "The default look.", layout: "sidebar" },
-    { value: "minimal", label: "Minimal", description: "A compact icon rail.", layout: "sidebar-compact" },
-    { value: "executive", label: "Executive", description: "A top navigation bar.", layout: "topnav" },
+    {
+      value: "modern",
+      label: "Modern",
+      description: "The default look.",
+      layout: "sidebar",
+    },
+    {
+      value: "minimal",
+      label: "Minimal",
+      description: "A compact icon rail.",
+      layout: "sidebar-compact",
+    },
+    {
+      value: "executive",
+      label: "Executive",
+      description: "A top navigation bar.",
+      layout: "topnav",
+    },
   ],
-  useDesignTheme: () => ({ theme: "modern", layout: "sidebar", setTheme: mockSetTheme }),
+  useDesignTheme: () => ({
+    theme: "modern",
+    layout: "sidebar",
+    setTheme: mockSetTheme,
+  }),
 }));
 
 vi.mock("@/theme/color-theme", () => ({
@@ -195,7 +214,10 @@ describe("SettingsPage", () => {
       </MemoryRouter>,
     );
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+    });
   });
 
   it("reminds an incomplete user and saves their professional profile", () => {
@@ -205,7 +227,9 @@ describe("SettingsPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Complete your profile");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Complete your profile",
+    );
     expect(screen.getByLabelText(/Job title/)).toBeRequired();
     expect(screen.getByLabelText(/Institution/)).toBeRequired();
     expect(screen.getByLabelText(/Department/)).toBeRequired();
@@ -279,46 +303,72 @@ describe("SettingsPage", () => {
     expect(mockSetColorTheme).toHaveBeenCalledWith("violet");
   });
 
-  it("changes the signed-in user's password through the two-step dialog", async () => {
+  it.each(["Ab3!xyZ9", "new-secure-password"])(
+    "changes the password to an eight-character or longer value: %s",
+    async (password) => {
+      render(
+        <MemoryRouter>
+          <SettingsPage />
+        </MemoryRouter>,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+      fireEvent.change(screen.getByLabelText("Current password"), {
+        target: { value: "current-password" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+      await screen.findByRole("heading", { name: "Choose a new password" });
+
+      fireEvent.change(screen.getByLabelText("New password"), {
+        target: { value: password },
+      });
+      fireEvent.change(screen.getByLabelText("Confirm new password"), {
+        target: { value: password },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Save new password" }),
+      );
+
+      await waitFor(() =>
+        expect(mockUpdatePassword).toHaveBeenCalledWith(password),
+      );
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        "Password changed successfully.",
+      );
+    },
+  );
+
+  it("rejects a seven-character new password", async () => {
     render(
       <MemoryRouter>
         <SettingsPage />
       </MemoryRouter>,
     );
 
-    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Change password" }));
-
-    expect(
-      screen.getByRole("heading", { name: "Confirm current password" }),
-    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Current password"), {
       target: { value: "current-password" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
-    await waitFor(() =>
-      expect(mockVerifyCurrentPassword).toHaveBeenCalledWith("current-password"),
-    );
-    expect(
-      screen.getByRole("heading", { name: "Choose a new password" }),
-    ).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Choose a new password" });
 
     fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "new-secure-password" },
+      target: { value: "Ab3!xyZ" },
     });
     fireEvent.change(screen.getByLabelText("Confirm new password"), {
-      target: { value: "new-secure-password" },
+      target: { value: "Ab3!xyZ" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save new password" }));
 
-    await waitFor(() =>
-      expect(mockUpdatePassword).toHaveBeenCalledWith("new-secure-password"),
-    );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Password changed successfully.",
-    );
-    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
+    fireEvent.submit(screen.getByLabelText("New password").closest("form")!);
+
+    expect(
+      await screen.findByText(
+        "Use at least 8 characters for your new password.",
+      ),
+    ).toBeInTheDocument();
+    expect(mockUpdatePassword).not.toHaveBeenCalled();
   });
 
   it("does not change the password when the new passwords do not match", async () => {
@@ -350,7 +400,9 @@ describe("SettingsPage", () => {
   });
 
   it("keeps the first password dialog open when the current password is wrong", async () => {
-    mockVerifyCurrentPassword.mockRejectedValueOnce(new Error("Invalid login credentials"));
+    mockVerifyCurrentPassword.mockRejectedValueOnce(
+      new Error("Invalid login credentials"),
+    );
     render(
       <MemoryRouter>
         <SettingsPage />
@@ -363,7 +415,9 @@ describe("SettingsPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(await screen.findByText("Invalid login credentials")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Invalid login credentials"),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Confirm current password" }),
     ).toBeInTheDocument();
@@ -388,10 +442,14 @@ describe("SettingsPage", () => {
     fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), {
       target: { value: "DELETE" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Permanently delete account" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Permanently delete account" }),
+    );
 
     await waitFor(() =>
-      expect(mockVerifyCurrentPassword).toHaveBeenCalledWith("current-password"),
+      expect(mockVerifyCurrentPassword).toHaveBeenCalledWith(
+        "current-password",
+      ),
     );
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
     expect(mockClearLocalSession).toHaveBeenCalledTimes(1);
@@ -411,9 +469,13 @@ describe("SettingsPage", () => {
     fireEvent.change(screen.getByLabelText("Type DELETE to confirm"), {
       target: { value: "delete" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Permanently delete account" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Permanently delete account" }),
+    );
 
-    expect(await screen.findByText('Type "DELETE" exactly to confirm.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Type "DELETE" exactly to confirm.'),
+    ).toBeInTheDocument();
     expect(mockVerifyCurrentPassword).not.toHaveBeenCalled();
     expect(mockDeleteAccount).not.toHaveBeenCalled();
   });
@@ -425,16 +487,22 @@ describe("SettingsPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Workspaces" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Workspaces" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Research Operations")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Active workspace/ })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Active workspace/ }),
+    ).toBeDisabled();
 
     fireEvent.change(screen.getByPlaceholderText("Workspace name"), {
       target: { value: "New Lab" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Create workspace" }));
 
-    await waitFor(() => expect(mockCreateWorkspace).toHaveBeenCalledWith("New Lab"));
+    await waitFor(() =>
+      expect(mockCreateWorkspace).toHaveBeenCalledWith("New Lab"),
+    );
   });
 
   it("deletes a workspace after the user confirms", async () => {
@@ -450,7 +518,9 @@ describe("SettingsPage", () => {
     expect(window.confirm).toHaveBeenCalledWith(
       expect.stringContaining("Research Operations"),
     );
-    await waitFor(() => expect(mockDeleteWorkspace).toHaveBeenCalledWith("workspace-1"));
+    await waitFor(() =>
+      expect(mockDeleteWorkspace).toHaveBeenCalledWith("workspace-1"),
+    );
   });
 
   it("does not delete a workspace when the user cancels the confirmation", () => {
