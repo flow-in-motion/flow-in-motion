@@ -842,6 +842,22 @@ export default function ModulesPage() {
         ) : null}
       </div>
 
+      {paginationMeta ? (
+        <PaginationControls
+          page={paginationMeta.page}
+          pageSize={paginationMeta.pageSize}
+          selectedPageSize={pageSize}
+          totalItems={paginationMeta.totalItems}
+          totalPages={paginationMeta.totalPages}
+          isPending={modulesQuery.isFetching}
+          onPageChange={setPage}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
+        />
+      ) : null}
+
       <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
         <div className="min-w-[1080px]">
           <div
@@ -1051,21 +1067,6 @@ export default function ModulesPage() {
               ))
             )}
           </div>
-          {paginationMeta ? (
-            <PaginationControls
-              page={paginationMeta.page}
-              pageSize={paginationMeta.pageSize}
-              selectedPageSize={pageSize}
-              totalItems={paginationMeta.totalItems}
-              totalPages={paginationMeta.totalPages}
-              isPending={modulesQuery.isFetching}
-              onPageChange={setPage}
-              onPageSizeChange={(nextPageSize) => {
-                setPageSize(nextPageSize);
-                setPage(1);
-              }}
-            />
-          ) : null}
         </div>
       </div>
     </div>

@@ -39,6 +39,14 @@ export function clearSessionListState() {
   window.dispatchEvent(new Event(RESET_EVENT));
 }
 
+function isStorablePrimitive(value: unknown): boolean {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
+}
+
 function readValue<T>(key: string | null, fallback: T): T {
   if (!key || typeof window === "undefined") return fallback;
 
@@ -67,11 +75,14 @@ function readValue<T>(key: string | null, fallback: T): T {
       return fallback;
     }
 
-    if (
-      fallback !== null &&
-      (typeof stored.value !== typeof fallback ||
-        Array.isArray(stored.value) !== Array.isArray(fallback))
-    ) {
+    // Fallbacks for union types (e.g. `number | "all"`) have a runtime type
+    // that is only one branch of the union, so comparing `typeof stored.value`
+    // against `typeof fallback` rejects the other, equally valid branches
+    // (storing "all" then reloading would get typeof "string" !== typeof
+    // 20 === "number" and silently discard it). Accept any JSON-safe
+    // primitive here; this still rejects corrupted/mismatched shapes such as
+    // an object or array sneaking into a scalar field.
+    if (fallback !== null && !isStorablePrimitive(stored.value)) {
       return fallback;
     }
 

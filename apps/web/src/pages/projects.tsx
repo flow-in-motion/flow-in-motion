@@ -453,6 +453,17 @@ export default function ProjectsPage() {
         </div>
       </div>
 
+      {paginationMeta ? (
+        <PaginationControls
+          page={paginationMeta.page}
+          pageSize={paginationMeta.pageSize}
+          totalItems={paginationMeta.totalItems}
+          totalPages={paginationMeta.totalPages}
+          isPending={projectsQuery.isFetching}
+          onPageChange={setPage}
+        />
+      ) : null}
+
       <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
         <div className="min-w-[900px]">
           <div
@@ -624,16 +635,6 @@ export default function ProjectsPage() {
               ))
             )}
           </div>
-          {paginationMeta ? (
-            <PaginationControls
-              page={paginationMeta.page}
-              pageSize={paginationMeta.pageSize}
-              totalItems={paginationMeta.totalItems}
-              totalPages={paginationMeta.totalPages}
-              isPending={projectsQuery.isFetching}
-              onPageChange={setPage}
-            />
-          ) : null}
         </div>
       </div>
     </div>
