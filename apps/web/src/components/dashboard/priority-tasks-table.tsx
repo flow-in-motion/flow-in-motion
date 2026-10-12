@@ -98,7 +98,7 @@ export function PriorityTasksTable() {
     me.data?.id,
     tenantId,
     "dashboard-tasks:sort-column",
-    "priority",
+    "due",
   );
 
   const [sortDirection, setSortDirection] = useSessionListState<SortDirection>(
@@ -180,10 +180,23 @@ export function PriorityTasksTable() {
           comparison = a.project.localeCompare(b.project);
           break;
         case "due":
-          if (!a.dueDate && !b.dueDate) comparison = 0;
-          else if (!a.dueDate) return 1;
-          else if (!b.dueDate) return -1;
-          else comparison = a.dueDate.localeCompare(b.dueDate);
+          if (!a.dueDate && !b.dueDate) {
+            comparison = 0;
+          } else if (!a.dueDate) {
+            return 1;
+          } else if (!b.dueDate) {
+            return -1;
+          } else {
+            comparison = a.dueDate.localeCompare(b.dueDate);
+          }
+
+          if (comparison === 0) {
+            const priorityComparison =
+              (PRIORITY_ORDER[a.priority ?? ""] ?? 99) -
+              (PRIORITY_ORDER[b.priority ?? ""] ?? 99);
+
+            return priorityComparison || a.task.localeCompare(b.task);
+          }
           break;
         case "priority":
           if (!a.priority && !b.priority) comparison = 0;

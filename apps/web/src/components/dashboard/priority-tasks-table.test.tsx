@@ -65,6 +65,39 @@ describe("PriorityTasksTable", () => {
     window.sessionStorage.clear();
   });
 
+  it.each(["2026-10-05", null])(
+    "orders tasks sharing due date %s by priority",
+    (dueDate) => {
+      const originalTasks = fixtures.tasks;
+
+      fixtures.tasks = originalTasks
+        .map((task) => ({ ...task, dueDate }))
+        .reverse();
+
+      try {
+        render(
+          <MemoryRouter>
+            <PriorityTasksTable />
+          </MemoryRouter>,
+        );
+
+        const taskNames = screen
+          .getAllByRole("link")
+          .filter((link) => link.getAttribute("href")?.startsWith("/tasks/"))
+          .map((link) => link.textContent);
+
+        expect(taskNames).toEqual([
+          "Middle task",
+          "Zulu task",
+          "Alpha task",
+          "Bravo task",
+        ]);
+      } finally {
+        fixtures.tasks = originalTasks;
+      }
+    },
+  );
+
   it("sorts Task, Project, Due, and Priority and reverses the active column", () => {
     render(
       <MemoryRouter>
@@ -79,10 +112,10 @@ describe("PriorityTasksTable", () => {
         .map((link) => link.textContent);
 
     expect(taskNames()).toEqual([
-      "Middle task",
       "Zulu task",
-      "Alpha task",
       "Bravo task",
+      "Middle task",
+      "Alpha task",
     ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
