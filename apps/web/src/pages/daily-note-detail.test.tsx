@@ -6,6 +6,7 @@ import DailyNoteDetailPage from "@/pages/daily-note-detail";
 
 const fixtures = vi.hoisted(() => ({
   updateNote: vi.fn(),
+  sharingEnabled: false,
   note: {
     id: "note-1",
     displayId: "NTE-001",
@@ -69,8 +70,17 @@ vi.mock("@/api/hooks", () => ({
   useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }));
 
+vi.mock("@/lib/feature-flags", () => ({
+  get TASK_NOTE_SHARING_ENABLED() {
+    return fixtures.sharingEnabled;
+  },
+}));
+
 describe("DailyNoteDetailPage", () => {
   beforeEach(() => {
+    fixtures.sharingEnabled = false;
+    fixtures.note.content = "Baseline readings look consistent.";
+    fixtures.note.followUpDate = null;
     fixtures.note.projectId = null;
     fixtures.note.moduleId = null;
     fixtures.note.visibility = "Private";
@@ -173,26 +183,39 @@ describe("DailyNoteDetailPage", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
-  it("shows the note overview expanded by default at the top, with an option to hide it", () => {
+  it("shows content and header dates without a collapsible overview", () => {
+    fixtures.note.followUpDate = "2026-04-15";
+
     render(
       <MemoryRouter initialEntries={["/daily-notes/note-1"]}>
         <Routes>
-          <Route path="daily-notes/:noteId" element={<DailyNoteDetailPage />} />
+          <Route
+            path="daily-notes/:noteId"
+            element={<DailyNoteDetailPage />}
+          />
         </Routes>
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: "Note overview" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Hide overview" }),
-    ).toHaveAttribute("aria-expanded", "true");
+    const content = screen.getByRole("region", { name: "Content" });
+    expect(content).toHaveTextContent("Baseline readings look consistent.");
+    expect(content).not.toHaveTextContent("Follow-up date");
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide overview" }));
+    expect(screen.getByText("Created").parentElement)
+      .toHaveTextContent("Jan 1, 2026");
+    expect(screen.getByText("Follow-up date").parentElement)
+      .toHaveTextContent("Apr 15, 2026");
 
-    expect(screen.queryByRole("heading", { name: "Note overview" })).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Show overview" }),
-    ).toHaveAttribute("aria-expanded", "false");
+      screen.getByRole("link", { name: "Apr 15, 2026" }),
+    ).toHaveAttribute("href", "/calendar");
+
+    expect(
+      screen.queryByRole("heading", { name: "Note overview" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /overview/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows linked work expanded by default, with an option to hide it", () => {
@@ -219,6 +242,7 @@ describe("DailyNoteDetailPage", () => {
   });
 
   it("shows the shared-with section expanded by default, with an option to hide it", () => {
+    fixtures.sharingEnabled = true;
     fixtures.note.visibility = "Shared";
     render(
       <MemoryRouter initialEntries={["/daily-notes/note-1"]}>
@@ -244,6 +268,7 @@ describe("DailyNoteDetailPage", () => {
   });
 
   it("shows the note's creator as Owner in the shared-with list, even though they aren't an explicit member", () => {
+    fixtures.sharingEnabled = true;
     fixtures.note.visibility = "Shared";
     render(
       <MemoryRouter initialEntries={["/daily-notes/note-1"]}>

@@ -6,6 +6,7 @@ import TaskDetailPage from "@/pages/task-detail";
 
 const fixtures = vi.hoisted(() => ({
   updateTask: vi.fn(),
+  sharingEnabled: false,
   task: {
     id: "task-1",
     displayId: "TSK-001",
@@ -74,8 +75,15 @@ vi.mock("@/api/hooks", () => ({
   useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
 }));
 
+vi.mock("@/lib/feature-flags", () => ({
+  get TASK_NOTE_SHARING_ENABLED() {
+    return fixtures.sharingEnabled;
+  },
+}));
+
 describe("TaskDetailPage", () => {
   beforeEach(() => {
+    fixtures.sharingEnabled = false;
     fixtures.task.projectId = null;
     fixtures.task.moduleId = null;
     fixtures.task.visibility = "Private";
@@ -85,6 +93,61 @@ describe("TaskDetailPage", () => {
     fixtures.task.description = null;
     fixtures.updateTask.mockReset();
     fixtures.updateTask.mockResolvedValue(fixtures.task);
+  });
+
+  it("shows the description in a dedicated reading panel", () => {
+    fixtures.task.description = "Review the literature.\n\nCompare the findings.";
+
+    render(
+      <MemoryRouter initialEntries={["/tasks/task-1"]}>
+        <Routes>
+          <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const panel = screen.getByRole("region", { name: "Description" });
+    expect(panel).toHaveTextContent("Review the literature.");
+    expect(panel).toHaveTextContent("Compare the findings.");
+
+    const text = screen.getByText(/Review the literature\./);
+    expect(text.textContent).toBe(fixtures.task.description);
+    expect(text).toHaveClass("whitespace-pre-wrap");
+  });
+
+  it("hides sharing controls while preserving existing task visibility on save", async () => {
+    fixtures.task.visibility = "Shared";
+
+    render(
+      <MemoryRouter initialEntries={["/tasks/task-1"]}>
+        <Routes>
+          <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText("Visibility")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Task collaborators" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+    expect(screen.queryByLabelText("Visibility")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Task title"), {
+      target: { value: "Updated task title" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateTask).toHaveBeenCalledWith({
+        taskId: "task-1",
+        input: expect.objectContaining({
+          title: "Updated task title",
+          visibility: "Shared",
+        }),
+      }),
+    );
   });
 
   it("returns to whatever page linked into edit mode when editing is cancelled", () => {
@@ -185,6 +248,7 @@ describe("TaskDetailPage", () => {
   });
 
   it("shows the task's planning details as stats in the page header", () => {
+    fixtures.sharingEnabled = true;
     fixtures.task.dueDate = "2026-04-15";
     fixtures.task.estimatedHours = "3.5";
     fixtures.task.workingWith = "Sam Lee";
@@ -242,6 +306,7 @@ describe("TaskDetailPage", () => {
   });
 
   it("shows collaborators expanded by default, with an option to hide them", () => {
+    fixtures.sharingEnabled = true;
     render(
       <MemoryRouter initialEntries={["/tasks/task-1"]}>
         <Routes>
@@ -268,6 +333,7 @@ describe("TaskDetailPage", () => {
   });
 
   it("shows the task's creator as Owner in the members list, even though they aren't an explicit member", () => {
+    fixtures.sharingEnabled = true;
     fixtures.task.visibility = "Shared";
     render(
       <MemoryRouter initialEntries={["/tasks/task-1"]}>

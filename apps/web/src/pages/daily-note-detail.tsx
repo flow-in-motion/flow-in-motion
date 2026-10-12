@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Unlink } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
 
 import {
   useCurrentWorkspace,
@@ -63,19 +64,6 @@ function formatPlainDate(iso: string) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function DetailItem({ label, children, className = "" }: {
-  label: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="mt-1 font-medium">{children}</div>
-    </div>
-  );
 }
 
 function formValues(note: ApiNote): NoteEditForm {
@@ -246,6 +234,14 @@ function LinkedWorkCard({
   );
 }
 
+function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-2.5 py-1 text-xs">
+      <span className="font-medium text-muted-foreground">{label}</span>
+      <span className="font-semibold text-foreground">{value}</span>
+    </span>
+  );
+}
 export default function DailyNoteDetailPage() {
   const { noteId = "" } = useParams();
   const navigate = useNavigate();
@@ -267,7 +263,6 @@ export default function DailyNoteDetailPage() {
   const members = membersQuery.data?.data ?? [];
   const [form, setForm] = useState<NoteEditForm | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
-  const [isOverviewVisible, setIsOverviewVisible] = useState(true);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
   const [isMembersVisible, setIsMembersVisible] = useState(true);
 
@@ -358,21 +353,64 @@ export default function DailyNoteDetailPage() {
         description="Review and update this research update, decision or observation."
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="outline">{note.visibility ?? "Private"}</Badge>
-            {note.followUpDate ? (
-              <Link
-                to="/calendar"
-                className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300 bg-cyan-50 px-2.5 py-1 text-xs font-medium text-cyan-800 transition-colors hover:bg-cyan-100 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300"
-              >
-                <CalendarClock className="h-3.5 w-3.5" />
-                Follow up {formatPlainDate(note.followUpDate)}
-              </Link>
+            {TASK_NOTE_SHARING_ENABLED ? (
+              <Badge variant="outline">{note.visibility ?? "Private"}</Badge>
             ) : null}
             {form ? null : (
                <Button type="button" onClick={() => setForm(formValues(note))}><Pencil /> Edit Note</Button>)}
           </div>
         }
-      />
+        >
+        {!form ? (
+          <div className="flex flex-wrap gap-2">
+            <HeaderStat
+              label="Created"
+              value={formatDate(note.createdAt)}
+            />
+            <HeaderStat
+              label="Follow-up date"
+              value={
+                note.followUpDate ? (
+                  <Link
+                    to="/calendar"
+                    className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                  >
+                    <CalendarClock className="h-3.5 w-3.5" />
+                    {formatPlainDate(note.followUpDate)}
+                  </Link>
+                ) : (
+                  "—"
+                )
+              }
+            />
+          </div>
+        ) : null}
+      </PageHeading>
+      {!form ? (
+        <section aria-labelledby="note-content-heading">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border/60 bg-muted/20">
+              <CardTitle
+                id="note-content-heading"
+                className="text-base"
+              >
+                Content
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 sm:p-6">
+              {note.content?.trim() ? (
+                <div className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]">
+                  {note.content}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No content added yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
 
       {form ? (
         <Card>
@@ -386,7 +424,25 @@ export default function DailyNoteDetailPage() {
                 <FormField label="Note" htmlFor="edit-note-content" className="sm:col-span-2">
                   <Textarea id="edit-note-content" value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} rows={6} />
                 </FormField>
-                <FormField label="Visibility" htmlFor="edit-note-visibility"><Select value={form.visibility} onValueChange={(value) => setForm({ ...form, visibility: value })}><SelectTrigger id="edit-note-visibility"><SelectValue /></SelectTrigger><SelectContent>{VISIBILITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
+                {TASK_NOTE_SHARING_ENABLED ? (
+                  <FormField label="Visibility" htmlFor="edit-note-visibility">
+                    <Select
+                      value={form.visibility}
+                      onValueChange={(value) => setForm({ ...form, visibility: value })}
+                    >
+                      <SelectTrigger id="edit-note-visibility">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VISIBILITY_OPTIONS.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                ) : null}
                 <FormField label="Follow-up date" htmlFor="edit-note-follow-up"><DatePickerInput id="edit-note-follow-up" label="Follow-up date" value={form.followUpDate} onChange={(value) => setForm({ ...form, followUpDate: value })} /></FormField>
               </div>
               {updateNote.isError ? (
@@ -401,34 +457,7 @@ export default function DailyNoteDetailPage() {
       ) : null}
 
       <div className="flex flex-col gap-6">
-        <section aria-labelledby="note-overview-heading">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 id="note-overview-heading" className="text-lg font-semibold">Overview</h2>
-            <Button variant="outline" size="sm" aria-expanded={isOverviewVisible} aria-controls="note-overview-content" onClick={() => setIsOverviewVisible((visible) => !visible)}>
-              {isOverviewVisible ? <ChevronUp /> : <ChevronDown />}
-              {isOverviewVisible ? "Hide overview" : "Show overview"}
-            </Button>
-          </div>
-          {isOverviewVisible ? (
-            <Card id="note-overview-content">
-              <CardHeader>
-                <CardTitle>Note overview</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-5 text-sm sm:grid-cols-2">
-                <DetailItem label="Created">{formatDate(note.createdAt)}</DetailItem>
-                <DetailItem label="Visibility">{note.visibility ?? "Private"}</DetailItem>
-                <DetailItem label="Follow-up date">
-                  {note.followUpDate ? formatPlainDate(note.followUpDate) : "—"}
-                </DetailItem>
-                <DetailItem label="Note" className="sm:col-span-2">
-                  <span className="whitespace-pre-wrap font-normal leading-relaxed text-muted-foreground">
-                    {note.content || "This note does not have any content yet."}
-                  </span>
-                </DetailItem>
-              </CardContent>
-            </Card>
-          ) : null}
-        </section>
+
 
         <section aria-labelledby="note-linked-work-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -454,6 +483,7 @@ export default function DailyNoteDetailPage() {
           ) : null}
         </section>
 
+        {TASK_NOTE_SHARING_ENABLED ? (
         <section aria-labelledby="note-members-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="note-members-heading" className="text-lg font-semibold">Shared with</h2>
@@ -491,6 +521,7 @@ export default function DailyNoteDetailPage() {
             </Card>
           ) : null}
         </section>
+        ) : null}
       </div>
     </div>
   );

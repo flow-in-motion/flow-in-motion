@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { LinkTargetType } from "@/lib/link-target";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
+import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
 
 const VISIBILITY_OPTIONS = ["Private", "Shared"] as const;
 const LINK_TARGET_OPTIONS: { value: LinkTargetType; label: string }[] = [
@@ -459,30 +460,46 @@ export function NoteDialog({
             </FormField>
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label="Visibility" htmlFor="note-visibility">
-              <Select
-                value={form.visibility}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, visibility: value }))}
-              >
-                <SelectTrigger id="note-visibility"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {VISIBILITY_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
+            <div
+              className={
+                TASK_NOTE_SHARING_ENABLED
+                  ? "grid gap-4 sm:grid-cols-2"
+                  : "grid gap-4"
+              }
+            >
+              {TASK_NOTE_SHARING_ENABLED ? (
+                <FormField label="Visibility" htmlFor="note-visibility">
+                  <Select
+                    value={form.visibility}
+                    onValueChange={(value) =>
+                      setForm((prev) => ({ ...prev, visibility: value }))
+                    }
+                  >
+                    <SelectTrigger id="note-visibility">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VISIBILITY_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormField>
+              ) : null}
 
-            <FormField label="Follow-up date" htmlFor="note-follow-up-date">
-              <DatePickerInput
-                id="note-follow-up-date"
-                label="Follow-up date"
-                value={form.followUpDate}
-                onChange={(value) => setForm((prev) => ({ ...prev, followUpDate: value }))}
-              />
-            </FormField>
-          </div>
+              <FormField label="Follow-up date" htmlFor="note-follow-up-date">
+                <DatePickerInput
+                  id="note-follow-up-date"
+                  label="Follow-up date"
+                  value={form.followUpDate}
+                  onChange={(value) =>
+                    setForm((prev) => ({ ...prev, followUpDate: value }))
+                  }
+                />
+              </FormField>
+            </div>
 
           <FormField label="Note" htmlFor="note-content">
             <Textarea
@@ -494,7 +511,7 @@ export function NoteDialog({
             />
           </FormField>
 
-          {form.visibility === "Shared" ? (
+          {TASK_NOTE_SHARING_ENABLED && form.visibility === "Shared" ? (
             <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
               After creating the note, open it to invite collaborators by email using a secure
               acceptance link.

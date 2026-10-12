@@ -48,6 +48,7 @@ const hookMocks = vi.hoisted(() => ({
 
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
+  sharingEnabled: false,
   projects: [
     { id: "project-1", title: "Genome Project", displayId: "PRJ-001" },
     { id: "project-21", title: "Remote Telco Project", displayId: "PRJ-021" },
@@ -68,6 +69,12 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 const deleteNoteMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/feature-flags", () => ({
+  get TASK_NOTE_SHARING_ENABLED() {
+    return fixtures.sharingEnabled;
+  },
+}));
 
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
@@ -240,8 +247,15 @@ function renderPage(initialEntries: string[] = ["/daily-notes"]) {
   );
 }
 
+vi.mock("@/lib/feature-flags", () => ({
+  get TASK_NOTE_SHARING_ENABLED() {
+    return fixtures.sharingEnabled;
+  },
+}));
+
 describe("DailyNotesPage", () => {
   beforeEach(() => {
+    fixtures.sharingEnabled = false;
     window.sessionStorage.clear();
     hookMocks.useNotes.mockClear();
     hookMocks.useModules.mockClear();
@@ -395,6 +409,7 @@ describe("DailyNotesPage", () => {
   });
 
   it("points to inviting collaborators after the note is created, instead of staging them", () => {
+    fixtures.sharingEnabled = true;
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "New Note" }));

@@ -45,6 +45,7 @@ import { formatListDate, isOverdue } from "@/lib/list-format";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
+import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
 
 const VISIBILITY_FILTERS = ["All", "Private", "Shared"] as const;
 type VisibilityFilter = (typeof VISIBILITY_FILTERS)[number];
@@ -61,6 +62,9 @@ const NOTE_COLUMNS = [
   { id: "followUp", label: "Follow-up", width: "120px" },
   { id: "created", label: "Created", width: "150px" },
 ] as const;
+const availableNoteColumns = NOTE_COLUMNS.filter(
+  (column) => TASK_NOTE_SHARING_ENABLED || column.id !== "visibility",
+);
 
 function noteTitle(note: ApiNote) {
   return note.title || "Untitled note";
@@ -142,9 +146,25 @@ export default function DailyNotesPage() {
     "notes:sort-direction",
     "desc",
   );
+  const effectiveVisibility = TASK_NOTE_SHARING_ENABLED ? visibility : "All";
+
+  const hiddenVisibilitySort =
+    !TASK_NOTE_SHARING_ENABLED && sortColumn === "visibility";
+
+  const effectiveSortColumn: SortColumn =
+    hiddenVisibilitySort ? "created" : sortColumn;
+
+  const effectiveSortDirection: SortDirection =
+    hiddenVisibilitySort ? "desc" : sortDirection;
   useEffect(() => {
-    setPage(1);
-  }, [setPage, tenantId, visibility, sortColumn, sortDirection]);
+      setPage(1);
+    }, [
+      setPage,
+      tenantId,
+      effectiveVisibility,
+      effectiveSortColumn,
+      effectiveSortDirection,
+    ]);
 
   useEffect(() => {
     if (searchParams.get("new") !== "true") return;
@@ -170,11 +190,10 @@ export default function DailyNotesPage() {
     NOTE_COLUMNS.map((column) => column.id),
     "daily-notes",
   );
-  const gridTemplate = NOTE_COLUMNS.filter((column) =>
-    columns.visibleColumns.has(column.id),
-  )
-    .map((column) => column.width)
-    .join(" ");
+  const gridTemplate = availableNoteColumns
+  .filter((column) => columns.visibleColumns.has(column.id))
+  .map((column) => column.width)
+  .join(" ");
 
   const projectById = useMemo(() => {
     const map = new Map<string, string>();
@@ -231,26 +250,32 @@ export default function DailyNotesPage() {
 
   const visibleNotes = useMemo(() => {
     const filtered = notes.filter((note) => {
-      if (visibility !== "All" && (note.visibility ?? "Private") !== visibility)
+      if (
+        effectiveVisibility !== "All" &&
+        (note.visibility ?? "Private") !== effectiveVisibility
+      ) {
         return false;
+      }
       return true;
     });
     return [...filtered].sort(
       (a, b) =>
-        compareNotes(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
+        compareNotes(a, b, effectiveSortColumn) *
+        (effectiveSortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     notes,
     search,
-    visibility,
-    sortColumn,
-    sortDirection,
+    effectiveVisibility,
+    effectiveSortColumn,
+    effectiveSortDirection,
     projectById,
     moduleById,
   ]);
 
-  const hasActiveFilters = search !== "" || visibility !== "All";
+  const hasActiveFilters =
+    search !== "" || effectiveVisibility !== "All";
 
   function clearFilters() {
     setSearch("");
@@ -353,23 +378,25 @@ export default function DailyNotesPage() {
           placeholder="Search notes…"
           className="sm:max-w-xs"
         />
-        <Select
-          value={visibility}
-          onValueChange={(value) => setVisibility(value as VisibilityFilter)}
-        >
-          <SelectTrigger className="sm:w-40">
-            <SelectValue placeholder="Visibility" />
-          </SelectTrigger>
-          <SelectContent>
-            {VISIBILITY_FILTERS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option === "All" ? "All visibilities" : option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {TASK_NOTE_SHARING_ENABLED ? (
+          <Select
+            value={visibility}
+            onValueChange={(value) => setVisibility(value as VisibilityFilter)}
+          >
+            <SelectTrigger className="sm:w-40">
+              <SelectValue placeholder="Visibility" />
+            </SelectTrigger>
+            <SelectContent>
+              {VISIBILITY_FILTERS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === "All" ? "All visibilities" : option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
         <ColumnVisibilityMenu
-          columns={NOTE_COLUMNS}
+          columns={availableNoteColumns}
           visibleColumns={columns.visibleColumns}
           onToggle={columns.toggleColumn}
         />
@@ -390,15 +417,15 @@ export default function DailyNotesPage() {
             className="mb-1 grid gap-4 rounded-md bg-muted/65 px-4 py-3 text-[0.6875rem] font-semibold uppercase tracking-[0.07em] text-muted-foreground"
             style={{ gridTemplateColumns: gridTemplate }}
           >
-            {NOTE_COLUMNS.filter((column) =>
+            {availableNoteColumns.filter((column) =>
               columns.visibleColumns.has(column.id),
             ).map((column) => (
               <SortableHeader
                 key={column.id}
                 label={column.label}
                 column={column.id}
-                sortColumn={sortColumn}
-                sortDirection={sortDirection}
+                sortColumn={effectiveSortColumn}
+                sortDirection={effectiveSortDirection}
                 onSort={handleSort}
               />
             ))}
@@ -485,7 +512,7 @@ export default function DailyNotesPage() {
                       </span>
                     )
                   ) : null}
-                  {columns.isColumnVisible("visibility") ? (
+                  {TASK_NOTE_SHARING_ENABLED && columns.isColumnVisible("visibility") ? (
                     <Badge
                       variant="outline"
                       className={visibilityPillClass(note.visibility)}

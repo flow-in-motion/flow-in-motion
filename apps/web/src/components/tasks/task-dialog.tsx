@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Search, X } from "lucide-react";
+import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
 
 import {
   useModule,
@@ -335,8 +336,8 @@ export function TaskDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit task" : "Create a new task"}</DialogTitle>
           <DialogDescription>
-            Link this task to a project or paper, or keep it general, then set its priority and
-            visibility.
+            Link this task to a project or paper, or keep it general, then set its
+            priority{TASK_NOTE_SHARING_ENABLED ? " and visibility" : ""}.
           </DialogDescription>
         </DialogHeader>
 
@@ -455,22 +456,30 @@ export function TaskDialog({
               />
             </FormField>
 
-            <FormField label="Visibility" htmlFor="task-visibility">
-              <Select
-                value={form.visibility}
-                onValueChange={(value) => setForm((prev) => ({ ...prev, visibility: value }))}
-              >
-                <SelectTrigger id="task-visibility"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {VISIBILITY_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
+            {TASK_NOTE_SHARING_ENABLED ? (
+              <FormField label="Visibility" htmlFor="task-visibility">
+                <Select
+                  value={form.visibility}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, visibility: value }))
+                  }
+                >
+                  <SelectTrigger id="task-visibility">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VISIBILITY_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FormField>
+            ) : null}
           </div>
 
-          {form.visibility === "Shared" && !isEditing ? (
+          {TASK_NOTE_SHARING_ENABLED && form.visibility === "Shared" && !isEditing ? (
             <p className="rounded-lg border border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
               After creating the task, open it to invite collaborators by email using a secure
               acceptance link.
