@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { LoggerModule } from 'nestjs-pino';
+import pino from 'pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { envValidationSchema } from './config/env.validation';
@@ -41,32 +42,44 @@ import { RequestContextInterceptor } from './db/request-context.interceptor';
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        pinoHttp: {
-          level: configService.get<string>('LOG_LEVEL', 'info'),
-          redact: {
-            paths: [
-              'req.headers.authorization',
-              'req.headers.cookie',
-              'req.body.password',
-              'req.body.confirmPassword',
-              'req.body.accessToken',
-              'req.body.refreshToken',
-              'req.body.apiKey',
-              'req.body.secret',
-              'res.headers["set-cookie"]',
-            ],
-            censor: '[Redacted]',
-          },
-          serializers: {
-            req(req: { method?: string; url?: string; id?: string }) {
-              return {
-                id: req.id,
-                method: req.method,
-                url: req.url,
-              };
+        pinoHttp: [
+          {
+            level: configService.get<string>('LOG_LEVEL', 'info'),
+            redact: {
+              paths: [
+                'req.headers.authorization',
+                'req.headers.cookie',
+                'req.body.password',
+                'req.body.confirmPassword',
+                'req.body.accessToken',
+                'req.body.refreshToken',
+                'req.body.apiKey',
+                'req.body.secret',
+                'res.headers["set-cookie"]',
+              ],
+              censor: '[Redacted]',
+            },
+            serializers: {
+              req(req: { method?: string; url?: string; id?: string }) {
+                return {
+                  id: req.id,
+                  method: req.method,
+                  url: req.url,
+                };
+              },
             },
           },
-        },
+          // Lambda's `context.callbackWaitsForEmptyEventLoop = false` (see
+          // lambda.ts) freezes the execution environment as soon as the
+          // handler's promise resolves, without waiting for the event loop
+          // to drain. Pino's default stdout destination can still have
+          // writes buffered at that point, so log lines -- including ones
+          // written just before the response, like feedback email outcomes
+          // -- can be silently dropped before they ever reach CloudWatch.
+          // A synchronous destination flushes every write immediately so
+          // nothing is lost to that freeze.
+          pino.destination({ sync: true }),
+        ],
       }),
     }),
     DbModule,
