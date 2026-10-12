@@ -7,6 +7,7 @@ import ModuleDetailPage from "@/pages/module-detail";
 const fixtures = vi.hoisted(() => ({
   confetti: vi.fn(),
   updateModule: vi.fn(),
+  archiveModule: vi.fn(),
   createTask: vi.fn(),
   updateTask: vi.fn(),
   updateNote: vi.fn(),
@@ -197,6 +198,10 @@ vi.mock("@/api/hooks", () => ({
     mutateAsync: fixtures.updateModule,
     isPending: false,
   }),
+  useArchiveMyModule: () => ({
+    mutateAsync: fixtures.archiveModule,
+    isPending: false,
+  }),
   useCreateTask: () => ({ mutateAsync: fixtures.createTask, isPending: false }),
   useUpdateTask: () => ({ mutateAsync: fixtures.updateTask, isPending: false }),
   useUpdateNote: () => ({ mutateAsync: fixtures.updateNote, isPending: false }),
@@ -339,6 +344,8 @@ describe("ModuleDetailPage", () => {
         return fixtures.module;
       },
     );
+    fixtures.archiveModule.mockReset();
+    fixtures.archiveModule.mockResolvedValue({ module: fixtures.module, warning: "" });
     fixtures.createTask.mockReset();
     fixtures.createTask.mockResolvedValue({ id: "task-new" });
     fixtures.updateTask.mockReset();
