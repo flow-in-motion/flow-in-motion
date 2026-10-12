@@ -41,8 +41,8 @@ export default function AuthCallbackPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(undefined);
-    if (password.length < 12) {
-      setFormError("Use at least 12 characters.");
+    if (password.length < 8) {
+      setFormError("Use at least 8 characters.");
       return;
     }
     if (password !== confirmation) {
@@ -103,7 +103,7 @@ export default function AuthCallbackPage() {
                   id="new-password"
                   type="password"
                   autoComplete="new-password"
-                  minLength={12}
+                  minLength={8}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   required
@@ -120,7 +120,7 @@ export default function AuthCallbackPage() {
                   id="confirm-password"
                   type="password"
                   autoComplete="new-password"
-                  minLength={12}
+                  minLength={8}
                   value={confirmation}
                   onChange={(event) => setConfirmation(event.target.value)}
                   required

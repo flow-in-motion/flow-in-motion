@@ -40,6 +40,27 @@ function fillForm(password: string, confirmation: string) {
 }
 
 describe("SignUpPage", () => {
+  it("rejects a seven-character password before calling auth", () => {
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "new.user@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "Ab3!xyZ" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm password"), {
+      target: { value: "Ab3!xyZ" },
+    });
+
+    fireEvent.submit(screen.getByLabelText("Password").closest("form")!);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Use at least 8 characters for your password.",
+    );
+    expect(signUpWithPassword).not.toHaveBeenCalled();
+  });
+
   it("does not submit passwords that do not match", () => {
     renderPage();
     fillForm("a-secure-password", "a-different-password");
@@ -50,23 +71,36 @@ describe("SignUpPage", () => {
     expect(signUpWithPassword).not.toHaveBeenCalled();
   });
 
-  it("creates an account and explains email confirmation", async () => {
-    signUpWithPassword.mockResolvedValue({ requiresEmailConfirmation: true });
-    renderPage();
-    fillForm("a-secure-password", "a-secure-password");
+  it.each(["Ab3!xyZ9", "a-secure-password"])(
+    "creates an account with an eight-character or longer password: %s",
+    async (password) => {
+      signUpWithPassword.mockResolvedValue({
+        requiresEmailConfirmation: true,
+      });
+      renderPage();
 
-    await waitFor(() =>
-      expect(signUpWithPassword).toHaveBeenCalledWith(
-        "new.user@example.com",
-        "a-secure-password",
-        "/",
-      ),
-    );
-    expect(
-      screen.getByRole("heading", { name: "Check your email" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("new.user@example.com", { exact: false }),
-    ).toBeInTheDocument();
-  });
+      expect(screen.getByLabelText("Password")).toHaveAttribute(
+        "minlength",
+        "8",
+      );
+      expect(screen.getByLabelText("Confirm password")).toHaveAttribute(
+        "minlength",
+        "8",
+      );
+
+      fillForm(password, password);
+
+      await waitFor(() =>
+        expect(signUpWithPassword).toHaveBeenCalledWith(
+          "new.user@example.com",
+          password,
+          "/",
+        ),
+      );
+
+      expect(
+        await screen.findByRole("heading", { name: "Check your email" }),
+      ).toBeInTheDocument();
+    },
+  );
 });

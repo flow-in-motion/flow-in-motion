@@ -67,8 +67,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { COLOR_THEMES, type ColorTheme, useColorTheme } from "@/theme/color-theme";
-import { APPEARANCE_THEMES, useAppearanceTheme } from "@/theme/appearance-theme";
+import {
+  COLOR_THEMES,
+  type ColorTheme,
+  useColorTheme,
+} from "@/theme/color-theme";
+import {
+  APPEARANCE_THEMES,
+  useAppearanceTheme,
+} from "@/theme/appearance-theme";
 import { DESIGN_THEMES, useDesignTheme } from "@/theme/design-theme";
 import { TEXT_SIZES, useTextSize } from "@/theme/text-size";
 
@@ -83,7 +90,7 @@ const passwordSchema = z
     currentPassword: z.string().min(1, "Enter your current password."),
     newPassword: z
       .string()
-      .min(12, "Use at least 12 characters for your new password."),
+      .min(8, "Use at least 8 characters for your new password."),
     confirmPassword: z.string().min(1, "Confirm your new password."),
   })
   .refine((values) => values.newPassword === values.confirmPassword, {
@@ -126,12 +133,17 @@ export default function SettingsPage() {
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordStep, setPasswordStep] = useState<PasswordStep>("current");
-  const [passwordSubmitError, setPasswordSubmitError] = useState<string | null>(null);
+  const [passwordSubmitError, setPasswordSubmitError] = useState<string | null>(
+    null,
+  );
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
   const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
-  const [deleteAccountConfirmation, setDeleteAccountConfirmation] = useState("");
-  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [deleteAccountConfirmation, setDeleteAccountConfirmation] =
+    useState("");
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(
+    null,
+  );
   const [profile, setProfile] = useState({
     displayName: "",
     jobTitle: "",
@@ -168,7 +180,9 @@ export default function SettingsPage() {
   async function submitCreateWorkspace(values: WorkspaceForm) {
     const parsed = workspaceSchema.safeParse(values);
     if (!parsed.success) {
-      workspaceForm.setError("name", { message: parsed.error.issues[0]?.message });
+      workspaceForm.setError("name", {
+        message: parsed.error.issues[0]?.message,
+      });
       return;
     }
 
@@ -214,7 +228,9 @@ export default function SettingsPage() {
       setPasswordStep("new");
     } catch (error) {
       setPasswordSubmitError(
-        error instanceof Error ? error.message : "Your current password could not be verified.",
+        error instanceof Error
+          ? error.message
+          : "Your current password could not be verified.",
       );
     } finally {
       setIsPasswordSubmitting(false);
@@ -243,7 +259,9 @@ export default function SettingsPage() {
       setPasswordUpdated(true);
     } catch (error) {
       setPasswordSubmitError(
-        error instanceof Error ? error.message : "Your password could not be changed.",
+        error instanceof Error
+          ? error.message
+          : "Your password could not be changed.",
       );
     } finally {
       setIsPasswordSubmitting(false);
@@ -259,7 +277,9 @@ export default function SettingsPage() {
       `Permanently delete "${name}"? This deletes every project, module, task, and note in it. This cannot be undone.`,
     );
     if (!confirmed) return;
-    await deleteWorkspaceMutation.mutateAsync(workspaceId).catch(() => undefined);
+    await deleteWorkspaceMutation
+      .mutateAsync(workspaceId)
+      .catch(() => undefined);
   }
 
   function resetDeleteAccountDialog() {
@@ -293,7 +313,9 @@ export default function SettingsPage() {
       });
     } catch (error) {
       setDeleteAccountError(
-        error instanceof Error ? error.message : "Your account could not be deleted.",
+        error instanceof Error
+          ? error.message
+          : "Your account could not be deleted.",
       );
     }
   }
@@ -341,8 +363,8 @@ export default function SettingsPage() {
           <div>
             <p className="font-semibold">Complete your profile</p>
             <p className="mt-1 text-sm">
-              Add your job title, institution, and department. The alert beside Settings will
-              disappear when these required details are saved.
+              Add your job title, institution, and department. The alert beside
+              Settings will disappear when these required details are saved.
             </p>
           </div>
         </div>
@@ -356,8 +378,8 @@ export default function SettingsPage() {
               Profile
             </CardTitle>
             <CardDescription>
-              Your name and email are collected during registration. Add your professional
-              details here after signing in.
+              Your name and email are collected during registration. Add your
+              professional details here after signing in.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -370,7 +392,10 @@ export default function SettingsPage() {
                   id="display-name"
                   value={profile.displayName}
                   onChange={(event) =>
-                    setProfile((current) => ({ ...current, displayName: event.target.value }))
+                    setProfile((current) => ({
+                      ...current,
+                      displayName: event.target.value,
+                    }))
                   }
                   minLength={2}
                   maxLength={100}
@@ -378,7 +403,9 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <label htmlFor="email" className="text-sm font-medium">Email</label>
+                <label htmlFor="email" className="text-sm font-medium">
+                  Email
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -399,7 +426,10 @@ export default function SettingsPage() {
                     id="job-title"
                     value={profile.jobTitle}
                     onChange={(event) =>
-                      setProfile((current) => ({ ...current, jobTitle: event.target.value }))
+                      setProfile((current) => ({
+                        ...current,
+                        jobTitle: event.target.value,
+                      }))
                     }
                     placeholder="Research Fellow"
                     maxLength={120}
@@ -414,7 +444,10 @@ export default function SettingsPage() {
                     id="institution"
                     value={profile.institution}
                     onChange={(event) =>
-                      setProfile((current) => ({ ...current, institution: event.target.value }))
+                      setProfile((current) => ({
+                        ...current,
+                        institution: event.target.value,
+                      }))
                     }
                     placeholder="University or organisation"
                     maxLength={200}
@@ -429,7 +462,10 @@ export default function SettingsPage() {
                     id="department"
                     value={profile.department}
                     onChange={(event) =>
-                      setProfile((current) => ({ ...current, department: event.target.value }))
+                      setProfile((current) => ({
+                        ...current,
+                        department: event.target.value,
+                      }))
                     }
                     placeholder="School or department"
                     maxLength={200}
@@ -437,13 +473,18 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <label htmlFor="phone" className="text-sm font-medium">Phone</label>
+                  <label htmlFor="phone" className="text-sm font-medium">
+                    Phone
+                  </label>
                   <Input
                     id="phone"
                     type="tel"
                     value={profile.phone}
                     onChange={(event) =>
-                      setProfile((current) => ({ ...current, phone: event.target.value }))
+                      setProfile((current) => ({
+                        ...current,
+                        phone: event.target.value,
+                      }))
                     }
                     placeholder="+61 400 000 000"
                     maxLength={40}
@@ -451,14 +492,20 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="grid gap-2">
-                <label htmlFor="research-interests" className="text-sm font-medium">
+                <label
+                  htmlFor="research-interests"
+                  className="text-sm font-medium"
+                >
                   Research interests
                 </label>
                 <Textarea
                   id="research-interests"
                   value={profile.researchInterests}
                   onChange={(event) =>
-                    setProfile((current) => ({ ...current, researchInterests: event.target.value }))
+                    setProfile((current) => ({
+                      ...current,
+                      researchInterests: event.target.value,
+                    }))
                   }
                   placeholder="Research areas, methods, or topics"
                   maxLength={1000}
@@ -475,7 +522,11 @@ export default function SettingsPage() {
                   <CheckCircle2 className="h-4 w-4" /> Profile saved.
                 </p>
               ) : null}
-              <Button type="submit" className="w-fit" disabled={updateProfile.isPending}>
+              <Button
+                type="submit"
+                className="w-fit"
+                disabled={updateProfile.isPending}
+              >
                 <Save />
                 {updateProfile.isPending ? "Saving…" : "Save Profile"}
               </Button>
@@ -487,11 +538,16 @@ export default function SettingsPage() {
           <Card className="order-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                {appearanceTheme.theme === "dark" ? <Moon className="h-5 w-5 text-primary" /> : <Sun className="h-5 w-5 text-primary" />}
+                {appearanceTheme.theme === "dark" ? (
+                  <Moon className="h-5 w-5 text-primary" />
+                ) : (
+                  <Sun className="h-5 w-5 text-primary" />
+                )}
                 Appearance
               </CardTitle>
               <CardDescription>
-                Choose a light or dark interface. This does not change your layout or accent color.
+                Choose a light or dark interface. This does not change your
+                layout or accent color.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3">
@@ -506,7 +562,8 @@ export default function SettingsPage() {
                     aria-pressed={isSelected}
                     className={cn(
                       "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors hover:bg-accent/50",
-                      isSelected && "border-primary bg-primary/5 ring-1 ring-primary",
+                      isSelected &&
+                        "border-primary bg-primary/5 ring-1 ring-primary",
                     )}
                   >
                     <Icon className="h-5 w-5" />
@@ -515,7 +572,8 @@ export default function SettingsPage() {
                 );
               })}
               <p className="col-span-2 text-xs leading-5 text-muted-foreground">
-                This preference is saved in this browser and applied immediately.
+                This preference is saved in this browser and applied
+                immediately.
               </p>
               <div className="col-span-2 mt-2 border-t border-border pt-4">
                 <div className="mb-3 flex items-center gap-2">
@@ -536,7 +594,8 @@ export default function SettingsPage() {
                           option.value === "small" && "text-xs",
                           option.value === "default" && "text-sm",
                           option.value === "large" && "text-base",
-                          isSelected && "border-primary bg-primary/5 ring-1 ring-primary",
+                          isSelected &&
+                            "border-primary bg-primary/5 ring-1 ring-primary",
                         )}
                       >
                         {option.label}
@@ -555,8 +614,8 @@ export default function SettingsPage() {
                 Change password
               </CardTitle>
               <CardDescription>
-                Confirm your current password, then choose a new password with at least 12
-                characters.
+                Confirm your current password, then choose a new password with
+                at least 8 characters.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
@@ -565,17 +624,25 @@ export default function SettingsPage() {
                   role="status"
                   className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400"
                 >
-                  <CheckCircle2 className="h-4 w-4" /> Password changed successfully.
+                  <CheckCircle2 className="h-4 w-4" /> Password changed
+                  successfully.
                 </p>
               ) : null}
-              <Button type="button" className="w-fit" onClick={openPasswordDialog}>
+              <Button
+                type="button"
+                className="w-fit"
+                onClick={openPasswordDialog}
+              >
                 <KeyRound className="h-4 w-4" />
                 Change password
               </Button>
             </CardContent>
           </Card>
 
-          <Dialog open={passwordDialogOpen} onOpenChange={handlePasswordDialogOpenChange}>
+          <Dialog
+            open={passwordDialogOpen}
+            onOpenChange={handlePasswordDialogOpenChange}
+          >
             <DialogContent className="max-w-sm">
               {passwordStep === "current" ? (
                 <form
@@ -589,7 +656,10 @@ export default function SettingsPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-2">
-                    <label htmlFor="current-password" className="text-sm font-medium">
+                    <label
+                      htmlFor="current-password"
+                      className="text-sm font-medium"
+                    >
                       Current password
                     </label>
                     <Input
@@ -632,18 +702,22 @@ export default function SettingsPage() {
                   <DialogHeader>
                     <DialogTitle>Choose a new password</DialogTitle>
                     <DialogDescription>
-                      Use at least 12 characters and enter the same password twice.
+                      Use at least 8 characters and enter the same password
+                      twice.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-2">
-                    <label htmlFor="settings-new-password" className="text-sm font-medium">
+                    <label
+                      htmlFor="settings-new-password"
+                      className="text-sm font-medium"
+                    >
                       New password
                     </label>
                     <Input
                       id="settings-new-password"
                       type="password"
                       autoComplete="new-password"
-                      minLength={12}
+                      minLength={8}
                       required
                       {...passwordForm.register("newPassword")}
                     />
@@ -654,14 +728,17 @@ export default function SettingsPage() {
                     ) : null}
                   </div>
                   <div className="grid gap-2">
-                    <label htmlFor="settings-confirm-password" className="text-sm font-medium">
+                    <label
+                      htmlFor="settings-confirm-password"
+                      className="text-sm font-medium"
+                    >
                       Confirm new password
                     </label>
                     <Input
                       id="settings-confirm-password"
                       type="password"
                       autoComplete="new-password"
-                      minLength={12}
+                      minLength={8}
                       required
                       {...passwordForm.register("confirmPassword")}
                     />
@@ -722,8 +799,8 @@ export default function SettingsPage() {
                 Delete account
               </CardTitle>
               <CardDescription>
-                Permanently remove your account and all data connected to it. This cannot be
-                undone.
+                Permanently remove your account and all data connected to it.
+                This cannot be undone.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -752,22 +829,33 @@ export default function SettingsPage() {
                     Permanently delete your account?
                   </DialogTitle>
                   <DialogDescription>
-                    This action is irreversible. Your Supabase login and application data will
-                    be removed.
+                    This action is irreversible. Your Supabase login and
+                    application data will be removed.
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-                  <p className="font-semibold text-destructive">This permanently deletes:</p>
+                  <p className="font-semibold text-destructive">
+                    This permanently deletes:
+                  </p>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-                    <li>Your profile, preferences, memberships, and collaborator access</li>
+                    <li>
+                      Your profile, preferences, memberships, and collaborator
+                      access
+                    </li>
                     <li>Workspaces you own and everything stored in them</li>
-                    <li>Projects, papers, tasks, notes, conferences, and invitations you own</li>
+                    <li>
+                      Projects, papers, tasks, notes, conferences, and
+                      invitations you own
+                    </li>
                   </ul>
                 </div>
 
                 <div className="grid gap-2">
-                  <label htmlFor="delete-account-password" className="text-sm font-medium">
+                  <label
+                    htmlFor="delete-account-password"
+                    className="text-sm font-medium"
+                  >
                     Current password
                   </label>
                   <Input
@@ -775,19 +863,26 @@ export default function SettingsPage() {
                     type="password"
                     autoComplete="current-password"
                     value={deleteAccountPassword}
-                    onChange={(event) => setDeleteAccountPassword(event.target.value)}
+                    onChange={(event) =>
+                      setDeleteAccountPassword(event.target.value)
+                    }
                     required
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <label htmlFor="delete-account-confirmation" className="text-sm font-medium">
+                  <label
+                    htmlFor="delete-account-confirmation"
+                    className="text-sm font-medium"
+                  >
                     Type DELETE to confirm
                   </label>
                   <Input
                     id="delete-account-confirmation"
                     value={deleteAccountConfirmation}
-                    onChange={(event) => setDeleteAccountConfirmation(event.target.value)}
+                    onChange={(event) =>
+                      setDeleteAccountConfirmation(event.target.value)
+                    }
                     autoComplete="off"
                     required
                   />
@@ -811,7 +906,9 @@ export default function SettingsPage() {
                   <Button
                     type="submit"
                     variant="destructive"
-                    disabled={!deleteAccountPassword || deleteAccountMutation.isPending}
+                    disabled={
+                      !deleteAccountPassword || deleteAccountMutation.isPending
+                    }
                   >
                     <Trash2 className="h-4 w-4" />
                     {deleteAccountMutation.isPending
@@ -830,8 +927,9 @@ export default function SettingsPage() {
                 Design theme
               </CardTitle>
               <CardDescription>
-                Pick the layout, navigation pattern, spacing, and typographic character. Your
-                selected colour theme is applied across each design.
+                Pick the layout, navigation pattern, spacing, and typographic
+                character. Your selected colour theme is applied across each
+                design.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-2">
@@ -897,7 +995,8 @@ export default function SettingsPage() {
                 );
               })}
               <p className="text-xs leading-5 text-muted-foreground">
-                This preference is saved in this browser and applied immediately.
+                This preference is saved in this browser and applied
+                immediately.
               </p>
             </CardContent>
           </Card>
@@ -909,8 +1008,8 @@ export default function SettingsPage() {
                 Color theme
               </CardTitle>
               <CardDescription>
-                Choose the colour wash used across navigation, the workspace canvas, active states,
-                and pipeline accents.
+                Choose the colour wash used across navigation, the workspace
+                canvas, active states, and pipeline accents.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
@@ -919,7 +1018,9 @@ export default function SettingsPage() {
               </label>
               <Select
                 value={colorTheme.theme}
-                onValueChange={(value) => colorTheme.setTheme(value as ColorTheme)}
+                onValueChange={(value) =>
+                  colorTheme.setTheme(value as ColorTheme)
+                }
               >
                 <SelectTrigger id="color-theme">
                   <SelectValue placeholder="Select a color theme" />
@@ -933,11 +1034,11 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs leading-5 text-muted-foreground">
-                This preference is saved in this browser and applied immediately.
+                This preference is saved in this browser and applied
+                immediately.
               </p>
             </CardContent>
           </Card>
-
         </div>
       </div>
 
@@ -951,7 +1052,8 @@ export default function SettingsPage() {
                   Workspaces
                 </CardTitle>
                 <CardDescription>
-                  Every research workspace you can access, and switching between them.
+                  Every research workspace you can access, and switching between
+                  them.
                 </CardDescription>
               </div>
               {workspaces.data ? (
@@ -964,7 +1066,10 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="grid gap-6">
             {workspaces.isPending ? (
-              <LoadingState title="Loading your workspaces" className="min-h-[30vh]" />
+              <LoadingState
+                title="Loading your workspaces"
+                className="min-h-[30vh]"
+              />
             ) : workspaces.isError ? (
               <ErrorState
                 title="Your workspaces could not be loaded"
@@ -977,7 +1082,8 @@ export default function SettingsPage() {
                   {workspaceOptions.map((option) => {
                     const isCurrent = option.id === workspace.data?.id;
                     const isSwitching =
-                      switchWorkspace.isPending && switchWorkspace.variables === option.id;
+                      switchWorkspace.isPending &&
+                      switchWorkspace.variables === option.id;
                     const isDeleting =
                       deleteWorkspaceMutation.isPending &&
                       deleteWorkspaceMutation.variables === option.id;
@@ -1004,7 +1110,9 @@ export default function SettingsPage() {
                             ) : null}
                           </div>
                           <CardTitle className="pt-2">{option.name}</CardTitle>
-                          <CardDescription className="truncate">{option.slug}</CardDescription>
+                          <CardDescription className="truncate">
+                            {option.slug}
+                          </CardDescription>
                         </CardHeader>
                         <CardContent>
                           <div className="mb-5 flex items-center gap-2 text-sm text-muted-foreground">
@@ -1015,7 +1123,9 @@ export default function SettingsPage() {
                             className="w-full"
                             variant={isCurrent ? "outline" : "default"}
                             disabled={
-                              isCurrent || switchWorkspace.isPending || deleteWorkspaceMutation.isPending
+                              isCurrent ||
+                              switchWorkspace.isPending ||
+                              deleteWorkspaceMutation.isPending
                             }
                             onClick={() => void switchToWorkspace(option.id)}
                           >
@@ -1024,13 +1134,20 @@ export default function SettingsPage() {
                               : isSwitching
                                 ? "Switching…"
                                 : "Switch workspace"}
-                            {!isCurrent && !isSwitching ? <ArrowRight className="h-4 w-4" /> : null}
+                            {!isCurrent && !isSwitching ? (
+                              <ArrowRight className="h-4 w-4" />
+                            ) : null}
                           </Button>
                           <Button
                             className="mt-2 w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                             variant="ghost"
-                            disabled={switchWorkspace.isPending || deleteWorkspaceMutation.isPending}
-                            onClick={() => void deleteWorkspace(option.id, option.name)}
+                            disabled={
+                              switchWorkspace.isPending ||
+                              deleteWorkspaceMutation.isPending
+                            }
+                            onClick={() =>
+                              void deleteWorkspace(option.id, option.name)
+                            }
                           >
                             <Trash2 className="h-4 w-4" />
                             {isDeleting ? "Deleting…" : "Delete workspace"}
@@ -1057,7 +1174,8 @@ export default function SettingsPage() {
                     Create another workspace
                   </p>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    You will become the owner and the new workspace will become active.
+                    You will become the owner and the new workspace will become
+                    active.
                   </p>
                   <form
                     className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start"
@@ -1073,13 +1191,21 @@ export default function SettingsPage() {
                         {...workspaceForm.register("name")}
                       />
                       {workspaceForm.formState.errors.name ? (
-                        <p role="alert" className="mt-1 text-xs text-destructive">
+                        <p
+                          role="alert"
+                          className="mt-1 text-xs text-destructive"
+                        >
                           {workspaceForm.formState.errors.name.message}
                         </p>
                       ) : null}
                     </div>
-                    <Button type="submit" disabled={createWorkspaceMutation.isPending}>
-                      {createWorkspaceMutation.isPending ? "Creating…" : "Create workspace"}
+                    <Button
+                      type="submit"
+                      disabled={createWorkspaceMutation.isPending}
+                    >
+                      {createWorkspaceMutation.isPending
+                        ? "Creating…"
+                        : "Create workspace"}
                     </Button>
                   </form>
                   {createWorkspaceMutation.isError ? (
@@ -1095,7 +1221,10 @@ export default function SettingsPage() {
       </div>
 
       {workspace.data?.id ? (
-        <div id="paper-pipeline-stages" className="mx-auto mt-7 w-full max-w-5xl scroll-mt-6">
+        <div
+          id="paper-pipeline-stages"
+          className="mx-auto mt-7 w-full max-w-5xl scroll-mt-6"
+        >
           <PaperStageSettings tenantId={workspace.data.id} />
         </div>
       ) : null}
@@ -1103,10 +1232,16 @@ export default function SettingsPage() {
       <WorkspaceMembers />
 
       <p className="mx-auto mt-2 flex w-full max-w-5xl flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <Link to="/terms" className="underline underline-offset-2 hover:text-foreground">
+        <Link
+          to="/terms"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
           Terms of Service
         </Link>
-        <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">
+        <Link
+          to="/privacy"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
           Privacy Policy
         </Link>
       </p>
