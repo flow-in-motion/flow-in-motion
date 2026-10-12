@@ -120,7 +120,9 @@ export class NotesService {
       throw new NotFoundException('Note not found');
     }
     const [shaped] = await this.withDisplayValues([note]);
-    return shaped;
+    const entries = await this.repository.findEntriesByNote(tenantId, noteId);
+
+    return { ...shaped, entries };
   }
 
   /**
@@ -146,7 +148,12 @@ export class NotesService {
       throw new NotFoundException('Note not found');
     }
     const [shaped] = await this.withDisplayValues([note]);
-    return shaped;
+    const entries = await this.repository.findEntriesByNote(
+      note.tenantId,
+      note.id,
+    );
+
+    return { ...shaped, entries };
   }
 
   async create(
@@ -194,8 +201,7 @@ export class NotesService {
       });
     }
 
-    const [shaped] = await this.withDisplayValues([note]);
-    return shaped;
+    return this.findOne(tenantId, note.id, createdBy);
   }
 
   async update(
@@ -216,6 +222,12 @@ export class NotesService {
       throw new NotFoundException('Note not found');
     }
 
+    if (input.content !== undefined && input.content !== existing.content) {
+      throw new BadRequestException(
+        'Use Add update to add dated content to this note',
+      );
+    }
+
     const changesLinkage =
       input.projectId !== undefined || input.moduleId !== undefined;
     const [linkage, visibilityId] = await Promise.all([
@@ -227,7 +239,6 @@ export class NotesService {
 
     const note = await this.repository.update(tenantId, noteId, {
       title: input.title,
-      content: input.content,
       visibilityId,
       projectId: linkage ? linkage.projectId : undefined,
       moduleId: linkage ? linkage.moduleId : undefined,
@@ -241,9 +252,12 @@ export class NotesService {
     if (input.visibility === 'Private') {
       await this.noteMembers.deleteAllForNote(tenantId, noteId);
     }
-
-    const [shaped] = await this.withDisplayValues([note]);
-    return shaped;
+    if (input.content !== undefined && input.content !== existing.content) {
+      throw new BadRequestException(
+        'Use Add update to add dated content to this note',
+      );
+    }
+    return this.findOne(tenantId, noteId, callerUserId);
   }
 
   /** Tenant-agnostic update — resolves the note's real tenant first, then
@@ -258,6 +272,42 @@ export class NotesService {
       throw new NotFoundException('Note not found');
     }
     return this.update(note.tenantId, noteId, callerUserId, input);
+  }
+
+  async appendEntry(
+    tenantId: string,
+    noteId: string,
+    callerUserId: string,
+    input: { content: string },
+  ) {
+    await this.findOne(tenantId, noteId, callerUserId);
+
+    const content = input.content.trim();
+    if (!content) {
+      throw new BadRequestException('Note update content must not be empty');
+    }
+
+    const note = await this.repository.appendEntry(tenantId, noteId, content);
+
+    if (!note) {
+      throw new NotFoundException('Note not found');
+    }
+
+    return this.findOne(tenantId, noteId, callerUserId);
+  }
+
+  async appendEntryForCaller(
+    noteId: string,
+    callerUserId: string,
+    input: { content: string },
+  ) {
+    const note = await this.repository.findByIdGlobal(noteId);
+
+    if (!note || !(await this.canAccess(note.tenantId, note, callerUserId))) {
+      throw new NotFoundException('Note not found');
+    }
+
+    return this.appendEntry(note.tenantId, noteId, callerUserId, input);
   }
 
   async delete(tenantId: string, noteId: string, callerUserId: string) {

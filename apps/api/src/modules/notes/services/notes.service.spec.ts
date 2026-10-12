@@ -16,6 +16,8 @@ describe('NotesService', () => {
   let service: NotesService;
 
   let repository: {
+    findEntriesByNote: jest.Mock;
+    appendEntry: jest.Mock;
     findById: jest.Mock;
     findByIdGlobal: jest.Mock;
     findByCreator: jest.Mock;
@@ -50,6 +52,8 @@ describe('NotesService', () => {
 
   beforeEach(() => {
     repository = {
+      findEntriesByNote: jest.fn().mockResolvedValue([]),
+      appendEntry: jest.fn(),
       findById: jest.fn(),
       findByIdGlobal: jest.fn(),
       findByCreator: jest.fn(),
@@ -99,12 +103,189 @@ describe('NotesService', () => {
     );
   });
 
-  describe('create', () => {
-    it('delegates directly to the repository, no enum resolution', async () => {
-      repository.create.mockResolvedValue({
+  describe('dated entries', () => {
+    const initialEntry = {
+      id: 'entry-1',
+      noteId: 'note-1',
+      content: 'Initial content',
+      createdAt: '2026-10-12T06:00:00.000Z',
+    };
+
+    const newEntry = {
+      id: 'entry-2',
+      noteId: 'note-1',
+      content: 'New content',
+      createdAt: '2026-10-13T06:00:00.000Z',
+    };
+
+    beforeEach(() => {
+      repository.findById.mockResolvedValue({
         id: 'note-1',
-        visibilityId: 'visibility-private-id',
+        tenantId: 'tenant-1',
+        createdBy: 'user-1',
+        content: 'Initial content',
+        visibilityId: null,
       });
+
+      repository.findEntriesByNote.mockResolvedValue([initialEntry]);
+    });
+
+    it('returns entry content and its original timestamp', async () => {
+      const result = await service.findOne('tenant-1', 'note-1', 'user-1');
+
+      expect(result.entries).toEqual([initialEntry]);
+    });
+
+    it('adds trimmed content and returns both entries', async () => {
+      repository.appendEntry.mockResolvedValue({ id: 'note-1' });
+      repository.findEntriesByNote
+        .mockResolvedValueOnce([initialEntry])
+        .mockResolvedValueOnce([newEntry, initialEntry]);
+
+      const result = await service.appendEntry('tenant-1', 'note-1', 'user-1', {
+        content: '  New content  ',
+      });
+
+      expect(repository.appendEntry).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        'New content',
+      );
+      expect(result.entries).toEqual([newEntry, initialEntry]);
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects whitespace-only additions without writing', async () => {
+      await expect(
+        service.appendEntry('tenant-1', 'note-1', 'user-1', {
+          content: ' \n\t ',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(repository.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('does not read entries or write content for an outsider', async () => {
+      await expect(
+        service.appendEntry('tenant-1', 'note-1', 'outsider-1', {
+          content: 'New content',
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(repository.findEntriesByNote).not.toHaveBeenCalled();
+      expect(repository.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('allows a member to add content using the note real tenant', async () => {
+      repository.findByIdGlobal.mockResolvedValue({
+        id: 'note-1',
+        tenantId: 'tenant-2',
+        createdBy: 'owner-1',
+        visibilityId: null,
+      });
+      repository.findById.mockResolvedValue({
+        id: 'note-1',
+        tenantId: 'tenant-2',
+        createdBy: 'owner-1',
+        visibilityId: null,
+      });
+      noteMembers.findByNoteAndUser.mockResolvedValue({
+        id: 'membership-1',
+      });
+      repository.appendEntry.mockResolvedValue({ id: 'note-1' });
+
+      await service.appendEntryForCaller('note-1', 'member-1', {
+        content: 'New content',
+      });
+
+      expect(repository.appendEntry).toHaveBeenCalledWith(
+        'tenant-2',
+        'note-1',
+        'New content',
+      );
+      expect(repository.findEntriesByNote).toHaveBeenCalledWith(
+        'tenant-2',
+        'note-1',
+      );
+    });
+
+    it('rejects an outsider through the tenant-agnostic path', async () => {
+      repository.findByIdGlobal.mockResolvedValue({
+        id: 'note-1',
+        tenantId: 'tenant-2',
+        createdBy: 'owner-1',
+      });
+
+      await expect(
+        service.appendEntryForCaller('note-1', 'outsider-1', {
+          content: 'New content',
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(repository.findEntriesByNote).not.toHaveBeenCalled();
+      expect(repository.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('rejects replacement of earlier content', async () => {
+      await expect(
+        service.update('tenant-1', 'note-1', 'user-1', {
+          content: 'Replacement content',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(repository.update).not.toHaveBeenCalled();
+      expect(repository.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('updates note details without creating a content entry', async () => {
+      repository.update.mockResolvedValue({ id: 'note-1' });
+
+      await service.update('tenant-1', 'note-1', 'user-1', {
+        title: 'Updated title',
+        content: 'Initial content',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        expect.objectContaining({ title: 'Updated title' }),
+      );
+      expect(repository.update.mock.calls[0][2]).not.toHaveProperty('content');
+      expect(repository.appendEntry).not.toHaveBeenCalled();
+    });
+
+    it('handles a note disappearing before the addition is saved', async () => {
+      repository.appendEntry.mockResolvedValue(undefined);
+
+      await expect(
+        service.appendEntry('tenant-1', 'note-1', 'user-1', {
+          content: 'New content',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('create', () => {
+    it('creates a note and returns its initial dated entry', async () => {
+      const note = {
+        id: 'note-1',
+        tenantId: 'tenant-1',
+        createdBy: 'user-1',
+        content: 'Discussed timeline',
+        visibilityId: 'visibility-private-id',
+      };
+      const entries = [
+        {
+          id: 'entry-1',
+          noteId: 'note-1',
+          content: 'Discussed timeline',
+          createdAt: '2026-10-12T06:00:00.000Z',
+        },
+      ];
+
+      repository.create.mockResolvedValue(note);
+      repository.findById.mockResolvedValue(note);
+      repository.findEntriesByNote.mockResolvedValue(entries);
 
       const result = await service.create('tenant-1', 'user-1', {
         title: 'Meeting Notes',
@@ -120,12 +301,20 @@ describe('NotesService', () => {
         moduleId: undefined,
         displayId: 'NTE-0001',
         visibilityId: 'visibility-private-id',
+        followUpDate: undefined,
       });
 
-      expect(result).toEqual({
-        id: 'note-1',
-        visibility: 'visibility-private-id',
-      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'note-1',
+          visibility: 'visibility-private-id',
+          entries,
+        }),
+      );
+      expect(repository.findEntriesByNote).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+      );
     });
 
     it('derives projectId from an independent module rather than trusting the caller', async () => {
@@ -138,7 +327,12 @@ describe('NotesService', () => {
         id: 'note-1',
         visibilityId: null,
       });
-
+      repository.findById.mockResolvedValue({
+        id: 'note-1',
+        tenantId: 'tenant-1',
+        createdBy: 'user-1',
+        visibilityId: null,
+      });
       await service.create('tenant-1', 'user-1', {
         title: 'Meeting Notes',
         moduleId: 'module-1',

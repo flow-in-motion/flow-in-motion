@@ -30,3 +30,4 @@ export * from './funding-projects';
 export * from './funding-modules';
 export * from './funding-notes';
 export * from './funding-tasks';
+export * from './note-entries';

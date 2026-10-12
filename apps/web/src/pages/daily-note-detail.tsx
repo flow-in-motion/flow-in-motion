@@ -14,6 +14,8 @@ import {
   type ApiModule,
   type ApiNote,
   type ApiProject,
+  useAddMyNoteEntry,
+  type ApiNoteEntry,
 } from "@/api/hooks";
 import { NoteMembersManager } from "@/components/notes/note-members";
 import { BackButton } from "@/components/shared/back-button";
@@ -40,7 +42,6 @@ const LINK_TARGETS: Array<{ value: LinkTargetType; label: string }> = [
 
 interface NoteEditForm {
   title: string;
-  content: string;
   linkTarget: LinkTargetType;
   projectId: string;
   moduleId: string;
@@ -69,7 +70,6 @@ function formatPlainDate(iso: string) {
 function formValues(note: ApiNote): NoteEditForm {
   return {
     title: note.title ?? "",
-    content: note.content ?? "",
     linkTarget: resolveLinkTargetType(note),
     projectId: note.projectId ?? "",
     moduleId: note.moduleId ?? "",
@@ -119,11 +119,32 @@ function LinkedWorkCard({
     setIsEditing(true);
   }
 
-  async function handleSave() {
-    if (linkTarget === "project" && !projectId) return;
-    if (linkTarget === "module" && !moduleId) return;
-    await onChangeLink(linkTarget, projectId, moduleId);
-    setIsEditing(false);
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!form || updateNote.isPending || addEntry.isPending) return;
+
+    const content = newContent.trim();
+
+    try {
+      await updateNote.mutateAsync({
+        noteId,
+        input: {
+          title: form.title.trim() || "Untitled note",
+          visibility: form.visibility,
+          followUpDate: form.followUpDate || undefined,
+        },
+      });
+
+      if (content) {
+        await addEntry.mutateAsync({ noteId, content });
+      }
+
+      setNewContent("");
+      setForm(null);
+    } catch {
+      // Keep editing open and preserve the draft after a failed save.
+    }
   }
 
   async function handleUnlink() {
@@ -242,6 +263,38 @@ function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
     </span>
   );
 }
+function groupNoteEntries(entries: ApiNoteEntry[]) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const groups = new Map<
+    string,
+    { date: string; entries: ApiNoteEntry[] }
+  >();
+
+  const sorted = [...entries].sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime() ||
+      b.id.localeCompare(a.id),
+  );
+
+  for (const entry of sorted) {
+    const date = formatter.format(new Date(entry.createdAt));
+    const group = groups.get(date);
+
+    if (group) {
+      group.entries.push(entry);
+    } else {
+      groups.set(date, { date, entries: [entry] });
+    }
+  }
+
+  return [...groups.values()];
+}
 export default function DailyNoteDetailPage() {
   const { noteId = "" } = useParams();
   const navigate = useNavigate();
@@ -264,7 +317,10 @@ export default function DailyNoteDetailPage() {
   const [form, setForm] = useState<NoteEditForm | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
-  const [isMembersVisible, setIsMembersVisible] = useState(true);
+  const [isMembersVisible, setIsMembersVisible] = useState(true);  
+  const addEntry = useAddMyNoteEntry();
+  const [newContent, setNewContent] = useState("");
+
 
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && note) {
@@ -308,7 +364,6 @@ export default function DailyNoteDetailPage() {
       noteId,
       input: {
         title: form.title.trim() || "Untitled note",
-        content: form.content.trim() || undefined,
         visibility: form.visibility,
         followUpDate: form.followUpDate || undefined,
       },
@@ -340,6 +395,7 @@ export default function DailyNoteDetailPage() {
   const linkedModule = note.moduleId
     ? modules.find((module) => module.id === note.moduleId)
     : undefined;
+  const entryGroups = groupNoteEntries(note.entries ?? []);
 
   return (
     <div className="page-stack">
@@ -397,16 +453,38 @@ export default function DailyNoteDetailPage() {
                 Content
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-5 sm:p-6">
-              {note.content?.trim() ? (
-                <div className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]">
-                  {note.content}
+            <CardContent className="space-y-6 p-5 sm:p-6">
+              {entryGroups.length > 0 ? (
+                <div className="space-y-6">
+                  {entryGroups.map((group) => (
+                    <div key={group.date} className="space-y-2">
+                      <time
+                        dateTime={group.date.split("/").reverse().join("-")}
+                        className="block text-xs font-medium text-muted-foreground"
+                      >
+                        {group.date}
+                      </time>
+
+                      <div className="space-y-3">
+                        {group.entries.map((entry) => (
+                          <p
+                            key={entry.id}
+                            className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]"
+                          >
+                            {entry.content}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   No content added yet.
                 </p>
               )}
+
+              
             </CardContent>
           </Card>
         </section>
@@ -420,9 +498,6 @@ export default function DailyNoteDetailPage() {
               <div className="grid gap-5 sm:grid-cols-2">
                 <FormField label="Note title" htmlFor="edit-note-title" className="sm:col-span-2">
                   <Input id="edit-note-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required autoFocus />
-                </FormField>
-                <FormField label="Note" htmlFor="edit-note-content" className="sm:col-span-2">
-                  <Textarea id="edit-note-content" value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} rows={6} />
                 </FormField>
                 {TASK_NOTE_SHARING_ENABLED ? (
                   <FormField label="Visibility" htmlFor="edit-note-visibility">

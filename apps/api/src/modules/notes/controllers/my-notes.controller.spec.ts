@@ -3,8 +3,37 @@ import { NotesService } from '../services/notes.service';
 import { UsersService } from '../../users/users.service';
 
 describe('MyNotesController', () => {
+  it('appendEntry() delegates using the authenticated caller without a workspace id', async () => {
+    const dto = { content: 'New research update' };
+    const response = {
+      id: 'note-1',
+      tenantId: 'another-tenant',
+      entries: [
+        {
+          id: 'entry-1',
+          noteId: 'note-1',
+          content: dto.content,
+          createdAt: '2026-10-12T06:00:00.000Z',
+        },
+      ],
+    };
+    notesService.appendEntryForCaller.mockResolvedValue(response);
+
+    const result = await controller.appendEntry('note-1', req(), dto);
+
+    expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
+      'supabase-user-1',
+    );
+    expect(notesService.appendEntryForCaller).toHaveBeenCalledWith(
+      'note-1',
+      'user-1',
+      dto,
+    );
+    expect(result).toBe(response);
+  });
   let controller: MyNotesController;
   let notesService: {
+    appendEntryForCaller: jest.Mock;
     listForCaller: jest.Mock;
     findOneForCaller: jest.Mock;
     updateForCaller: jest.Mock;
@@ -14,6 +43,7 @@ describe('MyNotesController', () => {
 
   beforeEach(() => {
     notesService = {
+      appendEntryForCaller: jest.fn(),
       listForCaller: jest.fn(),
       findOneForCaller: jest.fn(),
       updateForCaller: jest.fn(),

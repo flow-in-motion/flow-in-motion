@@ -1,11 +1,18 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import DailyNoteDetailPage from "@/pages/daily-note-detail";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 
 const fixtures = vi.hoisted(() => ({
   updateNote: vi.fn(),
+  addEntry: vi.fn(),
   sharingEnabled: false,
   note: {
     id: "note-1",
@@ -16,6 +23,12 @@ const fixtures = vi.hoisted(() => ({
     createdBy: "user-owner",
     title: "Initial observations",
     content: "Baseline readings look consistent.",
+    entries: [{
+      id: "entry-1",
+      noteId: "note-1",
+      content: "Baseline readings look consistent.",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }],
     visibility: "Private",
     followUpDate: null as string | null,
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -37,6 +50,18 @@ const fixtures = vi.hoisted(() => ({
 
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({ data: { id: "workspace-1" }, isPending: false }),
+  useUpdateMyNote: () => ({
+    mutateAsync: fixtures.updateNote,
+    isPending: false,
+    isError: false,
+    error: undefined,
+  }),
+  useAddMyNoteEntry: () => ({
+    mutateAsync: fixtures.addEntry,
+    isPending: false,
+    isError: false,
+    error: undefined,
+  }),
   useMyNote: () => ({
     data: fixtures.note,
     isPending: false,
@@ -50,7 +75,6 @@ vi.mock("@/api/hooks", () => ({
   useModules: () => ({
     data: { data: fixtures.modules, meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 } },
   }),
-  useUpdateMyNote: () => ({ mutateAsync: fixtures.updateNote, isPending: false }),
   useProject: (_tenantId: string, projectId?: string) => ({
     data: projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
     isError: false,
@@ -80,12 +104,152 @@ describe("DailyNoteDetailPage", () => {
   beforeEach(() => {
     fixtures.sharingEnabled = false;
     fixtures.note.content = "Baseline readings look consistent.";
+    fixtures.note.entries = [{
+      id: "entry-1",
+      noteId: "note-1",
+      content: "Baseline readings look consistent.",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }];
     fixtures.note.followUpDate = null;
     fixtures.note.projectId = null;
     fixtures.note.moduleId = null;
     fixtures.note.visibility = "Private";
+
     fixtures.updateNote.mockReset();
     fixtures.updateNote.mockResolvedValue(fixtures.note);
+
+    fixtures.addEntry.mockReset();
+    fixtures.addEntry.mockResolvedValue(fixtures.note);
+  });
+
+  function renderNote() {
+    return render(
+      <MemoryRouter initialEntries={["/daily-notes/note-1"]}>
+        <Routes>
+          <Route
+            path="daily-notes/:noteId"
+            element={<DailyNoteDetailPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it("groups entries by local date and displays newest content first", () => {
+    // In Sydney, 14:00 UTC on October 12 is October 13.
+    fixtures.note.entries = [
+      {
+        id: "entry-old",
+        noteId: "note-1",
+        content: "Original content",
+        createdAt: "2026-10-12T12:00:00.000Z",
+      },
+      {
+        id: "entry-middle",
+        noteId: "note-1",
+        content: "First update",
+        createdAt: "2026-10-12T14:00:00.000Z",
+      },
+      {
+        id: "entry-new",
+        noteId: "note-1",
+        content: "Latest update",
+        createdAt: "2026-10-12T15:00:00.000Z",
+      },
+    ];
+
+    renderNote();
+
+    const region = screen.getByRole("region", { name: "Content" });
+    const dates = [...region.querySelectorAll("time")]
+      .map((element) => element.textContent);
+
+    expect(dates).toEqual(["13/10/2026", "12/10/2026"]);
+
+    const content = within(region).getAllByText(
+      /^(Original content|First update|Latest update)$/,
+    );
+    expect(content.map((element) => element.textContent)).toEqual([
+      "Latest update",
+      "First update",
+      "Original content",
+    ]);
+  });
+
+  it("saves only the new addition and clears the draft after success", async () => {
+    renderNote();
+
+    const textarea = screen.getByLabelText("Add update");
+    fireEvent.change(textarea, {
+      target: { value: "  New observation  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add update" }));
+
+    await waitFor(() => {
+      expect(fixtures.addEntry).toHaveBeenCalledWith({
+        noteId: "note-1",
+        content: "New observation",
+      });
+      expect(textarea).toHaveValue("");
+    });
+
+    expect(fixtures.updateNote).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Baseline readings look consistent."),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the draft when saving an addition fails", async () => {
+    fixtures.addEntry.mockRejectedValue(new Error("Unable to save"));
+    renderNote();
+
+    const textarea = screen.getByLabelText("Add update");
+    fireEvent.change(textarea, {
+      target: { value: "Keep this draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add update" }));
+
+    await waitFor(() =>
+      expect(fixtures.addEntry).toHaveBeenCalledWith({
+        noteId: "note-1",
+        content: "Keep this draft",
+      }),
+    );
+
+    expect(textarea).toHaveValue("Keep this draft");
+  });
+
+  it("disables adding empty or whitespace-only content", () => {
+    renderNote();
+
+    const button = screen.getByRole("button", { name: "Add update" });
+    expect(button).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Add update"), {
+      target: { value: " \n\t " },
+    });
+
+    expect(button).toBeDisabled();
+    expect(fixtures.addEntry).not.toHaveBeenCalled();
+  });
+
+  it("saves metadata without sending earlier content", async () => {
+    renderNote();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
+    fireEvent.change(screen.getByLabelText("Note title"), {
+      target: { value: "Updated observations" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateNote).toHaveBeenCalledTimes(1),
+    );
+
+    const payload = fixtures.updateNote.mock.calls[0][0];
+    expect(payload.input.title).toBe("Updated observations");
+    expect(payload.input).not.toHaveProperty("content");
+    expect(fixtures.addEntry).not.toHaveBeenCalled();
   });
 
   it("returns to whatever page linked into edit mode when editing is cancelled", () => {
@@ -282,7 +446,7 @@ describe("DailyNoteDetailPage", () => {
     expect(screen.getByText("Owner")).toBeInTheDocument();
   });
 
-  it("edits a note's title and content", async () => {
+  it("edits a note's title", async () => {
     render(
       <MemoryRouter initialEntries={["/daily-notes/note-1"]}>
         <Routes>

@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import {
   modules,
   notes,
+  noteEntries,
   noteMembers,
   projects,
 } from '@research-tracker/migrations';
@@ -18,10 +19,27 @@ import {
   sql,
 } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
+import { getRequestContext } from '../../../db/request-context';
 
 @Injectable()
 export class NotesRepository {
   constructor(private readonly drizzle: DrizzleService) {}
+
+  private async withinTransaction<T>(
+    operation: (
+      db: Pick<DrizzleService['db'], 'insert' | 'update'>,
+    ) => Promise<T>,
+  ): Promise<T> {
+    const context = getRequestContext();
+
+    if (context) {
+      // The interceptor owns commit/rollback and the RLS settings.
+      return operation(context.tx);
+    }
+
+    // Calls outside an HTTP request need their own transaction.
+    return this.drizzle.db.transaction((tx) => operation(tx));
+  }
 
   private activeParentCondition() {
     return and(
@@ -216,11 +234,21 @@ export class NotesRepository {
     visibilityId?: string;
     followUpDate?: string;
   }) {
-    const [note] = await this.drizzle.db
-      .insert(notes)
-      .values(values)
-      .returning();
-    return note;
+    return this.withinTransaction(async (tx) => {
+      const [note] = await tx.insert(notes).values(values).returning();
+
+      if (!note) return undefined;
+
+      if (note.content?.trim()) {
+        await tx.insert(noteEntries).values({
+          noteId: note.id,
+          content: note.content,
+          createdAt: note.createdAt,
+        });
+      }
+
+      return note;
+    });
   }
 
   async update(
@@ -249,5 +277,62 @@ export class NotesRepository {
       .where(and(eq(notes.tenantId, tenantId), eq(notes.id, noteId)))
       .returning();
     return note;
+  }
+
+  async findEntriesByNote(tenantId: string, noteId: string) {
+    return this.drizzle.db
+      .select({
+        id: noteEntries.id,
+        noteId: noteEntries.noteId,
+        content: noteEntries.content,
+        createdAt: noteEntries.createdAt,
+      })
+      .from(noteEntries)
+      .innerJoin(notes, eq(notes.id, noteEntries.noteId))
+      .where(
+        and(
+          eq(notes.tenantId, tenantId),
+          eq(notes.id, noteId),
+          this.activeParentCondition(),
+        ),
+      )
+      .orderBy(desc(noteEntries.createdAt), desc(noteEntries.id));
+  }
+
+  async appendEntry(tenantId: string, noteId: string, content: string) {
+    return this.withinTransaction(async (tx) => {
+      // Updating the parent locks its row, so concurrent additions
+      // preserve each other's content.
+      const [note] = await tx
+        .update(notes)
+        .set({
+          content: sql<string>`
+            CASE
+              WHEN ${notes.content} IS NULL
+                OR btrim(${notes.content}) = ''
+              THEN ${content}
+              ELSE ${content} || E'\n\n' || ${notes.content}
+            END
+          `,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(notes.tenantId, tenantId),
+            eq(notes.id, noteId),
+            this.activeParentCondition(),
+          ),
+        )
+        .returning();
+
+      if (!note) return undefined;
+
+      await tx.insert(noteEntries).values({
+        noteId: note.id,
+        content,
+      });
+
+      return note;
+    });
   }
 }

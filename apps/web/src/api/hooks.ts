@@ -209,7 +209,16 @@ export interface ApiNote {
   createdAt: string;
   updatedAt: string;
 }
+export interface ApiNoteEntry {
+  id: string;
+  noteId: string;
+  content: string;
+  createdAt: string;
+}
 
+export interface ApiNoteDetail extends ApiNote {
+  entries: ApiNoteEntry[];
+}
 export interface ApiConferenceProject {
   id: string;
   displayId: string | null;
@@ -2350,7 +2359,7 @@ export function useNote(tenantId: string, noteId: string, enabled = true) {
     queryKey: apiKeys.note(tenantId, noteId),
     enabled: Boolean(tenantId) && Boolean(noteId) && enabled,
     queryFn: async () =>
-      responseData<ApiNote>(
+      responseData<ApiNoteDetail>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/notes/{noteId}", {
           params: { path: { tenantId, noteId } },
         }),
@@ -2362,7 +2371,7 @@ export function useCreateNote(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateNoteInput) =>
-      responseData<ApiNote>(
+      responseData<ApiNoteDetail>(
         await apiClient.POST("/api/v1/tenant/{tenantId}/notes", {
           params: { path: { tenantId } },
           body: input,
@@ -2386,7 +2395,7 @@ export function useUpdateNote(tenantId: string) {
       noteId: string;
       input: UpdateNoteInput;
     }) =>
-      responseData<ApiNote>(
+      responseData<ApiNoteDetail>(
         await apiClient.PATCH("/api/v1/tenant/{tenantId}/notes/{noteId}", {
           params: { path: { tenantId, noteId } },
           // The generated type only allows `string | undefined` for
@@ -2506,7 +2515,7 @@ export function useMyNote(noteId: string, enabled = true) {
     queryKey: myNoteKey(noteId),
     enabled: Boolean(noteId) && enabled,
     queryFn: async () =>
-      responseData<ApiNote>(
+      responseData<ApiNoteDetail>(
         await apiClient.GET("/api/v1/me/notes/{noteId}", {
           params: { path: { noteId } },
         }),
@@ -2536,7 +2545,40 @@ export function useUpdateMyNote() {
       ),
     async onSuccess(note) {
       queryClient.setQueryData(myNoteKey(note.id), note);
+      queryClient.setQueryData(
+        apiKeys.note(note.tenantId,note.id),
+        note,
+      );
       await queryClient.invalidateQueries({ queryKey: myNotesKey });
+    },
+  });
+}
+
+export function useAddMyNoteEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      noteId,
+      content,
+    }: {
+      noteId: string;
+      content: string;
+    }) =>
+      authenticatedJson<ApiNoteDetail>(
+        `/api/v1/me/notes/${encodeURIComponent(noteId)}/entries`,
+        {
+          method: "POST",
+          body: JSON.stringify({ content }),
+        },
+      ),
+    async onSuccess(note) {
+      queryClient.setQueryData(myNoteKey(note.id), note);
+      queryClient.setQueryData(
+        apiKeys.note(note.tenantId, note.id),
+        note,
+      );
+      await invalidateResourceEverywhere(queryClient, "notes");
     },
   });
 }
