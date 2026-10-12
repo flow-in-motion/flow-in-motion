@@ -421,6 +421,20 @@
       "when": 1791678757466,
       "tag": "0075_lowly_molten_man",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1791761623189,
+      "tag": "0076_paper_collaborator_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1791762486315,
+      "tag": "0077_fix_paper_creation_rls",
+      "breakpoints": true
     }
   ]
 }

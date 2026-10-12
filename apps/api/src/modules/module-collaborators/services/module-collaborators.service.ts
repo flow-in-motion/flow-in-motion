@@ -1,83 +1,70 @@
 // apps/api/src/modules/module-collaborators/services/module-collaborators.service.ts
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { EnumRepository } from '../../enum/repositories/enum.repository';
-import { ProjectCollaboratorsRepository } from '../../project-collaborators/repositories/project-collaborators.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
 import { ModuleCollaboratorsRepository } from '../repositories/module-collaborators.repository';
 import { UsersService } from '../../users/users.service';
-import { MembershipsRepository } from '../../memberships/repositories/memberships.repository';
 
 @Injectable()
 export class ModuleCollaboratorsService {
   constructor(
     private readonly repository: ModuleCollaboratorsRepository,
     private readonly modulesRepository: ProjectModulesRepository,
-    private readonly projectCollaboratorsRepository: ProjectCollaboratorsRepository,
     private readonly enumRepository: EnumRepository,
     private readonly usersService: UsersService,
-    private readonly membershipsRepository: MembershipsRepository,
   ) {}
 
-  async ensureOwnerMembership(
+  async assertCanManageCollaborators(
     tenantId: string,
     moduleId: string,
     callerUserId: string,
-  ) {
-    const existing = await this.repository.findByModuleAndUser(
+  ): Promise<void> {
+    const module = await this.modulesRepository.findById(tenantId, moduleId);
+    if (!module) {
+      throw new NotFoundException('Module not found');
+    }
+
+    if (
+      module.projectId &&
+      (await this.modulesRepository.isProjectOwner(
+        tenantId,
+        module.projectId,
+        callerUserId,
+      ))
+    ) {
+      return;
+    }
+
+    const membership = await this.repository.findByModuleAndUser(
       tenantId,
       moduleId,
       callerUserId,
     );
-    if (existing) return existing;
 
-    const module = await this.modulesRepository.findById(tenantId, moduleId);
-    if (!module) return undefined;
+    if (membership) {
+      const ownerRole = await this.enumRepository.findByCategoryAndValue(
+        'project_role',
+        'Owner',
+      );
 
-    const ownerRole = await this.enumRepository.findByCategoryAndValue(
-      'project_role',
-      'Owner',
+      if (ownerRole && membership.roleId === ownerRole.id) {
+        return;
+      }
+    }
+
+    throw new ForbiddenException(
+      'Only the paper owner or project owner can manage paper collaborators',
     );
-    if (!ownerRole) return undefined;
-
-    const callerOwnsModule = module.projectId
-      ? (
-          await this.projectCollaboratorsRepository.findByProjectAndUser(
-            tenantId,
-            module.projectId,
-            callerUserId,
-          )
-        )?.roleId === ownerRole.id
-      : false;
-
-    const tenantMembership = module.projectId
-      ? undefined
-      : await this.membershipsRepository.findMembershipByTenantAndUser(
-          tenantId,
-          callerUserId,
-        );
-    const callerOwnsTenant =
-      tenantMembership?.status === 'active' &&
-      tenantMembership.role === 'owner';
-
-    if (!callerOwnsModule && !callerOwnsTenant) return undefined;
-
-    return this.repository.create({
-      tenantId,
-      projectId: module.projectId ?? undefined,
-      moduleId,
-      userId: callerUserId,
-      roleId: ownerRole.id,
-    });
   }
 
   /**
-   * The collaborator list is itself only visible to someone who can already
-   * see the module: for a project-scoped module, a collaborator on that
-   * project; for an independent module, an existing module collaborator.
+   * Explicit paper collaborators and the parent project owner can view
+   * the paper's collaborators. Other project collaborators cannot.
    */
   async list(tenantId: string, moduleId: string, callerUserId: string) {
     const module = await this.modulesRepository.findById(tenantId, moduleId);
@@ -85,23 +72,23 @@ export class ModuleCollaboratorsService {
       throw new NotFoundException('Module not found');
     }
 
-    await this.ensureOwnerMembership(tenantId, moduleId, callerUserId);
+    const membership = await this.repository.findByModuleAndUser(
+      tenantId,
+      moduleId,
+      callerUserId,
+    );
 
-    const hasAccess = module.projectId
-      ? Boolean(
-          await this.projectCollaboratorsRepository.findByProjectAndUser(
-            tenantId,
-            module.projectId,
-            callerUserId,
-          ),
-        )
-      : Boolean(
-          await this.repository.findByModuleAndUser(
-            tenantId,
-            moduleId,
-            callerUserId,
-          ),
-        );
+    const hasAccess =
+      Boolean(membership) ||
+      Boolean(
+        module.projectId &&
+        (await this.modulesRepository.isProjectOwner(
+          tenantId,
+          module.projectId,
+          callerUserId,
+        )),
+      );
+
     if (!hasAccess) {
       throw new NotFoundException('Module not found');
     }
@@ -168,7 +155,15 @@ export class ModuleCollaboratorsService {
     );
   }
 
-  async add(tenantId: string, moduleId: string, userId: string, role: string) {
+  async add(
+    tenantId: string,
+    moduleId: string,
+    userId: string,
+    role: string,
+    callerUserId: string,
+  ) {
+    await this.assertCanManageCollaborators(tenantId, moduleId, callerUserId);
+
     const module = await this.modulesRepository.findById(tenantId, moduleId);
     if (!module) {
       throw new NotFoundException('Module not found');
@@ -206,7 +201,10 @@ export class ModuleCollaboratorsService {
     moduleId: string,
     userId: string,
     role: string,
+    callerUserId: string,
   ) {
+    await this.assertCanManageCollaborators(tenantId, moduleId, callerUserId);
+
     const roleId = await this.resolveRole(role);
 
     const row = await this.repository.updateRole(
@@ -222,7 +220,14 @@ export class ModuleCollaboratorsService {
     return shaped;
   }
 
-  async remove(tenantId: string, moduleId: string, userId: string) {
+  async remove(
+    tenantId: string,
+    moduleId: string,
+    userId: string,
+    callerUserId: string,
+  ) {
+    await this.assertCanManageCollaborators(tenantId, moduleId, callerUserId);
+
     const row = await this.repository.delete(tenantId, moduleId, userId);
     if (!row) {
       throw new NotFoundException('Collaborator not found on this module');

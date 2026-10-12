@@ -22,6 +22,8 @@ import type {
 } from '../dto/list-modules-query.dto';
 import type { CurrentlyWithType } from '../dto/create-module.dto';
 const ARCHIVE_RETENTION_DAYS = 14;
+const SUBMITTED_UNDER_REVIEW_STAGE = 'Submitted, Under Review';
+const REVIEW_STATUS = 'Review';
 
 function rememberedNames(values: Array<string | null | undefined>) {
   const byNormalizedName = new Map<string, string>();
@@ -132,33 +134,30 @@ export class ProjectModulesService {
   }
 
   /**
-   * A module with a parent project inherits that project's visibility
-   * (owner or project_collaborators — the owner is always inserted as a
-   * collaborator at project-creation time, so a single collaborator check
-   * covers both). An independent module (no project) is only visible to its
-   * own module_collaborators.
+   * Papers are visible to their explicit collaborators and the owner
+   * of their parent project. Project collaborators do not inherit access.
    */
   private async canAccess(
     tenantId: string,
     module: { id: string; projectId: string | null },
     callerUserId: string,
   ): Promise<boolean> {
-    if (module.projectId) {
-      const projectMembership =
-        await this.projectCollaboratorsRepository.findByProjectAndUser(
-          tenantId,
-          module.projectId,
-          callerUserId,
-        );
-      return Boolean(projectMembership);
-    }
     const moduleMembership =
       await this.collaboratorsRepository.findByModuleAndUser(
         tenantId,
         module.id,
         callerUserId,
       );
-    return Boolean(moduleMembership);
+
+    if (moduleMembership) return true;
+    if (!module.projectId) return false;
+
+    const project = await this.projectsRepository.findById(
+      tenantId,
+      module.projectId,
+    );
+
+    return project?.userId === callerUserId;
   }
 
   async listActive(
@@ -229,11 +228,8 @@ export class ProjectModulesService {
   }
 
   /**
-   * Tenant-agnostic: every module the caller can access, regardless of
-   * which workspace it lives in — a module linked to any project the caller
-   * can access (owner or project_collaborators row), plus every independent
-   * module the caller is a direct module_collaborators row on. Mirrors
-   * ProjectsService.listForCaller / TasksService.listForCaller.
+   * Lists papers across workspaces where the caller is an explicit paper
+   * collaborator or owns the parent project.
    */
   async listForCaller(callerUserId: string, page: number, pageSize: number) {
     const offset = paginationOffset(page, pageSize);
@@ -310,8 +306,13 @@ export class ProjectModulesService {
       input.projectId,
       callerUserId,
     );
+    const status =
+      input.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
+        ? REVIEW_STATUS
+        : input.status;
+
     const [statusId, priorityId] = await Promise.all([
-      this.resolveEnum('project_status', input.status),
+      this.resolveEnum('project_status', status),
       this.resolveEnum('importance', input.priority),
     ]);
     const pipelineStageId = input.pipelineStage
@@ -408,11 +409,12 @@ export class ProjectModulesService {
         callerUserId,
       );
     }
-
+    const status =
+      input.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
+        ? REVIEW_STATUS
+        : input.status;
     const [statusId, priorityId, pipelineStageId] = await Promise.all([
-      input.status
-        ? this.resolveEnum('project_status', input.status)
-        : undefined,
+      status ? this.resolveEnum('project_status', status) : undefined,
       input.priority
         ? this.resolveEnum('importance', input.priority)
         : undefined,

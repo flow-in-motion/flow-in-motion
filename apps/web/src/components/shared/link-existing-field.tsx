@@ -85,6 +85,9 @@ export function LinkExistingField({
                   role="option"
                   aria-selected="false"
                   className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                  }}
                   onClick={() => {
                     onAdd(option);
                     setSearch("");

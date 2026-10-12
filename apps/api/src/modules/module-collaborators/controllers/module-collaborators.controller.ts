@@ -70,8 +70,11 @@ export class ModuleCollaboratorsController {
     @Param('tenantId') tenantId: string,
     @Param('moduleId') moduleId: string,
     @Body() dto: AddCollaboratorDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.service.add(tenantId, moduleId, dto.userId, dto.role);
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.service.add(tenantId, moduleId, dto.userId, dto.role, user.id);
   }
 
   @ApiOperation({ summary: "Update a collaborator's role" })
@@ -82,8 +85,17 @@ export class ModuleCollaboratorsController {
     @Param('moduleId') moduleId: string,
     @Param('userId') userId: string,
     @Body() dto: UpdateRoleDto,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.service.updateRole(tenantId, moduleId, userId, dto.role);
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.service.updateRole(
+      tenantId,
+      moduleId,
+      userId,
+      dto.role,
+      user.id,
+    );
   }
 
   @ApiOperation({ summary: 'Remove a collaborator from a module' })
@@ -93,7 +105,10 @@ export class ModuleCollaboratorsController {
     @Param('tenantId') tenantId: string,
     @Param('moduleId') moduleId: string,
     @Param('userId') userId: string,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.service.remove(tenantId, moduleId, userId);
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.service.remove(tenantId, moduleId, userId, user.id);
   }
 }

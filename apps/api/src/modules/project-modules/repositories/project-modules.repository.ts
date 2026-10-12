@@ -6,7 +6,6 @@ import {
   moduleCollaborators,
   moduleInvitations,
   modules,
-  projectCollaborators,
   projects,
   users,
 } from '@research-tracker/migrations';
@@ -35,6 +34,25 @@ import type { CurrentlyWithType } from '../dto/create-module.dto';
 @Injectable()
 export class ProjectModulesRepository {
   constructor(private readonly drizzle: DrizzleService) {}
+  async isProjectOwner(
+    tenantId: string,
+    projectId: string,
+    callerUserId: string,
+  ): Promise<boolean> {
+    const [project] = await this.drizzle.db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.tenantId, tenantId),
+          eq(projects.id, projectId),
+          eq(projects.userId, callerUserId),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(project);
+  }
 
   async findRememberedVenueValues(tenantId: string, callerUserId: string) {
     const ownsPaper = exists(
@@ -90,30 +108,27 @@ export class ProjectModulesRepository {
     const visibilityCondition = or(
       exists(
         this.drizzle.db
-          .select({ id: projectCollaborators.id })
-          .from(projectCollaborators)
+          .select({ id: moduleCollaborators.id })
+          .from(moduleCollaborators)
           .where(
             and(
-              eq(projectCollaborators.tenantId, tenantId),
-              eq(projectCollaborators.projectId, modules.projectId),
-              eq(projectCollaborators.userId, callerUserId),
+              eq(moduleCollaborators.tenantId, modules.tenantId),
+              eq(moduleCollaborators.moduleId, modules.id),
+              eq(moduleCollaborators.userId, callerUserId),
             ),
           ),
       ),
-      and(
-        isNull(modules.projectId),
-        exists(
-          this.drizzle.db
-            .select({ id: moduleCollaborators.id })
-            .from(moduleCollaborators)
-            .where(
-              and(
-                eq(moduleCollaborators.tenantId, tenantId),
-                eq(moduleCollaborators.moduleId, modules.id),
-                eq(moduleCollaborators.userId, callerUserId),
-              ),
+      exists(
+        this.drizzle.db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(
+            and(
+              eq(projects.tenantId, modules.tenantId),
+              eq(projects.id, modules.projectId),
+              eq(projects.userId, callerUserId),
             ),
-        ),
+          ),
       ),
     );
 
@@ -331,30 +346,27 @@ export class ProjectModulesRepository {
     const visibilityCondition = or(
       exists(
         this.drizzle.db
-          .select({ id: projectCollaborators.id })
-          .from(projectCollaborators)
+          .select({ id: moduleCollaborators.id })
+          .from(moduleCollaborators)
           .where(
             and(
-              eq(projectCollaborators.tenantId, tenantId),
-              eq(projectCollaborators.projectId, modules.projectId),
-              eq(projectCollaborators.userId, callerUserId),
+              eq(moduleCollaborators.tenantId, modules.tenantId),
+              eq(moduleCollaborators.moduleId, modules.id),
+              eq(moduleCollaborators.userId, callerUserId),
             ),
           ),
       ),
-      and(
-        isNull(modules.projectId),
-        exists(
-          this.drizzle.db
-            .select({ id: moduleCollaborators.id })
-            .from(moduleCollaborators)
-            .where(
-              and(
-                eq(moduleCollaborators.tenantId, tenantId),
-                eq(moduleCollaborators.moduleId, modules.id),
-                eq(moduleCollaborators.userId, callerUserId),
-              ),
+      exists(
+        this.drizzle.db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(
+            and(
+              eq(projects.tenantId, modules.tenantId),
+              eq(projects.id, modules.projectId),
+              eq(projects.userId, callerUserId),
             ),
-        ),
+          ),
       ),
     );
 
@@ -543,30 +555,27 @@ export class ProjectModulesRepository {
     const visibilityCondition = or(
       exists(
         this.drizzle.db
-          .select({ id: projectCollaborators.id })
-          .from(projectCollaborators)
+          .select({ id: moduleCollaborators.id })
+          .from(moduleCollaborators)
           .where(
             and(
-              eq(projectCollaborators.tenantId, modules.tenantId),
-              eq(projectCollaborators.projectId, modules.projectId),
-              eq(projectCollaborators.userId, callerUserId),
+              eq(moduleCollaborators.tenantId, modules.tenantId),
+              eq(moduleCollaborators.moduleId, modules.id),
+              eq(moduleCollaborators.userId, callerUserId),
             ),
           ),
       ),
-      and(
-        isNull(modules.projectId),
-        exists(
-          this.drizzle.db
-            .select({ id: moduleCollaborators.id })
-            .from(moduleCollaborators)
-            .where(
-              and(
-                eq(moduleCollaborators.tenantId, modules.tenantId),
-                eq(moduleCollaborators.moduleId, modules.id),
-                eq(moduleCollaborators.userId, callerUserId),
-              ),
+      exists(
+        this.drizzle.db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(
+            and(
+              eq(projects.tenantId, modules.tenantId),
+              eq(projects.id, modules.projectId),
+              eq(projects.userId, callerUserId),
             ),
-        ),
+          ),
       ),
     );
 

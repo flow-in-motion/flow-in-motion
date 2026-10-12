@@ -11,7 +11,7 @@ import {
 
 function dateOffset(days: number) {
   const date = new Date();
-  date.setDate(date.getDate() + days);
+  date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
@@ -22,9 +22,27 @@ const fixtures = vi.hoisted(() => ({
     { id: "project-2", title: "Field study", pipelineStage: "Review" },
   ],
   tasks: [
-    { id: "task-1", status: "Complete", dueDate: null, priority: "High", projectId: "project-1" },
-    { id: "task-2", status: "Active", dueDate: dateOffset(-1), priority: "Critical", projectId: "project-1" },
-    { id: "task-3", status: "Active", dueDate: dateOffset(3), priority: "Low", projectId: "project-2" },
+    {
+      id: "task-1",
+      status: "Complete",
+      dueDate: null,
+      priority: "High",
+      projectId: "project-1",
+    },
+    {
+      id: "task-2",
+      status: "Active",
+      dueDate: dateOffset(-1),
+      priority: "Critical",
+      projectId: "project-1",
+    },
+    {
+      id: "task-3",
+      status: "Active",
+      dueDate: dateOffset(3),
+      priority: "Low",
+      projectId: "project-2",
+    },
   ],
   stages: [
     { value: "Discovery", sortOrder: 1 },
@@ -47,18 +65,45 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 vi.mock("@/api/hooks", () => ({
-  useCurrentWorkspace: () => ({ data: { id: fixtures.tenantId }, isPending: false }),
+  useCurrentWorkspace: () => ({
+    data: { id: fixtures.tenantId },
+    isPending: false,
+  }),
   useProjects: () => ({
-    data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } },
+    data: {
+      data: fixtures.projects,
+      meta: {
+        page: 1,
+        pageSize: 20,
+        totalItems: fixtures.projects.length,
+        totalPages: 1,
+      },
+    },
     isPending: false,
   }),
   useTasks: () => ({
-    data: { data: fixtures.tasks, meta: { page: 1, pageSize: 20, totalItems: fixtures.tasks.length, totalPages: 1 } },
+    data: {
+      data: fixtures.tasks,
+      meta: {
+        page: 1,
+        pageSize: 20,
+        totalItems: fixtures.tasks.length,
+        totalPages: 1,
+      },
+    },
     isPending: false,
   }),
   usePipelineStages: () => ({ data: fixtures.stages, isPending: false }),
   useModules: () => ({
-    data: { data: fixtures.papers, meta: { page: 1, pageSize: 20, totalItems: fixtures.papers.length, totalPages: 1 } },
+    data: {
+      data: fixtures.papers,
+      meta: {
+        page: 1,
+        pageSize: 20,
+        totalItems: fixtures.papers.length,
+        totalPages: 1,
+      },
+    },
     isPending: false,
   }),
 }));
@@ -72,8 +117,14 @@ describe("dashboard insight cards", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("img", { name: /33% of tasks completed; 1 overdue; 1 due/ })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Open task count by priority" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: /33% of tasks completed; 1 overdue; 1 due/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Open task count by priority" }),
+    ).toBeInTheDocument();
   });
 
   it("shows per-project task completion on the project progress card", () => {
@@ -95,7 +146,9 @@ describe("dashboard insight cards", () => {
       </MemoryRouter>,
     );
 
-    const paperLinks = screen.getAllByRole("link").filter((link) => link.getAttribute("href")?.startsWith("/modules/"));
+    const paperLinks = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("href")?.startsWith("/modules/"));
     expect(paperLinks[0]).toHaveTextContent("Long-stalled paper");
     expect(paperLinks[1]).toHaveTextContent("Recently moved paper");
     expect(screen.getByText("30 days")).toBeInTheDocument();
