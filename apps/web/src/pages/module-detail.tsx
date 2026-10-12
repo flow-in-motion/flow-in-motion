@@ -743,6 +743,7 @@ export default function ModuleDetailPage() {
   }
 
   async function handleDeleteModule() {
+    if (!module) return;
     if (
       !window.confirm(
         `Delete "${paperDisplayTitle(module)}"? It will be permanently deleted after 14 days.`,

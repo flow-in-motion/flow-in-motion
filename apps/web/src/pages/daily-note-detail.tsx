@@ -330,6 +330,7 @@ export default function DailyNoteDetailPage() {
   }
 
   async function handleDeleteNote() {
+    if (!note) return;
     if (
       !window.confirm(`Delete "${note.title || "Untitled note"}"? This cannot be undone.`)
     ) {

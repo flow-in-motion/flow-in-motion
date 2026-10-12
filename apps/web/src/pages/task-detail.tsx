@@ -353,6 +353,7 @@ export default function TaskDetailPage() {
   }
 
   async function handleDeleteTask() {
+    if (!task) return;
     if (!window.confirm(`Delete "${task.title}"? This action cannot be undone.`)) {
       return;
     }
