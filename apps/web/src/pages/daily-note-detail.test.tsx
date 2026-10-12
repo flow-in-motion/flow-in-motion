@@ -6,6 +6,7 @@ import DailyNoteDetailPage from "@/pages/daily-note-detail";
 
 const fixtures = vi.hoisted(() => ({
   updateNote: vi.fn(),
+  deleteNote: vi.fn(),
   sharingEnabled: false,
   note: {
     id: "note-1",
@@ -51,6 +52,7 @@ vi.mock("@/api/hooks", () => ({
     data: { data: fixtures.modules, meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 } },
   }),
   useUpdateMyNote: () => ({ mutateAsync: fixtures.updateNote, isPending: false }),
+  useDeleteMyNote: () => ({ mutateAsync: fixtures.deleteNote, isPending: false }),
   useProject: (_tenantId: string, projectId?: string) => ({
     data: projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
     isError: false,
@@ -86,6 +88,8 @@ describe("DailyNoteDetailPage", () => {
     fixtures.note.visibility = "Private";
     fixtures.updateNote.mockReset();
     fixtures.updateNote.mockResolvedValue(fixtures.note);
+    fixtures.deleteNote.mockReset();
+    fixtures.deleteNote.mockResolvedValue(fixtures.note);
   });
 
   it("returns to whatever page linked into edit mode when editing is cancelled", () => {

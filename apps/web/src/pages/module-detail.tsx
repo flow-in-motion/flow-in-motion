@@ -9,7 +9,6 @@ import {
   Save,
   Trash2,
   Unlink,
-  X,
 } from "lucide-react";
 import {
   Link,
@@ -20,6 +19,7 @@ import {
 } from "react-router-dom";
 
 import {
+  useArchiveMyModule,
   useCreateModuleSubmission,
   useCreateTask,
   useCurrentWorkspace,
@@ -468,6 +468,7 @@ export default function ModuleDetailPage() {
   const membersQuery = useMembers(tenantId);
   const members = membersQuery.data?.data ?? [];
   const updateModule = useUpdateMyModule();
+  const archiveModule = useArchiveMyModule();
   const createTask = useCreateTask(tenantId);
   const updateTask = useUpdateTask(tenantId);
   const updateNote = useUpdateNote(tenantId);
@@ -521,6 +522,7 @@ export default function ModuleDetailPage() {
     module?.id ?? "",
   );
   const [form, setForm] = useState<EditableModule | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const venueSuggestions = usePaperVenueSuggestions(
     tenantId,
     sameTenant && Boolean(form),
@@ -740,6 +742,28 @@ export default function ModuleDetailPage() {
     await deleteSubmission.mutateAsync(submission.id);
   }
 
+  async function handleDeleteModule() {
+    if (!module) return;
+    if (
+      !window.confirm(
+        `Delete "${paperDisplayTitle(module)}"? It will be permanently deleted after 14 days.`,
+      )
+    ) {
+      return;
+    }
+    setActionError(null);
+    try {
+      await archiveModule.mutateAsync(module.id);
+      navigate("/modules");
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The paper could not be deleted.",
+      );
+    }
+  }
+
   function cancelEditing() {
     setForm(null);
     if (searchParams.get("edit") === "true") {
@@ -814,6 +838,22 @@ export default function ModuleDetailPage() {
     <div className="page-stack">
       <BackButton fallback="/modules" label="Back" />
 
+      {actionError ? (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
       <PageHeading
         tone="violet"
         icon={FileStack}
@@ -825,18 +865,24 @@ export default function ModuleDetailPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            {form ? (
-              <Button type="button" variant="outline" onClick={cancelEditing}>
-                <X /> Cancel Editing
-              </Button>
-            ) : (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleDeleteModule()}
+              disabled={archiveModule.isPending}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 />
+              Delete Paper
+            </Button>
+            {!form ? (
               <Button
                 type="button"
                 onClick={() => setForm(editableValues(module, me.data?.id))}
               >
                 <Pencil /> Edit Paper
               </Button>
-            )}
+            ) : null}
           </div>
         }
       >
