@@ -265,7 +265,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          auth_response="$(
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+
+          auth_http_code="$(
             jq -n \
               --arg email "$E2E_TEST_EMAIL" \
               --arg password "$E2E_TEST_PASSWORD" \
@@ -273,13 +276,27 @@ jobs:
             curl \
               --silent \
               --show-error \
-              --fail-with-body \
+              --output "$response_file" \
+              --write-out '%{http_code}' \
               -X POST \
               "${SUPABASE_URL}/auth/v1/token?grant_type=password" \
               -H "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
               -H "Content-Type: application/json" \
               --data-binary @-
           )"
+
+          if [[ "$auth_http_code" != "200" ]]; then
+            echo "::error::Supabase smoke-test sign-in failed: HTTP ${auth_http_code}"
+            jq -r '{
+              error_code: .error_code,
+              error: .error,
+              message: (.msg // .message // .error_description)
+            }' "$response_file" ||
+              echo "Supabase returned a non-JSON error response."
+            exit 1
+          fi
+
+          auth_response="$(cat "$response_file")"
 
           access_token="$(
             printf '%s' "$auth_response" |
@@ -298,9 +315,6 @@ jobs:
               -chdir=infrastructure/opentofu/environments/production \
               output -raw api_custom_domain
           )"
-
-          response_file="$(mktemp)"
-          trap 'rm -f "$response_file"' EXIT
 
           http_code="$(
             curl \
