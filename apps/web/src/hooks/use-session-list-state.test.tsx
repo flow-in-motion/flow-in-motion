@@ -96,6 +96,31 @@ describe("useSessionListState", () => {
     expect(second.result.current[0]).toEqual(new Set(["Review"]));
   });
 
+  it("restores a non-default branch of a union value type after remount (e.g. page size \"all\")", () => {
+    const first = renderHook(() =>
+      useSessionListState<number | "all">(
+        "user-1",
+        "workspace-1",
+        "papers:page-size",
+        20,
+      ),
+    );
+
+    act(() => first.result.current[1]("all"));
+    first.unmount();
+
+    const second = renderHook(() =>
+      useSessionListState<number | "all">(
+        "user-1",
+        "workspace-1",
+        "papers:page-size",
+        20,
+      ),
+    );
+
+    expect(second.result.current[0]).toBe("all");
+  });
+
   it("falls back to defaults when saved JSON is invalid", () => {
     window.sessionStorage.setItem(
       sessionListStateKey("user-1", "workspace-1", "tasks:sort"),
