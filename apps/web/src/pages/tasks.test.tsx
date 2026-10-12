@@ -52,6 +52,7 @@ const store = vi.hoisted(() => {
 
 const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
+  sharingEnabled: false,
   projects: [] as Array<{ id: string; title: string }>,
   modules: [] as Array<{ id: string; title: string }>,
   members: [
@@ -67,6 +68,12 @@ const fixtures = vi.hoisted(() => ({
 
 const sharingMutations = vi.hoisted(() => ({
   addTaskMember: vi.fn(),
+}));
+
+vi.mock("@/lib/feature-flags", () => ({
+  get TASK_NOTE_SHARING_ENABLED() {
+    return fixtures.sharingEnabled;
+  },
 }));
 
 vi.mock("@/api/client", () => ({
@@ -218,6 +225,7 @@ vi.mock("@/api/hooks", async () => {
 
 describe("TasksPage", () => {
   beforeEach(() => {
+    fixtures.sharingEnabled = false;
     window.sessionStorage.clear();
     sharingMutations.addTaskMember.mockClear();
     store.setTasks([
@@ -465,6 +473,7 @@ describe("TasksPage", () => {
   });
 
   it("points to inviting collaborators after the task is created, instead of staging them", () => {
+    fixtures.sharingEnabled = true;
     render(
       <MemoryRouter>
         <TasksPage />

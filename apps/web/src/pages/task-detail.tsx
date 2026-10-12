@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, ListTodo, Pencil, Save, Unlink, Users, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
 
 import {
   useCurrentWorkspace,
@@ -372,7 +373,7 @@ export default function TaskDetailPage() {
         icon={ListTodo}
         eyebrow={task.displayId ?? task.id}
         title={task.title}
-        description={task.description || "Review and update the task's status, priority and progress."}
+        description="Review and update the task's status, priority and progress."
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant="outline" className={statusPillClass(task.status)}>
@@ -390,13 +391,40 @@ export default function TaskDetailPage() {
           <div className="flex flex-wrap gap-2">
             <HeaderStat label="Due date" value={formatDueDate(task.dueDate)} />
             <HeaderStat label="Estimated hours" value={task.estimatedHours ? `${task.estimatedHours}h` : "—"} />
-            <HeaderStat label="Visibility" value={task.visibility ?? "Private"} />
+            {TASK_NOTE_SHARING_ENABLED ? (
+              <HeaderStat label="Visibility" value={task.visibility ?? "Private"} />
+            ) : null}
             {task.workingWith ? (
               <HeaderStat label="Working with" value={task.workingWith} />
             ) : null}
           </div>
         ) : null}
       </PageHeading>
+      {!form ? (
+        <section aria-labelledby="task-description-heading">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border/60 bg-muted/20">
+              <CardTitle
+                id="task-description-heading"
+                className="text-base"
+              >
+                Description
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5 sm:p-6">
+              {task.description?.trim() ? (
+                <div className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]">
+                  {task.description}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No description added yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      ) : null}
 
       {form ? (
         <Card>
@@ -421,7 +449,25 @@ export default function TaskDetailPage() {
                 <FormField label="Priority" htmlFor="edit-task-priority"><Select value={form.priority} onValueChange={(value) => setForm({ ...form, priority: value })}><SelectTrigger id="edit-task-priority"><SelectValue /></SelectTrigger><SelectContent>{TASK_PRIORITIES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
                 <FormField label="Due date" htmlFor="edit-task-due"><DatePickerInput id="edit-task-due" label="Due date" value={form.dueDate} onChange={(value) => setForm({ ...form, dueDate: value })} /></FormField>
                 <FormField label="Estimated hours" htmlFor="edit-task-hours"><Input id="edit-task-hours" type="number" min="0" step="0.5" value={form.estimatedHours} onChange={(event) => setForm({ ...form, estimatedHours: event.target.value })} /></FormField>
-                <FormField label="Visibility" htmlFor="edit-task-visibility"><Select value={form.visibility} onValueChange={(value) => setForm({ ...form, visibility: value })}><SelectTrigger id="edit-task-visibility"><SelectValue /></SelectTrigger><SelectContent>{VISIBILITY_OPTIONS.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
+                {TASK_NOTE_SHARING_ENABLED ? (
+                  <FormField label="Visibility" htmlFor="edit-task-visibility">
+                    <Select
+                      value={form.visibility}
+                      onValueChange={(value) => setForm({ ...form, visibility: value })}
+                    >
+                      <SelectTrigger id="edit-task-visibility">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VISIBILITY_OPTIONS.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+                ) : null}
               </div>
               {updateTask.isError ? (
                 <p role="alert" className="text-sm text-destructive">
@@ -458,7 +504,7 @@ export default function TaskDetailPage() {
             </div>
           ) : null}
         </section>
-
+        {TASK_NOTE_SHARING_ENABLED ? (
         <section aria-labelledby="task-collaborators-heading">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 id="task-collaborators-heading" className="text-lg font-semibold">Collaborators</h2>
@@ -503,6 +549,7 @@ export default function TaskDetailPage() {
             </Card>
           ) : null}
         </section>
+        ) : null}
       </div>
     </div>
   );
