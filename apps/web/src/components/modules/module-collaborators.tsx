@@ -13,6 +13,7 @@ interface ModuleCollaboratorsManagerProps {
   moduleId: string;
   moduleTitle: string;
   members: Membership[];
+  projectOwnerUserId?: string | null;
 }
 
 interface ModuleCollaboratorsSummaryProps {
@@ -56,6 +57,7 @@ export function ModuleCollaboratorsManager({
   moduleId,
   moduleTitle,
   members,
+  projectOwnerUserId,
 }: ModuleCollaboratorsManagerProps) {
   const collaboratorsQuery = useModuleCollaborators(tenantId, moduleId);
   const removeCollaborator = useRemoveModuleCollaborator(tenantId, moduleId);
@@ -69,10 +71,18 @@ export function ModuleCollaboratorsManager({
   const owner = collaboratorRows.find(
     (collaborator) => collaborator.role === "Owner",
   );
-  const isOwner = owner?.userId === me.data?.id;
+  const currentUserId = me.data?.id;
+
+  const canManage =
+    Boolean(currentUserId) &&
+    (collaboratorRows.some(
+      (collaborator) =>
+        collaborator.role === "Owner" && collaborator.userId === currentUserId,
+    ) ||
+      projectOwnerUserId === currentUserId);
 
   const collaborators = collaboratorRows
-    .filter((collaborator) => collaborator.userId !== me.data?.id)
+    .filter((collaborator) => collaborator.userId !== currentUserId)
     .map((collaborator) => ({
       id: collaborator.id,
       userId: collaborator.userId,
@@ -93,7 +103,7 @@ export function ModuleCollaboratorsManager({
       collaborators={collaborators}
       onRemoveCollaborator={(userId) => removeCollaborator.mutate(userId)}
       isRemoving={removeCollaborator.isPending}
-      canManage={isOwner}
+      canManage={canManage}
     />
   );
 }

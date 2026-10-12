@@ -1,10 +1,9 @@
 import { ModuleCollaboratorsService } from './module-collaborators.service';
 import { ModuleCollaboratorsRepository } from '../repositories/module-collaborators.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
-import { ProjectCollaboratorsRepository } from '../../project-collaborators/repositories/project-collaborators.repository';
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { UsersService } from '../../users/users.service';
-import { MembershipsRepository } from '../../memberships/repositories/memberships.repository';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 
 describe('ModuleCollaboratorsService', () => {
   it('includes saved invitation contacts and deduplicates accepted users by email', async () => {
@@ -29,7 +28,6 @@ describe('ModuleCollaboratorsService', () => {
     const service = new ModuleCollaboratorsService(
       repository as unknown as ModuleCollaboratorsRepository,
       {} as ProjectModulesRepository,
-      {} as ProjectCollaboratorsRepository,
       {} as EnumRepository,
       {
         findSummariesByIds: jest.fn().mockResolvedValue([
@@ -39,7 +37,6 @@ describe('ModuleCollaboratorsService', () => {
           },
         ]),
       } as unknown as UsersService,
-      {} as MembershipsRepository,
     );
     jest.spyOn(service, 'list').mockResolvedValue([
       {
@@ -75,5 +72,146 @@ describe('ModuleCollaboratorsService', () => {
         affiliation: 'CSIRO',
       },
     ]);
+  });
+});
+describe('ModuleCollaboratorsService authorization', () => {
+  function setup() {
+    const repository = {
+      findByModuleAndUser: jest.fn().mockResolvedValue(undefined),
+      findByModule: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      updateRole: jest.fn(),
+      delete: jest.fn(),
+    };
+
+    const modulesRepository = {
+      findById: jest.fn().mockResolvedValue({
+        id: 'module-1',
+        tenantId: 'tenant-1',
+        projectId: 'project-1',
+      }),
+      isProjectOwner: jest.fn().mockResolvedValue(false),
+    };
+
+    const enumRepository = {
+      findByCategoryAndValue: jest.fn().mockResolvedValue({
+        id: 'role-owner',
+      }),
+      findValuesByIds: jest.fn().mockResolvedValue(new Map()),
+    };
+
+    const usersService = {
+      findSummariesByIds: jest.fn().mockResolvedValue([]),
+    };
+
+    const service = new ModuleCollaboratorsService(
+      repository as unknown as ModuleCollaboratorsRepository,
+      modulesRepository as unknown as ProjectModulesRepository,
+      enumRepository as unknown as EnumRepository,
+      usersService as unknown as UsersService,
+    );
+
+    return { service, repository, modulesRepository };
+  }
+
+  it('allows the project owner without creating paper membership', async () => {
+    const { service, repository, modulesRepository } = setup();
+    modulesRepository.isProjectOwner.mockResolvedValue(true);
+
+    await expect(
+      service.assertCanManageCollaborators('tenant-1', 'module-1', 'user-1'),
+    ).resolves.toBeUndefined();
+
+    expect(modulesRepository.isProjectOwner).toHaveBeenCalledWith(
+      'tenant-1',
+      'project-1',
+      'user-1',
+    );
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('allows the paper owner without project ownership', async () => {
+    const { service, repository } = setup();
+    repository.findByModuleAndUser.mockResolvedValue({
+      roleId: 'role-owner',
+    });
+
+    await expect(
+      service.assertCanManageCollaborators('tenant-1', 'module-1', 'user-1'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects an ordinary paper collaborator from managing collaborators', async () => {
+    const { service, repository } = setup();
+    repository.findByModuleAndUser.mockResolvedValue({
+      roleId: 'role-collaborator',
+    });
+
+    await expect(
+      service.assertCanManageCollaborators('tenant-1', 'module-1', 'user-1'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects a caller with no paper membership or project ownership', async () => {
+    const { service } = setup();
+
+    await expect(
+      service.assertCanManageCollaborators('tenant-1', 'module-1', 'user-1'),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('blocks unauthorized collaborator mutations before any write', async () => {
+    const { service, repository } = setup();
+
+    await expect(
+      service.add('tenant-1', 'module-1', 'user-2', 'Collaborator', 'user-1'),
+    ).rejects.toThrow(ForbiddenException);
+
+    await expect(
+      service.updateRole('tenant-1', 'module-1', 'user-2', 'Owner', 'user-1'),
+    ).rejects.toThrow(ForbiddenException);
+
+    await expect(
+      service.remove('tenant-1', 'module-1', 'user-2', 'user-1'),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(repository.create).not.toHaveBeenCalled();
+    expect(repository.updateRole).not.toHaveBeenCalled();
+    expect(repository.delete).not.toHaveBeenCalled();
+  });
+
+  it('allows a paper collaborator to view collaborators without project membership', async () => {
+    const { service, repository, modulesRepository } = setup();
+    repository.findByModuleAndUser.mockResolvedValue({
+      roleId: 'role-collaborator',
+    });
+
+    await expect(
+      service.list('tenant-1', 'module-1', 'user-1'),
+    ).resolves.toEqual([]);
+
+    expect(modulesRepository.isProjectOwner).not.toHaveBeenCalled();
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('allows the project owner to view collaborators without creating membership', async () => {
+    const { service, repository, modulesRepository } = setup();
+    modulesRepository.isProjectOwner.mockResolvedValue(true);
+
+    await expect(
+      service.list('tenant-1', 'module-1', 'user-1'),
+    ).resolves.toEqual([]);
+
+    expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('hides the collaborator list from a caller without paper access', async () => {
+    const { service, repository } = setup();
+
+    await expect(
+      service.list('tenant-1', 'module-1', 'user-1'),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(repository.findByModule).not.toHaveBeenCalled();
   });
 });

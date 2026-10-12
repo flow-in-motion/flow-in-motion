@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Param,
   Post,
@@ -22,7 +21,6 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { UsersService } from '../../users/users.service';
 import { ModuleCollaboratorsService } from '../../module-collaborators/services/module-collaborators.service';
-import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { InviteCollaboratorDto } from '../dto/invite-collaborator.dto';
 import { ModuleInvitationsService } from '../services/module-invitations.service';
 
@@ -38,7 +36,6 @@ export class ModuleInvitationsController {
     private readonly service: ModuleInvitationsService,
     private readonly usersService: UsersService,
     private readonly moduleCollaboratorsService: ModuleCollaboratorsService,
-    private readonly enumRepository: EnumRepository,
   ) {}
 
   private async assertOwner(
@@ -47,26 +44,13 @@ export class ModuleInvitationsController {
     req: AuthenticatedRequest,
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
-    const membership =
-      await this.moduleCollaboratorsService.ensureOwnerMembership(
-        tenantId,
-        moduleId,
-        user.id,
-      );
-    if (!membership) {
-      throw new ForbiddenException(
-        'Only the module owner can manage invitations',
-      );
-    }
-    const ownerRole = await this.enumRepository.findByCategoryAndValue(
-      'project_role',
-      'Owner',
+
+    await this.moduleCollaboratorsService.assertCanManageCollaborators(
+      tenantId,
+      moduleId,
+      user.id,
     );
-    if (!ownerRole || membership.roleId !== ownerRole.id) {
-      throw new ForbiddenException(
-        'Only the module owner can manage invitations',
-      );
-    }
+
     return user;
   }
 

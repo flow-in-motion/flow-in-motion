@@ -178,25 +178,27 @@ describe('ProjectModulesService', () => {
   });
 
   describe('findOne', () => {
-    it('throws NotFoundException when the module does not exist', async () => {
+    it('rejects a missing paper', async () => {
       repository.findById.mockResolvedValue(undefined);
+
       await expect(
         service.findOne('tenant-1', 'module-1', 'user-1'),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('throws NotFoundException when the caller cannot access an independent module', async () => {
+    it('rejects an independent paper without paper membership', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
         statusId: null,
       });
+
       await expect(
         service.findOne('tenant-1', 'module-1', 'user-1'),
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('returns an independent module when the caller is a module collaborator', async () => {
+    it('allows an independent paper collaborator', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
@@ -205,32 +207,64 @@ describe('ProjectModulesService', () => {
       collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
         roleId: 'role-1',
       });
-      const result = await service.findOne('tenant-1', 'module-1', 'user-1');
-      expect(result).toEqual(expect.objectContaining({ id: 'module-1' }));
+
+      await expect(
+        service.findOne('tenant-1', 'module-1', 'user-1'),
+      ).resolves.toEqual(expect.objectContaining({ id: 'module-1' }));
     });
 
-    it('returns a project-scoped module when the caller can see the parent project', async () => {
+    it('allows the parent project owner without paper membership', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
         statusId: null,
+      });
+
+      await expect(
+        service.findOne('tenant-1', 'module-1', 'user-1'),
+      ).resolves.toEqual(expect.objectContaining({ id: 'module-1' }));
+
+      expect(projectsRepository.findById).toHaveBeenCalledWith(
+        'tenant-1',
+        'project-1',
+      );
+    });
+
+    it('allows a paper collaborator without parent project membership', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: 'project-1',
+        statusId: null,
+      });
+      projectsRepository.findById.mockResolvedValue({
+        id: 'project-1',
+        tenantId: 'tenant-1',
+        userId: 'someone-else',
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'role-collaborator',
+      });
+
+      await expect(
+        service.findOne('tenant-1', 'module-1', 'user-1'),
+      ).resolves.toEqual(expect.objectContaining({ id: 'module-1' }));
+    });
+
+    it('rejects a project collaborator without paper membership', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: 'project-1',
+        statusId: null,
+      });
+      projectsRepository.findById.mockResolvedValue({
+        id: 'project-1',
+        tenantId: 'tenant-1',
+        userId: 'someone-else',
       });
       projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
-        roleId: 'role-1',
+        roleId: 'role-collaborator',
       });
-      const result = await service.findOne('tenant-1', 'module-1', 'user-1');
-      expect(result).toEqual(expect.objectContaining({ id: 'module-1' }));
-      expect(
-        collaboratorsRepository.findByModuleAndUser,
-      ).not.toHaveBeenCalled();
-    });
 
-    it('throws NotFoundException for a project-scoped module when the caller cannot see the parent project', async () => {
-      repository.findById.mockResolvedValue({
-        id: 'module-1',
-        projectId: 'project-1',
-        statusId: null,
-      });
       await expect(
         service.findOne('tenant-1', 'module-1', 'user-1'),
       ).rejects.toThrow(NotFoundException);
@@ -515,6 +549,39 @@ describe('ProjectModulesService', () => {
       );
     });
 
+    it('sets status to Review when created in the submitted-under-review stage', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      enumRepository.findModuleStageByValueForTenant.mockResolvedValue({
+        id: 'submitted-stage-id',
+        value: 'Submitted, Under Review',
+      });
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        statusId: 'project_status-Review-id',
+        pipelineStageId: 'submitted-stage-id',
+      });
+
+      await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
+        shortTitle: 'Submitted paper',
+        status: 'Active',
+        pipelineStage: 'Submitted, Under Review',
+      });
+
+      expect(enumRepository.findByCategoryAndValue).toHaveBeenCalledWith(
+        'project_status',
+        'Review',
+      );
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusId: 'project_status-Review-id',
+          pipelineStageId: 'submitted-stage-id',
+        }),
+      );
+    });
     it('stores Journal without a user assignment', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
@@ -583,8 +650,8 @@ describe('ProjectModulesService', () => {
         statusId: null,
       });
 
-      projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
-        roleId: 'role-1',
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'role-owner',
       });
 
       await expect(
@@ -593,7 +660,6 @@ describe('ProjectModulesService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
 
-      expect(projectsRepository.findById).not.toHaveBeenCalled();
       expect(repository.update).not.toHaveBeenCalled();
     });
 
@@ -801,6 +867,50 @@ describe('ProjectModulesService', () => {
       );
     });
 
+    it('sets status to Review when entering the submitted-under-review stage', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: 'active-status-id',
+        pipelineStageId: 'drafting-stage-id',
+        pipelineStage: 'Drafting & Writing',
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'owner-role-id',
+      });
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      enumRepository.findModuleStageByValueForTenant.mockResolvedValue({
+        id: 'submitted-stage-id',
+        value: 'Submitted, Under Review',
+      });
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        statusId: 'project_status-Review-id',
+        pipelineStageId: 'submitted-stage-id',
+      });
+
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        status: 'Active',
+        pipelineStage: 'Submitted, Under Review',
+      });
+
+      expect(enumRepository.findByCategoryAndValue).toHaveBeenCalledWith(
+        'project_status',
+        'Review',
+      );
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({
+          statusId: 'project_status-Review-id',
+          pipelineStageId: 'submitted-stage-id',
+          pipelineStageChangedAt: expect.any(Date),
+        }),
+      );
+    });
     it('rejects a Currently With collaborator who is not on the paper', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
@@ -938,8 +1048,8 @@ describe('ProjectModulesService', () => {
         statusId: null,
       });
 
-      projectCollaboratorsRepository.findByProjectAndUser.mockResolvedValue({
-        roleId: 'role-1',
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'role-owner',
       });
 
       projectsRepository.findById.mockResolvedValue({
@@ -955,6 +1065,10 @@ describe('ProjectModulesService', () => {
         }),
       ).rejects.toThrow(ForbiddenException);
 
+      expect(projectsRepository.findById).toHaveBeenCalledWith(
+        'tenant-1',
+        'project-2',
+      );
       expect(repository.update).not.toHaveBeenCalled();
     });
 

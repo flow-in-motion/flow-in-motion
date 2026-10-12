@@ -458,9 +458,8 @@ export default function ModuleDetailPage() {
   const tenantId = workspace.data?.id ?? "";
   const me = useMe();
 
-  // Modules are tenant-agnostic — a module the caller collaborates on
-  // (directly, or via its linked project) must still open here (see
-  // MyModulesController on the backend).
+  // Papers can open across workspaces through explicit paper membership
+  // or ownership of their parent project.
   const moduleQuery = useMyModule(moduleId);
   const tasksQuery = useTasks(tenantId);
   const tasks = tasksQuery.data?.data ?? [];
@@ -1152,11 +1151,13 @@ export default function ModuleDetailPage() {
                   moduleId={module.id}
                   moduleTitle={paperDisplayTitle(module)}
                   members={members}
+                  projectOwnerUserId={linkedProjectQuery.data?.userId}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  This paper was shared from another workspace. Only members of
-                  that workspace can manage collaborators.
+                  This paper was shared from another workspace. Collaborator
+                  management here is available in its workspace to the paper
+                  owner or project owner.
                 </p>
               )}
             </div>
