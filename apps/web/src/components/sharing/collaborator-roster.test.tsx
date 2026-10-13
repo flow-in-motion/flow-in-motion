@@ -60,7 +60,7 @@ describe("CollaboratorRoster", () => {
     userSearchResults.current = [];
     vi.clearAllMocks();
   });
-  it("shows a draft collaborator with an Invite button, and opens a mailto link with a sample message after sending", async () => {
+  it("shows an unsent collaborator without a status badge or Invite button", () => {
     invitations.current = [
       {
         id: "invite-1",
@@ -74,22 +74,6 @@ describe("CollaboratorRoster", () => {
         ...timestamps,
       },
     ];
-    sendInvitationMutate.mockResolvedValueOnce({
-      invitation: {
-        id: "invite-1",
-        email: "jamie@example.com",
-        name: "Jamie Collaborator",
-        expiresAt: "2026-12-01T00:00:00.000Z",
-      },
-      acceptanceToken: "raw-token-123",
-    });
-
-    const originalLocation = window.location;
-    Object.defineProperty(window, "location", {
-      writable: true,
-      configurable: true,
-      value: { ...originalLocation, href: "" },
-    });
 
     render(
       <CollaboratorRoster
@@ -106,26 +90,22 @@ describe("CollaboratorRoster", () => {
 
     expect(screen.getByText("Jamie Collaborator")).toBeInTheDocument();
     expect(screen.getByText("jamie@example.com")).toBeInTheDocument();
-    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(screen.getByText("Example University")).toBeInTheDocument();
+    expect(screen.queryByText("Awaiting invitation")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+    expect(screen.queryByText("Draft")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Invite" }),
+    ).not.toBeInTheDocument();
+    expect(sendInvitationMutate).not.toHaveBeenCalled();
 
-    await waitFor(() =>
-      expect(sendInvitationMutate).toHaveBeenCalledWith("invite-1"),
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Remove draft for jamie@example.com",
+      }),
     );
-    await waitFor(() =>
-      expect(window.location.href).toContain("mailto:jamie%40example.com"),
-    );
-    expect(window.location.href).toContain(
-      encodeURIComponent("Draft literature review"),
-    );
-    expect(window.location.href).toContain("raw-token-123");
 
-    Object.defineProperty(window, "location", {
-      writable: true,
-      configurable: true,
-      value: originalLocation,
-    });
+    expect(revokeInvitationMutate).toHaveBeenCalledWith("invite-1");
   });
 
   it("shows a pending invitation with a revoke button", () => {
@@ -157,7 +137,7 @@ describe("CollaboratorRoster", () => {
     );
 
     expect(screen.getByText("pending@example.com")).toBeInTheDocument();
-    expect(screen.getByText(/Pending/)).toBeInTheDocument();
+    expect(screen.getByText(/Awaiting acceptance/)).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", {
