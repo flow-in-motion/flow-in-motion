@@ -369,6 +369,7 @@ export function PriorityTasksTable() {
                   {columns.isColumnVisible("due") ? (
                     <TableCell
                       className={cn(
+                        "whitespace-nowrap",
                         row.overdue && "font-medium text-destructive",
                       )}
                     >
