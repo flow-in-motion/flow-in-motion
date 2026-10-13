@@ -924,7 +924,7 @@ export default function ModulesPage() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <span className="max-w-md text-xs text-muted-foreground">
+                        <span className="line-clamp-3 max-w-md break-words text-xs leading-4 text-muted-foreground">
                           {module.description || "No description"}
                         </span>
                       </div>
