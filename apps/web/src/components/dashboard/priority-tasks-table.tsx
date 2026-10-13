@@ -45,6 +45,7 @@ const PRIORITY_FILTERS = ["All", "Critical", "High", "Medium", "Low"] as const;
 const TASK_COLUMNS = [
   { id: "task", label: "Task" },
   { id: "project", label: "Project/paper" },
+  { id: "est", label: "Est. hours" },
   { id: "due", label: "Due" },
   { id: "priority", label: "Priority" },
 ] as const;
@@ -149,6 +150,9 @@ export function PriorityTasksTable() {
             ? (projectById.get(task.projectId) ?? "Unknown project")
             : "General",
         task: task.title,
+        estimatedHours: task.estimatedHours
+          ? Number(task.estimatedHours)
+          : null,
         dueDate: task.dueDate,
         due: formatDueDate(task.dueDate),
         overdue: Boolean(task.dueDate && task.dueDate < today),
@@ -178,6 +182,18 @@ export function PriorityTasksTable() {
           break;
         case "project":
           comparison = a.project.localeCompare(b.project);
+          break;
+        case "est":
+          // Tasks without an estimate always sink to the bottom.
+          if (a.estimatedHours === null && b.estimatedHours === null) {
+            comparison = 0;
+          } else if (a.estimatedHours === null) {
+            return 1;
+          } else if (b.estimatedHours === null) {
+            return -1;
+          } else {
+            comparison = a.estimatedHours - b.estimatedHours;
+          }
           break;
         case "due":
           if (!a.dueDate && !b.dueDate) {
@@ -341,6 +357,13 @@ export function PriorityTasksTable() {
                       ) : (
                         row.project
                       )}
+                    </TableCell>
+                  ) : null}
+                  {columns.isColumnVisible("est") ? (
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      {row.estimatedHours !== null
+                        ? `${row.estimatedHours}h`
+                        : "—"}
                     </TableCell>
                   ) : null}
                   {columns.isColumnVisible("due") ? (
