@@ -6,7 +6,7 @@ import { Heading } from "@/components/typography/heading";
 const featureNames: Record<string, string> = {
   calendar: "Calendar",
   collaborators: "Collaborators",
-  conferences: "Conferences",
+  conferences: "Conferences/Events",
   "cv-builder": "CV Builder",
   dissemination: "Dissemination",
   documents: "Documents",

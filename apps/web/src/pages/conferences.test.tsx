@@ -150,7 +150,7 @@ describe("ConferencesPage", () => {
     renderPage();
 
     expect(
-      screen.getByRole("heading", { name: "Conferences" }),
+      screen.getByRole("heading", { name: "Conferences/Events" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", {

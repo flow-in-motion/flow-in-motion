@@ -61,7 +61,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: "Pipeline", to: "/pipeline", icon: Workflow },
       { label: "Calendar", to: "/calendar", icon: Calendar },
-      { label: "Conferences", to: "/conferences", icon: Presentation },
+      { label: "Conferences/Events", to: "/conferences", icon: Presentation },
       { label: "Funding", to: "/funding", icon: DollarSign },
       { label: "Mind Map", to: "/mind-map", icon: Network },
     ],
