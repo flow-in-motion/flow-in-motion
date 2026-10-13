@@ -163,7 +163,22 @@ describe("DailyNoteDetailPage", () => {
       },
     ];
 
-    renderNote();
+    const originalFormatter = Intl.DateTimeFormat;
+    const timezoneMock = vi
+      .spyOn(Intl, "DateTimeFormat")
+      .mockImplementation(
+        (locales, options) =>
+          new originalFormatter(locales, {
+            ...options,
+            timeZone: "Australia/Sydney",
+          }),
+      );
+
+    try {
+      renderNote();
+    } finally {
+      timezoneMock.mockRestore();
+    }
 
     const region = screen.getByRole("region", { name: "Content" });
     const dates = [...region.querySelectorAll("time")]

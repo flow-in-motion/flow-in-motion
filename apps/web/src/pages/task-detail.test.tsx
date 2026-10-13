@@ -159,7 +159,22 @@ describe("TaskDetailPage", () => {
       },
     ];
 
-    renderTask();
+    const originalFormatter = Intl.DateTimeFormat;
+    const timezoneMock = vi
+      .spyOn(Intl, "DateTimeFormat")
+      .mockImplementation(
+        (locales, options) =>
+          new originalFormatter(locales, {
+            ...options,
+            timeZone: "Australia/Sydney",
+          }),
+      );
+
+    try {
+      renderTask();
+    } finally {
+      timezoneMock.mockRestore();
+    }
 
     const panel = screen.getByRole("region", { name: "Description" });
 
