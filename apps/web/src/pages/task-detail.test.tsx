@@ -1,11 +1,19 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import TaskDetailPage from "@/pages/task-detail";
+import type { ApiTaskDescriptionEntry } from "@/api/hooks";
 
 const fixtures = vi.hoisted(() => ({
   updateTask: vi.fn(),
+  addDescriptionEntry: vi.fn(),
   deleteTask: vi.fn(),
   sharingEnabled: false,
   task: {
@@ -17,6 +25,7 @@ const fixtures = vi.hoisted(() => ({
     createdBy: "user-owner",
     title: "Draft literature review",
     description: null as string | null,
+    descriptionEntries: [] as ApiTaskDescriptionEntry[],
     status: "To do",
     priority: "Medium",
     dueDate: null as string | null,
@@ -56,6 +65,12 @@ vi.mock("@/api/hooks", () => ({
     data: { data: fixtures.modules, meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 } },
   }),
   useUpdateMyTask: () => ({ mutateAsync: fixtures.updateTask, isPending: false }),
+  useAddMyTaskDescriptionEntry: () => ({
+    mutateAsync: fixtures.addDescriptionEntry,
+    isPending: false,
+    isError: false,
+    error: undefined,
+  }),
   useDeleteMyTask: () => ({ mutateAsync: fixtures.deleteTask, isPending: false }),
   useTrackEvent: () => vi.fn(),
   useProject: (_tenantId: string, projectId?: string) => ({
@@ -97,10 +112,194 @@ describe("TaskDetailPage", () => {
     fixtures.updateTask.mockResolvedValue(fixtures.task);
     fixtures.deleteTask.mockReset();
     fixtures.deleteTask.mockResolvedValue(fixtures.task);
+    fixtures.task.descriptionEntries = [];
+    fixtures.addDescriptionEntry.mockReset();
+    fixtures.addDescriptionEntry.mockResolvedValue(fixtures.task);
+  });
+
+  function renderTask() {
+    return render(
+      <MemoryRouter initialEntries={["/tasks/task-1"]}>
+        <Routes>
+          <Route path="tasks/:taskId" element={<TaskDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  function setInitialDescription() {
+    fixtures.task.description = "Original description";
+    fixtures.task.descriptionEntries = [{
+      id: "entry-1",
+      taskId: "task-1",
+      content: "Original description",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }];
+  }
+
+  it("groups descriptions by local date with newest content first", () => {
+    fixtures.task.descriptionEntries = [
+      {
+        id: "entry-old",
+        taskId: "task-1",
+        content: "Original description",
+        createdAt: "2026-10-12T12:00:00.000Z",
+      },
+      {
+        id: "entry-middle",
+        taskId: "task-1",
+        content: "First update",
+        createdAt: "2026-10-12T14:00:00.000Z",
+      },
+      {
+        id: "entry-new",
+        taskId: "task-1",
+        content: "Latest update",
+        createdAt: "2026-10-12T15:00:00.000Z",
+      },
+    ];
+
+    const originalFormatter = Intl.DateTimeFormat;
+    const timezoneMock = vi
+      .spyOn(Intl, "DateTimeFormat")
+      .mockImplementation(
+        (locales, options) =>
+          new originalFormatter(locales, {
+            ...options,
+            timeZone: "Australia/Sydney",
+          }),
+      );
+
+    try {
+      renderTask();
+    } finally {
+      timezoneMock.mockRestore();
+    }
+
+    const panel = screen.getByRole("region", { name: "Description" });
+
+    expect(
+      [...panel.querySelectorAll("time")].map(
+        (element) => element.textContent,
+      ),
+    ).toEqual(["13/10/2026", "12/10/2026"]);
+
+    expect(
+      within(panel)
+        .getAllByText(/^(Original description|First update|Latest update)$/)
+        .map((element) => element.textContent),
+    ).toEqual([
+      "Latest update",
+      "First update",
+      "Original description",
+    ]);
+  });
+
+  it("keeps previous dated descriptions visible during editing", () => {
+    setInitialDescription();
+    renderTask();
+
+    expect(screen.queryByRole("textbox", { name: "Description"})).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+
+    const panel = screen.getByRole("region", { name: "Description" });
+    expect(panel).toHaveTextContent("Original description");
+    expect(within(panel).getByText("01/01/2026")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Description"})).toHaveValue("");
+  });
+
+  it("saves new description content without sending earlier content in the metadata update", async () => {
+    setInitialDescription();
+    renderTask();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Description"}), {
+      target: { value: "  New observation  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.addDescriptionEntry).toHaveBeenCalledWith({
+        taskId: "task-1",
+        content: "New observation",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Edit Task" }),
+      ).toBeInTheDocument(),
+    );
+
+    expect(fixtures.updateTask.mock.calls[0][0].input)
+      .not.toHaveProperty("description");
+    expect(screen.getByText("Original description")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+    expect(screen.getByRole("textbox", { name: "Description"})).toHaveValue("");
+  });
+
+  it("preserves the description draft when its save fails", async () => {
+    setInitialDescription();
+    fixtures.addDescriptionEntry.mockRejectedValue(
+      new Error("Unable to save"),
+    );
+    renderTask();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Description"}), {
+      target: { value: "Keep this draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.addDescriptionEntry).toHaveBeenCalledWith({
+        taskId: "task-1",
+        content: "Keep this draft",
+      }),
+    );
+
+    expect(screen.getByRole("textbox", { name: "Description"}))
+      .toHaveValue("Keep this draft");
+    expect(screen.getByText("Original description")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Save Changes" }),
+    ).toBeInTheDocument();
+  });
+
+  it("saves metadata without adding a whitespace-only description entry", async () => {
+    renderTask();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+    fireEvent.change(screen.getByLabelText("Task title"), {
+      target: { value: "Updated title" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Description"}), {
+      target: { value: " \n\t " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Edit Task" }),
+      ).toBeInTheDocument(),
+    );
+
+    expect(fixtures.updateTask).toHaveBeenCalledTimes(1);
+    expect(fixtures.updateTask.mock.calls[0][0].input.title)
+      .toBe("Updated title");
+    expect(fixtures.addDescriptionEntry).not.toHaveBeenCalled();
   });
 
   it("shows the description in a dedicated reading panel", () => {
     fixtures.task.description = "Review the literature.\n\nCompare the findings.";
+    fixtures.task.descriptionEntries = [{
+      id: "entry-1",
+      taskId: "task-1",
+      content: fixtures.task.description,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }];
 
     render(
       <MemoryRouter initialEntries={["/tasks/task-1"]}>

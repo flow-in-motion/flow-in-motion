@@ -194,6 +194,17 @@ export interface ApiTask {
   updatedAt: string;
 }
 
+export interface ApiTaskDescriptionEntry {
+  id: string;
+  taskId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ApiTaskDetail extends ApiTask {
+  descriptionEntries: ApiTaskDescriptionEntry[];
+}
+
 export interface ApiNote {
   id: string;
   displayId: string | null;
@@ -209,7 +220,16 @@ export interface ApiNote {
   createdAt: string;
   updatedAt: string;
 }
+export interface ApiNoteEntry {
+  id: string;
+  noteId: string;
+  content: string;
+  createdAt: string;
+}
 
+export interface ApiNoteDetail extends ApiNote {
+  entries: ApiNoteEntry[];
+}
 export interface ApiConferenceProject {
   id: string;
   displayId: string | null;
@@ -2055,7 +2075,7 @@ export function useTask(tenantId: string, taskId: string, enabled = true) {
     queryKey: apiKeys.task(tenantId, taskId),
     enabled: Boolean(tenantId) && Boolean(taskId) && enabled,
     queryFn: async () =>
-      responseData<ApiTask>(
+      responseData<ApiTaskDetail>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/tasks/{taskId}", {
           params: { path: { tenantId, taskId } },
         }),
@@ -2067,7 +2087,7 @@ export function useCreateTask(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateTaskInput) =>
-      responseData<ApiTask>(
+      responseData<ApiTaskDetail>(
         await apiClient.POST("/api/v1/tenant/{tenantId}/tasks", {
           params: { path: { tenantId } },
           body: input,
@@ -2091,7 +2111,7 @@ export function useUpdateTask(tenantId: string) {
       taskId: string;
       input: UpdateTaskInput;
     }) =>
-      responseData<ApiTask>(
+      responseData<ApiTaskDetail>(
         await apiClient.PATCH("/api/v1/tenant/{tenantId}/tasks/{taskId}", {
           params: { path: { tenantId, taskId } },
           // The generated type only allows `string | undefined` for
@@ -2155,7 +2175,7 @@ export function useMyTask(taskId: string, enabled = true) {
     queryKey: myTaskKey(taskId),
     enabled: Boolean(taskId) && enabled,
     queryFn: async () =>
-      responseData<ApiTask>(
+      responseData<ApiTaskDetail>(
         await apiClient.GET("/api/v1/me/tasks/{taskId}", {
           params: { path: { taskId } },
         }),
@@ -2173,7 +2193,7 @@ export function useUpdateMyTask() {
       taskId: string;
       input: UpdateTaskInput;
     }) =>
-      responseData<ApiTask>(
+      responseData<ApiTaskDetail>(
         await apiClient.PATCH("/api/v1/me/tasks/{taskId}", {
           params: { path: { taskId } },
           // See the tenant-scoped useUpdateTask above.
@@ -2183,12 +2203,42 @@ export function useUpdateMyTask() {
           },
         }),
       ),
+      async onSuccess(task) {
+        queryClient.setQueryData(myTaskKey(task.id), task);
+        queryClient.setQueryData(
+          apiKeys.task(task.tenantId, task.id),
+          task,
+        );
+        await invalidateResourceEverywhere(queryClient, "tasks");
+      },
+  });
+}
+
+export function useAddMyTaskDescriptionEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      content,
+    }: {
+      taskId: string;
+      content: string;
+    }) =>
+      authenticatedJson<ApiTaskDetail>(
+        `/api/v1/me/tasks/${encodeURIComponent(taskId)}/description-entries`,
+        {
+          method: "POST",
+          body: JSON.stringify({ content }),
+        },
+      ),
     async onSuccess(task) {
       queryClient.setQueryData(myTaskKey(task.id), task);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: myTasksKey }),
-        invalidateResourceEverywhere(queryClient, "tasks"),
-      ]);
+      queryClient.setQueryData(
+        apiKeys.task(task.tenantId, task.id),
+        task,
+      );
+      await invalidateResourceEverywhere(queryClient, "tasks");
     },
   });
 }
@@ -2350,7 +2400,7 @@ export function useNote(tenantId: string, noteId: string, enabled = true) {
     queryKey: apiKeys.note(tenantId, noteId),
     enabled: Boolean(tenantId) && Boolean(noteId) && enabled,
     queryFn: async () =>
-      responseData<ApiNote>(
+      responseData<ApiNoteDetail>(
         await apiClient.GET("/api/v1/tenant/{tenantId}/notes/{noteId}", {
           params: { path: { tenantId, noteId } },
         }),
@@ -2362,7 +2412,7 @@ export function useCreateNote(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateNoteInput) =>
-      responseData<ApiNote>(
+      responseData<ApiNoteDetail>(
         await apiClient.POST("/api/v1/tenant/{tenantId}/notes", {
           params: { path: { tenantId } },
           body: input,
@@ -2386,7 +2436,7 @@ export function useUpdateNote(tenantId: string) {
       noteId: string;
       input: UpdateNoteInput;
     }) =>
-      responseData<ApiNote>(
+      responseData<ApiNoteDetail>(
         await apiClient.PATCH("/api/v1/tenant/{tenantId}/notes/{noteId}", {
           params: { path: { tenantId, noteId } },
           // The generated type only allows `string | undefined` for
@@ -2506,7 +2556,7 @@ export function useMyNote(noteId: string, enabled = true) {
     queryKey: myNoteKey(noteId),
     enabled: Boolean(noteId) && enabled,
     queryFn: async () =>
-      responseData<ApiNote>(
+      responseData<ApiNoteDetail>(
         await apiClient.GET("/api/v1/me/notes/{noteId}", {
           params: { path: { noteId } },
         }),
@@ -2536,7 +2586,40 @@ export function useUpdateMyNote() {
       ),
     async onSuccess(note) {
       queryClient.setQueryData(myNoteKey(note.id), note);
+      queryClient.setQueryData(
+        apiKeys.note(note.tenantId,note.id),
+        note,
+      );
       await queryClient.invalidateQueries({ queryKey: myNotesKey });
+    },
+  });
+}
+
+export function useAddMyNoteEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      noteId,
+      content,
+    }: {
+      noteId: string;
+      content: string;
+    }) =>
+      authenticatedJson<ApiNoteDetail>(
+        `/api/v1/me/notes/${encodeURIComponent(noteId)}/entries`,
+        {
+          method: "POST",
+          body: JSON.stringify({ content }),
+        },
+      ),
+    async onSuccess(note) {
+      queryClient.setQueryData(myNoteKey(note.id), note);
+      queryClient.setQueryData(
+        apiKeys.note(note.tenantId, note.id),
+        note,
+      );
+      await invalidateResourceEverywhere(queryClient, "notes");
     },
   });
 }

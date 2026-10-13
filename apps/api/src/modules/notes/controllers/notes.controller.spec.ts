@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 describe('NotesController', () => {
   let controller: NotesController;
   let notesService: {
+    appendEntry: jest.Mock;
     list: jest.Mock;
     findOne: jest.Mock;
     create: jest.Mock;
@@ -20,6 +21,7 @@ describe('NotesController', () => {
 
   beforeEach(() => {
     notesService = {
+      appendEntry: jest.fn(),
       list: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn(),
@@ -42,6 +44,46 @@ describe('NotesController', () => {
   const req = {
     user: { sub: 'supabase-user-1', accessToken: 'token-1' },
   } as any;
+
+  describe('appendEntry', () => {
+    it('uses the authenticated internal user id to add dated content', async () => {
+      usersService.findByExternalAuthId.mockResolvedValue({
+        id: 'user-1',
+      });
+
+      const dto = { content: 'New research update' };
+      const response = {
+        id: 'note-1',
+        entries: [
+          {
+            id: 'entry-1',
+            noteId: 'note-1',
+            content: dto.content,
+            createdAt: '2026-10-12T06:00:00.000Z',
+          },
+        ],
+      };
+      notesService.appendEntry.mockResolvedValue(response);
+
+      const result = await controller.appendEntry(
+        'tenant-1',
+        'note-1',
+        req,
+        dto,
+      );
+
+      expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
+        'supabase-user-1',
+      );
+      expect(notesService.appendEntry).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        'user-1',
+        dto,
+      );
+      expect(result).toBe(response);
+    });
+  });
 
   describe('list', () => {
     it('resolves the caller and delegates with pagination parameters', async () => {

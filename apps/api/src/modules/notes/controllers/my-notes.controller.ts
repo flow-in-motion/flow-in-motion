@@ -8,6 +8,7 @@ import {
   Patch,
   Req,
   UseGuards,
+  Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -16,6 +17,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { UsersService } from '../../users/users.service';
 import { UpdateNoteDto } from '../dto/update-note.dto';
 import { NotesService } from '../services/notes.service';
+import { CreateNoteEntryDto } from '../dto/create-note-entry.dto';
 
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
@@ -67,6 +69,21 @@ export class MyNotesController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.notesService.updateForCaller(noteId, user.id, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Add a dated entry to a note the caller can access',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Post(':noteId/entries')
+  async appendEntry(
+    @Param('noteId') noteId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateNoteEntryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.notesService.appendEntryForCaller(noteId, user.id, dto);
   }
 
   @ApiOperation({ summary: 'Delete a note the caller can access' })

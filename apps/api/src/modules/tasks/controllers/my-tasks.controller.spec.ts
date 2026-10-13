@@ -5,6 +5,7 @@ import { UsersService } from '../../users/users.service';
 describe('MyTasksController', () => {
   let controller: MyTasksController;
   let tasksService: {
+    appendDescriptionEntryForCaller: jest.Mock;
     listForCaller: jest.Mock;
     findOneForCaller: jest.Mock;
     updateForCaller: jest.Mock;
@@ -14,6 +15,7 @@ describe('MyTasksController', () => {
 
   beforeEach(() => {
     tasksService = {
+      appendDescriptionEntryForCaller: jest.fn(),
       listForCaller: jest.fn(),
       findOneForCaller: jest.fn(),
       updateForCaller: jest.fn(),
@@ -68,6 +70,40 @@ describe('MyTasksController', () => {
       },
     );
     expect(result).toEqual({ id: 'task-1', title: 'Updated' });
+  });
+
+  it('appendDescriptionEntry() uses the authenticated caller without a workspace id', async () => {
+    const dto = { content: 'New description content' };
+    const response = {
+      id: 'task-1',
+      tenantId: 'another-tenant',
+      descriptionEntries: [
+        {
+          id: 'entry-1',
+          taskId: 'task-1',
+          content: dto.content,
+          createdAt: '2026-10-13T06:00:00.000Z',
+        },
+      ],
+    };
+
+    tasksService.appendDescriptionEntryForCaller.mockResolvedValue(response);
+
+    const result = await controller.appendDescriptionEntry(
+      'task-1',
+      req(),
+      dto,
+    );
+
+    expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
+      'supabase-user-1',
+    );
+    expect(tasksService.appendDescriptionEntryForCaller).toHaveBeenCalledWith(
+      'task-1',
+      'user-1',
+      dto,
+    );
+    expect(result).toBe(response);
   });
 
   it('remove() delegates to deleteForCaller with the task id and caller id', async () => {

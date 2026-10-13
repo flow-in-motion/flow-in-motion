@@ -8,6 +8,7 @@ describe('TasksController', () => {
   let controller: TasksController;
 
   let tasksService: {
+    appendDescriptionEntry: jest.Mock;
     list: jest.Mock;
     findOne: jest.Mock;
     create: jest.Mock;
@@ -25,6 +26,7 @@ describe('TasksController', () => {
 
   beforeEach(() => {
     tasksService = {
+      appendDescriptionEntry: jest.fn(),
       list: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn(),
@@ -166,6 +168,47 @@ describe('TasksController', () => {
         dto,
       );
       expect(result).toEqual({ id: 't1', title: 'Updated' });
+    });
+  });
+
+  describe('appendDescriptionEntry', () => {
+    it('adds description content using the authenticated internal user id', async () => {
+      usersService.findByExternalAuthId.mockResolvedValue({
+        id: 'user-1',
+      });
+
+      const dto = { content: 'New description content' };
+      const response = {
+        id: 'task-1',
+        descriptionEntries: [
+          {
+            id: 'entry-1',
+            taskId: 'task-1',
+            content: dto.content,
+            createdAt: '2026-10-13T06:00:00.000Z',
+          },
+        ],
+      };
+
+      tasksService.appendDescriptionEntry.mockResolvedValue(response);
+
+      const result = await controller.appendDescriptionEntry(
+        'tenant-1',
+        'task-1',
+        req,
+        dto,
+      );
+
+      expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
+        'supabase-user-1',
+      );
+      expect(tasksService.appendDescriptionEntry).toHaveBeenCalledWith(
+        'tenant-1',
+        'task-1',
+        'user-1',
+        dto,
+      );
+      expect(result).toBe(response);
     });
   });
 

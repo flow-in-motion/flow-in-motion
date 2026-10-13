@@ -125,7 +125,12 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
     const [shaped] = await this.withDisplayValues([task]);
-    return shaped;
+    const descriptionEntries = await this.repository.findDescriptionEntries(
+      tenantId,
+      taskId,
+    );
+
+    return { ...shaped, descriptionEntries };
   }
 
   /**
@@ -153,7 +158,12 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
     const [shaped] = await this.withDisplayValues([task]);
-    return shaped;
+    const descriptionEntries = await this.repository.findDescriptionEntries(
+      task.tenantId,
+      task.id,
+    );
+
+    return { ...shaped, descriptionEntries };
   }
 
   async create(
@@ -221,7 +231,12 @@ export class TasksService {
     }
 
     const [shaped] = await this.withDisplayValues([task]);
-    return shaped;
+    const descriptionEntries = await this.repository.findDescriptionEntries(
+      tenantId,
+      task.id,
+    );
+
+    return { ...shaped, descriptionEntries };
   }
 
   async update(
@@ -246,6 +261,15 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
 
+    if (
+      input.description !== undefined &&
+      input.description !== existing.description
+    ) {
+      throw new BadRequestException(
+        'Add new description content through the description entries endpoint',
+      );
+    }
+
     if (input.visibility === 'Private' && input.workingWith) {
       throw new BadRequestException(
         'A private task cannot have workingWith set',
@@ -267,7 +291,6 @@ export class TasksService {
 
     const task = await this.repository.update(tenantId, taskId, {
       title: input.title,
-      description: input.description,
       statusId,
       priorityId,
       visibilityId,
@@ -286,7 +309,57 @@ export class TasksService {
     }
 
     const [shaped] = await this.withDisplayValues([task]);
-    return shaped;
+    const descriptionEntries = await this.repository.findDescriptionEntries(
+      tenantId,
+      taskId,
+    );
+
+    return { ...shaped, descriptionEntries };
+  }
+
+  async appendDescriptionEntry(
+    tenantId: string,
+    taskId: string,
+    callerUserId: string,
+    input: { content: string },
+  ) {
+    await this.findOne(tenantId, taskId, callerUserId);
+
+    const content = input.content.trim();
+    if (!content) {
+      throw new BadRequestException('Description content must not be empty');
+    }
+
+    const task = await this.repository.appendDescriptionEntry(
+      tenantId,
+      taskId,
+      content,
+    );
+
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
+    return this.findOne(tenantId, taskId, callerUserId);
+  }
+
+  async appendDescriptionEntryForCaller(
+    taskId: string,
+    callerUserId: string,
+    input: { content: string },
+  ) {
+    const task = await this.repository.findByIdGlobal(taskId);
+
+    if (!task || !(await this.canAccess(task.tenantId, task, callerUserId))) {
+      throw new NotFoundException('Task not found');
+    }
+
+    return this.appendDescriptionEntry(
+      task.tenantId,
+      taskId,
+      callerUserId,
+      input,
+    );
   }
 
   async delete(tenantId: string, taskId: string, callerUserId: string) {

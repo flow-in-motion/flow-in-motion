@@ -27,6 +27,7 @@ import { NotesService } from '../services/notes.service';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { ConfigService } from '@nestjs/config';
 import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { CreateNoteEntryDto } from '../dto/create-note-entry.dto';
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
 }
@@ -54,7 +55,8 @@ export class NotesController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
 
-    const pageSize = query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
+    const pageSize =
+      query.pageSize ?? this.configService.get<number>('PAGE_SIZE', 20);
 
     return this.notesService.list(
       tenantId,
@@ -105,6 +107,21 @@ export class NotesController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.notesService.update(tenantId, noteId, user.id, dto);
+  }
+
+  @ApiOperation({ summary: 'Add a dated content entry to a note' })
+  @ApiResponse({ status: 201 })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Post(':noteId/entries')
+  async appendEntry(
+    @Param('tenantId') tenantId: string,
+    @Param('noteId') noteId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateNoteEntryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.notesService.appendEntry(tenantId, noteId, user.id, dto);
   }
 
   @ApiOperation({ summary: 'Delete a note' })
