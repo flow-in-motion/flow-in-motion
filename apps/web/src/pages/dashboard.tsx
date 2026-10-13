@@ -50,6 +50,7 @@ import { PageHeading } from "@/components/typography/heading";
 import { Button } from "@/components/ui/button";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { usePreferences } from "@/preferences/preferences-context";
+import { fillRowGaps } from "@/lib/dashboard-layout";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -140,9 +141,19 @@ type DashboardWidgetId =
 
 interface DashboardWidgetDefinition extends DashboardWidgetOption<DashboardWidgetId> {
   component: ComponentType;
-  /** Tailwind column-span class applied when widgets share the wide layout grid. */
-  span: string;
+  /** Preferred width in columns of the wide (xl) layout grid. */
+  span: number;
 }
+
+const DASHBOARD_GRID_COLUMNS = 5;
+// Literal class names so Tailwind generates them.
+const XL_COLUMN_SPAN_CLASS: Record<number, string> = {
+  1: "xl:col-span-1",
+  2: "xl:col-span-2",
+  3: "xl:col-span-3",
+  4: "xl:col-span-4",
+  5: "xl:col-span-5",
+};
 
 const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
   {
@@ -151,7 +162,7 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
     description: "Papers that haven't moved stage in the longest time.",
     group: "Insights",
     component: StalledPapersCard,
-    span: "xl:col-span-3",
+    span: 3,
   },
   {
     id: "task-health",
@@ -159,7 +170,7 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
     description: "Completion, deadlines, and delivery risk.",
     group: "Insights",
     component: TaskHealthCard,
-    span: "xl:col-span-2",
+    span: 2,
   },
   {
     id: "priority-workload",
@@ -167,7 +178,7 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
     description: "Open work grouped by urgency.",
     group: "Insights",
     component: PriorityWorkloadCard,
-    span: "xl:col-span-2",
+    span: 2,
   },
   {
     id: "project-progress",
@@ -175,7 +186,7 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
     description: "Top project completion based on linked tasks.",
     group: "Insights",
     component: ProjectProgressCard,
-    span: "xl:col-span-3",
+    span: 3,
   },
   {
     id: "tasks",
@@ -183,7 +194,7 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
     description: "Priority work across projects.",
     group: "Tables",
     component: PriorityTasksTable,
-    span: "xl:col-span-5",
+    span: 5,
   },
   {
     id: "pipeline",
@@ -191,7 +202,7 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
     description: "Projects arranged by pipeline stage.",
     group: "Tables",
     component: PipelineOverviewTable,
-    span: "xl:col-span-5",
+    span: 5,
   },
   {
     id: "conferences",
@@ -199,7 +210,7 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
     description: "Submission deadlines and linked papers.",
     group: "Tables",
     component: () => <ConferenceSubmissionsTable dashboardView />,
-    span: "xl:col-span-5",
+    span: 5,
   },
 ] as const;
 
@@ -303,6 +314,10 @@ export default function DashboardPage() {
   const visibleOrderedWidgets = layout.order
     .filter((id) => visibleWidgets.has(id))
     .map((id) => DASHBOARD_WIDGETS.find((widget) => widget.id === id)!);
+  const widgetSpans = fillRowGaps(
+    visibleOrderedWidgets.map((widget) => widget.span),
+    DASHBOARD_GRID_COLUMNS,
+  );
 
   useEffect(() => {
     if (
@@ -621,8 +636,15 @@ export default function DashboardPage() {
       {/* <WorkOnThisNextBanner /> */}
       {visibleOrderedWidgets.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-          {visibleOrderedWidgets.map((widget) => (
-            <div key={widget.id} className={widget.span}>
+          {visibleOrderedWidgets.map((widget, index) => (
+            <div
+              key={widget.id}
+              data-testid={`dashboard-widget-${widget.id}`}
+              className={cn(
+                XL_COLUMN_SPAN_CLASS[widgetSpans[index]],
+                "[&>*]:h-full",
+              )}
+            >
               <widget.component />
             </div>
           ))}
