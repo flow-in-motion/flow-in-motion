@@ -4,6 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ModuleDetailPage from "@/pages/module-detail";
 
+interface FixtureTask {
+  id: string;
+  displayId: string;
+  moduleId: string | null;
+  title: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+}
+
 const fixtures = vi.hoisted(() => ({
   confetti: vi.fn(),
   updateModule: vi.fn(),
@@ -65,25 +75,27 @@ const fixtures = vi.hoisted(() => ({
     {
       id: "task-2",
       displayId: "TSK-002",
-      moduleId: null as string | null,
+      moduleId: null,
       title: "Independent task",
       status: "To do",
       priority: "Medium",
       dueDate: null,
     },
-  ],
+  ] as FixtureTask[],
   notes: [
     {
       id: "note-1",
       moduleId: "module-1",
       title: "Meeting notes",
       content: "Discussed scope",
+      updatedAt: "2026-09-02T00:00:00.000Z",
     },
     {
       id: "note-2",
       moduleId: null as string | null,
       title: "Independent note",
       content: "Unrelated",
+      updatedAt: "2026-09-01T00:00:00.000Z",
     },
   ],
   module: {
@@ -797,42 +809,96 @@ describe("ModuleDetailPage", () => {
     expect(screen.getByText("Nature Communications")).toBeInTheDocument();
   });
 
-  it("shows linked work expanded by default, with an option to hide it", () => {
+  it("shows tasks and notes as separate panels, each of which can be hidden", () => {
     renderPage();
 
+    expect(
+      screen.queryByRole("heading", { name: "Linked work" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Extract references")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Hide linked work" }),
-    ).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Meeting notes")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Hide linked work" }));
-
+    fireEvent.click(screen.getByRole("button", { name: "Hide tasks" }));
     expect(screen.queryByText("Extract references")).not.toBeInTheDocument();
-    expect(screen.getByText("Sam Lee · CSIRO")).toBeInTheDocument();
+    expect(screen.getByText("Meeting notes")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Show linked work" }),
+      screen.getByRole("button", { name: "Show tasks" }),
     ).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide notes" }));
+    expect(screen.queryByText("Meeting notes")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show notes" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Sam Lee · CSIRO")).toBeInTheDocument();
+  });
+
+  it("lists the paper's active tasks first, three at a time", () => {
+    const originalTasks = fixtures.tasks;
+    const task = (
+      id: string,
+      title: string,
+      dueDate: string | null,
+      status = "To do",
+    ) => ({
+      ...originalTasks[0],
+      id,
+      displayId: id.toUpperCase(),
+      title,
+      dueDate,
+      status,
+    });
+    fixtures.tasks = [
+      task("t-late", "Late task", "2026-12-01"),
+      task("t-undated", "Undated task", null),
+      task("t-soon", "Soon task", "2026-10-20"),
+      task("t-done", "Finished task", "2026-10-01", "Complete"),
+      task("t-mid", "Middle task", "2026-11-01"),
+    ];
+    try {
+      renderPage();
+
+      expect(
+        screen.getByRole("heading", { name: "Tasks (4 active)" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Finished task")).not.toBeInTheDocument();
+      expect(screen.getByText("Soon task")).toBeInTheDocument();
+      expect(screen.getByText("Middle task")).toBeInTheDocument();
+      expect(screen.getByText("Late task")).toBeInTheDocument();
+      expect(screen.queryByText("Undated task")).not.toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show all 4 active tasks" }),
+      );
+      expect(screen.getByText("Undated task")).toBeInTheDocument();
+      expect(screen.queryByText("Finished task")).not.toBeInTheDocument();
+    } finally {
+      fixtures.tasks = originalTasks;
+    }
   });
 
   it("shows submission history expanded by default, with an option to hide it", () => {
     renderPage();
 
     expect(
-      screen.getByRole("heading", { name: "Submission history (0)" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { name: /^Submission history/ }),
+    ).toHaveLength(1);
     expect(
       screen.getByRole("button", { name: "Hide submission history" }),
     ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByText("No submissions logged yet for this paper."),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Hide submission history" }),
     );
 
     expect(
-      screen.queryByRole("heading", { name: "Submission history (0)" }),
+      screen.queryByText("No submissions logged yet for this paper."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Submission history" }),
+      screen.getByRole("heading", { name: "Submission history (0)" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Show submission history" }),
