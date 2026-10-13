@@ -433,6 +433,7 @@ describe('TasksService', () => {
         data: [],
         totalItems: 5001,
       });
+
       await expect(
         service.list('tenant-1', 'user-1', 1, 'all'),
       ).rejects.toThrow('All is limited');
@@ -443,13 +444,14 @@ describe('TasksService', () => {
         data: [1, 2, 3].map((id) => ({
           id: String(id),
           statusId: null,
-          pipelineStageId: null,
-          visibilityId: null,
           priorityId: null,
+          visibilityId: null,
         })),
         totalItems: 3,
       });
+
       const result = await service.list('tenant-1', 'user-1', 7, 'all');
+
       expect(result.data.map((item) => item.id)).toEqual(['1', '2', '3']);
       expect(result.meta).toEqual({
         page: 1,
@@ -466,7 +468,9 @@ describe('TasksService', () => {
         totalItems: 85,
         summary: { open: 61 },
       });
+
       const result = await service.list('tenant-1', 'user-1', 1, 20);
+
       expect(result.summary).toEqual({ open: 61 });
     });
 
@@ -500,10 +504,10 @@ describe('TasksService', () => {
         'project-1',
         undefined,
         false,
+        undefined,
+        undefined,
       );
-
       expect(result.data.map((task) => task.id)).toEqual(['task-21']);
-
       expect(result.meta).toEqual({
         page: 2,
         pageSize: 20,
@@ -528,17 +532,66 @@ describe('TasksService', () => {
         undefined,
         undefined,
         false,
+        undefined,
+        undefined,
+      );
+      expect(result.data).toEqual([]);
+      expect(result.meta).toEqual({
+        page: 1,
+        pageSize: 20,
+        totalItems: 0,
+        totalPages: 1,
+      });
+    });
+
+    it('passes multiple filters to the repository and preserves filtered pagination totals', async () => {
+      repository.findVisibleByTenant.mockResolvedValue({
+        data: [
+          {
+            id: 'task-21',
+            createdBy: 'user-1',
+            statusId: null,
+            priorityId: null,
+            visibilityId: null,
+          },
+        ],
+        totalItems: 21,
+        summary: { open: 21 },
+      });
+
+      const statuses = ['To do', 'Underway', 'Waiting'];
+      const priorities = ['High', 'Critical'];
+
+      const result = await service.list(
+        'tenant-1',
+        'user-1',
+        2,
+        20,
+        undefined,
+        undefined,
+        false,
+        statuses,
+        priorities,
       );
 
-      expect(result).toEqual({
-        data: [],
-        meta: {
-          page: 1,
-          pageSize: 20,
-          totalItems: 0,
-          totalPages: 1,
-        },
+      expect(repository.findVisibleByTenant).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+        20,
+        20,
+        undefined,
+        undefined,
+        false,
+        statuses,
+        priorities,
+      );
+      expect(result.meta).toEqual({
+        page: 2,
+        pageSize: 20,
+        totalItems: 21,
+        totalPages: 2,
       });
+      expect(result.summary).toEqual({ open: 21 });
     });
   });
 

@@ -7,6 +7,7 @@ const hookMocks = vi.hoisted(() => ({
   useTasks: vi.fn(),
   updateTask: vi.fn(),
   search: vi.fn(),
+  filters: vi.fn(),
   pagination: {
     totalItems: 1,
     totalPages: 1,
@@ -138,11 +139,19 @@ vi.mock("@/api/hooks", async () => {
       projectId?: string,
       page = 1,
       enabled = true,
-      options?: { search?: string },
+      options?: {
+        search?: string;
+        statuses?: readonly string[];
+        priorities?: readonly string[];
+      },
     ) => {
       void enabled;
       hookMocks.useTasks(tenantId, projectId, page);
       hookMocks.search(options?.search);
+      hookMocks.filters({
+        statuses: options?.statuses ?? [],
+        priorities: options?.priorities ?? [],
+      });
 
       const tasks = useSyncExternalStore(store.subscribe, store.getTasks);
 
@@ -269,8 +278,197 @@ describe("TasksPage", () => {
       },
     );
     hookMocks.search.mockClear();
+    hookMocks.filters.mockClear();
     hookMocks.pagination.totalItems = 1;
     hookMocks.pagination.totalPages = 1;
+  });
+  function renderTasks() {
+    return render(
+      <MemoryRouter>
+        <TasksPage />
+      </MemoryRouter>,
+    );
+  }
+
+  function openFilter(label: "statuses" | "priorities") {
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: `Filter by ${label}` }),
+      { key: "ArrowDown" },
+    );
+  }
+
+  function closeFilter(optionName: string) {
+    fireEvent.keyDown(
+      screen.getByRole("menuitemcheckbox", { name: optionName }),
+      { key: "Escape" },
+    );
+  }
+
+  it("keeps the status menu open while selecting multiple statuses", async () => {
+    renderTasks();
+    openFilter("statuses");
+
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: "To do" }),
+    );
+
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "To do" }),
+    ).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Underway" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Waiting" }),
+    );
+
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "Underway" }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "Waiting" }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "Complete" }),
+    ).toHaveAttribute("aria-checked", "false");
+
+    expect(hookMocks.filters).toHaveBeenLastCalledWith({
+      statuses: ["To do", "Underway", "Waiting"],
+      priorities: [],
+    });
+  });
+
+  it("combines multiple priorities with the selected statuses", async () => {
+    renderTasks();
+    openFilter("statuses");
+
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: "To do" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Underway" }),
+    );
+    closeFilter("Underway");
+
+    openFilter("priorities");
+
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: "High" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Critical" }),
+    );
+
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "High" }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "Critical" }),
+    ).toHaveAttribute("aria-checked", "true");
+
+    expect(hookMocks.filters).toHaveBeenLastCalledWith({
+      statuses: ["To do", "Underway"],
+      priorities: ["High", "Critical"],
+    });
+
+    closeFilter("Critical");
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    expect(hookMocks.filters).toHaveBeenLastCalledWith({
+      statuses: [],
+      priorities: [],
+    });
+  });
+
+  it("returns to page 1 when status or priority selections change", async () => {
+    hookMocks.pagination.totalItems = 21;
+    hookMocks.pagination.totalPages = 2;
+
+    renderTasks();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      undefined,
+      2,
+    );
+
+    openFilter("statuses");
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: "To do" }),
+    );
+
+    await waitFor(() =>
+      expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
+        fixtures.tenantId,
+        undefined,
+        1,
+      ),
+    );
+
+    closeFilter("To do");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      undefined,
+      2,
+    );
+
+    openFilter("priorities");
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: "High" }),
+    );
+
+    await waitFor(() =>
+      expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
+        fixtures.tenantId,
+        undefined,
+        1,
+      ),
+    );
+  });
+
+  it("restores multiple selections after navigating away and back", async () => {
+    const firstRender = renderTasks();
+
+    openFilter("statuses");
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: "To do" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Waiting" }),
+    );
+    closeFilter("Waiting");
+
+    openFilter("priorities");
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: "High" }),
+    );
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Critical" }),
+    );
+    closeFilter("Critical");
+
+    firstRender.unmount();
+    hookMocks.filters.mockClear();
+
+    renderTasks();
+
+    await waitFor(() =>
+      expect(hookMocks.filters).toHaveBeenLastCalledWith({
+        statuses: ["To do", "Waiting"],
+        priorities: ["High", "Critical"],
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Filter by statuses" }),
+    ).toHaveTextContent("2 statuses");
+    expect(
+      screen.getByRole("button", { name: "Filter by priorities" }),
+    ).toHaveTextContent("2 priorities");
   });
   it("preserves server matches when the linked paper is outside the loaded paper page", async () => {
     store.setTasks(

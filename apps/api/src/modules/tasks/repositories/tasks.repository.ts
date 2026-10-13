@@ -135,6 +135,8 @@ export class TasksRepository {
     projectId?: string,
     search?: string,
     projectOnly = false,
+    statuses?: string[],
+    priorities?: string[],
   ) {
     const accessCondition = or(
       eq(tasks.createdBy, callerUserId),
@@ -198,6 +200,39 @@ export class TasksRepository {
       );
     }
 
+    if (statuses?.length) {
+      conditions.push(
+        inArray(
+          tasks.statusId,
+          this.drizzle.db
+            .select({ id: enumTable.id })
+            .from(enumTable)
+            .where(
+              and(
+                eq(enumTable.category, 'task_status'),
+                inArray(enumTable.value, statuses),
+              ),
+            ),
+        ),
+      );
+    }
+
+    if (priorities?.length) {
+      conditions.push(
+        inArray(
+          tasks.priorityId,
+          this.drizzle.db
+            .select({ id: enumTable.id })
+            .from(enumTable)
+            .where(
+              and(
+                eq(enumTable.category, 'importance'),
+                inArray(enumTable.value, priorities),
+              ),
+            ),
+        ),
+      );
+    }
     const whereCondition = and(...conditions);
 
     const [data, countResult] = await Promise.all([

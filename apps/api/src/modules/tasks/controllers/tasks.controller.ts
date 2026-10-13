@@ -27,7 +27,7 @@ import { UpdateTaskDto } from '../dto/update-task.dto';
 import { TasksService } from '../services/tasks.service';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { ConfigService } from '@nestjs/config';
-import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { TaskListQueryDto } from '../dto/task-list-query.dto';
 import { CreateTaskDescriptionEntryDto } from '../dto/create-task-description-entry.dto';
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
@@ -52,7 +52,7 @@ export class TasksController {
   async list(
     @Param('tenantId') tenantId: string,
     @Req() req: AuthenticatedRequest,
-    @Query() query: ProjectScopedPaginationQueryDto,
+    @Query() query: TaskListQueryDto,
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     const pageSize =
@@ -66,6 +66,8 @@ export class TasksController {
       query.projectId,
       query.search?.trim() || undefined,
       query.projectOnly ?? false,
+      query.statuses,
+      query.priorities,
     );
   }
 
