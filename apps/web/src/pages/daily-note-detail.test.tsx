@@ -13,6 +13,7 @@ import {
 const fixtures = vi.hoisted(() => ({
   updateNote: vi.fn(),
   addEntry: vi.fn(),
+  deleteNote: vi.fn(),
   sharingEnabled: false,
   note: {
     id: "note-1",
@@ -75,6 +76,8 @@ vi.mock("@/api/hooks", () => ({
   useModules: () => ({
     data: { data: fixtures.modules, meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 } },
   }),
+  
+  useDeleteMyNote: () => ({ mutateAsync: fixtures.deleteNote, isPending: false }),
   useProject: (_tenantId: string, projectId?: string) => ({
     data: projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
     isError: false,
@@ -102,6 +105,8 @@ vi.mock("@/lib/feature-flags", () => ({
 
 describe("DailyNoteDetailPage", () => {
   beforeEach(() => {
+    fixtures.deleteNote.mockReset();
+    fixtures.deleteNote.mockResolvedValue(fixtures.note);
     fixtures.sharingEnabled = false;
     fixtures.note.content = "Baseline readings look consistent.";
     fixtures.note.entries = [{

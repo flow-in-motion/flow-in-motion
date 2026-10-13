@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, ListTodo, Pencil, Save, Unlink, Users, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ListTodo, Pencil, Save, Trash2, Unlink, Users } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
 
 import {
   useCurrentWorkspace,
+  useDeleteMyTask,
   useMembers,
   useModules,
   useMyTask,
@@ -308,6 +309,7 @@ export default function TaskDetailPage() {
   const modules = modulesQuery.data?.data ?? [];
   const updateTask = useUpdateMyTask();
   const addDescriptionEntry = useAddMyTaskDescriptionEntry();
+  const deleteTask = useDeleteMyTask();
   const task = taskQuery.data;
   const trackEvent = useTrackEvent(task?.tenantId ?? "");
   const linkedProjectQuery = useProject(tenantId, task?.projectId ?? "", Boolean(task?.projectId));
@@ -315,6 +317,7 @@ export default function TaskDetailPage() {
   const membersQuery = useMembers(tenantId, 1, sameTenant);
   const members = membersQuery.data?.data ?? [];
   const [form, setForm] = useState<TaskFormInput | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
   const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
@@ -404,6 +407,22 @@ export default function TaskDetailPage() {
     await updateTask.mutateAsync({ taskId, input });
   }
 
+  async function handleDeleteTask() {
+    if (!task) return;
+    if (!window.confirm(`Delete "${task.title}"? This action cannot be undone.`)) {
+      return;
+    }
+    setActionError(null);
+    try {
+      await deleteTask.mutateAsync(taskId);
+      navigate("/tasks");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "The task could not be deleted.",
+      );
+    }
+  }
+
   function cancelEditing() {
     setForm(null);
     if (searchParams.get("edit") === "true") {
@@ -429,6 +448,22 @@ export default function TaskDetailPage() {
     <div className="page-stack">
       <BackButton fallback="/tasks" label="Back" />
 
+      {actionError ? (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
       <PageHeading
         tone="amber"
         icon={ListTodo}
@@ -443,8 +478,16 @@ export default function TaskDetailPage() {
             <Badge variant="outline" className={priorityPillClass(task.priority)}>
               {task.priority ?? "—"}
             </Badge>
-            {form ? <Button type="button" variant="outline" onClick={cancelEditing}><X /> Cancel Editing</Button>
-              : <Button type="button" onClick={() => setForm(formValues(task))}><Pencil /> Edit Task</Button>}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleDeleteTask()}
+              disabled={deleteTask.isPending}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 /> Delete Task
+            </Button>
+            {!form ? <Button type="button" onClick={() => setForm(formValues(task))}><Pencil /> Edit Task</Button> : null}
           </div>
         }
       >

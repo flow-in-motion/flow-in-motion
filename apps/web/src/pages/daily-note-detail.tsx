@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Unlink } from "lucide-react";
+import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Trash2, Unlink } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
 import {
   useCurrentWorkspace,
+  useDeleteMyNote,
   useMembers,
   useModules,
   useMyNote,
@@ -266,12 +267,14 @@ export default function DailyNoteDetailPage() {
   const modulesQuery = useModules(tenantId);
   const modules = modulesQuery.data?.data ?? [];
   const updateNote = useUpdateMyNote();
+  const deleteNote = useDeleteMyNote();
   const note = noteQuery.data;
   const linkedProjectQuery = useProject(tenantId, note?.projectId ?? "", Boolean(note?.projectId));
   const sameTenant = Boolean(note && tenantId && note.tenantId === tenantId);
   const membersQuery = useMembers(tenantId, 1, sameTenant);
   const members = membersQuery.data?.data ?? [];
   const [form, setForm] = useState<NoteEditForm | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
   const [isMembersVisible, setIsMembersVisible] = useState(true);
@@ -340,6 +343,25 @@ export default function DailyNoteDetailPage() {
           : { projectId: null, moduleId: null };
     await updateNote.mutateAsync({ noteId, input });
   }
+
+  async function handleDeleteNote() {
+    if (!note) return;
+    if (
+      !window.confirm(`Delete "${note.title || "Untitled note"}"? This cannot be undone.`)
+    ) {
+      return;
+    }
+    setActionError(null);
+    try {
+      await deleteNote.mutateAsync(noteId);
+      navigate("/daily-notes");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "The note could not be deleted.",
+      );
+    }
+  }
+
   function cancelEditing() {
     setNewContent("");
     setForm(null);
@@ -358,6 +380,23 @@ export default function DailyNoteDetailPage() {
   return (
     <div className="page-stack">
       <BackButton fallback="/daily-notes" label="Back" />
+
+      {actionError ? (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            className="font-medium underline"
+            onClick={() => setActionError(null)}
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
       <PageHeading
         tone="violet"
         icon={NotebookPen}
@@ -369,6 +408,15 @@ export default function DailyNoteDetailPage() {
             {TASK_NOTE_SHARING_ENABLED ? (
               <Badge variant="outline">{note.visibility ?? "Private"}</Badge>
             ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleDeleteNote()}
+              disabled={deleteNote.isPending}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 /> Delete Note
+            </Button>
             {form ? null : (
                <Button
                  type="button"

@@ -14,6 +14,7 @@ import type { ApiTaskDescriptionEntry } from "@/api/hooks";
 const fixtures = vi.hoisted(() => ({
   updateTask: vi.fn(),
   addDescriptionEntry: vi.fn(),
+  deleteTask: vi.fn(),
   sharingEnabled: false,
   task: {
     id: "task-1",
@@ -70,6 +71,7 @@ vi.mock("@/api/hooks", () => ({
     isError: false,
     error: undefined,
   }),
+  useDeleteMyTask: () => ({ mutateAsync: fixtures.deleteTask, isPending: false }),
   useTrackEvent: () => vi.fn(),
   useProject: (_tenantId: string, projectId?: string) => ({
     data: projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
@@ -108,6 +110,8 @@ describe("TaskDetailPage", () => {
     fixtures.task.description = null;
     fixtures.updateTask.mockReset();
     fixtures.updateTask.mockResolvedValue(fixtures.task);
+    fixtures.deleteTask.mockReset();
+    fixtures.deleteTask.mockResolvedValue(fixtures.task);
     fixtures.task.descriptionEntries = [];
     fixtures.addDescriptionEntry.mockReset();
     fixtures.addDescriptionEntry.mockResolvedValue(fixtures.task);
@@ -347,7 +351,7 @@ describe("TaskDetailPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancel Editing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(screen.getByRole("heading", { name: "Tasks" })).toBeInTheDocument();
   });
@@ -362,7 +366,7 @@ describe("TaskDetailPage", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Cancel Editing" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(
       screen.getByRole("button", { name: "Edit Task" }),
