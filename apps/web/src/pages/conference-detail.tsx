@@ -109,10 +109,24 @@ export default function ConferenceDetailPage() {
         eyebrow={conference.acronym ?? undefined}
         title={conference.name}
         description={headingDescription}
-        actions={canManage ? <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setIsEditing(true)}><Pencil /> Edit Conference</Button>
-          <Button variant="destructive" onClick={() => void remove()}><Trash2 /> Delete Conference</Button>
-        </div> : <Badge variant="outline">View only</Badge>}
+        actions={canManage ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void remove()}
+              disabled={deleteConference.isPending}
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 /> Delete Conference
+            </Button>
+            <Button type="button" onClick={() => setIsEditing(true)}>
+              <Pencil /> Edit Conference
+            </Button>
+          </div>
+        ) : (
+          <Badge variant="outline">View only</Badge>
+        )}
       />
 
       {actionError ? <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{actionError}</p> : null}
