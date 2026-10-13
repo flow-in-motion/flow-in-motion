@@ -392,4 +392,17 @@ describe("PipelineOverviewTable popup", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Example paper" })).toBeVisible();
   });
+
+  it("shows the Status filter before the Stage filter, matching the Papers list", () => {
+    render(
+      <MemoryRouter>
+        <PipelineOverviewTable />
+      </MemoryRouter>,
+    );
+
+    const filterNames = screen
+      .getAllByRole("button", { name: /^Filter by / })
+      .map((button) => button.getAttribute("aria-label"));
+    expect(filterNames).toEqual(["Filter by statuses", "Filter by stages"]);
+  });
 });
