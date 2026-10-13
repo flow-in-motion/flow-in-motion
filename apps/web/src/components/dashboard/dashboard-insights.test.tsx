@@ -146,6 +146,11 @@ describe("dashboard insight cards", () => {
       </MemoryRouter>,
     );
 
+    expect(
+      screen.getByText("Longest in current stage"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Stalled papers")).not.toBeInTheDocument();
+
     const paperLinks = screen
       .getAllByRole("link")
       .filter((link) => link.getAttribute("href")?.startsWith("/modules/"));

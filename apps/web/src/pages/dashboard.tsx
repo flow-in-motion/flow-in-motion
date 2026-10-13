@@ -147,7 +147,7 @@ interface DashboardWidgetDefinition extends DashboardWidgetOption<DashboardWidge
 const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
   {
     id: "stalled-papers",
-    label: "Stalled papers",
+    label: "Longest in current stage",
     description: "Papers that haven't moved stage in the longest time.",
     group: "Insights",
     component: StalledPapersCard,
