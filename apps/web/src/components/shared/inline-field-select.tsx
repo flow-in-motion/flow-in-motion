@@ -18,6 +18,7 @@ type InlineFieldSelectProps = {
   onError?: (message: string) => void;
   valueClassName?: (value: string | null) => string;
   disabled?: boolean;
+  placeholder?: string;
 };
 
 export function InlineFieldSelect({
@@ -29,6 +30,7 @@ export function InlineFieldSelect({
   onError,
   valueClassName,
   disabled = false,
+  placeholder = "—",
 }: InlineFieldSelectProps) {
   const [displayedValue, setDisplayedValue] = useState<string | null>(value);
   const [isSaving, setIsSaving] = useState(false);
@@ -70,7 +72,7 @@ export function InlineFieldSelect({
           valueClassName?.(displayedValue),
         )}
       >
-        <SelectValue placeholder="—" />
+        <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (
