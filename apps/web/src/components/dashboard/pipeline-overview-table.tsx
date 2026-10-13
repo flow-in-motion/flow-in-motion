@@ -317,20 +317,20 @@ export function PipelineOverviewTable() {
           className="sm:max-w-xs"
         />
         <MultiSelectFilter
-          options={stageFilterOptions.slice(1)}
-          selected={selectedStages}
-          pluralLabel="stages"
-          triggerClassName="sm:w-44"
-          onToggle={(value) => toggleSelected(setSelectedStages, value)}
-          onClear={() => setSelectedStages(new Set())}
-        />
-        <MultiSelectFilter
           options={PAPER_STATUS_FILTERS}
           selected={selectedStatuses}
           pluralLabel="statuses"
           triggerClassName="sm:w-40"
           onToggle={(value) => toggleSelected(setSelectedStatuses, value)}
           onClear={() => setSelectedStatuses(new Set())}
+        />
+        <MultiSelectFilter
+          options={stageFilterOptions.slice(1)}
+          selected={selectedStages}
+          pluralLabel="stages"
+          triggerClassName="sm:w-44"
+          onToggle={(value) => toggleSelected(setSelectedStages, value)}
+          onClear={() => setSelectedStages(new Set())}
         />
         <Select
           value={sortBy}
