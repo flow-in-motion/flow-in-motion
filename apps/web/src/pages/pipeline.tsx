@@ -26,6 +26,7 @@ import {
 } from "@/components/modules/paper-stage-celebration";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
+import { TopScrollArea } from "@/components/shared/top-scroll-area";
 import { PageHeading } from "@/components/typography/heading";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
@@ -744,7 +745,7 @@ export default function PipelinePage() {
           })}
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <TopScrollArea sticky>
           <div
             className="flex gap-4"
             style={{
@@ -830,7 +831,7 @@ export default function PipelinePage() {
               );
             })}
           </div>
-        </div>
+        </TopScrollArea>
       )}
     </div>
   );
