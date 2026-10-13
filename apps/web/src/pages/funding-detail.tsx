@@ -430,12 +430,18 @@ export default function FundingDetailPage() {
         description={funding.partners ?? undefined}
         actions={
           canManage ? (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => setIsEditing(true)}>
-                <Pencil /> Edit Funding
-              </Button>
-              <Button variant="destructive" onClick={() => void remove()}>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void remove()}
+                disabled={deleteFunding.isPending}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
                 <Trash2 /> Delete Funding
+              </Button>
+              <Button type="button" onClick={() => setIsEditing(true)}>
+                <Pencil /> Edit Funding
               </Button>
             </div>
           ) : (
