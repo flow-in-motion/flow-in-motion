@@ -183,22 +183,109 @@ function FormField({
   );
 }
 
+const PANEL_PREVIEW_COUNT = 3;
+const TASK_PRIORITY_ORDER: Record<string, number> = {
+  Critical: 0,
+  High: 1,
+  Medium: 2,
+  Low: 3,
+};
+
+// Active tasks first by nearest due date (undated last), then priority.
+function sortActiveTasks(tasks: ApiTask[]) {
+  return tasks
+    .filter((task) => task.status !== "Complete")
+    .sort((a, b) => {
+      if (a.dueDate !== b.dueDate) {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      }
+      return (
+        (TASK_PRIORITY_ORDER[a.priority ?? ""] ?? 99) -
+          (TASK_PRIORITY_ORDER[b.priority ?? ""] ?? 99) ||
+        a.title.localeCompare(b.title)
+      );
+    });
+}
+
+function PanelToggleButton({
+  visible,
+  onToggle,
+  label,
+  controls,
+}: {
+  visible: boolean;
+  onToggle: () => void;
+  label: string;
+  controls: string;
+}) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-expanded={visible}
+      aria-controls={controls}
+      onClick={onToggle}
+    >
+      {visible ? <ChevronUp /> : <ChevronDown />}
+      {visible ? `Hide ${label}` : `Show ${label}`}
+    </Button>
+  );
+}
+
+function ShowMoreButton({
+  expanded,
+  total,
+  noun,
+  onToggle,
+}: {
+  expanded: boolean;
+  total: number;
+  noun: string;
+  onToggle: () => void;
+}) {
+  if (total <= PANEL_PREVIEW_COUNT) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="mt-2 w-full text-muted-foreground"
+      onClick={onToggle}
+    >
+      {expanded ? <ChevronUp /> : <ChevronDown />}
+      {expanded ? "Show fewer" : `Show all ${total} ${noun}`}
+    </Button>
+  );
+}
+
 function ModuleTasksDetails({
   tasks,
+  visible,
+  onToggleVisible,
   onAddTask,
   onLinkExisting,
   onUnlinkTask,
 }: {
   tasks: ApiTask[];
+  visible: boolean;
+  onToggleVisible: () => void;
   onAddTask?: () => void;
   onLinkExisting?: () => void;
   onUnlinkTask?: (task: ApiTask) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const activeTasks = sortActiveTasks(tasks);
+  const shownTasks = expanded
+    ? activeTasks
+    : activeTasks.slice(0, PANEL_PREVIEW_COUNT);
+  const completedCount = tasks.length - activeTasks.length;
+
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle>Tasks ({tasks.length})</CardTitle>
-        <div className="flex items-center gap-2">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
+        <CardTitle>Tasks ({activeTasks.length} active)</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
           {onLinkExisting ? (
             <Button variant="outline" size="sm" onClick={onLinkExisting}>
               <Link2 />
@@ -211,83 +298,115 @@ function ModuleTasksDetails({
               Add task
             </Button>
           ) : null}
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/tasks">View all</Link>
-          </Button>
+          <PanelToggleButton
+            visible={visible}
+            onToggle={onToggleVisible}
+            label="tasks"
+            controls="module-tasks-content"
+          />
         </div>
       </CardHeader>
-      <CardContent>
-        {tasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No tasks are linked to this module.
-          </p>
-        ) : (
-          <div className="grid gap-2">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
-              >
-                <Link
-                  to={`/tasks/${task.id}`}
-                  className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      {visible ? (
+        <CardContent id="module-tasks-content">
+          {activeTasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {completedCount > 0
+                ? "All tasks for this paper are complete."
+                : "No tasks are linked to this paper."}
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {shownTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-1 rounded-md border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-muted/40"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
+                  <Link
+                    to={`/tasks/${task.id}`}
+                    className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="flex min-w-0 items-baseline gap-2">
                       {task.displayId ? (
-                        <span className="block font-mono text-[10px] text-muted-foreground">
+                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                           {task.displayId}
                         </span>
                       ) : null}
-                      <span className="block text-sm font-semibold">
+                      <span className="truncate text-sm font-semibold">
                         {task.title}
                       </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="whitespace-nowrap text-xs text-muted-foreground">
+                        Due {formatDate(task.dueDate)}
+                      </span>
                       <StatusBadge status={task.status ?? "—"} />
                       <StatusBadge status={task.priority ?? "—"} />
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Due {formatDate(task.dueDate)}</span>
-                  </div>
-                </Link>
-                {onUnlinkTask ? (
-                  <button
-                    type="button"
-                    onClick={() => onUnlinkTask(task)}
-                    aria-label={`Unlink ${task.title} from this module`}
-                    title="Unlink"
-                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <Unlink className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+                    </span>
+                  </Link>
+                  {onUnlinkTask ? (
+                    <button
+                      type="button"
+                      onClick={() => onUnlinkTask(task)}
+                      aria-label={`Unlink ${task.title} from this module`}
+                      title="Unlink"
+                      className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Unlink className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+          <ShowMoreButton
+            expanded={expanded}
+            total={activeTasks.length}
+            noun="active tasks"
+            onToggle={() => setExpanded((value) => !value)}
+          />
+          {completedCount > 0 ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {completedCount} completed{" "}
+              {completedCount === 1 ? "task is" : "tasks are"} hidden.{" "}
+              <Link to="/tasks" className="underline hover:text-foreground">
+                View all tasks
+              </Link>
+            </p>
+          ) : null}
+        </CardContent>
+      ) : null}
     </Card>
   );
 }
 
 function ModuleNotesDetails({
   notes,
+  visible,
+  onToggleVisible,
   addNoteHref,
   onLinkExisting,
   onUnlinkNote,
 }: {
   notes: ApiNote[];
+  visible: boolean;
+  onToggleVisible: () => void;
   addNoteHref?: string;
   onLinkExisting?: () => void;
   onUnlinkNote?: (note: ApiNote) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const sortedNotes = [...notes].sort((a, b) =>
+    b.updatedAt.localeCompare(a.updatedAt),
+  );
+  const shownNotes = expanded
+    ? sortedNotes
+    : sortedNotes.slice(0, PANEL_PREVIEW_COUNT);
+
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
         <CardTitle>Notes ({notes.length})</CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {onLinkExisting ? (
             <Button variant="outline" size="sm" onClick={onLinkExisting}>
               <Link2 />
@@ -302,50 +421,61 @@ function ModuleNotesDetails({
               </Link>
             </Button>
           ) : null}
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/daily-notes">View all</Link>
-          </Button>
+          <PanelToggleButton
+            visible={visible}
+            onToggle={onToggleVisible}
+            label="notes"
+            controls="module-notes-content"
+          />
         </div>
       </CardHeader>
-      <CardContent>
-        {notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No notes are linked to this module.
-          </p>
-        ) : (
-          <div className="grid gap-2">
-            {notes.map((note) => (
-              <div
-                key={note.id}
-                className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
-              >
-                <Link
-                  to={`/daily-notes/${note.id}`}
-                  className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      {visible ? (
+        <CardContent id="module-notes-content">
+          {notes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No notes are linked to this paper.
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {shownNotes.map((note) => (
+                <div
+                  key={note.id}
+                  className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
                 >
-                  <span className="text-sm font-semibold">{note.title}</span>
-                  {note.content ? (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {note.content}
-                    </p>
-                  ) : null}
-                </Link>
-                {onUnlinkNote ? (
-                  <button
-                    type="button"
-                    onClick={() => onUnlinkNote(note)}
-                    aria-label={`Unlink ${note.title} from this module`}
-                    title="Unlink"
-                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  <Link
+                    to={`/daily-notes/${note.id}`}
+                    className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Unlink className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+                    <span className="text-sm font-semibold">{note.title}</span>
+                    {note.content ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {note.content}
+                      </p>
+                    ) : null}
+                  </Link>
+                  {onUnlinkNote ? (
+                    <button
+                      type="button"
+                      onClick={() => onUnlinkNote(note)}
+                      aria-label={`Unlink ${note.title} from this module`}
+                      title="Unlink"
+                      className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Unlink className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+          <ShowMoreButton
+            expanded={expanded}
+            total={notes.length}
+            noun="notes"
+            onToggle={() => setExpanded((value) => !value)}
+          />
+        </CardContent>
+      ) : null}
     </Card>
   );
 }
@@ -353,97 +483,111 @@ function ModuleNotesDetails({
 function SubmissionHistoryCard({
   submissions,
   canManage,
+  visible,
+  onToggleVisible,
   onAdd,
   onEdit,
   onDelete,
 }: {
   submissions: ApiModuleSubmission[];
   canManage: boolean;
+  visible: boolean;
+  onToggleVisible: () => void;
   onAdd: () => void;
   onEdit: (submission: ApiModuleSubmission) => void;
   onDelete: (submission: ApiModuleSubmission) => void;
 }) {
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
         <CardTitle>Submission history ({submissions.length})</CardTitle>
-        {canManage ? (
-          <Button variant="outline" size="sm" onClick={onAdd}>
-            <Plus />
-            Log submission
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {canManage ? (
+            <Button variant="outline" size="sm" onClick={onAdd}>
+              <Plus />
+              Log submission
+            </Button>
+          ) : null}
+          <PanelToggleButton
+            visible={visible}
+            onToggle={onToggleVisible}
+            label="submission history"
+            controls="module-submission-history-content"
+          />
+        </div>
       </CardHeader>
-      <CardContent>
-        {submissions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No submissions logged yet for this paper.
-          </p>
-        ) : (
-          <div className="grid gap-2">
-            {submissions.map((submission) => (
-              <div
-                key={submission.id}
-                className="flex items-start gap-1 rounded-md border border-border bg-card p-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <span className="block text-sm font-semibold">
-                      {submission.journalName}
-                    </span>
-                    <StatusBadge status={submission.status} />
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>
-                      Submitted {formatDate(submission.submittedDate)}
-                    </span>
-                    {submission.decisionDate ? (
-                      <span>
-                        Decision {formatDate(submission.decisionDate)}
+      {visible ? (
+        <CardContent id="module-submission-history-content">
+          {submissions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No submissions logged yet for this paper.
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {submissions.map((submission) => (
+                <div
+                  key={submission.id}
+                  className="flex items-start gap-1 rounded-md border border-border bg-card p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <span className="block text-sm font-semibold">
+                        {submission.journalName}
                       </span>
-                    ) : null}
-                    {submission.revisionRounds !== null ? (
+                      <StatusBadge status={submission.status} />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>
-                        {submission.revisionRounds}{" "}
-                        {submission.revisionRounds === 1
-                          ? "revision round"
-                          : "revision rounds"}
+                        Submitted {formatDate(submission.submittedDate)}
                       </span>
+                      {submission.decisionDate ? (
+                        <span>
+                          Decision {formatDate(submission.decisionDate)}
+                        </span>
+                      ) : null}
+                      {submission.revisionRounds !== null ? (
+                        <span>
+                          {submission.revisionRounds}{" "}
+                          {submission.revisionRounds === 1
+                            ? "revision round"
+                            : "revision rounds"}
+                        </span>
+                      ) : null}
+                    </div>
+                    {submission.notes ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {submission.notes}
+                      </p>
                     ) : null}
                   </div>
-                  {submission.notes ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      {submission.notes}
-                    </p>
+                  {canManage ? (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(submission)}
+                        aria-label={`Edit submission to ${submission.journalName}`}
+                        title="Edit"
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(submission)}
+                        aria-label={`Delete submission to ${submission.journalName}`}
+                        title="Delete"
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   ) : null}
                 </div>
-                {canManage ? (
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => onEdit(submission)}
-                      aria-label={`Edit submission to ${submission.journalName}`}
-                      title="Edit"
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(submission)}
-                      aria-label={`Delete submission to ${submission.journalName}`}
-                      title="Delete"
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      ) : null}
     </Card>
   );
 }
@@ -528,7 +672,8 @@ export default function ModuleDetailPage() {
   );
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
-  const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
+  const [isTasksVisible, setIsTasksVisible] = useState(true);
+  const [isNotesVisible, setIsNotesVisible] = useState(true);
   const [isSubmissionHistoryVisible, setIsSubmissionHistoryVisible] =
     useState(true);
   const [isAbstractVisible, setIsAbstractVisible] = useState(false);
@@ -1334,98 +1479,48 @@ export default function ModuleDetailPage() {
       ) : null}
 
       <div className="flex flex-col gap-6">
-        <section aria-labelledby="module-linked-work-heading">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2
-              id="module-linked-work-heading"
-              className="text-lg font-semibold"
-            >
-              Linked work
-            </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              aria-expanded={isLinkedWorkVisible}
-              aria-controls="module-linked-work-content"
-              onClick={() => setIsLinkedWorkVisible((visible) => !visible)}
-            >
-              {isLinkedWorkVisible ? <ChevronUp /> : <ChevronDown />}
-              {isLinkedWorkVisible ? "Hide linked work" : "Show linked work"}
-            </Button>
-          </div>
-          {isLinkedWorkVisible ? (
-            <div
-              id="module-linked-work-content"
-              className="grid gap-6 lg:grid-cols-2"
-            >
-              <ModuleTasksDetails
-                tasks={moduleTasks}
-                onAddTask={
-                  sameTenant ? () => setIsAddTaskOpen(true) : undefined
-                }
-                onLinkExisting={
-                  sameTenant ? () => setIsLinkTasksOpen(true) : undefined
-                }
-                onUnlinkTask={
-                  sameTenant ? (task) => void handleUnlinkTask(task) : undefined
-                }
-              />
-              <ModuleNotesDetails
-                notes={moduleNotes}
-                addNoteHref={
-                  sameTenant
-                    ? `/daily-notes?moduleId=${module.id}&new=true`
-                    : undefined
-                }
-                onLinkExisting={
-                  sameTenant ? () => setIsLinkNotesOpen(true) : undefined
-                }
-                onUnlinkNote={
-                  sameTenant ? (note) => void handleUnlinkNote(note) : undefined
-                }
-              />
-            </div>
-          ) : null}
-        </section>
+        <ModuleTasksDetails
+          tasks={moduleTasks}
+          visible={isTasksVisible}
+          onToggleVisible={() => setIsTasksVisible((visible) => !visible)}
+          onAddTask={sameTenant ? () => setIsAddTaskOpen(true) : undefined}
+          onLinkExisting={
+            sameTenant ? () => setIsLinkTasksOpen(true) : undefined
+          }
+          onUnlinkTask={
+            sameTenant ? (task) => void handleUnlinkTask(task) : undefined
+          }
+        />
+
+        <ModuleNotesDetails
+          notes={moduleNotes}
+          visible={isNotesVisible}
+          onToggleVisible={() => setIsNotesVisible((visible) => !visible)}
+          addNoteHref={
+            sameTenant
+              ? `/daily-notes?moduleId=${module.id}&new=true`
+              : undefined
+          }
+          onLinkExisting={
+            sameTenant ? () => setIsLinkNotesOpen(true) : undefined
+          }
+          onUnlinkNote={
+            sameTenant ? (note) => void handleUnlinkNote(note) : undefined
+          }
+        />
 
         {sameTenant ? (
-          <section aria-labelledby="module-submission-history-heading">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2
-                id="module-submission-history-heading"
-                className="text-lg font-semibold"
-              >
-                Submission history
-              </h2>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-expanded={isSubmissionHistoryVisible}
-                aria-controls="module-submission-history-content"
-                onClick={() =>
-                  setIsSubmissionHistoryVisible((visible) => !visible)
-                }
-              >
-                {isSubmissionHistoryVisible ? <ChevronUp /> : <ChevronDown />}
-                {isSubmissionHistoryVisible
-                  ? "Hide submission history"
-                  : "Show submission history"}
-              </Button>
-            </div>
-            {isSubmissionHistoryVisible ? (
-              <div id="module-submission-history-content">
-                <SubmissionHistoryCard
-                  submissions={submissions}
-                  canManage={sameTenant}
-                  onAdd={openAddSubmission}
-                  onEdit={openEditSubmission}
-                  onDelete={(submission) =>
-                    void handleDeleteSubmission(submission)
-                  }
-                />
-              </div>
-            ) : null}
-          </section>
+          <SubmissionHistoryCard
+            submissions={submissions}
+            canManage={sameTenant}
+            visible={isSubmissionHistoryVisible}
+            onToggleVisible={() =>
+              setIsSubmissionHistoryVisible((visible) => !visible)
+            }
+            onAdd={openAddSubmission}
+            onEdit={openEditSubmission}
+            onDelete={(submission) => void handleDeleteSubmission(submission)}
+          />
         ) : null}
 
         <SubmissionDialog
