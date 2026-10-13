@@ -524,14 +524,14 @@ describe("ModulesPage", () => {
     }
   });
 
-  it("labels the paper date column as Follow up or due date", () => {
+  it("labels the paper date column as Next Action Date", () => {
     render(
       <MemoryRouter>
         <ModulesPage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Follow up or Due Date")).toBeInTheDocument();
+    expect(screen.getByText("Next Action Date")).toBeInTheDocument();
   });
 
   it("changes a paper status directly from its list row", async () => {
@@ -643,7 +643,7 @@ describe("ModulesPage", () => {
     expect(hookMocks.createDraftInvitation).not.toHaveBeenCalled();
   });
 
-  it("includes an optional due date in the module form", () => {
+  it("includes an optional Next Action Date in the module form", () => {
     render(
       <MemoryRouter>
         <ModulesPage />
@@ -651,7 +651,9 @@ describe("ModulesPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
-    const dueDate = screen.getByLabelText(/Due date/);
+    const dueDate = screen.getByRole("textbox", {
+      name: /^Next action date$/i,
+    });
     expect(dueDate).toHaveAttribute("placeholder", "DD/MM/YYYY");
     expect(dueDate).not.toBeRequired();
   });
