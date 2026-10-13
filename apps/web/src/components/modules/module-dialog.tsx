@@ -51,10 +51,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
-  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 
-const MODULE_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
+const MODULE_STATUSES = ["Active", "Stalled", "Complete"] as const;
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 
 export interface ModuleFormInput {
@@ -290,10 +289,7 @@ export function ModuleDialog({
     try {
       const savedModule = await onSave({
         ...form,
-        status:
-          form.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
-            ? "Review"
-            : form.status,
+        status: form.status,
         shortTitle: form.shortTitle.trim(),
         description: form.description.trim(),
         abstract: form.abstract.trim(),

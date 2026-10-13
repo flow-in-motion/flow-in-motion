@@ -82,7 +82,6 @@ const PAPER_SORT_OPTIONS: readonly { value: ModuleSortField; label: string }[] =
 
 const PAPER_STATUS_FILTERS = [
   "Active",
-  "Review",
   "Stalled",
   "Complete",
 ] as const;
