@@ -4,6 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PriorityTasksTable } from "@/components/dashboard/priority-tasks-table";
 
+interface FixtureTask {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+  estimatedHours: string | null;
+  projectId: string;
+  moduleId: string | null;
+}
+
 const fixtures = vi.hoisted(() => ({
   projects: [
     { id: "project-zeta", title: "Zeta Project" },
@@ -52,7 +63,7 @@ const fixtures = vi.hoisted(() => ({
       projectId: "project-omega",
       moduleId: null,
     },
-  ],
+  ] as FixtureTask[],
 }));
 
 vi.mock("@/api/hooks", () => ({
