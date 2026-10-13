@@ -6,6 +6,34 @@ interface TopScrollAreaProps {
   children: ReactNode;
   className?: string;
   contentClassName?: string;
+  /**
+   * Keep the scrollbar pinned just below the app's sticky header while the
+   * page scrolls, so it stays on screen next to very tall content.
+   */
+  sticky?: boolean;
+}
+
+// Height of whichever sticky app header is currently showing (TopNav, or the
+// mobile SiteHeader). Returns 0 when none is visible, e.g. sidebar layout on
+// large screens.
+function useStickyHeaderOffset(enabled: boolean) {
+  const [offset, setOffset] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const measure = () => {
+      const headers = Array.from(
+        document.querySelectorAll<HTMLElement>("header.app-topbar"),
+      );
+      const visible = headers.find((el) => el.getClientRects().length > 0);
+      setOffset(visible ? visible.getBoundingClientRect().height : 0);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [enabled]);
+
+  return offset;
 }
 
 /**
@@ -18,7 +46,9 @@ export function TopScrollArea({
   children,
   className,
   contentClassName,
+  sticky = false,
 }: TopScrollAreaProps) {
+  const stickyTop = useStickyHeaderOffset(sticky);
   const barRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [scrollWidth, setScrollWidth] = useState(0);
@@ -58,8 +88,13 @@ export function TopScrollArea({
         data-testid="top-scrollbar"
         aria-hidden="true"
         onScroll={() => sync(barRef.current, contentRef.current)}
+        style={sticky ? { top: stickyTop } : undefined}
         className={cn(
-          "mb-2 overflow-x-auto overflow-y-hidden",
+          "mb-2 overflow-x-auto overflow-y-hidden py-1",
+          // Styled explicitly so it is always visible (macOS otherwise hides
+          // scrollbars until you scroll, which makes a standalone bar vanish).
+          "[scrollbar-width:thin] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/35 hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/55 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-muted",
+          sticky && "sticky z-30 bg-background/90 backdrop-blur",
           !overflowing && "hidden",
         )}
       >

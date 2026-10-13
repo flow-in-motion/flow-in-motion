@@ -745,7 +745,7 @@ export default function PipelinePage() {
           })}
         </div>
       ) : (
-        <TopScrollArea>
+        <TopScrollArea sticky>
           <div
             className="flex gap-4"
             style={{
