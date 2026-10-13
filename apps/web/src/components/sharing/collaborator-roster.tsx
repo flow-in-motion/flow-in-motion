@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
+const SHOW_INVITE_ACTION = false;
 export interface RosterCollaborator {
   id: string;
   userId: string;
@@ -342,24 +343,28 @@ export function CollaboratorRoster({
               email: invitation.name ? invitation.email : null,
               affiliation: invitation.affiliation,
             })}
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">Draft</Badge>
+                        <div className="flex items-center gap-2">
+
               {canManage ? (
                 <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handleSend(invitation)}
-                    disabled={sendingId === invitation.id}
-                  >
-                    <Mail className="h-3.5 w-3.5" />
-                    {sendingId === invitation.id ? "Sending…" : "Invite"}
-                  </Button>
+                  {SHOW_INVITE_ACTION ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void handleSend(invitation)}
+                      disabled={sendingId === invitation.id}
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      {sendingId === invitation.id ? "Sending…" : "Invite"}
+                    </Button>
+                  ) : null}
+
                   <button
                     type="button"
                     aria-label={`Remove draft for ${invitation.email}`}
                     onClick={() => revokeInvitation.mutate(invitation.id)}
+                    disabled={revokeInvitation.isPending}
                     className="rounded-full p-1 text-muted-foreground hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -382,7 +387,7 @@ export function CollaboratorRoster({
                 affiliation: invitation.affiliation,
               })}
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Pending
+                Awaiting acceptance
                 {invitation.expiresAt
                   ? ` · expires ${new Date(invitation.expiresAt).toLocaleDateString()}`
                   : ""}
@@ -422,8 +427,7 @@ export function CollaboratorRoster({
           <div>
             <p className="text-sm font-semibold">Add a collaborator</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Enter their name, email, and affiliation. Nothing is sent until
-              you click Invite.
+              Enter their name, email, and affiliation to add them to the collaborator list.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">

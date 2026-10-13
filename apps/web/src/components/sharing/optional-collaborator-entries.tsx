@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 
 import {
   useUserSearch,
+  type ApiUserSearchResult,
   type DraftCollaboratorInput,
 } from "@/api/hooks";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -24,39 +24,81 @@ export function OptionalCollaboratorEntries({
   ownerEmail,
   entityLabel,
 }: OptionalCollaboratorEntriesProps) {
+  const pickerId = useId();
+  const nameOptionsId = `${pickerId}-name-options`;
+  const emailOptionsId = `${pickerId}-email-options`;
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [affiliation, setAffiliation] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [activePicker, setActivePicker] = useState<
+    "name" | "email" | null
+  >(null);
   const [entryError, setEntryError] = useState<string | null>(null);
-  const userSearch = useUserSearch(email, pickerOpen);
 
-  const usedEmails = new Set(value.map((entry) => entry.email.toLowerCase()));
-  const availableUsers = (userSearch.data ?? []).filter(
-    (user) =>
-      user.id !== ownerUserId && !usedEmails.has(user.email.toLowerCase()),
+  const searchQuery =
+    activePicker === "name"
+      ? name
+      : activePicker === "email"
+        ? email
+        : "";
+
+  const userSearch = useUserSearch(
+    searchQuery,
+    activePicker !== null,
   );
+
+  const usedEmails = new Set(
+    value.map((entry) => entry.email.trim().toLowerCase()),
+  );
+  const normalizedOwnerEmail = ownerEmail?.trim().toLowerCase();
+
+  const availableUsers = (userSearch.data ?? []).filter((user) => {
+    const normalizedEmail = user.email.trim().toLowerCase();
+
+    return (
+      user.id !== ownerUserId &&
+      normalizedEmail !== normalizedOwnerEmail &&
+      !usedEmails.has(normalizedEmail)
+    );
+  });
 
   function resetEntry() {
     setName("");
     setEmail("");
     setAffiliation("");
-    setPickerOpen(false);
+    setActivePicker(null);
+    setEntryError(null);
+  }
+
+  function selectUser(user: ApiUserSearchResult) {
+    setName(user.displayName);
+    setEmail(user.email);
+    setAffiliation(user.affiliation ?? "");
+    setActivePicker(null);
     setEntryError(null);
   }
 
   function addEntry() {
     const trimmedEmail = email.trim();
+    const normalizedEmail = trimmedEmail.toLowerCase();
+
     if (!trimmedEmail) {
-      setEntryError("Enter an email address before adding a collaborator.");
+      setEntryError(
+        "Enter an email address before adding a collaborator.",
+      );
       return;
     }
-    if (usedEmails.has(trimmedEmail.toLowerCase())) {
+
+    if (usedEmails.has(normalizedEmail)) {
       setEntryError("This collaborator has already been added.");
       return;
     }
-    if (ownerEmail && trimmedEmail.toLowerCase() === ownerEmail.toLowerCase()) {
-      setEntryError("You are already the owner and cannot be added as a collaborator.");
+
+    if (normalizedOwnerEmail === normalizedEmail) {
+      setEntryError(
+        "You are already the owner and cannot be added as a collaborator.",
+      );
       return;
     }
 
@@ -71,18 +113,68 @@ export function OptionalCollaboratorEntries({
     resetEntry();
   }
 
+  function renderUserPicker(id: string, label: string) {
+    return (
+      <div
+        id={id}
+        role="listbox"
+        aria-label={label}
+        className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+      >
+        {userSearch.isPending ? (
+          <p className="px-3 py-2 text-sm text-muted-foreground">
+            Searching…
+          </p>
+        ) : userSearch.isError ? (
+          <p role="alert" className="px-3 py-2 text-sm text-destructive">
+            Search could not be loaded. You can enter the details manually.
+          </p>
+        ) : availableUsers.length > 0 ? (
+          availableUsers.map((user) => (
+            <button
+              key={user.id}
+              type="button"
+              role="option"
+              aria-selected="false"
+              className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => selectUser(user)}
+            >
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">
+                  {user.displayName}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {user.email}
+                </span>
+                {user.affiliation ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {user.affiliation}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          ))
+        ) : (
+          <p className="px-3 py-2 text-sm text-muted-foreground">
+            No matching saved contacts. You can enter the details manually.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="grid gap-3 rounded-lg border p-4">
       <div>
         <p className="text-sm font-medium">Collaborators (optional)</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Add collaborators now or leave this blank. Invitations are saved as
-          drafts after the {entityLabel} is created; nothing is sent
-          automatically.
+          Add collaborators now or leave this blank. You can manage them
+          after the {entityLabel} is created.
         </p>
       </div>
 
-      {value.length ? (
+      {value.length > 0 ? (
         <div className="flex flex-col gap-2">
           {value.map((entry) => (
             <div
@@ -104,108 +196,102 @@ export function OptionalCollaboratorEntries({
                   </p>
                 ) : null}
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Badge variant="secondary">Draft</Badge>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  aria-label={`Remove ${entry.name ?? entry.email}`}
-                  onClick={() =>
-                    onChange(
-                      value.filter(
-                        (candidate) => candidate.email !== entry.email,
-                      ),
-                    )
-                  }
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                aria-label={`Remove ${entry.name ?? entry.email}`}
+                onClick={() =>
+                  onChange(
+                    value.filter(
+                      (candidate) => candidate.email !== entry.email,
+                    ),
+                  )
+                }
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           ))}
         </div>
       ) : null}
 
       <div className="grid gap-2 sm:grid-cols-3">
-        <Input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Name"
-          aria-label="Collaborator name"
-        />
         <div
           className="relative"
           onBlur={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget)) {
-              setPickerOpen(false);
+              setActivePicker(null);
+            }
+          }}
+        >
+          <Input
+            role="combobox"
+            value={name}
+            onFocus={() => setActivePicker("name")}
+            onChange={(event) => {
+              setName(event.target.value);
+              setEntryError(null);
+              setActivePicker("name");
+            }}
+            placeholder="Name"
+            aria-label="Collaborator name"
+            aria-expanded={
+              activePicker === "name" && Boolean(name.trim())
+            }
+            aria-controls={nameOptionsId}
+            aria-autocomplete="list"
+            autoComplete="off"
+          />
+
+          {activePicker === "name" && name.trim()
+            ? renderUserPicker(
+                nameOptionsId,
+                "Available collaborator names",
+              )
+            : null}
+        </div>
+
+        <div
+          className="relative"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+              setActivePicker(null);
             }
           }}
         >
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+
           <Input
             type="email"
             role="combobox"
             value={email}
-            onFocus={() => setPickerOpen(true)}
+            onFocus={() => setActivePicker("email")}
             onChange={(event) => {
               setEmail(event.target.value);
               setEntryError(null);
-              setPickerOpen(true);
+              setActivePicker("email");
             }}
             placeholder="Email"
             aria-label="Collaborator email"
-            aria-expanded={pickerOpen && Boolean(email.trim())}
-            aria-controls="optional-collaborator-email-options"
+            aria-expanded={
+              activePicker === "email" && Boolean(email.trim())
+            }
+            aria-controls={emailOptionsId}
             aria-autocomplete="list"
             autoComplete="off"
             className="pl-9"
           />
-          {pickerOpen && email.trim() ? (
-            <div
-              id="optional-collaborator-email-options"
-              role="listbox"
-              aria-label="Available collaborator emails"
-              className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
-            >
-              {userSearch.isPending ? (
-                <p className="px-3 py-2 text-sm text-muted-foreground">
-                  Searching…
-                </p>
-              ) : availableUsers.length ? (
-                availableUsers.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    role="option"
-                    aria-selected="false"
-                    className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      setEmail(user.email);
-                      setName(user.displayName);
-                      setAffiliation(user.affiliation ?? "");
-                      setPickerOpen(false);
-                    }}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">
-                        {user.displayName}
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {user.email}
-                      </span>
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <p className="px-3 py-2 text-sm text-muted-foreground">
-                  No matching saved contacts. You can still use this email.
-                </p>
-              )}
-            </div>
-          ) : null}
+
+          {activePicker === "email" && email.trim()
+            ? renderUserPicker(
+                emailOptionsId,
+                "Available collaborator emails",
+              )
+            : null}
         </div>
+
         <Input
           value={affiliation}
           onChange={(event) => setAffiliation(event.target.value)}
@@ -221,7 +307,12 @@ export function OptionalCollaboratorEntries({
       ) : null}
 
       <div>
-        <Button type="button" size="sm" variant="outline" onClick={addEntry}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={addEntry}
+        >
           <Plus className="h-4 w-4" />
           Add collaborator
         </Button>

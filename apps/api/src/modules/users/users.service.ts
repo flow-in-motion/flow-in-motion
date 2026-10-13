@@ -17,14 +17,13 @@ export class UsersService {
     private readonly drizzle: DrizzleService,
     private readonly supabaseAdmin: SupabaseAdminService,
   ) {}
-
   /**
-   * Search active registered users visible under RLS, together with contacts
-   * this user has previously invited to a project, paper, task, or note.
+   * Search active registered users visible under RLS and contacts this
+   * caller previously invited.
    *
-   * Results are deduplicated by normalized email. When a registered user is
-   * visible, it takes precedence; otherwise, the most recently updated
-   * invitation supplies the contact details.
+   * Deduplicate by normalized email, preferring registered-user identity.
+   * Use a non-empty profile institution when available; otherwise use
+   * the latest non-empty affiliation from the caller's invitations.
    */
   async search(query: string, invitedByUserId: string, limit = 8) {
     const trimmed = query.trim();
@@ -42,10 +41,6 @@ export class UsersService {
             users.updated_at
           FROM users
           WHERE users.status = 'active'
-            AND (
-              users.display_name ILIKE ${pattern}
-              OR users.email ILIKE ${pattern}
-            )
   
           UNION ALL
   
@@ -61,10 +56,6 @@ export class UsersService {
             project_invitations.updated_at
           FROM project_invitations
           WHERE project_invitations.invited_by = ${invitedByUserId}
-            AND (
-              project_invitations.name ILIKE ${pattern}
-              OR project_invitations.email ILIKE ${pattern}
-            )
   
           UNION ALL
   
@@ -80,10 +71,6 @@ export class UsersService {
             module_invitations.updated_at
           FROM module_invitations
           WHERE module_invitations.invited_by = ${invitedByUserId}
-            AND (
-              module_invitations.name ILIKE ${pattern}
-              OR module_invitations.email ILIKE ${pattern}
-            )
   
           UNION ALL
   
@@ -99,10 +86,6 @@ export class UsersService {
             task_invitations.updated_at
           FROM task_invitations
           WHERE task_invitations.invited_by = ${invitedByUserId}
-            AND (
-              task_invitations.name ILIKE ${pattern}
-              OR task_invitations.email ILIKE ${pattern}
-            )
   
           UNION ALL
   
@@ -118,21 +101,37 @@ export class UsersService {
             note_invitations.updated_at
           FROM note_invitations
           WHERE note_invitations.invited_by = ${invitedByUserId}
-            AND (
-              note_invitations.name ILIKE ${pattern}
-              OR note_invitations.email ILIKE ${pattern}
-            )
         ),
-        ranked AS (
+                ranked AS (
           SELECT
             id,
             display_name,
             email,
-            affiliation,
+            FIRST_VALUE(NULLIF(BTRIM(affiliation), '')) OVER (
+              PARTITION BY lower(BTRIM(email))
+              ORDER BY
+                CASE
+                  WHEN NULLIF(BTRIM(affiliation), '') IS NULL THEN 1
+                  ELSE 0
+                END,
+                source_priority,
+                updated_at DESC NULLS LAST,
+                id,
+                affiliation
+            ) AS affiliation,
             ROW_NUMBER() OVER (
-              PARTITION BY lower(email)
-              ORDER BY source_priority, updated_at DESC
-            ) AS email_rank
+              PARTITION BY lower(BTRIM(email))
+              ORDER BY
+                source_priority,
+                updated_at DESC NULLS LAST,
+                id
+            ) AS email_rank,
+            BOOL_OR(
+              display_name ILIKE ${pattern}
+              OR email ILIKE ${pattern}
+            ) OVER (
+              PARTITION BY lower(BTRIM(email))
+            ) AS matches_query
           FROM candidates
         )
         SELECT
@@ -142,6 +141,7 @@ export class UsersService {
           affiliation
         FROM ranked
         WHERE email_rank = 1
+          AND matches_query
         ORDER BY lower(display_name), lower(email)
         LIMIT ${limit}
       `);
