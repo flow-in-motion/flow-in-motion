@@ -88,7 +88,7 @@ export function StalledPapersCard() {
         <div className="space-y-1.5">
           <CardTitle className="flex items-center gap-2">
             <Hourglass className="h-4 w-4 text-rose-600" />
-            Stalled papers
+            Longest in current stage
           </CardTitle>
           <CardDescription>Papers that haven&rsquo;t moved stage in the longest time.</CardDescription>
         </div>

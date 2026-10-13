@@ -170,7 +170,7 @@ describe("DashboardPage", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading dashboard");
-    expect(screen.queryByRole("heading", { name: "Stalled papers" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Longest in current stage" })).not.toBeInTheDocument();
   });
 
   it("shows an error state and retries when dashboard data fails to load", () => {
@@ -196,7 +196,7 @@ describe("DashboardPage", () => {
     expect(screen.getByTestId("dashboard-table-pipeline")).toBeInTheDocument();
     expect(screen.getByTestId("dashboard-table-conferences")).toBeInTheDocument();
     expect(screen.queryByTestId("dashboard-table-tasks")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Stalled papers" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Longest in current stage" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Task health" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Priority workload" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Project progress" })).not.toBeInTheDocument();
@@ -335,11 +335,11 @@ describe("DashboardPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Customise dashboard" }));
 
-    // Move "Stalled papers" (first row) down three times in quick succession —
+    // Move "Longest in current stage" (first row) down three times in quick succession —
     // this used to fire one save request per click; each carried its own
     // snapshot of the order, and an earlier request settling after a later
     // one could stomp the final order back to an intermediate step.
-    const moveDown = screen.getByRole("button", { name: "Move Stalled papers down" });
+    const moveDown = screen.getByRole("button", { name: "Move Longest in current stage down" });
     fireEvent.click(moveDown);
     fireEvent.click(moveDown);
     fireEvent.click(moveDown);
