@@ -4,6 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PriorityTasksTable } from "@/components/dashboard/priority-tasks-table";
 
+interface FixtureTask {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  dueDate: string | null;
+  estimatedHours: string | null;
+  projectId: string;
+  moduleId: string | null;
+}
+
 const fixtures = vi.hoisted(() => ({
   projects: [
     { id: "project-zeta", title: "Zeta Project" },
@@ -14,6 +25,7 @@ const fixtures = vi.hoisted(() => ({
   tasks: [
     {
       id: "task-critical",
+      estimatedHours: "3",
       title: "Middle task",
       status: "To do",
       priority: "Critical",
@@ -23,6 +35,7 @@ const fixtures = vi.hoisted(() => ({
     },
     {
       id: "task-high",
+      estimatedHours: "1.5",
       title: "Zulu task",
       status: "Underway",
       priority: "High",
@@ -32,6 +45,7 @@ const fixtures = vi.hoisted(() => ({
     },
     {
       id: "task-medium",
+      estimatedHours: null,
       title: "Alpha task",
       status: "Waiting",
       priority: "Medium",
@@ -41,6 +55,7 @@ const fixtures = vi.hoisted(() => ({
     },
     {
       id: "task-low",
+      estimatedHours: "10",
       title: "Bravo task",
       status: "To do",
       priority: "Low",
@@ -48,7 +63,7 @@ const fixtures = vi.hoisted(() => ({
       projectId: "project-omega",
       moduleId: null,
     },
-  ],
+  ] as FixtureTask[],
 }));
 
 vi.mock("@/api/hooks", () => ({
@@ -201,6 +216,42 @@ describe("PriorityTasksTable", () => {
       "Zulu task",
       "Middle task",
       "Bravo task",
+      "Alpha task",
+    ]);
+  });
+
+  it("shows estimated hours before Due and sorts by them, blanks last", () => {
+    render(
+      <MemoryRouter>
+        <PriorityTasksTable />
+      </MemoryRouter>,
+    );
+
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((header) => header.textContent);
+    expect(headers.indexOf("Est. hours")).toBe(headers.indexOf("Due") - 1);
+    expect(screen.getByText("1.5h")).toBeInTheDocument();
+
+    const taskNames = () =>
+      screen
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("href")?.startsWith("/tasks/"))
+        .map((link) => link.textContent);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Est. hours" }));
+    expect(taskNames()).toEqual([
+      "Zulu task",
+      "Middle task",
+      "Bravo task",
+      "Alpha task",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Est. hours" }));
+    expect(taskNames()).toEqual([
+      "Bravo task",
+      "Middle task",
+      "Zulu task",
       "Alpha task",
     ]);
   });
