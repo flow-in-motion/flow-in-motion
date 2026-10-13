@@ -412,88 +412,92 @@ export function ConferenceSubmissionDialog({
             <div
               className="relative"
               onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) setPaperPickerOpen(false);
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setPaperPickerOpen(false);
+                }
               }}
             >
-              <div className="flex items-center gap-2">
-                <Input
-                  id="conference-linked-paper"
-                  value={linkedPaperLabel}
-                  readOnly
-                  className="min-w-0 flex-1"
-                />
-                <Button
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+
+              <Input
+                id="conference-linked-paper"
+                role="combobox"
+                aria-expanded={paperPickerOpen}
+                aria-controls="conference-paper-options"
+                aria-autocomplete="list"
+                value={paperPickerOpen ? paperQuery : linkedPaperLabel}
+                onFocus={() => {
+                  setPaperQuery("");
+                  setProjectPickerOpen(false);
+                  setPaperPickerOpen(true);
+                }}
+                onChange={(event) => setPaperQuery(event.target.value)}
+                placeholder="Search all papers…"
+                autoComplete="off"
+                className="pl-9 pr-8"
+              />
+
+              {!paperPickerOpen && form.moduleIds.length > 0 ? (
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setPaperQuery("");
-                    setProjectPickerOpen(false);
-                    setPaperPickerOpen(true);
-                  }}
+                  onClick={() => selectPaper()}
+                  aria-label="Clear linked paper"
+                  className="absolute right-1 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
-                  <Search /> Search papers
-                </Button>
-                {form.moduleIds.length > 0 ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Remove linked paper"
-                    onClick={() => selectPaper()}
-                  >
-                    <X />
-                  </Button>
-                ) : null}
-              </div>
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+
               {paperPickerOpen ? (
                 <div
-                  role="dialog"
-                  aria-label="Search papers"
-                  className="absolute z-50 mt-1 w-full rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+                  id="conference-paper-options"
+                  role="listbox"
+                  aria-label="Available papers"
+                  className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
                 >
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="conference-paper-search"
-                      aria-label="Search all papers"
-                      value={paperQuery}
-                      onChange={(event) => setPaperQuery(event.target.value)}
-                      placeholder="Search all papers…"
-                      autoComplete="off"
-                      autoFocus
-                      className="pl-9"
-                    />
-                  </div>
-                  <div role="listbox" aria-label="Available papers" className="mt-1 max-h-60 overflow-y-auto">
-                    {!normalizedPaperSearch ? (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">
-                        Type to search all papers.
-                      </p>
-                    ) : isWaitingForPaperSearch ? (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">
-                        Searching all papers…
-                      </p>
-                    ) : paperOptions.length ? (
-                      paperOptions.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          role="option"
-                          aria-selected={form.moduleIds[0] === option.id}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => selectPaper(option)}
-                          className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
-                        >
-                          <span className="text-sm font-medium">{option.label}</span>
-                          <span className="text-xs text-muted-foreground">
-                            Paper · via {option.projectTitle}
-                          </span>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">No papers found.</p>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={form.moduleIds.length === 0}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => selectPaper()}
+                    className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent focus:bg-accent focus:outline-none"
+                  >
+                    {NO_PAPER_LABEL}
+                  </button>
+
+                  {!normalizedPaperSearch ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      Type to search all papers.
+                    </p>
+                  ) : isWaitingForPaperSearch ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      Searching all papers…
+                    </p>
+                  ) : paperOptions.length ? (
+                    paperOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="option"
+                        aria-selected={form.moduleIds[0] === option.id}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectPaper(option)}
+                        className="flex w-full flex-col items-start gap-0.5 rounded-md px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none"
+                      >
+                        <span className="text-sm font-medium">{option.label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {option.projectTitle
+                            ? `Paper · via ${option.projectTitle}`
+                            : "Paper"}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      No papers found.
+                    </p>
+                  )}
                 </div>
               ) : null}
             </div>

@@ -83,9 +83,14 @@ function projectCombobox() {
   return screen.getByRole("combobox", { name: "Linked project" });
 }
 
+function paperCombobox() {
+  return screen.getByRole("combobox", { name: "Linked paper" });
+}
+
 function openPaperSearch() {
-  fireEvent.click(screen.getByRole("button", { name: "Search papers" }));
-  return screen.getByRole("textbox", { name: "Search all papers" });
+  const input = paperCombobox();
+  fireEvent.focus(input);
+  return input;
 }
 
 describe("ConferenceSubmissionDialog", () => {
@@ -191,7 +196,7 @@ describe("ConferenceSubmissionDialog", () => {
     fireEvent.click(await screen.findByRole("option", { name: /Draft manuscript/ }));
 
     expect(projectCombobox()).toHaveValue("Genome Project");
-    expect(screen.getByRole("textbox", { name: "Linked paper" })).toHaveValue("Draft manuscript");
+    expect(paperCombobox()).toHaveValue("Draft manuscript");
 
     fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), {
       target: { value: "Conference 2027" },
@@ -203,7 +208,7 @@ describe("ConferenceSubmissionDialog", () => {
     ));
   });
 
-  it("does not load papers until Search papers is opened and text is entered", () => {
+  it("does not load papers until the linked-paper field is focused and text is entered", () => {
     render(
       <ConferenceSubmissionDialog open onOpenChange={vi.fn()} tenantId="tenant-1" onSave={vi.fn()} />,
     );
@@ -250,8 +255,8 @@ describe("ConferenceSubmissionDialog", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove linked paper" }));
-    expect(screen.getByRole("textbox", { name: "Linked paper" })).toHaveValue("No linked paper");
+    fireEvent.click(screen.getByRole("button", { name: "Clear linked paper" }));
+    expect(paperCombobox()).toHaveValue("No linked paper");
     expect(projectCombobox()).toHaveValue("Genome Project");
   });
 
@@ -268,11 +273,55 @@ describe("ConferenceSubmissionDialog", () => {
     );
 
     expect(projectCombobox()).toHaveValue("Genome Project");
-    expect(screen.getByRole("textbox", { name: "Linked paper" })).toHaveValue("Draft manuscript");
+    expect(paperCombobox()).toHaveValue("Draft manuscript");
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ projectIds: ["project-1"], moduleIds: ["module-paper"] }),
     ));
+  });
+
+  it("clears the paper through the dropdown without changing the project", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+  
+    render(
+      <ConferenceSubmissionDialog
+        open
+        onOpenChange={vi.fn()}
+        tenantId="tenant-1"
+        conference={linkedConference}
+        onSave={onSave}
+      />,
+    );
+  
+    expect(
+      screen.queryByRole("button", { name: "Search papers" }),
+    ).not.toBeInTheDocument();
+  
+    openPaperSearch();
+  
+    expect(paperCombobox()).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("listbox", { name: "Available papers" }),
+    ).toBeInTheDocument();
+  
+    fireEvent.click(
+      screen.getByRole("option", { name: "No linked paper" }),
+    );
+  
+    expect(paperCombobox()).toHaveValue("No linked paper");
+    expect(paperCombobox()).toHaveAttribute("aria-expanded", "false");
+    expect(projectCombobox()).toHaveValue("Genome Project");
+  
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+  
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectIds: ["project-1"],
+          moduleIds: [],
+        }),
+      ),
+    );
   });
 });
