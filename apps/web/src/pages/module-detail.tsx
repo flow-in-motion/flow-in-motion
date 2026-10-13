@@ -897,7 +897,7 @@ export default function ModuleDetailPage() {
               label="Pipeline stage"
               value={module.pipelineStage ?? "Unassigned"}
             />
-            <HeaderStat label="Due" value={formatDate(module.dueDate)} />
+            <HeaderStat label="Next Due Date" value={formatDate(module.dueDate)} />
             <HeaderStat label="Currently With" value={currentlyWith} />
             <HeaderStat
               label="Linked project"
@@ -1149,10 +1149,10 @@ export default function ModuleDetailPage() {
                     </SelectContent>
                   </Select>
                 </FormField>
-                <FormField label="Due date" htmlFor="edit-module-due">
+                <FormField label="Next Action Date" htmlFor="edit-module-due">
                   <DatePickerInput
                     id="edit-module-due"
-                    label="Due date"
+                    label="Next Action Date"
                     value={form.dueDate}
                     onChange={(value) => setForm({ ...form, dueDate: value })}
                   />

@@ -538,10 +538,10 @@ export function ModuleDialog({
                 </Select>
               </FormField>
 
-              <FormField label="Due date" htmlFor="module-due-date">
+              <FormField label="Next Action Date" htmlFor="module-due-date">
                 <DatePickerInput
                   id="module-due-date"
-                  label="Due date"
+                  label="Next Action Date"
                   value={form.dueDate}
                   onChange={(value) =>
                     setForm((current) => ({ ...current, dueDate: value }))
