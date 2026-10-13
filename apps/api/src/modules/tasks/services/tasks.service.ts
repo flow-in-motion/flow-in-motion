@@ -89,6 +89,8 @@ export class TasksService {
     projectId?: string,
     search?: string,
     projectOnly = false,
+    statuses?: string[],
+    priorities?: string[],
   ) {
     const limit = listPageSize(pageSize);
     const requestedPage = pageSize === 'all' ? 1 : page;
@@ -106,6 +108,8 @@ export class TasksService {
       projectId,
       search,
       projectOnly,
+      statuses,
+      priorities,
     );
 
     assertAllFits(pageSize, totalItems);

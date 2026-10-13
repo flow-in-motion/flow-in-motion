@@ -2027,24 +2027,53 @@ export function useTasks(
     pageSize?: number | "all";
     search?: string;
     projectOnly?: boolean;
+    statuses?: readonly string[];
+    priorities?: readonly string[];
   },
 ) {
   const pageSize = options?.pageSize ?? 20;
   const search = options?.search?.trim() ?? "";
+  const projectOnly = options?.projectOnly ?? false;
+
+  const statuses = [
+    ...new Set(
+      (options?.statuses ?? [])
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ].sort().join(",");
+
+  const priorities = [
+    ...new Set(
+      (options?.priorities ?? [])
+        .map((value) => value.trim())
+        .filter(Boolean),
+    ),
+  ].sort().join(",");
+
   return useQuery({
     queryKey: [
       ...apiKeys.tasks(tenantId, projectId, page, pageSize, search),
-      options?.projectOnly ?? false,
+      projectOnly,
+      statuses,
+      priorities,
     ],
     enabled: Boolean(tenantId) && enabled,
-    // Keep the search field mounted while a new result page is loading.
-    // Never carry data across workspace boundaries.
-    placeholderData: (previous, query) =>
-      query?.queryKey[2] === tenantId &&
-      query.queryKey[4] === (projectId ?? "all") &&
-      query.queryKey[8] === (options?.projectOnly ?? false)
-        ? keepPreviousData(previous)
-        : undefined,
+    // Keep previous results during page/search changes, but never
+    // carry them across workspaces, projects, or filter selections.
+    placeholderData: (previousData, previousQuery) => {
+      const previousKey = previousQuery?.queryKey;
+
+      if (
+        previousKey?.[2] !== tenantId ||
+        previousKey?.[4] !== (projectId || "all") ||
+        previousKey?.[8] !== projectOnly
+      ) {
+        return undefined;
+      }
+
+      return previousData;
+    },
     retry: false,
     queryFn: async () =>
       responseData<PaginatedResponse<ApiTask>>(
@@ -2056,13 +2085,17 @@ export function useTasks(
               page,
               pageSize,
               ...(search ? { search } : {}),
-              ...(options?.projectOnly ? { projectOnly: true } : {}),
+              ...(projectOnly ? { projectOnly: true } : {}),
+              ...(statuses ? { statuses } : {}),
+              ...(priorities ? { priorities } : {}),
             } as {
               projectId: string;
               page: number;
               pageSize: number | "all";
               search?: string;
               projectOnly?: boolean;
+              statuses?: string;
+              priorities?: string;
             },
           },
         }),

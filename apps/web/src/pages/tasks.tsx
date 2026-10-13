@@ -1,6 +1,6 @@
 import { useListSearch } from "@/hooks/use-list-search";
 import { useEffect, useMemo, useState } from "react";
-import { ListTodo, Pencil, Trash2, UserPlus } from "lucide-react";
+import { ChevronDown, ListTodo, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
@@ -35,12 +35,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { formatListDate, isOverdue } from "@/lib/list-format";
 import { paperDisplayTitle } from "@/lib/paper-title";
@@ -48,12 +48,7 @@ import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const STATUS_OPTIONS = ["To do", "Underway", "Waiting", "Complete"] as const;
-const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
-const PRIORITY_FILTERS = ["All", ...PRIORITY_OPTIONS] as const;
-
-type StatusFilter = (typeof STATUS_FILTERS)[number];
-type PriorityFilter = (typeof PRIORITY_FILTERS)[number];
 
 type SortColumn =
   | "task"
@@ -120,6 +115,70 @@ function priorityPillClass(priority: string | null) {
   }
 }
 
+function TaskMultiSelectFilter({
+  pluralLabel,
+  options,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  pluralLabel: string;
+  options: readonly string[];
+  selected: ReadonlySet<string>;
+  onToggle: (value: string) => void;
+  onClear: () => void;
+}) {
+  const label =
+    selected.size === 0
+      ? `All ${pluralLabel}`
+      : selected.size === 1
+        ? [...selected][0]
+        : `${selected.size} ${pluralLabel}`;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="justify-between gap-2 sm:w-40"
+          aria-label={`Filter by ${pluralLabel}`}
+        >
+          <span className="truncate">{label}</span>
+          <ChevronDown
+            className="h-4 w-4 shrink-0 opacity-50"
+            aria-hidden="true"
+          />
+        </Button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="start" className="min-w-56">
+        <DropdownMenuCheckboxItem
+          checked={selected.size === 0}
+          onSelect={(event) => event.preventDefault()}
+          onCheckedChange={() => onClear()}
+        >
+          All {pluralLabel}
+        </DropdownMenuCheckboxItem>
+
+        <DropdownMenuSeparator />
+
+        {options.map((option) => (
+          <DropdownMenuCheckboxItem
+            key={option}
+            checked={selected.has(option)}
+            onSelect={(event) => event.preventDefault()}
+            onCheckedChange={() => onToggle(option)}
+          >
+            {option}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export default function TasksPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
@@ -138,9 +197,31 @@ export default function TasksPage() {
     20,
   );
 
+  const [selectedStatuses, setSelectedStatuses] =
+  useSessionListState<Set<string>>(
+    me.data?.id,
+    tenantId,
+    "tasks:statuses",
+    () => new Set<string>(),
+  );
+
+const [selectedPriorities, setSelectedPriorities] =
+  useSessionListState<Set<string>>(
+    me.data?.id,
+    tenantId,
+    "tasks:priorities",
+    () => new Set<string>(),
+  );
+
   const tasksQuery = useTasks(tenantId, undefined, page, true, {
     pageSize,
     search: requestSearch,
+    statuses: STATUS_OPTIONS.filter((option) =>
+      selectedStatuses.has(option),
+    ),
+    priorities: PRIORITY_OPTIONS.filter((option) =>
+      selectedPriorities.has(option),
+    ),
   });
   const tasks = tasksQuery.data?.data ?? [];
   const paginationMeta = tasksQuery.data?.meta;
@@ -160,19 +241,6 @@ export default function TasksPage() {
   const updateTask = useUpdateTask(tenantId);
   const deleteTask = useDeleteTask(tenantId);
   const trackEvent = useTrackEvent(tenantId);
-
-  const [status, setStatus] = useSessionListState<StatusFilter>(
-    me.data?.id,
-    tenantId,
-    "tasks:status",
-    "All",
-  );
-  const [priority, setPriority] = useSessionListState<PriorityFilter>(
-    me.data?.id,
-    tenantId,
-    "tasks:priority",
-    "All",
-  );
   const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
     me.data?.id,
     tenantId,
@@ -187,7 +255,14 @@ export default function TasksPage() {
   );
   useEffect(() => {
     setPage(1);
-  }, [setPage, tenantId, status, priority, sortColumn, sortDirection]);
+  }, [
+    setPage,
+    tenantId,
+    selectedStatuses,
+    selectedPriorities,
+    sortColumn,
+    sortDirection,
+  ]);
   const columns = useColumnVisibility(
     TASK_COLUMNS.map((column) => column.id),
     "tasks",
@@ -262,12 +337,7 @@ export default function TasksPage() {
   }
 
   const visibleTasks = useMemo(() => {
-    const filtered = tasks.filter((task) => {
-      if (status !== "All" && task.status !== status) return false;
-      if (priority !== "All" && task.priority !== priority) return false;
-      return true;
-    });
-    return [...filtered].sort(
+    return [...tasks].sort(
       (a, b) =>
         compareTasks(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
@@ -275,8 +345,6 @@ export default function TasksPage() {
   }, [
     tasks,
     search,
-    status,
-    priority,
     sortColumn,
     sortDirection,
     projectById,
@@ -284,12 +352,38 @@ export default function TasksPage() {
   ]);
 
   const hasActiveFilters =
-    search !== "" || status !== "All" || priority !== "All";
+    search !== "" ||
+    selectedStatuses.size > 0 ||
+    selectedPriorities.size > 0;
 
   function clearFilters() {
     setSearch("");
-    setStatus("All");
-    setPriority("All");
+    setSelectedStatuses(new Set<string>());
+    setSelectedPriorities(new Set<string>());
+  }
+
+  function toggleStatus(value: string) {
+    setSelectedStatuses((current) => {
+      const next = new Set(current);
+      if (next.has(value)) {
+        next.delete(value);
+      } else {
+        next.add(value);
+      }
+      return next;
+    });
+  }
+
+  function togglePriority(value: string) {
+    setSelectedPriorities((current) => {
+      const next = new Set(current);
+      if (next.has(value)) {
+        next.delete(value);
+      } else {
+        next.add(value);
+      }
+      return next;
+    });
   }
 
   async function handleCreateTask(input: TaskFormInput) {
@@ -402,36 +496,21 @@ export default function TasksPage() {
           placeholder="Search tasks…"
           className="sm:max-w-xs"
         />
-        <Select
-          value={status}
-          onValueChange={(value) => setStatus(value as StatusFilter)}
-        >
-          <SelectTrigger className="sm:w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_FILTERS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option === "All" ? "All statuses" : option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={priority}
-          onValueChange={(value) => setPriority(value as PriorityFilter)}
-        >
-          <SelectTrigger className="sm:w-40">
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            {PRIORITY_FILTERS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option === "All" ? "All priorities" : option}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <TaskMultiSelectFilter
+  pluralLabel="statuses"
+  options={STATUS_OPTIONS}
+  selected={selectedStatuses}
+  onToggle={toggleStatus}
+  onClear={() => setSelectedStatuses(new Set<string>())}
+/>
+
+<TaskMultiSelectFilter
+  pluralLabel="priorities"
+  options={PRIORITY_OPTIONS}
+  selected={selectedPriorities}
+  onToggle={togglePriority}
+  onClear={() => setSelectedPriorities(new Set<string>())}
+/>
         <ColumnVisibilityMenu
           columns={TASK_COLUMNS}
           visibleColumns={columns.visibleColumns}

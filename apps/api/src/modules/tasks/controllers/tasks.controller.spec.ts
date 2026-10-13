@@ -50,6 +50,31 @@ describe('TasksController', () => {
   } as any;
 
   describe('list', () => {
+    it('passes selected statuses and priorities with the authenticated caller', async () => {
+      usersService.findByExternalAuthId.mockResolvedValue({
+        id: 'user-1',
+      });
+      tasksService.list.mockResolvedValue({ data: [] });
+
+      await controller.list('tenant-1', req, {
+        page: 1,
+        pageSize: 20,
+        statuses: ['To do', 'Underway', 'Waiting'],
+        priorities: ['High', 'Critical'],
+      });
+
+      expect(tasksService.list).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+        1,
+        20,
+        undefined,
+        undefined,
+        false,
+        ['To do', 'Underway', 'Waiting'],
+        ['High', 'Critical'],
+      );
+    });
     it('passes the page and configured page size to the service', async () => {
       usersService.findByExternalAuthId.mockResolvedValue({
         id: 'user-1',
@@ -82,6 +107,8 @@ describe('TasksController', () => {
         'project-1',
         undefined,
         false,
+        undefined,
+        undefined,
       );
 
       expect(result).toBe(tasks);
@@ -112,6 +139,8 @@ describe('TasksController', () => {
         undefined,
         undefined,
         false,
+        undefined,
+        undefined,
       );
     });
   });
