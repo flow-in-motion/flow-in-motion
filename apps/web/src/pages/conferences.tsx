@@ -310,7 +310,7 @@ export default function ConferencesPage() {
   if (conferencesQuery.isError) {
     return (
       <ErrorState
-        title="Conferences could not be loaded"
+        title="Conferences/Events could not be loaded"
         description={conferencesQuery.error.message}
         onRetry={() => void conferencesQuery.refetch()}
       />
@@ -323,7 +323,7 @@ export default function ConferencesPage() {
         icon={Presentation}
         tone="rose"
         eyebrow="Dissemination"
-        title="Conferences"
+        title="Conferences/Events"
         description="Manage conference deadlines, event dates, submission types, and linked research projects."
         actions={
           <Button onClick={() => setIsCreateOpen(true)}>New Conference</Button>

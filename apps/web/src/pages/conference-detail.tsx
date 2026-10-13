@@ -72,7 +72,7 @@ export default function ConferenceDetailPage() {
   const conference = conferenceQuery.data;
   if (!conference) {
     return <EmptyState title="Conference not found" description="This conference does not exist, or you no longer have access to it."
-      action={<Button asChild variant="outline"><Link to="/conferences">Back to Conferences</Link></Button>} />;
+      action={<Button asChild variant="outline"><Link to="/conferences">Back to Conferences/Events</Link></Button>} />;
   }
 
   const canManage = conference.ownerUserId === meQuery.data?.id;
