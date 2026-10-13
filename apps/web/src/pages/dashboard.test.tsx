@@ -264,6 +264,45 @@ describe("DashboardPage", () => {
     ]);
   });
 
+  it("widens panels so a reordered layout leaves no gaps in a row", () => {
+    render(
+      <MemoryRouter>
+        <PreferencesContext.Provider
+          value={{
+            workspaceId: "workspace-1",
+            workspacePreferences: {
+              dashboardLayout: {
+                order: [
+                  "task-health",
+                  "priority-workload",
+                  "tasks",
+                  "project-progress",
+                  "stalled-papers",
+                  "pipeline",
+                  "conferences",
+                ],
+                hidden: ["stalled-papers"],
+              },
+            },
+            updateDashboardLayout: vi.fn(),
+            updateTableColumns: vi.fn(),
+            updatePipelineHiddenStages: vi.fn(),
+          }}
+        >
+          <DashboardPage />
+        </PreferencesContext.Provider>
+      </MemoryRouter>,
+    );
+
+    // Task health (2) + Priority workload (2) would leave a 1-column gap
+    // before Tasks (5), so Priority workload widens to 3; Project progress
+    // (3) sits alone and widens to the full row.
+    expect(screen.getByTestId("dashboard-widget-task-health")).toHaveClass("xl:col-span-2");
+    expect(screen.getByTestId("dashboard-widget-priority-workload")).toHaveClass("xl:col-span-3");
+    expect(screen.getByTestId("dashboard-widget-tasks")).toHaveClass("xl:col-span-5");
+    expect(screen.getByTestId("dashboard-widget-project-progress")).toHaveClass("xl:col-span-5");
+  });
+
   it("saves the first dashboard change after hydrating a default server layout", async () => {
     const updateDashboardLayout = vi.fn();
     render(
