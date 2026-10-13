@@ -549,7 +549,7 @@ describe('ProjectModulesService', () => {
       );
     });
 
-    it('sets status to Review when created in the submitted-under-review stage', async () => {
+    it('keeps the chosen status when created in the submitted-under-review stage', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
           Promise.resolve({ id: `${category}-${value}-id` }),
@@ -560,7 +560,7 @@ describe('ProjectModulesService', () => {
       });
       repository.create.mockResolvedValue({
         id: 'module-1',
-        statusId: 'project_status-Review-id',
+        statusId: 'project_status-Active-id',
         pipelineStageId: 'submitted-stage-id',
       });
 
@@ -571,17 +571,40 @@ describe('ProjectModulesService', () => {
         pipelineStage: 'Submitted, Under Review',
       });
 
-      expect(enumRepository.findByCategoryAndValue).toHaveBeenCalledWith(
+      expect(enumRepository.findByCategoryAndValue).not.toHaveBeenCalledWith(
         'project_status',
         'Review',
       );
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          statusId: 'project_status-Review-id',
+          statusId: 'project_status-Active-id',
           pipelineStageId: 'submitted-stage-id',
         }),
       );
     });
+
+    it('stores the retired Review status as Active for papers', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        statusId: 'project_status-Active-id',
+        pipelineStageId: null,
+      });
+
+      await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
+        shortTitle: 'Old client paper',
+        status: 'Review',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ statusId: 'project_status-Active-id' }),
+      );
+    });
+
     it('stores Journal without a user assignment', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
@@ -867,7 +890,7 @@ describe('ProjectModulesService', () => {
       );
     });
 
-    it('sets status to Review when entering the submitted-under-review stage', async () => {
+    it('keeps the chosen status when entering the submitted-under-review stage', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: null,
@@ -888,7 +911,7 @@ describe('ProjectModulesService', () => {
       });
       repository.update.mockResolvedValue({
         id: 'module-1',
-        statusId: 'project_status-Review-id',
+        statusId: 'project_status-Active-id',
         pipelineStageId: 'submitted-stage-id',
       });
 
@@ -897,7 +920,7 @@ describe('ProjectModulesService', () => {
         pipelineStage: 'Submitted, Under Review',
       });
 
-      expect(enumRepository.findByCategoryAndValue).toHaveBeenCalledWith(
+      expect(enumRepository.findByCategoryAndValue).not.toHaveBeenCalledWith(
         'project_status',
         'Review',
       );
@@ -905,7 +928,7 @@ describe('ProjectModulesService', () => {
         'tenant-1',
         'module-1',
         expect.objectContaining({
-          statusId: 'project_status-Review-id',
+          statusId: 'project_status-Active-id',
           pipelineStageId: 'submitted-stage-id',
           pipelineStageChangedAt: expect.any(Date),
         }),

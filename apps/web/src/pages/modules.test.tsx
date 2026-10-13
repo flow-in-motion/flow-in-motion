@@ -456,14 +456,14 @@ describe("ModulesPage", () => {
       screen.getByRole("button", { name: "Filter by statuses" }),
       { key: "Enter" },
     );
-    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Review" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Stalled" }));
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
     await waitFor(() =>
       expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
         expect.objectContaining({
           search: "Literature",
-          statuses: ["Review"],
+          statuses: ["Stalled"],
         }),
       ),
     );
@@ -484,7 +484,7 @@ describe("ModulesPage", () => {
       expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
         expect.objectContaining({
           search: "Literature",
-          statuses: ["Review"],
+          statuses: ["Stalled"],
         }),
       ),
     );
@@ -495,7 +495,7 @@ describe("ModulesPage", () => {
     );
 
     expect(
-      screen.getByRole("menuitemcheckbox", { name: "Review" }),
+      screen.getByRole("menuitemcheckbox", { name: "Stalled" }),
     ).toHaveAttribute("aria-checked", "true");
   });
 
@@ -546,21 +546,80 @@ describe("ModulesPage", () => {
         name: "Change status for Literature synthesis",
       }),
     );
-    fireEvent.click(screen.getByRole("option", { name: "Review" }));
+    expect(
+      screen.queryByRole("option", { name: "Review" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Stalled" }));
 
     await waitFor(() =>
       expect(hookMocks.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: {
-          status: "Review",
-          pipelineStage: "Submitted, Under Review",
-        },
+        input: { status: "Stalled" },
       }),
     );
+  });
 
-    expect(
-      await screen.findByText("Paper submitted — congratulations!"),
-    ).toBeInTheDocument();
+  it("changes a paper stage directly from its list row", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change stage for Literature synthesis",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Literature Review" }));
+
+    await waitFor(() =>
+      expect(hookMocks.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { pipelineStage: "Literature Review" },
+      }),
+    );
+  });
+
+  it("celebrates when a paper is moved to Submitted, Under Review from the list", async () => {
+    const originalStages = fixtures.stageValues;
+    fixtures.stageValues = [
+      ...originalStages,
+      {
+        ...originalStages[0],
+        id: "stage-submitted",
+        value: "Submitted, Under Review",
+        sortOrder: 3,
+      },
+    ];
+    try {
+      render(
+        <MemoryRouter>
+          <ModulesPage />
+        </MemoryRouter>,
+      );
+
+      fireEvent.click(
+        screen.getByRole("combobox", {
+          name: "Change stage for Literature synthesis",
+        }),
+      );
+      fireEvent.click(
+        screen.getByRole("option", { name: "Submitted, Under Review" }),
+      );
+
+      await waitFor(() =>
+        expect(hookMocks.updateModule).toHaveBeenCalledWith({
+          moduleId: "module-1",
+          input: { pipelineStage: "Submitted, Under Review" },
+        }),
+      );
+      expect(
+        await screen.findByText("Paper submitted — congratulations!"),
+      ).toBeInTheDocument();
+    } finally {
+      fixtures.stageValues = originalStages;
+    }
   });
 
   it("requests the next modules page when Next is clicked", () => {

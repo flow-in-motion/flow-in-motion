@@ -36,7 +36,6 @@ import {
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
-  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
 import { paperDisplayTitle } from "@/lib/paper-title";
@@ -64,7 +63,7 @@ import { formatListDate, isOverdue } from "@/lib/list-format";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
-const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
+const STATUS_OPTIONS = ["Active", "Stalled", "Complete"] as const;
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
 const CURRENTLY_WITH_FILTER_LABELS: Record<PaperCurrentlyWithType, string> = {
   me: "Me",
@@ -474,6 +473,17 @@ export default function ModulesPage() {
         .sort((a, b) => a.sortOrder - b.sortOrder),
     [stagesQuery.data],
   );
+  const visibleStageNames = useMemo(
+    () => visibleStages.map((stageValue) => stageValue.value),
+    [visibleStages],
+  );
+  // A paper may sit on a stage that has since been hidden; keep it selectable
+  // so the dropdown still shows the paper's current stage.
+  function stageOptionsFor(currentStage: string | null) {
+    return currentStage && !visibleStageNames.includes(currentStage)
+      ? [currentStage, ...visibleStageNames]
+      : visibleStageNames;
+  }
   const [isNewModuleOpen, setIsNewModuleOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
@@ -953,29 +963,10 @@ export default function ModulesPage() {
                       valueClassName={statusPillClass}
                       onChange={async (nextStatus) => {
                         setActionError(null);
-
-                        const shouldCelebrate =
-                          nextStatus === "Review" &&
-                          enteredSubmittedUnderReview(
-                            module.pipelineStage,
-                            SUBMITTED_UNDER_REVIEW_STAGE,
-                          );
-
                         await updateModule.mutateAsync({
                           moduleId: module.id,
-                          input:
-                            nextStatus === "Review"
-                              ? {
-                                  status: nextStatus,
-                                  pipelineStage: SUBMITTED_UNDER_REVIEW_STAGE,
-                                }
-                              : { status: nextStatus },
+                          input: { status: nextStatus },
                         });
-
-                        if (shouldCelebrate) {
-                          setCelebrationPaperTitle(paperDisplayTitle(module));
-                          setIsPaperCelebrationOpen(true);
-                        }
                       }}
                       onError={(message) =>
                         setActionError(
@@ -1013,9 +1004,33 @@ export default function ModulesPage() {
                     />
                   ) : null}
                   {columns.isColumnVisible("stage") ? (
-                    <span className="text-sm text-muted-foreground">
-                      {module.pipelineStage ?? "Unassigned"}
-                    </span>
+                    <InlineFieldSelect
+                      value={module.pipelineStage}
+                      options={stageOptionsFor(module.pipelineStage)}
+                      fieldLabel="stage"
+                      itemLabel={paperDisplayTitle(module)}
+                      placeholder="Unassigned"
+                      valueClassName={() => "text-left text-muted-foreground"}
+                      onChange={async (nextStage) => {
+                        setActionError(null);
+                        const previousStage = module.pipelineStage;
+                        await updateModule.mutateAsync({
+                          moduleId: module.id,
+                          input: { pipelineStage: nextStage },
+                        });
+                        if (
+                          enteredSubmittedUnderReview(previousStage, nextStage)
+                        ) {
+                          setCelebrationPaperTitle(paperDisplayTitle(module));
+                          setIsPaperCelebrationOpen(true);
+                        }
+                      }}
+                      onError={(message) =>
+                        setActionError(
+                          `Could not update the stage for “${paperDisplayTitle(module)}”. ${message}`,
+                        )
+                      }
+                    />
                   ) : null}
 
                   {columns.isColumnVisible("due") ? (

@@ -22,8 +22,14 @@ import type {
 } from '../dto/list-modules-query.dto';
 import type { CurrentlyWithType } from '../dto/create-module.dto';
 const ARCHIVE_RETENTION_DAYS = 14;
-const SUBMITTED_UNDER_REVIEW_STAGE = 'Submitted, Under Review';
-const REVIEW_STATUS = 'Review';
+// Papers no longer use the "Review" status (being under review is a pipeline
+// stage, not a status). Older clients may still send it, so treat it as Active.
+const RETIRED_PAPER_STATUS = 'Review';
+const DEFAULT_PAPER_STATUS = 'Active';
+
+function paperStatus(status: string | undefined) {
+  return status === RETIRED_PAPER_STATUS ? DEFAULT_PAPER_STATUS : status;
+}
 
 function rememberedNames(values: Array<string | null | undefined>) {
   const byNormalizedName = new Map<string, string>();
@@ -306,10 +312,7 @@ export class ProjectModulesService {
       input.projectId,
       callerUserId,
     );
-    const status =
-      input.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
-        ? REVIEW_STATUS
-        : input.status;
+    const status = paperStatus(input.status);
 
     const [statusId, priorityId] = await Promise.all([
       this.resolveEnum('project_status', status),
@@ -409,10 +412,7 @@ export class ProjectModulesService {
         callerUserId,
       );
     }
-    const status =
-      input.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
-        ? REVIEW_STATUS
-        : input.status;
+    const status = paperStatus(input.status);
     const [statusId, priorityId, pipelineStageId] = await Promise.all([
       status ? this.resolveEnum('project_status', status) : undefined,
       input.priority

@@ -48,7 +48,6 @@ type ViewOption = (typeof VIEW_OPTIONS)[number];
 const STATUS_FILTERS = [
   "All",
   "Active",
-  "Review",
   "Stalled",
   "Complete",
 ] as const;

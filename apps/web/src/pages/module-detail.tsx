@@ -54,7 +54,6 @@ import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-w
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
-  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 import {
   SubmissionDialog,
@@ -89,7 +88,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-const MODULE_STATUSES = ["Active", "Review", "Stalled", "Complete"];
+const MODULE_STATUSES = ["Active", "Stalled", "Complete"];
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 
 interface EditableModule {
@@ -634,10 +633,7 @@ export default function ModuleDetailPage() {
         backupJournal: form.backupJournal.trim() || undefined,
         targetConference: form.targetConference.trim() || undefined,
         backupConference: form.backupConference.trim() || undefined,
-        status:
-          form.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
-            ? "Review"
-            : form.status,
+        status: form.status,
         priority: form.priority || undefined,
         pipelineStage: form.pipelineStage,
         dueDate: form.dueDate || undefined,
