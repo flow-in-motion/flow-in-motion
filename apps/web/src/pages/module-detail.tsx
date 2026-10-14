@@ -8,7 +8,6 @@ import {
   Plus,
   Save,
   Trash2,
-  Unlink,
 } from "lucide-react";
 import {
   Link,
@@ -69,6 +68,11 @@ import {
 } from "@/components/shared/link-existing-field";
 import { LoadingState } from "@/components/shared/loading-state";
 import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  LinkedNotesPanel,
+  LinkedTasksPanel,
+  PanelToggleButton,
+} from "@/components/shared/linked-items-panels";
 import { TagInput } from "@/components/shared/tag-input";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
@@ -183,82 +187,6 @@ function FormField({
   );
 }
 
-const PANEL_PREVIEW_COUNT = 3;
-const TASK_PRIORITY_ORDER: Record<string, number> = {
-  Critical: 0,
-  High: 1,
-  Medium: 2,
-  Low: 3,
-};
-
-// Active tasks first by nearest due date (undated last), then priority.
-function sortActiveTasks(tasks: ApiTask[]) {
-  return tasks
-    .filter((task) => task.status !== "Complete")
-    .sort((a, b) => {
-      if (a.dueDate !== b.dueDate) {
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return a.dueDate.localeCompare(b.dueDate);
-      }
-      return (
-        (TASK_PRIORITY_ORDER[a.priority ?? ""] ?? 99) -
-          (TASK_PRIORITY_ORDER[b.priority ?? ""] ?? 99) ||
-        a.title.localeCompare(b.title)
-      );
-    });
-}
-
-function PanelToggleButton({
-  visible,
-  onToggle,
-  label,
-  controls,
-}: {
-  visible: boolean;
-  onToggle: () => void;
-  label: string;
-  controls: string;
-}) {
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      aria-expanded={visible}
-      aria-controls={controls}
-      onClick={onToggle}
-    >
-      {visible ? <ChevronUp /> : <ChevronDown />}
-      {visible ? `Hide ${label}` : `Show ${label}`}
-    </Button>
-  );
-}
-
-function ShowMoreButton({
-  expanded,
-  total,
-  noun,
-  onToggle,
-}: {
-  expanded: boolean;
-  total: number;
-  noun: string;
-  onToggle: () => void;
-}) {
-  if (total <= PANEL_PREVIEW_COUNT) return null;
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="mt-2 w-full text-muted-foreground"
-      onClick={onToggle}
-    >
-      {expanded ? <ChevronUp /> : <ChevronDown />}
-      {expanded ? "Show fewer" : `Show all ${total} ${noun}`}
-    </Button>
-  );
-}
-
 function ModuleTasksDetails({
   tasks,
   visible,
@@ -274,18 +202,17 @@ function ModuleTasksDetails({
   onLinkExisting?: () => void;
   onUnlinkTask?: (task: ApiTask) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const activeTasks = sortActiveTasks(tasks);
-  const shownTasks = expanded
-    ? activeTasks
-    : activeTasks.slice(0, PANEL_PREVIEW_COUNT);
-  const completedCount = tasks.length - activeTasks.length;
-
   return (
-    <Card>
-      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-        <CardTitle>Tasks ({activeTasks.length} active)</CardTitle>
-        <div className="flex flex-wrap items-center gap-2">
+    <LinkedTasksPanel
+      tasks={tasks}
+      entityLabel="paper"
+      contentId="module-tasks-content"
+      visible={visible}
+      onToggleVisible={onToggleVisible}
+      onUnlink={onUnlinkTask}
+      unlinkLabel={(task) => `Unlink ${task.title} from this module`}
+      actions={
+        <>
           {onLinkExisting ? (
             <Button variant="outline" size="sm" onClick={onLinkExisting}>
               <Link2 />
@@ -298,84 +225,9 @@ function ModuleTasksDetails({
               Add task
             </Button>
           ) : null}
-          <PanelToggleButton
-            visible={visible}
-            onToggle={onToggleVisible}
-            label="tasks"
-            controls="module-tasks-content"
-          />
-        </div>
-      </CardHeader>
-      {visible ? (
-        <CardContent id="module-tasks-content">
-          {activeTasks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {completedCount > 0
-                ? "All tasks for this paper are complete."
-                : "No tasks are linked to this paper."}
-            </p>
-          ) : (
-            <div className="grid gap-2">
-              {shownTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-1 rounded-md border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-muted/40"
-                >
-                  <Link
-                    to={`/tasks/${task.id}`}
-                    className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <span className="flex min-w-0 items-baseline gap-2">
-                      {task.displayId ? (
-                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                          {task.displayId}
-                        </span>
-                      ) : null}
-                      <span className="truncate text-sm font-semibold">
-                        {task.title}
-                      </span>
-                    </span>
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="whitespace-nowrap text-xs text-muted-foreground">
-                        Due {formatDate(task.dueDate)}
-                      </span>
-                      <StatusBadge status={task.status ?? "—"} />
-                      <StatusBadge status={task.priority ?? "—"} />
-                    </span>
-                  </Link>
-                  {onUnlinkTask ? (
-                    <button
-                      type="button"
-                      onClick={() => onUnlinkTask(task)}
-                      aria-label={`Unlink ${task.title} from this module`}
-                      title="Unlink"
-                      className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Unlink className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          )}
-          <ShowMoreButton
-            expanded={expanded}
-            total={activeTasks.length}
-            noun="active tasks"
-            onToggle={() => setExpanded((value) => !value)}
-          />
-          {completedCount > 0 ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {completedCount} completed{" "}
-              {completedCount === 1 ? "task is" : "tasks are"} hidden.{" "}
-              <Link to="/tasks" className="underline hover:text-foreground">
-                View all tasks
-              </Link>
-            </p>
-          ) : null}
-        </CardContent>
-      ) : null}
-    </Card>
+        </>
+      }
+    />
   );
 }
 
@@ -394,19 +246,17 @@ function ModuleNotesDetails({
   onLinkExisting?: () => void;
   onUnlinkNote?: (note: ApiNote) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const sortedNotes = [...notes].sort((a, b) =>
-    b.updatedAt.localeCompare(a.updatedAt),
-  );
-  const shownNotes = expanded
-    ? sortedNotes
-    : sortedNotes.slice(0, PANEL_PREVIEW_COUNT);
-
   return (
-    <Card>
-      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-        <CardTitle>Notes ({notes.length})</CardTitle>
-        <div className="flex flex-wrap items-center gap-2">
+    <LinkedNotesPanel
+      notes={notes}
+      entityLabel="paper"
+      contentId="module-notes-content"
+      visible={visible}
+      onToggleVisible={onToggleVisible}
+      onUnlink={onUnlinkNote}
+      unlinkLabel={(note) => `Unlink ${note.title} from this module`}
+      actions={
+        <>
           {onLinkExisting ? (
             <Button variant="outline" size="sm" onClick={onLinkExisting}>
               <Link2 />
@@ -421,62 +271,9 @@ function ModuleNotesDetails({
               </Link>
             </Button>
           ) : null}
-          <PanelToggleButton
-            visible={visible}
-            onToggle={onToggleVisible}
-            label="notes"
-            controls="module-notes-content"
-          />
-        </div>
-      </CardHeader>
-      {visible ? (
-        <CardContent id="module-notes-content">
-          {notes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No notes are linked to this paper.
-            </p>
-          ) : (
-            <div className="grid gap-2">
-              {shownNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
-                >
-                  <Link
-                    to={`/daily-notes/${note.id}`}
-                    className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <span className="text-sm font-semibold">{note.title}</span>
-                    {note.content ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {note.content}
-                      </p>
-                    ) : null}
-                  </Link>
-                  {onUnlinkNote ? (
-                    <button
-                      type="button"
-                      onClick={() => onUnlinkNote(note)}
-                      aria-label={`Unlink ${note.title} from this module`}
-                      title="Unlink"
-                      className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Unlink className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          )}
-          <ShowMoreButton
-            expanded={expanded}
-            total={notes.length}
-            noun="notes"
-            onToggle={() => setExpanded((value) => !value)}
-          />
-        </CardContent>
-      ) : null}
-    </Card>
+        </>
+      }
+    />
   );
 }
 

@@ -6,7 +6,6 @@ import {
   Plus,
   Search,
   Trash2,
-  Unlink,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -40,6 +39,10 @@ import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  LinkedNotesPanel,
+  LinkedTasksPanel,
+} from "@/components/shared/linked-items-panels";
 import {
   Dialog,
   DialogContent,
@@ -77,14 +80,6 @@ function formatAmount(amount: string | null, currency: string | null) {
     }
   }
   return numericAmount.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
 }
 
 function DetailItem({
@@ -212,6 +207,8 @@ export default function FundingDetailPage() {
   const [taskSearch, setTaskSearch] = useState("");
   const [taskRequestSearch, setTaskRequestSearch] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isTasksVisible, setIsTasksVisible] = useState(true);
+  const [isNotesVisible, setIsNotesVisible] = useState(true);
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -587,120 +584,63 @@ export default function FundingDetailPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-            <CardTitle>Notes ({funding.linkedNotes?.length ?? 0})</CardTitle>
-            {canManage ? (
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsNotePickerOpen(true)}
-                >
-                  <Link2 /> Attach existing
-                </Button>
-                <Button size="sm" onClick={() => setIsNewNoteOpen(true)}>
-                  <Plus /> New Note
-                </Button>
-              </div>
-            ) : null}
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            {(funding.linkedNotes ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No notes attached.
-              </p>
-            ) : (
-              (funding.linkedNotes ?? []).map((note) => (
-                <div
-                  key={note.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
-                >
-                  <Link
-                    to={`/daily-notes/${note.id}`}
-                    className="min-w-0 hover:underline"
-                  >
-                    <span className="block truncate font-medium">
-                      {note.title}
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {note.displayId ?? formatTimestamp(note.createdAt)}
-                    </span>
-                  </Link>
-                  {canManage ? (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label={`Detach ${note.title}`}
-                      onClick={() => void detachExistingNote(note.id)}
-                    >
-                      <Unlink />
-                    </Button>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-            <CardTitle>Tasks ({funding.tasks?.length ?? 0})</CardTitle>
-            {canManage ? (
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsTaskPickerOpen(true)}
-                >
-                  <Link2 /> Attach existing
-                </Button>
-                <Button size="sm" onClick={() => setIsNewTaskOpen(true)}>
-                  <Plus /> New Task
-                </Button>
-              </div>
-            ) : null}
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            {(funding.tasks ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No tasks attached.
-              </p>
-            ) : (
-              (funding.tasks ?? []).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border p-3"
-                >
-                  <Link
-                    to={`/tasks/${task.id}`}
-                    className="min-w-0 hover:underline"
-                  >
-                    <span className="block truncate font-medium">
-                      {task.title}
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {task.dueDate
-                        ? `Due ${formatDate(task.dueDate)}`
-                        : (task.displayId ?? formatTimestamp(task.createdAt))}
-                    </span>
-                  </Link>
-                  {canManage ? (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label={`Detach ${task.title}`}
-                      onClick={() => void detachExistingTask(task.id)}
-                    >
-                      <Unlink />
-                    </Button>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
       </div>
+
+      <LinkedTasksPanel
+        tasks={funding.tasks ?? []}
+        entityLabel="funding"
+        contentId="funding-tasks-content"
+        visible={isTasksVisible}
+        onToggleVisible={() => setIsTasksVisible((visible) => !visible)}
+        onUnlink={
+          canManage ? (task) => void detachExistingTask(task.id) : undefined
+        }
+        unlinkLabel={(task) => `Detach ${task.title}`}
+        actions={
+          canManage ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsTaskPickerOpen(true)}
+              >
+                <Link2 /> Attach existing
+              </Button>
+              <Button size="sm" onClick={() => setIsNewTaskOpen(true)}>
+                <Plus /> New Task
+              </Button>
+            </>
+          ) : null
+        }
+      />
+
+      <LinkedNotesPanel
+        notes={funding.linkedNotes ?? []}
+        entityLabel="funding"
+        contentId="funding-notes-content"
+        visible={isNotesVisible}
+        onToggleVisible={() => setIsNotesVisible((visible) => !visible)}
+        onUnlink={
+          canManage ? (note) => void detachExistingNote(note.id) : undefined
+        }
+        unlinkLabel={(note) => `Detach ${note.title}`}
+        actions={
+          canManage ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsNotePickerOpen(true)}
+              >
+                <Link2 /> Attach existing
+              </Button>
+              <Button size="sm" onClick={() => setIsNewNoteOpen(true)}>
+                <Plus /> New Note
+              </Button>
+            </>
+          ) : null
+        }
+      />
     </div>
   );
 }

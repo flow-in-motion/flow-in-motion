@@ -14,8 +14,8 @@ const fixtures = vi.hoisted(() => ({
     { id: "module-2", displayId: "MOD-002", title: "Independent paper", status: "Active", projectId: null },
   ],
   tasks: [
-    { id: "task-1", displayId: "TSK-001", title: "Run inhibition assay", status: "To do", priority: "Medium", dueDate: null, projectId: "PRJ-101" },
-    { id: "task-2", displayId: "TSK-002", title: "Independent task", status: "To do", priority: "Medium", dueDate: null, projectId: null },
+    { id: "task-1", displayId: "TSK-001", title: "Run inhibition assay", status: "To do", priority: "Medium", dueDate: null as string | null, projectId: "PRJ-101" },
+    { id: "task-2", displayId: "TSK-002", title: "Independent task", status: "To do", priority: "Medium", dueDate: null as string | null, projectId: null },
   ],
   notes: [
     { id: "note-1", title: "Kickoff notes", content: "Discussed scope", projectId: "PRJ-101" },
@@ -357,7 +357,7 @@ describe("ProjectDetailPage", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("shows linked work expanded by default, with an option to hide it", () => {
+  it("shows papers, tasks and notes as separate panels, each of which can be hidden", () => {
     render(
       <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
         <Routes>
@@ -367,23 +367,71 @@ describe("ProjectDetailPage", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: "Papers (1)" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Hide linked work" }),
-    ).toHaveAttribute("aria-expanded", "true");
-
-    fireEvent.click(screen.getByRole("button", { name: "Hide linked work" }));
-
-    expect(
-      screen.queryByRole("heading", { name: "Papers (1)" }),
+      screen.queryByRole("heading", { name: "Linked work" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Papers (1)" })).toBeInTheDocument();
+    expect(screen.getByText("Run inhibition assay")).toBeInTheDocument();
+    expect(screen.getByText("Kickoff notes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide papers" }));
+    expect(screen.queryByText("Assay optimization")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Show papers" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide tasks" }));
+    expect(screen.queryByText("Run inhibition assay")).not.toBeInTheDocument();
+    expect(screen.getByText("Kickoff notes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide notes" }));
+    expect(screen.queryByText("Kickoff notes")).not.toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Project collaborators" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Show linked work" }),
-    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("lists the project's active tasks soonest first, three at a time", () => {
+    const originalTasks = fixtures.tasks;
+    const task = (id: string, title: string, dueDate: string | null, status = "To do") => ({
+      ...originalTasks[0],
+      id,
+      displayId: id.toUpperCase(),
+      title,
+      dueDate,
+      status,
+    });
+    fixtures.tasks = [
+      task("t-late", "Late task", "2026-12-01"),
+      task("t-undated", "Undated task", null),
+      task("t-soon", "Soon task", "2026-10-20"),
+      task("t-done", "Finished task", "2026-10-01", "Complete"),
+      task("t-mid", "Middle task", "2026-11-01"),
+    ];
+    try {
+      render(
+        <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
+          <Routes>
+            <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+
+      expect(
+        screen.getByRole("heading", { name: "Tasks (4 active)" }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Finished task")).not.toBeInTheDocument();
+      expect(screen.getByText("Soon task")).toBeInTheDocument();
+      expect(screen.getByText("Late task")).toBeInTheDocument();
+      expect(screen.queryByText("Undated task")).not.toBeInTheDocument();
+      expect(screen.getByText(/1 completed task is hidden/)).toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Show all 4 active tasks" }),
+      );
+      expect(screen.getByText("Undated task")).toBeInTheDocument();
+    } finally {
+      fixtures.tasks = originalTasks;
+    }
   });
 
   it("moves a module from this project into General", async () => {

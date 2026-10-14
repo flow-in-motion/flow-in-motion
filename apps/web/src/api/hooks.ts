@@ -317,6 +317,7 @@ export interface ApiFundingNote {
   content: string | null;
   followUpDate: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ApiFundingTask {
@@ -325,7 +326,10 @@ export interface ApiFundingTask {
   title: string;
   description: string | null;
   dueDate: string | null;
+  status?: string | null;
+  priority?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type FundingSortField =

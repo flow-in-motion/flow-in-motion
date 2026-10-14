@@ -1,4 +1,3 @@
-import { PaginationControls } from "@/components/shared/pagination-controls";
 import {
   useEffect,
   useState,
@@ -58,6 +57,11 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  LinkedNotesPanel,
+  LinkedTasksPanel,
+  PanelToggleButton,
+} from "@/components/shared/linked-items-panels";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { PageHeading } from "@/components/typography/heading";
 import { Button } from "@/components/ui/button";
@@ -151,20 +155,24 @@ function FormField({
 
 function ProjectModulesDetails({
   modules,
+  visible,
+  onToggleVisible,
   onAddModule,
   onLinkExisting,
   onUnlinkModule,
 }: {
   modules: ApiModule[];
+  visible: boolean;
+  onToggleVisible: () => void;
   onAddModule: () => void;
   onLinkExisting: () => void;
   onUnlinkModule: (module: ApiModule) => void;
 }) {
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
         <CardTitle>Papers ({modules.length})</CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={onLinkExisting}>
             <Link2 />
             Link existing
@@ -173,220 +181,60 @@ function ProjectModulesDetails({
             <Plus />
             Add paper
           </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/modules">View all</Link>
-          </Button>
+          <PanelToggleButton
+            visible={visible}
+            onToggle={onToggleVisible}
+            label="papers"
+            controls="project-papers-content"
+          />
         </div>
       </CardHeader>
-      <CardContent>
-        {modules.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No papers are linked to this project.
-          </p>
-        ) : (
-          <div className="grid gap-2">
-            {modules.map((module) => (
-              <div
-                key={module.id}
-                className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
-              >
-                <Link
-                  to={`/modules/${module.id}`}
-                  className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      {visible ? (
+        <CardContent id="project-papers-content">
+          {modules.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No papers are linked to this project.
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {modules.map((module) => (
+                <div
+                  key={module.id}
+                  className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {module.displayId ? (
-                        <span className="block font-mono text-[10px] text-muted-foreground">
-                          {module.displayId}
+                  <Link
+                    to={`/modules/${module.id}`}
+                    className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {module.displayId ? (
+                          <span className="block font-mono text-[10px] text-muted-foreground">
+                            {module.displayId}
+                          </span>
+                        ) : null}
+                        <span className="block text-sm font-semibold">
+                          {paperDisplayTitle(module)}
                         </span>
-                      ) : null}
-                      <span className="block text-sm font-semibold">
-                        {paperDisplayTitle(module)}
-                      </span>
+                      </div>
+                      <StatusBadge status={module.status ?? "—"} />
                     </div>
-                    <StatusBadge status={module.status ?? "—"} />
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => onUnlinkModule(module)}
-                  aria-label={`Unlink ${paperDisplayTitle(module)} from this project`}
-                  title="Unlink"
-                  className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Unlink className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ProjectTasksDetails({
-  tasks,
-  pagination,
-  totalItems,
-  onAddTask,
-  onLinkExisting,
-  onUnlinkTask,
-}: {
-  tasks: ApiTask[];
-  pagination?: ReactNode;
-  totalItems?: number;
-  onAddTask: () => void;
-  onLinkExisting: () => void;
-  onUnlinkTask: (task: ApiTask) => void;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle>Tasks ({totalItems ?? tasks.length})</CardTitle>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onLinkExisting}>
-            <Link2 />
-            Link existing
-          </Button>
-          <Button variant="outline" size="sm" onClick={onAddTask}>
-            <Plus />
-            Add task
-          </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/tasks">View all</Link>
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {tasks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No tasks are linked to this project.
-          </p>
-        ) : (
-          <div className="grid gap-2">
-            {tasks.map((task) => (
-              <div
-                key={task.id}
-                className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
-              >
-                <Link
-                  to={`/tasks/${task.id}`}
-                  className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {task.displayId ? (
-                        <span className="block font-mono text-[10px] text-muted-foreground">
-                          {task.displayId}
-                        </span>
-                      ) : null}
-                      <span className="block text-sm font-semibold">
-                        {task.title}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      <StatusBadge status={task.status ?? "—"} />
-                      <StatusBadge status={task.priority ?? "—"} />
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Due {formatDate(task.dueDate)}</span>
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => onUnlinkTask(task)}
-                  aria-label={`Unlink ${task.title} from this project`}
-                  title="Unlink"
-                  className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Unlink className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {pagination}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ProjectNotesDetails({
-  notes,
-  pagination,
-  totalItems,
-  projectId,
-  onLinkExisting,
-  onUnlinkNote,
-}: {
-  notes: ApiNote[];
-  pagination?: ReactNode;
-  totalItems?: number;
-  projectId: string;
-  onLinkExisting: () => void;
-  onUnlinkNote: (note: ApiNote) => void;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle>Notes ({totalItems ?? notes.length})</CardTitle>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onLinkExisting}>
-            <Link2 />
-            Link existing
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/daily-notes?projectId=${projectId}&new=true`}>
-              <Plus />
-              Add note
-            </Link>
-          </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/daily-notes">View all</Link>
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No notes are linked to this project.
-          </p>
-        ) : (
-          <div className="grid gap-2">
-            {notes.map((note) => (
-              <div
-                key={note.id}
-                className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
-              >
-                <Link
-                  to={`/daily-notes/${note.id}`}
-                  className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <span className="text-sm font-semibold">{note.title}</span>
-                  {note.content ? (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {note.content}
-                    </p>
-                  ) : null}
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => onUnlinkNote(note)}
-                  aria-label={`Unlink ${note.title} from this project`}
-                  title="Unlink"
-                  className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Unlink className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {pagination}
-      </CardContent>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => onUnlinkModule(module)}
+                    aria-label={`Unlink ${paperDisplayTitle(module)} from this project`}
+                    title="Unlink"
+                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Unlink className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      ) : null}
     </Card>
   );
 }
@@ -407,12 +255,17 @@ export default function ProjectDetailPage() {
   const generalProject = projectsQuery.data?.generalProject ?? null;
   const modulesQuery = useModules(tenantId, projectId);
   const modules = modulesQuery.data?.data ?? [];
-  const [taskPage, setTaskPage] = useState(1);
-  const [notePage, setNotePage] = useState(1);
-  useEffect(() => { setTaskPage(1); setNotePage(1); }, [tenantId, projectId]);
-  const tasksQuery = useTasks(tenantId, projectId, taskPage, true, { projectOnly: true });
+  // Load every linked task and note: the panels sort them client-side and
+  // preview the first three, so a single server page would miss items.
+  const tasksQuery = useTasks(tenantId, projectId, 1, true, {
+    projectOnly: true,
+    pageSize: "all",
+  });
   const tasks = (tasksQuery.data?.data ?? []).filter((task) => !task.moduleId);
-  const notesQuery = useNotes(tenantId, projectId, notePage, true, { projectOnly: true });
+  const notesQuery = useNotes(tenantId, projectId, 1, true, {
+    projectOnly: true,
+    pageSize: "all",
+  });
   const notes = (notesQuery.data?.data ?? []).filter((note) => !note.moduleId);
   const membersQuery = useMembers(tenantId);
   const members = membersQuery.data?.data ?? [];
@@ -428,7 +281,9 @@ export default function ProjectDetailPage() {
   const updateNote = useUpdateNote(tenantId);
   const trackEvent = useTrackEvent(tenantId);
   const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
-  const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
+  const [isPapersVisible, setIsPapersVisible] = useState(true);
+  const [isTasksVisible, setIsTasksVisible] = useState(true);
+  const [isNotesVisible, setIsNotesVisible] = useState(true);
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [isAddModuleOpen, setIsAddModuleOpen] = useState(false);
   const [isLinkModulesOpen, setIsLinkModulesOpen] = useState(false);
@@ -971,59 +826,70 @@ export default function ProjectDetailPage() {
         </Card>
       ) : (
         <div className="flex flex-col gap-6">
-          <section aria-labelledby="project-linked-work-heading">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2
-                id="project-linked-work-heading"
-                className="text-lg font-semibold"
-              >
-                Linked work
-              </h2>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-expanded={isLinkedWorkVisible}
-                aria-controls="project-linked-work-content"
-                onClick={() => setIsLinkedWorkVisible((visible) => !visible)}
-              >
-                {isLinkedWorkVisible ? <ChevronUp /> : <ChevronDown />}
-                {isLinkedWorkVisible ? "Hide linked work" : "Show linked work"}
-              </Button>
-            </div>
-            {isLinkedWorkVisible ? (
-              <div
-                id="project-linked-work-content"
-                className="grid gap-6 lg:grid-cols-3"
-              >
-                <ProjectModulesDetails
-                  modules={modules}
-                  onAddModule={() => setIsAddModuleOpen(true)}
-                  onLinkExisting={() => setIsLinkModulesOpen(true)}
-                  onUnlinkModule={(module) => void handleUnlinkModule(module)}
-                />
-                <ProjectTasksDetails
-                  tasks={tasks}
-                  totalItems={tasksQuery.data?.meta.totalItems}
-                  pagination={tasksQuery.data && tasksQuery.data.meta.totalPages > 1 ? (
-                    <PaginationControls {...tasksQuery.data.meta} isPending={tasksQuery.isFetching} onPageChange={setTaskPage} compact />
-                  ) : null}
-                  onAddTask={() => setIsAddTaskOpen(true)}
-                  onLinkExisting={() => setIsLinkTasksOpen(true)}
-                  onUnlinkTask={(task) => void handleUnlinkTask(task)}
-                />
-                <ProjectNotesDetails
-                  notes={notes}
-                  totalItems={notesQuery.data?.meta.totalItems}
-                  pagination={notesQuery.data && notesQuery.data.meta.totalPages > 1 ? (
-                    <PaginationControls {...notesQuery.data.meta} isPending={notesQuery.isFetching} onPageChange={setNotePage} compact />
-                  ) : null}
-                  projectId={project.id}
-                  onLinkExisting={() => setIsLinkNotesOpen(true)}
-                  onUnlinkNote={(note) => void handleUnlinkNote(note)}
-                />
-              </div>
-            ) : null}
-          </section>
+          <ProjectModulesDetails
+            modules={modules}
+            visible={isPapersVisible}
+            onToggleVisible={() => setIsPapersVisible((visible) => !visible)}
+            onAddModule={() => setIsAddModuleOpen(true)}
+            onLinkExisting={() => setIsLinkModulesOpen(true)}
+            onUnlinkModule={(module) => void handleUnlinkModule(module)}
+          />
+
+          <LinkedTasksPanel
+            tasks={tasks}
+            entityLabel="project"
+            contentId="project-tasks-content"
+            visible={isTasksVisible}
+            onToggleVisible={() => setIsTasksVisible((visible) => !visible)}
+            onUnlink={(task) => void handleUnlinkTask(task)}
+            actions={
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsLinkTasksOpen(true)}
+                >
+                  <Link2 />
+                  Link existing
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsAddTaskOpen(true)}
+                >
+                  <Plus />
+                  Add task
+                </Button>
+              </>
+            }
+          />
+
+          <LinkedNotesPanel
+            notes={notes}
+            entityLabel="project"
+            contentId="project-notes-content"
+            visible={isNotesVisible}
+            onToggleVisible={() => setIsNotesVisible((visible) => !visible)}
+            onUnlink={(note) => void handleUnlinkNote(note)}
+            actions={
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsLinkNotesOpen(true)}
+                >
+                  <Link2 />
+                  Link existing
+                </Button>
+                <Button asChild variant="outline" size="sm">
+                  <Link to={`/daily-notes?projectId=${project.id}&new=true`}>
+                    <Plus />
+                    Add note
+                  </Link>
+                </Button>
+              </>
+            }
+          />
 
           <section aria-labelledby="project-collaborators-heading">
             <div className="mb-3 flex items-center justify-between gap-3">
