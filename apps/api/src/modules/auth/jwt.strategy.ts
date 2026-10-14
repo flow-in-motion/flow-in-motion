@@ -3,6 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import * as jwksRsa from 'jwks-rsa';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import {
+  prefetchSupabaseSigningKeys,
+  supabaseJwksUri,
+} from './supabase-signing-keys';
 
 interface SupabaseAccessTokenPayload {
   sub: string;
@@ -31,6 +35,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       'authenticated',
     );
 
+    const jwksUri = supabaseJwksUri(supabaseUrl);
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       issuer,
@@ -40,7 +46,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         cache: true,
         rateLimit: true,
         jwksRequestsPerMinute: 5,
-        jwksUri: `${issuer}/.well-known/jwks.json`,
+        jwksUri,
+        // Use the keys fetched during start-up rather than waiting on a
+        // network call during the first request (see supabase-signing-keys).
+        getKeysInterceptor: () => prefetchSupabaseSigningKeys(jwksUri),
       }),
     });
   }

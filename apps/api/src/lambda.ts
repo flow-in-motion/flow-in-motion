@@ -6,6 +6,10 @@ import type {
 } from 'aws-lambda';
 import type { RequestListener } from 'node:http';
 import { loadDatabaseSecretEnvironment } from './config/load-database-secret';
+import {
+  prefetchSupabaseSigningKeys,
+  supabaseJwksUri,
+} from './modules/auth/supabase-signing-keys';
 
 type LambdaHandler = (
   event: APIGatewayProxyEventV2,
@@ -15,6 +19,12 @@ type LambdaHandler = (
 let serverPromise: Promise<LambdaHandler> | undefined;
 
 async function bootstrapLambda(): Promise<LambdaHandler> {
+  // Fetch Supabase's signing keys while the rest of start-up runs, so the
+  // first authenticated request doesn't wait on that network call.
+  if (process.env.SUPABASE_URL) {
+    void prefetchSupabaseSigningKeys(supabaseJwksUri(process.env.SUPABASE_URL));
+  }
+
   await loadDatabaseSecretEnvironment();
 
   const { createApp } = await import('./create-app');

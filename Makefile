@@ -1,8 +1,8 @@
+# Both functions ship the same artifact: each handler bundled into one
+# self-contained file (no node_modules), which makes Lambda cold starts much
+# faster. The smoke test boots the bundle and fails the build if it can't.
 build-ApiFunction build-CleanupFunction:
 	CI=true pnpm --filter @research-tracker/api build
-	lambda_deploy_dir="$$(mktemp -d)"; \
-		trap 'rm -rf "$$lambda_deploy_dir"' EXIT; \
-		CI=true pnpm --config.node-linker=hoisted --filter @research-tracker/api --prod deploy "$$lambda_deploy_dir"; \
-		cp -R "$$lambda_deploy_dir"/. "$(ARTIFACTS_DIR)"/
 	rm -rf "$(ARTIFACTS_DIR)/dist"
-	cp -R apps/api/dist "$(ARTIFACTS_DIR)/dist"
+	node apps/api/scripts/bundle-lambda.mjs apps/api/dist "$(ARTIFACTS_DIR)/dist"
+	node apps/api/scripts/smoke-lambda-bundle.mjs "$(ARTIFACTS_DIR)/dist"

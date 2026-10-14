@@ -265,6 +265,10 @@ export class UsersService {
       return linked;
     }
 
+    // The web app loads the account and the workspace at the same time, so
+    // two requests can try to create a brand-new user at once. Skip the
+    // insert if the other request got there first (Postgres waits for it to
+    // commit), then read back the row it created.
     const [created] = await this.drizzle.db
       .insert(users)
       .values({
@@ -273,9 +277,23 @@ export class UsersService {
         displayName,
         status: 'active',
       })
+      .onConflictDoNothing()
       .returning();
 
-    return created;
+    if (created) return created;
+
+    const [concurrentlyCreated] = await this.drizzle.db
+      .select()
+      .from(users)
+      .where(eq(users.externalAuthId, externalAuthId));
+
+    if (!concurrentlyCreated) {
+      throw new ConflictException(
+        'This email is already linked to another identity',
+      );
+    }
+
+    return concurrentlyCreated;
   }
 
   async updateProfile(userId: string, input: UpdateProfileDto) {
