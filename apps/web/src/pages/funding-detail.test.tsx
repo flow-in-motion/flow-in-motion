@@ -11,6 +11,8 @@ const fixtures = vi.hoisted(() => ({
   detachTask: vi.fn(),
   useNotes: vi.fn(),
   useTasks: vi.fn(),
+  /** Overrides the funding's linked tasks for a single test. */
+  fundingTasks: null as Array<Record<string, unknown>> | null,
 }));
 
 vi.mock("@/api/hooks", () => ({
@@ -44,7 +46,7 @@ vi.mock("@/api/hooks", () => ({
           createdAt: "2026-10-01T00:00:00.000Z",
         },
       ],
-      tasks: [
+      tasks: fixtures.fundingTasks ?? [
         {
           id: "task-1",
           displayId: "T-1",
@@ -123,8 +125,9 @@ describe("FundingDetailPage", () => {
 
   it("searches all accessible notes before attaching one", async () => {
     renderPage();
+    // Tasks come first, so the Notes panel's button is the second one.
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Attach existing" })[0],
+      screen.getAllByRole("button", { name: "Attach existing" })[1],
     );
     fireEvent.change(
       screen.getByPlaceholderText("Search all accessible notes…"),
@@ -142,6 +145,42 @@ describe("FundingDetailPage", () => {
         { pageSize: "all", search: "budget" },
       );
     });
+  });
+
+  it("lists active tasks first and hides completed ones", () => {
+    const baseTask = {
+      id: "task-1",
+      displayId: "T-1",
+      title: "Submit budget",
+      description: null,
+      dueDate: "2027-03-10",
+      createdAt: "2026-10-01T00:00:00.000Z",
+    };
+    fixtures.fundingTasks = [
+      { ...baseTask, status: "To do", priority: "High" },
+      { ...baseTask, id: "task-2", title: "Old finished task", status: "Complete" },
+    ];
+    try {
+      renderPage();
+
+      const headings = screen
+        .getAllByRole("heading")
+        .map((heading) => heading.textContent);
+      expect(headings.indexOf("Tasks (1 active)")).toBeLessThan(
+        headings.indexOf("Notes (1)"),
+      );
+      expect(screen.getByText("Submit budget")).toBeInTheDocument();
+      expect(screen.queryByText("Old finished task")).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/1 completed task is hidden/),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Hide tasks" }));
+      expect(screen.queryByText("Submit budget")).not.toBeInTheDocument();
+      expect(screen.getByText("Budget note")).toBeInTheDocument();
+    } finally {
+      fixtures.fundingTasks = null;
+    }
   });
 
   it("detaches associations without deleting the note or task", () => {

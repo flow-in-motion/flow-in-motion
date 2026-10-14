@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
+  enumTable,
   fundingModules,
   fundingNotes,
   fundingProjects,
@@ -409,6 +410,7 @@ export class FundingsRepository {
         content: notes.content,
         followUpDate: notes.followUpDate,
         createdAt: notes.createdAt,
+        updatedAt: notes.updatedAt,
       })
       .from(fundingNotes)
       .innerJoin(notes, eq(notes.id, fundingNotes.noteId))
@@ -446,7 +448,18 @@ export class FundingsRepository {
         title: tasks.title,
         description: tasks.description,
         dueDate: tasks.dueDate,
+        // Status and priority let the funding page hide completed tasks and
+        // order the rest the same way as the paper and project pages.
+        status: sql<string | null>`(
+          SELECT ${enumTable.value} FROM ${enumTable}
+          WHERE ${enumTable.id} = ${tasks.statusId}
+        )`,
+        priority: sql<string | null>`(
+          SELECT ${enumTable.value} FROM ${enumTable}
+          WHERE ${enumTable.id} = ${tasks.priorityId}
+        )`,
         createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
       })
       .from(fundingTasks)
       .innerJoin(tasks, eq(tasks.id, fundingTasks.taskId))
