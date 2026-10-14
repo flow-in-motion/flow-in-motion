@@ -6,17 +6,22 @@ interface WordmarkProps {
 }
 
 function LogoMark({ compact = false }: { compact?: boolean }) {
+  const size = compact ? "h-9 w-9" : "h-10 w-10";
   return (
-    <span
-      className={compact
-        ? "relative flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/15"
-        : "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/15"
-      }
-    >
-      <span className="font-heading text-[1.1rem] font-bold tracking-[-0.04em]" aria-hidden="true">
-        R
-      </span>
-      <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-[hsl(var(--brand-secondary))] ring-2 ring-primary" />
+    <span className={`relative flex ${size} shrink-0 items-center justify-center`}>
+      {/* Navy mark for light themes, white mark for dark themes. */}
+      <img
+        src="/logo-mark.png"
+        alt=""
+        aria-hidden="true"
+        className="h-full w-full object-contain dark:hidden"
+      />
+      <img
+        src="/logo-mark-light.png"
+        alt=""
+        aria-hidden="true"
+        className="hidden h-full w-full object-contain dark:block"
+      />
     </span>
   );
 }
