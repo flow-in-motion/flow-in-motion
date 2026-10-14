@@ -9,7 +9,7 @@ resource "aws_lambda_function" "api" {
   runtime       = "nodejs24.x"
   architectures = ["arm64"]
   handler       = "dist/lambda.handler"
-  memory_size   = 512
+  memory_size   = 1024
   timeout       = 25
 
   environment {

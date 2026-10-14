@@ -29,7 +29,7 @@ Resources:
       Runtime: nodejs24.x
       Architectures:
         - arm64
-      MemorySize: 512
+      MemorySize: 1024
       Timeout: 25
 
       # VpcConfig is intentionally omitted. The function connects to the
