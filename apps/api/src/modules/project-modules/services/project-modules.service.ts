@@ -112,7 +112,12 @@ export class ProjectModulesService {
     }
 
     for (const invitation of invited) {
-      const key = invitation.email.trim().toLowerCase();
+      // Name-only collaborators have no email, so group them by name instead.
+      const key =
+        invitation.email?.trim().toLowerCase() ||
+        (invitation.displayName?.trim()
+          ? `name:${invitation.displayName.trim().toLowerCase()}`
+          : `invitation:${invitation.invitationId}`);
       if (key === callerKey) continue;
       const existing = contactsByEmail.get(key);
       if (existing) {

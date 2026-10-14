@@ -22,7 +22,7 @@ export class ProjectInvitationsRepository {
       | {
           id: string;
           project_id: string;
-          email: string;
+          email: string | null;
           name: string | null;
           affiliation: string | null;
           role: string;
@@ -80,7 +80,7 @@ export class ProjectInvitationsRepository {
 
   async create(values: {
     projectId: string;
-    email: string;
+    email: string | null;
     name?: string;
     affiliation?: string;
     role: string;

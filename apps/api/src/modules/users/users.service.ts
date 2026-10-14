@@ -56,6 +56,7 @@ export class UsersService {
             project_invitations.updated_at
           FROM project_invitations
           WHERE project_invitations.invited_by = ${invitedByUserId}
+            AND project_invitations.email IS NOT NULL
   
           UNION ALL
   
@@ -71,6 +72,7 @@ export class UsersService {
             module_invitations.updated_at
           FROM module_invitations
           WHERE module_invitations.invited_by = ${invitedByUserId}
+            AND module_invitations.email IS NOT NULL
   
           UNION ALL
   
@@ -86,6 +88,7 @@ export class UsersService {
             task_invitations.updated_at
           FROM task_invitations
           WHERE task_invitations.invited_by = ${invitedByUserId}
+            AND task_invitations.email IS NOT NULL
   
           UNION ALL
   
@@ -101,6 +104,7 @@ export class UsersService {
             note_invitations.updated_at
           FROM note_invitations
           WHERE note_invitations.invited_by = ${invitedByUserId}
+            AND note_invitations.email IS NOT NULL
         ),
                 ranked AS (
           SELECT

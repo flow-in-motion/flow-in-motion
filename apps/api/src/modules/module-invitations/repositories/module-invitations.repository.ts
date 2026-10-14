@@ -22,7 +22,7 @@ export class ModuleInvitationsRepository {
       | {
           id: string;
           module_id: string;
-          email: string;
+          email: string | null;
           name: string | null;
           affiliation: string | null;
           role: string;
@@ -80,7 +80,7 @@ export class ModuleInvitationsRepository {
 
   async create(values: {
     moduleId: string;
-    email: string;
+    email: string | null;
     name?: string;
     affiliation?: string;
     role: string;

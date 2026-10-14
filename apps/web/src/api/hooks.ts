@@ -407,7 +407,8 @@ export interface ApiInvitation {
   moduleId?: string;
   taskId?: string;
   noteId?: string;
-  email: string;
+  /** Null for collaborators recorded by name only. */
+  email: string | null;
   name?: string | null;
   affiliation?: string | null;
   role?: string;
@@ -3147,7 +3148,8 @@ function invitationQueryKey(
 }
 
 export interface DraftCollaboratorInput {
-  email: string;
+  /** Optional: a collaborator can be added by name alone. */
+  email?: string;
   name?: string;
   affiliation?: string;
 }

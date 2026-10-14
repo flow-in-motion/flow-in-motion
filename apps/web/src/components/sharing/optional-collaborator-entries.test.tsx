@@ -124,6 +124,36 @@ describe.each(["paper", "project"] as const)(
       },
     );
 
+    it("adds a collaborator with only a name, and rejects a duplicate name", () => {
+      mocks.searchResults = [];
+      render(<Harness entityLabel={entityLabel} />);
+
+      const nameInput = screen.getByLabelText("Collaborator name");
+      const addButton = screen.getByRole("button", { name: /Add collaborator/ });
+
+      fireEvent.click(addButton);
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Enter a name before adding a collaborator.",
+      );
+
+      fireEvent.change(nameInput, { target: { value: "Riley Name-Only" } });
+      fireEvent.click(addButton);
+
+      expect(screen.getByText("Riley Name-Only")).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+      fireEvent.change(nameInput, { target: { value: "riley name-only" } });
+      fireEvent.click(addButton);
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "This collaborator has already been added.",
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Remove Riley Name-Only" }),
+      );
+      expect(screen.queryByText("Riley Name-Only")).not.toBeInTheDocument();
+    });
+
     it("clears an earlier affiliation when the selected contact has none", () => {
       mocks.searchResults = [{
         id: "user-sam",

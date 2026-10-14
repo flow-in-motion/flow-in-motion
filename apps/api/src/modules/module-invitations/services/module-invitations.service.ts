@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   GoneException,
@@ -40,7 +41,7 @@ export class ModuleInvitationsService {
   async createDraft(
     moduleId: string,
     invitedBy: string,
-    input: { email: string; name?: string; affiliation?: string },
+    input: { email?: string; name?: string; affiliation?: string },
   ) {
     const module = await this.modulesRepository.findByIdGlobal(moduleId);
     if (!module) {
@@ -49,7 +50,7 @@ export class ModuleInvitationsService {
 
     const invitation = await this.repository.create({
       moduleId,
-      email: normaliseEmail(input.email),
+      email: input.email?.trim() ? normaliseEmail(input.email) : null,
       name: input.name,
       affiliation: input.affiliation,
       role: 'Collaborator',
@@ -77,6 +78,11 @@ export class ModuleInvitationsService {
     }
     if (draft.status !== 'draft') {
       throw new ConflictException('This invitation has already been sent');
+    }
+    if (!draft.email) {
+      throw new BadRequestException(
+        'Add an email address for this collaborator before sending an invitation',
+      );
     }
 
     const tokenBytes = Number(
@@ -137,7 +143,10 @@ export class ModuleInvitationsService {
     if (!invitation.expiresAt || invitation.expiresAt.getTime() < Date.now()) {
       throw new GoneException('This invitation has expired');
     }
-    if (normaliseEmail(invitation.email) !== normaliseEmail(userEmail)) {
+    if (
+      !invitation.email ||
+      normaliseEmail(invitation.email) !== normaliseEmail(userEmail)
+    ) {
       throw new ForbiddenException(
         'Sign in with the email address that received this invitation',
       );

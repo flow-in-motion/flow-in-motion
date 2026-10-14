@@ -8,7 +8,9 @@ export const taskInvitations = pgTable('task_invitations', {
   taskId: uuid('task_id')
     .notNull()
     .references(() => tasks.id, { onDelete: 'cascade' }),
-  email: text('email').notNull(),
+  // Nullable: a collaborator can be recorded by name only; an email is
+  // required later, only to send the invitation link.
+  email: text('email'),
   name: text('name'),
   affiliation: text('affiliation'),
   invitedBy: uuid('invited_by')

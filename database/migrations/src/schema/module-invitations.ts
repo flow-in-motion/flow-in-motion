@@ -8,7 +8,9 @@ export const moduleInvitations = pgTable('module_invitations', {
   moduleId: uuid('module_id')
     .notNull()
     .references(() => modules.id, { onDelete: 'cascade' }),
-  email: text('email').notNull(),
+  // Nullable: a collaborator can be recorded by name only; an email is
+  // required later, only to send the invitation link.
+  email: text('email'),
   name: text('name'),
   affiliation: text('affiliation'),
   role: text('role').notNull(),

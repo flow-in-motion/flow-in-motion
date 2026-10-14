@@ -17,6 +17,13 @@ interface OptionalCollaboratorEntriesProps {
   entityLabel: "paper" | "project";
 }
 
+/** Stable identity for an entry: its email, or its name when there is no email. */
+function entryKey(entry: DraftCollaboratorInput) {
+  return entry.email?.trim()
+    ? `email:${entry.email.trim().toLowerCase()}`
+    : `name:${entry.name?.trim().toLowerCase() ?? ""}`;
+}
+
 export function OptionalCollaboratorEntries({
   value,
   onChange,
@@ -49,7 +56,9 @@ export function OptionalCollaboratorEntries({
   );
 
   const usedEmails = new Set(
-    value.map((entry) => entry.email.trim().toLowerCase()),
+    value.flatMap((entry) =>
+      entry.email?.trim() ? [entry.email.trim().toLowerCase()] : [],
+    ),
   );
   const normalizedOwnerEmail = ownerEmail?.trim().toLowerCase();
 
@@ -80,22 +89,29 @@ export function OptionalCollaboratorEntries({
   }
 
   function addEntry() {
+    const trimmedName = name.trim();
     const trimmedEmail = email.trim();
     const normalizedEmail = trimmedEmail.toLowerCase();
 
-    if (!trimmedEmail) {
-      setEntryError(
-        "Enter an email address before adding a collaborator.",
-      );
+    if (!trimmedName && !trimmedEmail) {
+      setEntryError("Enter a name before adding a collaborator.");
       return;
     }
 
-    if (usedEmails.has(normalizedEmail)) {
+    const isDuplicate = trimmedEmail
+      ? usedEmails.has(normalizedEmail)
+      : value.some(
+          (entry) =>
+            !entry.email &&
+            entry.name?.trim().toLowerCase() === trimmedName.toLowerCase(),
+        );
+
+    if (isDuplicate) {
       setEntryError("This collaborator has already been added.");
       return;
     }
 
-    if (normalizedOwnerEmail === normalizedEmail) {
+    if (trimmedEmail && normalizedOwnerEmail === normalizedEmail) {
       setEntryError(
         "You are already the owner and cannot be added as a collaborator.",
       );
@@ -105,8 +121,8 @@ export function OptionalCollaboratorEntries({
     onChange([
       ...value,
       {
-        email: trimmedEmail,
-        name: name.trim() || undefined,
+        email: trimmedEmail || undefined,
+        name: trimmedName || undefined,
         affiliation: affiliation.trim() || undefined,
       },
     ]);
@@ -178,14 +194,14 @@ export function OptionalCollaboratorEntries({
         <div className="flex flex-col gap-2">
           {value.map((entry) => (
             <div
-              key={entry.email.toLowerCase()}
+              key={entryKey(entry)}
               className="flex items-center justify-between gap-3 rounded-md border bg-card p-3"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">
                   {entry.name ?? entry.email}
                 </p>
-                {entry.name ? (
+                {entry.name && entry.email ? (
                   <p className="truncate text-xs text-muted-foreground">
                     {entry.email}
                   </p>
@@ -205,7 +221,7 @@ export function OptionalCollaboratorEntries({
                 onClick={() =>
                   onChange(
                     value.filter(
-                      (candidate) => candidate.email !== entry.email,
+                      (candidate) => entryKey(candidate) !== entryKey(entry),
                     ),
                   )
                 }
