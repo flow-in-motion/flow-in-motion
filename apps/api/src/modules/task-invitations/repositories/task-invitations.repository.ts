@@ -23,7 +23,7 @@ export class TaskInvitationsRepository {
       | {
           id: string;
           task_id: string;
-          email: string;
+          email: string | null;
           name: string | null;
           affiliation: string | null;
           invited_by: string;
@@ -64,7 +64,7 @@ export class TaskInvitationsRepository {
 
   async create(values: {
     taskId: string;
-    email: string;
+    email: string | null;
     name?: string;
     affiliation?: string;
     invitedBy: string;

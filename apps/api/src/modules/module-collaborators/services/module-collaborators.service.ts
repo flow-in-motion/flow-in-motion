@@ -130,7 +130,9 @@ export class ModuleCollaboratorsService {
     }
 
     for (const invitation of invitations) {
-      const key = invitation.email.trim().toLowerCase();
+      const key =
+        invitation.email?.trim().toLowerCase() ||
+        `invitation:${invitation.invitationId}`;
       if (key === callerEmail) continue;
       const existing = contactsByEmail.get(key);
       if (existing) {

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   GoneException,
@@ -89,6 +90,30 @@ describe('NoteInvitationsService', () => {
       expect(result).not.toHaveProperty('token');
     });
 
+    it('creates a draft for a collaborator recorded by name only', async () => {
+      notesRepository.findByIdGlobal.mockResolvedValue({ id: 'note-1' });
+      repository.create.mockResolvedValue({
+        id: 'invite-2',
+        noteId: 'note-1',
+        email: null,
+        name: 'Riley Name-Only',
+        status: 'draft',
+        token: null,
+      });
+
+      await service.createDraft('note-1', 'user-owner', {
+        name: 'Riley Name-Only',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: null,
+          name: 'Riley Name-Only',
+          status: 'draft',
+        }),
+      );
+    });
+
     it('throws when the note does not exist', async () => {
       notesRepository.findByIdGlobal.mockResolvedValue(undefined);
 
@@ -127,6 +152,21 @@ describe('NoteInvitationsService', () => {
       );
       expect(result.acceptanceToken).toEqual(expect.any(String));
       expect(result.invitation).not.toHaveProperty('token');
+    });
+
+    it('refuses to send an invitation to a collaborator with no email', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'invite-2',
+        noteId: 'note-1',
+        email: null,
+        name: 'Riley Name-Only',
+        status: 'draft',
+      });
+
+      await expect(service.send('note-1', 'invite-2')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(repository.markSent).not.toHaveBeenCalled();
     });
 
     it('refuses to re-send an invitation that already went out', async () => {

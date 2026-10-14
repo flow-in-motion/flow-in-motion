@@ -185,7 +185,9 @@ export function CollaboratorRoster({
       .filter(Boolean),
   );
   const pendingEmails = new Set(
-    pending.map((invitation) => invitation.email.toLowerCase()),
+    pending
+      .map((invitation) => invitation.email?.toLowerCase())
+      .filter(Boolean),
   );
   const availableUsers = (userSearch.data ?? []).filter(
     (user) =>
@@ -215,9 +217,10 @@ export function CollaboratorRoster({
 
   async function handleAddDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!email.trim()) return;
+    // A name on its own is enough; email and affiliation can be added later.
+    if (!name.trim() && !email.trim()) return;
     await createDraft.mutateAsync({
-      email: email.trim(),
+      email: email.trim() || undefined,
       name: name.trim() || undefined,
       affiliation: affiliation.trim() || undefined,
     });
@@ -225,12 +228,13 @@ export function CollaboratorRoster({
   }
 
   async function handleSend(invitation: ApiInvitation) {
+    if (!invitation.email) return;
     setSendingId(invitation.id);
     try {
       const result = await sendInvitation.mutateAsync(invitation.id);
       const acceptanceUrl = `${window.location.origin}/invitations/${encodeURIComponent(result.acceptanceToken)}`;
       window.location.href = buildInvitationMailto({
-        email: result.invitation.email,
+        email: result.invitation.email ?? invitation.email,
         name: result.invitation.name,
         entityTitle,
         target,
@@ -353,7 +357,14 @@ export function CollaboratorRoster({
                       size="sm"
                       variant="outline"
                       onClick={() => void handleSend(invitation)}
-                      disabled={sendingId === invitation.id}
+                      disabled={
+                        sendingId === invitation.id || !invitation.email
+                      }
+                      title={
+                        invitation.email
+                          ? undefined
+                          : "Add an email address to send an invitation"
+                      }
                     >
                       <Mail className="h-3.5 w-3.5" />
                       {sendingId === invitation.id ? "Sending…" : "Invite"}
@@ -362,7 +373,7 @@ export function CollaboratorRoster({
 
                   <button
                     type="button"
-                    aria-label={`Remove draft for ${invitation.email}`}
+                    aria-label={`Remove draft for ${invitation.email ?? invitation.name ?? "collaborator"}`}
                     onClick={() => revokeInvitation.mutate(invitation.id)}
                     disabled={revokeInvitation.isPending}
                     className="rounded-full p-1 text-muted-foreground hover:text-destructive focus:outline-none focus:ring-1 focus:ring-ring"
@@ -398,7 +409,7 @@ export function CollaboratorRoster({
                 type="button"
                 size="icon"
                 variant="ghost"
-                aria-label={`Revoke invitation for ${invitation.email}`}
+                aria-label={`Revoke invitation for ${invitation.email ?? invitation.name ?? "collaborator"}`}
                 onClick={() => revokeInvitation.mutate(invitation.id)}
                 disabled={revokeInvitation.isPending}
               >
@@ -427,7 +438,9 @@ export function CollaboratorRoster({
           <div>
             <p className="text-sm font-semibold">Add a collaborator</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Enter their name, email, and affiliation to add them to the collaborator list.
+              A name is enough. Email and affiliation are optional and can
+              be added later — an email is only needed to send them an
+              invitation.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
@@ -491,7 +504,6 @@ export function CollaboratorRoster({
                 aria-autocomplete="list"
                 autoComplete="off"
                 className="pl-9"
-                required
               />
 
               {activePicker === "email" && email.trim()
@@ -512,7 +524,7 @@ export function CollaboratorRoster({
             type="submit"
             size="sm"
             className="w-fit"
-            disabled={createDraft.isPending || !email.trim()}
+            disabled={createDraft.isPending || (!name.trim() && !email.trim())}
           >
             {createDraft.isPending ? "Adding…" : "Add collaborator"}
           </Button>

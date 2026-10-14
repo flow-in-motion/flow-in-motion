@@ -23,7 +23,7 @@ export class NoteInvitationsRepository {
       | {
           id: string;
           note_id: string;
-          email: string;
+          email: string | null;
           name: string | null;
           affiliation: string | null;
           invited_by: string;
@@ -64,7 +64,7 @@ export class NoteInvitationsRepository {
 
   async create(values: {
     noteId: string;
-    email: string;
+    email: string | null;
     name?: string;
     affiliation?: string;
     invitedBy: string;

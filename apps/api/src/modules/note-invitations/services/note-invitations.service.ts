@@ -1,5 +1,6 @@
 // apps/api/src/modules/note-invitations/services/note-invitations.service.ts
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   GoneException,
@@ -39,7 +40,7 @@ export class NoteInvitationsService {
   async createDraft(
     noteId: string,
     invitedBy: string,
-    input: { email: string; name?: string; affiliation?: string },
+    input: { email?: string; name?: string; affiliation?: string },
   ) {
     const note = await this.notesRepository.findByIdGlobal(noteId);
     if (!note) {
@@ -48,7 +49,7 @@ export class NoteInvitationsService {
 
     const invitation = await this.repository.create({
       noteId,
-      email: normaliseEmail(input.email),
+      email: input.email?.trim() ? normaliseEmail(input.email) : null,
       name: input.name,
       affiliation: input.affiliation,
       invitedBy,
@@ -75,6 +76,11 @@ export class NoteInvitationsService {
     }
     if (draft.status !== 'draft') {
       throw new ConflictException('This invitation has already been sent');
+    }
+    if (!draft.email) {
+      throw new BadRequestException(
+        'Add an email address for this collaborator before sending an invitation',
+      );
     }
 
     const tokenBytes = Number(
@@ -135,7 +141,10 @@ export class NoteInvitationsService {
     if (!invitation.expiresAt || invitation.expiresAt.getTime() < Date.now()) {
       throw new GoneException('This invitation has expired');
     }
-    if (normaliseEmail(invitation.email) !== normaliseEmail(userEmail)) {
+    if (
+      !invitation.email ||
+      normaliseEmail(invitation.email) !== normaliseEmail(userEmail)
+    ) {
       throw new ForbiddenException(
         'Sign in with the email address that received this invitation',
       );

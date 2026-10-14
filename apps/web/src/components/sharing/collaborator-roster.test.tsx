@@ -258,6 +258,74 @@ describe("CollaboratorRoster", () => {
     );
   });
 
+  it("adds a collaborator with only a name", async () => {
+    render(
+      <CollaboratorRoster
+        target="project"
+        tenantId="tenant-1"
+        entityId="project-1"
+        entityTitle="Coral reef survey"
+        members={[]}
+        collaborators={[]}
+        onRemoveCollaborator={vi.fn()}
+        canManage
+      />,
+    );
+
+    const addButton = screen.getByRole("button", { name: "Add collaborator" });
+    expect(addButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Collaborator name"), {
+      target: { value: "  Dr. Riley Name-Only  " },
+    });
+    expect(addButton).toBeEnabled();
+
+    fireEvent.click(addButton);
+
+    await waitFor(() =>
+      expect(createDraftMutate).toHaveBeenCalledWith({
+        email: undefined,
+        name: "Dr. Riley Name-Only",
+        affiliation: undefined,
+      }),
+    );
+  });
+
+  it("shows a name-only collaborator and lets it be removed", () => {
+    invitations.current = [
+      {
+        id: "invite-name-only",
+        projectId: "project-1",
+        email: null,
+        name: "Riley Name-Only",
+        affiliation: null,
+        invitedBy: "user-owner",
+        status: "draft",
+        expiresAt: null,
+        ...timestamps,
+      },
+    ];
+
+    render(
+      <CollaboratorRoster
+        target="project"
+        tenantId="tenant-1"
+        entityId="project-1"
+        entityTitle="Coral reef survey"
+        members={[]}
+        collaborators={[]}
+        onRemoveCollaborator={vi.fn()}
+        canManage
+      />,
+    );
+
+    expect(screen.getByText("Riley Name-Only")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove draft for Riley Name-Only" }),
+    );
+    expect(revokeInvitationMutate).toHaveBeenCalledWith("invite-name-only");
+  });
+
   it("hides the add-collaborator form and management actions when the viewer can't manage", () => {
     invitations.current = [];
 
