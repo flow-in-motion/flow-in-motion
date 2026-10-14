@@ -8,6 +8,7 @@ import { createQueryClient } from "@/api/query-client";
 import { AppAuthProvider, useAuth } from "@/auth/auth-provider";
 import { AppErrorBoundary } from "@/components/shared/error-boundary";
 import { installGlobalErrorHandlers } from "@/lib/client-error-reporter";
+import { preloadPageForPath } from "@/lib/preload-page";
 import { ColorThemeProvider } from "@/theme/color-theme";
 import { AppearanceThemeProvider } from "@/theme/appearance-theme";
 import { DesignThemeProvider } from "@/theme/design-theme";
@@ -17,6 +18,7 @@ import App from "./App";
 import "./index.css";
 
 installGlobalErrorHandlers();
+preloadPageForPath(window.location.pathname);
 
 createRoot(document.getElementById("root")!).render(
   <AppErrorBoundary label="Research in Motion" className="min-h-screen">

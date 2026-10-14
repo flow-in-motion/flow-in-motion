@@ -24,7 +24,9 @@ describe('UsersService', () => {
           from: jest.fn().mockReturnValue({ where: emailWhere }),
         });
       const returning = jest.fn().mockResolvedValue([created]);
-      const values = jest.fn().mockReturnValue({ returning });
+      const values = jest
+        .fn()
+        .mockReturnValue({ onConflictDoNothing: () => ({ returning }) });
       const insert = jest.fn().mockReturnValue({ values });
       const drizzle = {
         db: { select, insert },
@@ -50,6 +52,44 @@ describe('UsersService', () => {
         status: 'active',
       });
       expect(assertUserExists).toHaveBeenCalledWith('supabase-user-1');
+    });
+
+    it('returns the user another request created at the same moment', async () => {
+      const created = {
+        id: 'user-1',
+        externalAuthId: 'supabase-user-1',
+        email: 'person@example.com',
+        displayName: 'Person Example',
+        status: 'active',
+      };
+      // 1st select: no user yet. 2nd: no one with this email. 3rd: after the
+      // insert was skipped, the row the concurrent request created.
+      const where = jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([created]);
+      const select = jest
+        .fn()
+        .mockReturnValue({ from: jest.fn().mockReturnValue({ where }) });
+      const returning = jest.fn().mockResolvedValue([]);
+      const insert = jest.fn().mockReturnValue({
+        values: () => ({ onConflictDoNothing: () => ({ returning }) }),
+      });
+      const service = new UsersService(
+        { db: { select, insert } } as unknown as DrizzleService,
+        {
+          assertUserExists: jest.fn().mockResolvedValue(undefined),
+        } as unknown as SupabaseAdminService,
+      );
+
+      await expect(
+        service.findOrProvisionFromPrincipal({
+          sub: 'supabase-user-1',
+          email: 'person@example.com',
+        }),
+      ).resolves.toEqual(created);
+      expect(where).toHaveBeenCalledTimes(3);
     });
 
     it('requires an email claim when provisioning a new user', async () => {
