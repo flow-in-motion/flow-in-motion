@@ -9,6 +9,7 @@ import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Observable, from } from 'rxjs';
+import type { PoolClient } from 'pg';
 import * as schema from '@research-tracker/migrations';
 import { DrizzleService } from './drizzle.service';
 import { requestContextStorage } from './request-context';
@@ -19,6 +20,24 @@ interface AuthenticatedRequest extends Request {
   user?: AuthenticatedPrincipal;
 }
 
+/**
+ * Opens the request transaction and applies its settings in one
+ * simple-protocol batch (one database round trip). Simple-protocol queries
+ * can't take bind parameters, so every value is escaped as a literal.
+ */
+export function buildRequestSetupSql(
+  client: Pick<PoolClient, 'escapeLiteral'>,
+  values: Array<[string, string]>,
+): string {
+  const calls = values
+    .map(
+      ([name, value]) =>
+        `set_config(${client.escapeLiteral(name)}, ${client.escapeLiteral(value)}, true)`,
+    )
+    .join(', ');
+  return `BEGIN; SELECT ${calls};`;
+}
+
 @Injectable()
 export class RequestContextInterceptor implements NestInterceptor {
   constructor(
@@ -26,6 +45,24 @@ export class RequestContextInterceptor implements NestInterceptor {
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
   ) {}
+
+  /** The transaction-local settings each request runs with. */
+  private requestSettings(
+    tenantId: string | null,
+    userId: string | null,
+  ): Array<[string, string]> {
+    const values: Array<[string, string]> = [
+      [
+        'statement_timeout',
+        String(
+          this.configService.get<number>('POSTGRES_QUERY_TIMEOUT_MS', 10_000),
+        ),
+      ],
+    ];
+    if (tenantId) values.push(['app.current_tenant_id', tenantId]);
+    if (userId) values.push(['app.current_user_id', userId]);
+    return values;
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -61,25 +98,10 @@ export class RequestContextInterceptor implements NestInterceptor {
     const tx = drizzle(client, { schema });
 
     try {
-      await client.query('BEGIN');
-      await client.query('SELECT set_config($1, $2, true)', [
-        'statement_timeout',
-        String(
-          this.configService.get<number>('POSTGRES_QUERY_TIMEOUT_MS', 10_000),
-        ),
-      ]);
-      if (tenantId) {
-        await client.query('SELECT set_config($1, $2, true)', [
-          'app.current_tenant_id',
-          tenantId,
-        ]);
-      }
-      if (userId) {
-        await client.query('SELECT set_config($1, $2, true)', [
-          'app.current_user_id',
-          userId,
-        ]);
-      }
+      // Previously BEGIN plus one query per setting (up to four round trips).
+      await client.query(
+        buildRequestSetupSql(client, this.requestSettings(tenantId, userId)),
+      );
     } catch (err) {
       await client.query('ROLLBACK').catch(() => undefined);
       client.release();

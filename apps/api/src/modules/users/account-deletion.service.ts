@@ -10,6 +10,7 @@ import {
 import { and, eq, sql, type AnyColumn } from 'drizzle-orm';
 import { DrizzleService } from '../../db/drizzle.service';
 import { SupabaseAdminService } from '../auth/supabase-admin.service';
+import { userLookupCache } from './user-lookup-cache';
 
 interface AccountIdentity {
   id: string;
@@ -46,6 +47,8 @@ export class AccountDeletionService {
       .delete(noteInvitations)
       .where(emailMatches(noteInvitations.email));
 
+    userLookupCache.forget(identity);
+
     const [deletedUser] = await this.drizzle.db
       .delete(users)
       .where(
@@ -55,6 +58,8 @@ export class AccountDeletionService {
         ),
       )
       .returning({ id: users.id });
+
+    userLookupCache.forget(identity);
 
     if (!deletedUser) {
       throw new NotFoundException('User not found');

@@ -3,7 +3,11 @@ import type { CallHandler, ExecutionContext } from '@nestjs/common';
 import { lastValueFrom, of } from 'rxjs';
 import type { PoolClient } from 'pg';
 import { DrizzleService } from './drizzle.service';
-import { RequestContextInterceptor } from './request-context.interceptor';
+import { Client } from 'pg';
+import {
+  buildRequestSetupSql,
+  RequestContextInterceptor,
+} from './request-context.interceptor';
 import { UsersService } from '../modules/users/users.service';
 
 function executionContext(originalUrl: string): ExecutionContext {
@@ -17,6 +21,23 @@ function executionContext(originalUrl: string): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
+// pg's own escaping, so the tests check the SQL that would really be sent.
+const realEscapeLiteral = (value: string) =>
+  Client.prototype.escapeLiteral.call(undefined, value);
+
+describe('buildRequestSetupSql', () => {
+  it('escapes values so a crafted tenant id cannot break out of its quotes', () => {
+    const sql = buildRequestSetupSql({ escapeLiteral: realEscapeLiteral }, [
+      ['app.current_tenant_id', "x', true); DROP TABLE users; --"],
+    ]);
+
+    expect(sql).toBe(
+      "BEGIN; SELECT set_config('app.current_tenant_id', " +
+        "'x'', true); DROP TABLE users; --', true);",
+    );
+  });
+});
+
 describe('RequestContextInterceptor', () => {
   it('keeps timeout and request context state inside one transaction', async () => {
     const query = jest.fn().mockResolvedValue({ rows: [] });
@@ -24,6 +45,7 @@ describe('RequestContextInterceptor', () => {
     const client = {
       query,
       release,
+      escapeLiteral: realEscapeLiteral,
     } as unknown as PoolClient;
     const getClient = jest.fn().mockResolvedValue(client);
     const drizzle = {
@@ -47,23 +69,15 @@ describe('RequestContextInterceptor', () => {
       ),
     ).resolves.toEqual({ ok: true });
 
-    expect(query).toHaveBeenNthCalledWith(1, 'BEGIN');
+    // BEGIN and every setting go to the database in a single round trip.
+    expect(query).toHaveBeenCalledTimes(2);
     expect(query).toHaveBeenNthCalledWith(
-      2,
-      'SELECT set_config($1, $2, true)',
-      ['statement_timeout', '7500'],
+      1,
+      "BEGIN; SELECT set_config('statement_timeout', '7500', true), " +
+        "set_config('app.current_tenant_id', 'tenant-1', true), " +
+        "set_config('app.current_user_id', 'user-1', true);",
     );
-    expect(query).toHaveBeenNthCalledWith(
-      3,
-      'SELECT set_config($1, $2, true)',
-      ['app.current_tenant_id', 'tenant-1'],
-    );
-    expect(query).toHaveBeenNthCalledWith(
-      4,
-      'SELECT set_config($1, $2, true)',
-      ['app.current_user_id', 'user-1'],
-    );
-    expect(query).toHaveBeenNthCalledWith(5, 'COMMIT');
+    expect(query).toHaveBeenNthCalledWith(2, 'COMMIT');
     expect(release).toHaveBeenCalledTimes(1);
   });
 

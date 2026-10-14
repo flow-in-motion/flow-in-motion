@@ -10,6 +10,7 @@ import { DrizzleService } from '../../db/drizzle.service';
 import type { AuthenticatedPrincipal } from '../auth/jwt.strategy';
 import { SupabaseAdminService } from '../auth/supabase-admin.service';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
+import { userLookupCache } from './user-lookup-cache';
 
 @Injectable()
 export class UsersService {
@@ -181,6 +182,9 @@ export class UsersService {
   }
 
   async findByExternalAuthId(externalAuthId: string) {
+    const cached = userLookupCache.get(externalAuthId);
+    if (cached) return cached;
+
     const [existing] = await this.drizzle.db
       .select()
       .from(users)
@@ -190,6 +194,7 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    userLookupCache.set(externalAuthId, existing);
     return existing;
   }
 
@@ -220,6 +225,8 @@ export class UsersService {
     const displayName: string =
       principal.displayName?.trim() || email.split('@')[0] || email;
 
+    userLookupCache.forget({ externalAuthId, id: existing?.id });
+
     if (existing) {
       const [updated] = await this.drizzle.db
         .update(users)
@@ -244,6 +251,7 @@ export class UsersService {
     }
 
     if (sameEmail) {
+      userLookupCache.forget({ id: sameEmail.id });
       const [linked] = await this.drizzle.db
         .update(users)
         .set({
@@ -289,6 +297,8 @@ export class UsersService {
       })
       .where(eq(users.id, userId))
       .returning();
+
+    userLookupCache.forget({ id: userId });
 
     if (!updated) {
       throw new NotFoundException('User not found');
