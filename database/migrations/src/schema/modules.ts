@@ -26,6 +26,9 @@ export const modules = pgTable(
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     shortTitle: text("short_title"),
     title: text("title"),
     description: text("description"),
@@ -67,6 +70,9 @@ export const modules = pgTable(
     assignedToInvitationIdIdx: index("modules_assigned_to_invitation_id_idx")
       .on(table.assignedToInvitationId)
       .where(sql`${table.assignedToInvitationId} IS NOT NULL`),
+    createdByIdx: index("modules_created_by_idx")
+      .on(table.createdBy)
+      .where(sql`${table.createdBy} IS NOT NULL`),
     currentlyWithTypeCheck: check(
       "modules_currently_with_type_check",
       sql`${table.currentlyWithType} IS NULL OR ${table.currentlyWithType} IN ('me', 'collaborator', 'journal', 'friendly_reviewer', 'others')`,

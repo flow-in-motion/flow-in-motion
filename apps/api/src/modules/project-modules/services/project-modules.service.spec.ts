@@ -543,6 +543,7 @@ describe('ProjectModulesService', () => {
 
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({
+          createdBy: 'user-1',
           currentlyWithType: 'me',
           assignedToUserId: 'user-1',
         }),

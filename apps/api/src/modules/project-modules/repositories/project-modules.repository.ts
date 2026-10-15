@@ -624,6 +624,7 @@ export class ProjectModulesRepository {
   async create(values: {
     projectId?: string;
     tenantId: string;
+    createdBy: string;
     shortTitle: string;
     title?: string;
     description?: string;

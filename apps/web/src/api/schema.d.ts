@@ -1404,6 +1404,12 @@ export interface components {
             name: string;
             /** @example /projects */
             path?: string;
+            /** Format: uuid */
+            sessionId?: string;
+            /** @example papers */
+            pageKey?: string;
+            /** @example documents */
+            featureKey?: string;
             /**
              * @description Small, flat set of extra properties describing the event.
              * @example {

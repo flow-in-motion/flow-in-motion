@@ -3,7 +3,9 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
+  Matches,
   MaxLength,
 } from 'class-validator';
 
@@ -22,6 +24,23 @@ export class CreateAnalyticsEventDto {
   @IsString()
   @MaxLength(300)
   path?: string;
+
+  @ApiProperty({ required: false, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  sessionId?: string;
+
+  @ApiProperty({ required: false, example: 'papers' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z][a-z0-9_]{0,49}$/)
+  pageKey?: string;
+
+  @ApiProperty({ required: false, example: 'documents' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z][a-z0-9_-]{0,79}$/)
+  featureKey?: string;
 
   @ApiProperty({
     required: false,

@@ -11,6 +11,7 @@
     "db:dry-run": "dotenv -e ../../.env -- node scripts/dry-run-migrations.mjs",
     "db:verify": "dotenv -e ../../.env -- node scripts/verify-database.mjs",
     "feedback:export": "dotenv -e ../../.env -- node scripts/export-feedback.mjs",
+    "analytics:report": "dotenv -e ../../.env -- node scripts/export-usage-analytics.mjs",
     "build": "tsc -p tsconfig.json",
     "prepare": "tsc -p tsconfig.json"
   },

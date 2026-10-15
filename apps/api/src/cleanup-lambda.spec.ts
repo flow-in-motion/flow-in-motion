@@ -12,6 +12,7 @@ describe('cleanup Lambda runner', () => {
     const handleCleanup = jest.fn().mockResolvedValue({
       deletedProjects: [{ id: 'project-1' }],
       deletedModules: [{ id: 'module-1' }, { id: 'module-2' }],
+      capturedWeeklySnapshots: 3,
     });
     const close = jest.fn().mockResolvedValue(undefined);
     const get = jest.fn((token: unknown) => {
@@ -24,6 +25,7 @@ describe('cleanup Lambda runner', () => {
     await expect(runCleanup({ get, close } as never)).resolves.toEqual({
       deletedProjects: 1,
       deletedModules: 2,
+      capturedWeeklySnapshots: 3,
     });
 
     expect(handleCleanup).toHaveBeenCalledTimes(1);

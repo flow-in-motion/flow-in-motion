@@ -31,6 +31,9 @@ export class AnalyticsService {
       userId: callerUserId,
       name: input.name,
       path: input.path,
+      sessionId: input.sessionId,
+      pageKey: input.pageKey,
+      featureKey: input.featureKey,
       properties: input.properties,
     });
   }

@@ -26,6 +26,8 @@ describe('AnalyticsService', () => {
       await service.recordEvent('tenant-1', 'user-1', {
         name: 'project_created',
         path: '/projects',
+        sessionId: '3d6f0a27-8900-49dc-8d0a-b87ec6b23583',
+        pageKey: 'projects',
         properties: { projectId: 'p1' },
       });
 
@@ -34,6 +36,9 @@ describe('AnalyticsService', () => {
         userId: 'user-1',
         name: 'project_created',
         path: '/projects',
+        sessionId: '3d6f0a27-8900-49dc-8d0a-b87ec6b23583',
+        pageKey: 'projects',
+        featureKey: undefined,
         properties: { projectId: 'p1' },
       });
     });
