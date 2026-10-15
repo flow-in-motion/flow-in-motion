@@ -470,6 +470,13 @@
       "when": 1792023115038,
       "tag": "0082_rich_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1792064142407,
+      "tag": "0083_funny_paladin",
+      "breakpoints": true
     }
   ]
 }

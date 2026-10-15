@@ -20,6 +20,7 @@ describe("usagePageContext", () => {
     ["/projects", { pageKey: "projects", path: "/projects" }],
     ["/projects/project-123", { pageKey: "projects", path: "/projects" }],
     ["/modules/paper-123", { pageKey: "papers", path: "/papers" }],
+    ["/tasks/task-123", { pageKey: "tasks", path: "/tasks" }],
     ["/daily-notes/note-123", { pageKey: "notes", path: "/notes" }],
     ["/mind-map", { pageKey: "mind_map", path: "/mind_map" }],
   ])("normalises %s without retaining entity IDs", (pathname, expected) => {

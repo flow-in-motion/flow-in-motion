@@ -29,12 +29,16 @@ const expectedTables = [
   'tenants',
   'user_preferences',
   'user_workspace_preferences',
+  'usage_daily_snapshots',
   'usage_weekly_snapshots',
   'users',
   'workspace_contexts',
 ];
 
-const privateTables = new Set(['usage_weekly_snapshots']);
+const privateTables = new Set([
+  'usage_daily_snapshots',
+  'usage_weekly_snapshots',
+]);
 
 const expectedFunctions = [
   'check_module_access',
@@ -170,7 +174,7 @@ try {
            coalesce(array_to_string(procedure.proconfig, ','), '') AS config,
            has_function_privilege(
              'research_tracker_app',
-             'internal.capture_weekly_usage_snapshots()',
+             'internal.capture_daily_usage_snapshots()',
              'EXECUTE'
            ) AS runtime_execute,
            EXISTS (
@@ -183,23 +187,23 @@ try {
       FROM pg_proc AS procedure
       INNER JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
      WHERE namespace.nspname = 'internal'
-       AND procedure.proname = 'capture_weekly_usage_snapshots'
+       AND procedure.proname = 'capture_daily_usage_snapshots'
   `);
   if (privateCaptureFunction.rowCount !== 1) {
-    failures.push('missing function: internal.capture_weekly_usage_snapshots');
+    failures.push('missing function: internal.capture_daily_usage_snapshots');
   } else {
     const [captureFunction] = privateCaptureFunction.rows;
     if (!captureFunction.prosecdef) {
-      failures.push('weekly usage capture function is not SECURITY DEFINER');
+      failures.push('daily usage capture function is not SECURITY DEFINER');
     }
     if (!captureFunction.config.includes('search_path=public, pg_temp')) {
-      failures.push('unsafe SECURITY DEFINER search_path: capture_weekly_usage_snapshots');
+      failures.push('unsafe SECURITY DEFINER search_path: capture_daily_usage_snapshots');
     }
     if (!captureFunction.runtime_execute) {
-      failures.push('runtime cannot execute weekly usage capture function');
+      failures.push('runtime cannot execute daily usage capture function');
     }
     if (captureFunction.public_execute) {
-      failures.push('PUBLIC can execute weekly usage capture function');
+      failures.push('PUBLIC can execute daily usage capture function');
     }
   }
 

@@ -15,19 +15,22 @@ export function AppLayout() {
   const { layout } = useDesignTheme();
   const location = useLocation();
   const workspace = useCurrentWorkspace();
-  const trackEvent = useTrackEvent(workspace.data?.id ?? "");
+  const tenantId = workspace.data?.id ?? "";
+  const trackEvent = useTrackEvent(tenantId);
 
   useEffect(() => {
+    if (!tenantId) return;
     trackEvent({ name: "page_view", path: location.pathname });
-    // Only re-fire when the path actually changes, not on every trackEvent identity change.
+    // Re-fire when the workspace becomes available and whenever the user
+    // visits a different route. Query-string-only changes are not page visits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [location.pathname, tenantId]);
 
   useEffect(() => {
     registerErrorReporter(trackEvent);
     return () => registerErrorReporter(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspace.data?.id]);
+  }, [tenantId]);
 
   if (layout === "topnav") {
     return (

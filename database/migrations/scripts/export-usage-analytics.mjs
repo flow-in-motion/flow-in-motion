@@ -4,7 +4,7 @@
 //
 // Usage (from database/migrations):
 //   pnpm analytics:report
-//   pnpm analytics:report -- --weeks 12 --out ./usage-report
+//   pnpm analytics:report -- --days 30 --out ./usage-report
 //   pnpm analytics:report -- --deidentified
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -16,14 +16,14 @@ const { Client } = pg;
 
 function parseArgs(argv) {
   const today = new Date().toISOString().slice(0, 10);
-  const args = { weeks: 12, out: `usage-report-${today}`, deidentified: false };
+  const args = { days: 30, out: `usage-report-${today}`, deidentified: false };
   for (let index = 0; index < argv.length; index += 1) {
-    if (argv[index] === "--weeks") args.weeks = Number(argv[++index]);
+    if (argv[index] === "--days") args.days = Number(argv[++index]);
     else if (argv[index] === "--out") args.out = argv[++index];
     else if (argv[index] === "--deidentified") args.deidentified = true;
   }
-  if (!Number.isInteger(args.weeks) || args.weeks < 1 || args.weeks > 260) {
-    throw new Error("--weeks must be a whole number from 1 to 260");
+  if (!Number.isInteger(args.days) || args.days < 1 || args.days > 730) {
+    throw new Error("--days must be a whole number from 1 to 730");
   }
   return args;
 }
@@ -63,7 +63,7 @@ const client = new Client({
 
 await client.connect();
 try {
-  const sinceSql = `date_trunc('week', timezone('Australia/Sydney', now())) - ($1::int - 1) * interval '1 week'`;
+  const sinceSql = `timezone('Australia/Sydney', now())::date - ($1::int - 1)`;
   const [
     totalsResult,
     activityResult,
@@ -75,7 +75,7 @@ try {
       SELECT
         count(DISTINCT membership.user_id)::int AS registered_users,
         count(DISTINCT event.user_id)::int AS ever_active_users,
-        date_trunc('week', timezone('Australia/Sydney', now()))::date::text AS current_week
+        timezone('Australia/Sydney', now())::date::text AS current_day
       FROM tenant_memberships membership
       INNER JOIN users app_user ON app_user.id = membership.user_id
       LEFT JOIN analytics_events event ON event.user_id = membership.user_id
@@ -89,50 +89,51 @@ try {
       SELECT
         event.tenant_id, event.user_id, tenant.name AS tenant_name,
         app_user.display_name, app_user.full_name, app_user.email,
-        date_trunc('week', timezone('Australia/Sydney', event.created_at))::date::text AS week_start,
+        timezone('Australia/Sydney', event.created_at)::date::text AS activity_date,
         count(DISTINCT event.session_id)::int AS sessions,
-        count(DISTINCT timezone('Australia/Sydney', event.created_at)::date)::int AS active_days,
         count(*) FILTER (WHERE event.name = 'page_view')::int AS page_views
       FROM analytics_events event
       INNER JOIN users app_user ON app_user.id = event.user_id
       INNER JOIN tenants tenant ON tenant.id = event.tenant_id
-      WHERE event.created_at >= ${sinceSql}
+      WHERE event.created_at >= ((${sinceSql})::timestamp AT TIME ZONE 'Australia/Sydney')
       GROUP BY event.tenant_id, event.user_id, tenant.name, app_user.display_name,
-        app_user.full_name, app_user.email, week_start
-      ORDER BY week_start DESC, tenant.name, app_user.display_name, app_user.email
+        app_user.full_name, app_user.email, activity_date
+      ORDER BY activity_date DESC, tenant.name, app_user.display_name, app_user.email
     `,
-      [args.weeks],
+      [args.days],
     ),
     client.query(
       `
       SELECT
         event.tenant_id, event.user_id, tenant.name AS tenant_name,
         app_user.display_name, app_user.full_name, app_user.email,
-        date_trunc('week', timezone('Australia/Sydney', event.created_at))::date::text AS week_start,
+        timezone('Australia/Sydney', event.created_at)::date::text AS activity_date,
         coalesce(event.page_key, 'legacy_unclassified') AS page_key,
         event.feature_key,
         count(*)::int AS visits
       FROM analytics_events event
       INNER JOIN users app_user ON app_user.id = event.user_id
       INNER JOIN tenants tenant ON tenant.id = event.tenant_id
-      WHERE event.name = 'page_view' AND event.created_at >= ${sinceSql}
+      WHERE event.name = 'page_view'
+        AND event.created_at >= ((${sinceSql})::timestamp AT TIME ZONE 'Australia/Sydney')
       GROUP BY event.tenant_id, event.user_id, tenant.name, app_user.display_name,
-        app_user.full_name, app_user.email, week_start, event.page_key, event.feature_key
-      ORDER BY week_start DESC, visits DESC
+        app_user.full_name, app_user.email, activity_date, event.page_key, event.feature_key
+      ORDER BY activity_date DESC, visits DESC
     `,
-      [args.weeks],
+      [args.days],
     ),
     client.query(
       `
       SELECT snapshot.*, tenant.name AS tenant_name, app_user.display_name,
-        app_user.full_name, app_user.email, snapshot.week_start::text AS week_start
-      FROM usage_weekly_snapshots snapshot
+        app_user.full_name, app_user.email,
+        snapshot.snapshot_date::text AS snapshot_date
+      FROM usage_daily_snapshots snapshot
       INNER JOIN users app_user ON app_user.id = snapshot.user_id
       INNER JOIN tenants tenant ON tenant.id = snapshot.tenant_id
-      WHERE snapshot.week_start >= (${sinceSql})::date
-      ORDER BY snapshot.week_start DESC, tenant.name, app_user.display_name, app_user.email
+      WHERE snapshot.snapshot_date >= (${sinceSql})::date
+      ORDER BY snapshot.snapshot_date DESC, tenant.name, app_user.display_name, app_user.email
     `,
-      [args.weeks],
+      [args.days],
     ),
     client.query(`
       SELECT tenant_id, count(*)::int AS paper_count
@@ -144,9 +145,9 @@ try {
 
   const report = buildUsageReport({
     generatedAt: new Date().toISOString(),
-    weeks: args.weeks,
+    days: args.days,
     totals: totalsResult.rows[0],
-    weeklyActivity: activityResult.rows,
+    dailyActivity: activityResult.rows,
     pageVisits: pagesResult.rows,
     snapshots: snapshotsResult.rows,
     unattributedPapers: unattributedResult.rows,
@@ -157,13 +158,12 @@ try {
   await Promise.all([
     writeFile(path.join(out, "report.html"), report.html),
     writeFile(
-      path.join(out, "weekly-users.csv"),
-      toCsv(report.weeklyRows, [
-        { key: "week", label: "Week starting" },
+      path.join(out, "daily-users.csv"),
+      toCsv(report.dailyRows, [
+        { key: "date", label: "Date" },
         { key: "workspace", label: "Workspace" },
         { key: "participant", label: "User" },
         { key: "sessions", label: "Uses (sessions)" },
-        { key: "activeDays", label: "Active days" },
         { key: "pageViews", label: "Page visits" },
         { key: "projects", label: "Projects" },
         { key: "papers", label: "Papers" },
@@ -172,9 +172,9 @@ try {
       ]),
     ),
     writeFile(
-      path.join(out, "weekly-pages.csv"),
+      path.join(out, "daily-pages.csv"),
       toCsv(report.pageRows, [
-        { key: "week", label: "Week starting" },
+        { key: "date", label: "Date" },
         { key: "workspace", label: "Workspace" },
         { key: "participant", label: "User" },
         { key: "page", label: "Page" },
@@ -182,9 +182,9 @@ try {
       ]),
     ),
     writeFile(
-      path.join(out, "weekly-inventory.csv"),
+      path.join(out, "daily-inventory.csv"),
       toCsv(report.snapshotRows, [
-        { key: "week", label: "Week starting" },
+        { key: "date", label: "Date" },
         { key: "workspace", label: "Workspace" },
         { key: "participant", label: "User" },
         { key: "projects", label: "Projects" },

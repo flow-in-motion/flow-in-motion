@@ -2,7 +2,7 @@ import { DrizzleService } from '../../db/drizzle.service';
 import { ArchiveCleanupService } from './archive-cleanup.service';
 
 describe('ArchiveCleanupService', () => {
-  it('uses the existing cleanup run to capture weekly usage snapshots', async () => {
+  it('uses the existing cleanup run to capture daily usage snapshots', async () => {
     const execute = jest
       .fn()
       .mockResolvedValueOnce({ rows: [{ id: 'project-1' }] })
@@ -15,7 +15,7 @@ describe('ArchiveCleanupService', () => {
     await expect(service.handleCleanup()).resolves.toEqual({
       deletedProjects: [{ id: 'project-1' }],
       deletedModules: [],
-      capturedWeeklySnapshots: 4,
+      capturedDailySnapshots: 4,
     });
     expect(execute).toHaveBeenCalledTimes(3);
   });
