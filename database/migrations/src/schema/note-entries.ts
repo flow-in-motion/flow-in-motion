@@ -18,10 +18,13 @@ import {
       createdAt: timestamp('created_at', { withTimezone: true })
         .defaultNow()
         .notNull(),
+      updatedAt: timestamp('updated_at', { withTimezone: true })
+        .defaultNow()
+        .notNull(),
     },
     (table) => ({
-      noteCreatedAtIndex: index(
-        'note_entries_note_id_created_at_id_idx',
-      ).on(table.noteId, table.createdAt, table.id),
+      noteUpdatedAtIndex: index(
+        'note_entries_note_id_updated_at_id_idx',
+      ).on(table.noteId, table.updatedAt, table.id),
     }),
   );

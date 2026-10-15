@@ -18,11 +18,14 @@ import {
       createdAt: timestamp('created_at', { withTimezone: true })
         .defaultNow()
         .notNull(),
+      updatedAt: timestamp('updated_at', { withTimezone: true })
+        .defaultNow()
+        .notNull(),
     },
     (table) => ({
-      taskCreatedAtIndex: index(
-        'task_description_entries_task_id_created_at_id_idx',
-      ).on(table.taskId, table.createdAt, table.id),
+      taskUpdatedAtIndex: index(
+        'task_description_entries_task_id_updated_at_id_idx',
+      ).on(table.taskId, table.updatedAt, table.id),
     }),
   );
   

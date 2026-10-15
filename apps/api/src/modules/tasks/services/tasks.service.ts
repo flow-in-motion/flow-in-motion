@@ -366,6 +366,95 @@ export class TasksService {
     );
   }
 
+  async updateDescriptionEntry(
+    tenantId: string,
+    taskId: string,
+    entryId: string,
+    callerUserId: string,
+    input: { content: string },
+  ) {
+    await this.findOne(tenantId, taskId, callerUserId);
+
+    const content = input.content.trim();
+    if (!content) {
+      throw new BadRequestException('Description content must not be empty');
+    }
+
+    const task = await this.repository.updateDescriptionEntry(
+      tenantId,
+      taskId,
+      entryId,
+      content,
+    );
+
+    if (!task) {
+      throw new NotFoundException('Task description entry not found');
+    }
+
+    return this.findOne(tenantId, taskId, callerUserId);
+  }
+
+  async deleteDescriptionEntry(
+    tenantId: string,
+    taskId: string,
+    entryId: string,
+    callerUserId: string,
+  ) {
+    await this.findOne(tenantId, taskId, callerUserId);
+
+    const task = await this.repository.deleteDescriptionEntry(
+      tenantId,
+      taskId,
+      entryId,
+    );
+
+    if (!task) {
+      throw new NotFoundException('Task description entry not found');
+    }
+
+    return this.findOne(tenantId, taskId, callerUserId);
+  }
+
+  async updateDescriptionEntryForCaller(
+    taskId: string,
+    entryId: string,
+    callerUserId: string,
+    input: { content: string },
+  ) {
+    const task = await this.repository.findByIdGlobal(taskId);
+
+    if (!task || !(await this.canAccess(task.tenantId, task, callerUserId))) {
+      throw new NotFoundException('Task not found');
+    }
+
+    return this.updateDescriptionEntry(
+      task.tenantId,
+      taskId,
+      entryId,
+      callerUserId,
+      input,
+    );
+  }
+
+  async deleteDescriptionEntryForCaller(
+    taskId: string,
+    entryId: string,
+    callerUserId: string,
+  ) {
+    const task = await this.repository.findByIdGlobal(taskId);
+
+    if (!task || !(await this.canAccess(task.tenantId, task, callerUserId))) {
+      throw new NotFoundException('Task not found');
+    }
+
+    return this.deleteDescriptionEntry(
+      task.tenantId,
+      taskId,
+      entryId,
+      callerUserId,
+    );
+  }
+
   async delete(tenantId: string, taskId: string, callerUserId: string) {
     const existing = await this.repository.findById(tenantId, taskId);
     if (!existing) {

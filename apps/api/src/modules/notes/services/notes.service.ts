@@ -310,6 +310,86 @@ export class NotesService {
     return this.appendEntry(note.tenantId, noteId, callerUserId, input);
   }
 
+  async updateEntry(
+    tenantId: string,
+    noteId: string,
+    entryId: string,
+    callerUserId: string,
+    input: { content: string },
+  ) {
+    await this.findOne(tenantId, noteId, callerUserId);
+
+    const content = input.content.trim();
+    if (!content) {
+      throw new BadRequestException('Note entry content must not be empty');
+    }
+
+    const note = await this.repository.updateEntry(
+      tenantId,
+      noteId,
+      entryId,
+      content,
+    );
+
+    if (!note) {
+      throw new NotFoundException('Note entry not found');
+    }
+
+    return this.findOne(tenantId, noteId, callerUserId);
+  }
+
+  async deleteEntry(
+    tenantId: string,
+    noteId: string,
+    entryId: string,
+    callerUserId: string,
+  ) {
+    await this.findOne(tenantId, noteId, callerUserId);
+
+    const note = await this.repository.deleteEntry(tenantId, noteId, entryId);
+
+    if (!note) {
+      throw new NotFoundException('Note entry not found');
+    }
+
+    return this.findOne(tenantId, noteId, callerUserId);
+  }
+
+  async updateEntryForCaller(
+    noteId: string,
+    entryId: string,
+    callerUserId: string,
+    input: { content: string },
+  ) {
+    const note = await this.repository.findByIdGlobal(noteId);
+
+    if (!note || !(await this.canAccess(note.tenantId, note, callerUserId))) {
+      throw new NotFoundException('Note not found');
+    }
+
+    return this.updateEntry(
+      note.tenantId,
+      noteId,
+      entryId,
+      callerUserId,
+      input,
+    );
+  }
+
+  async deleteEntryForCaller(
+    noteId: string,
+    entryId: string,
+    callerUserId: string,
+  ) {
+    const note = await this.repository.findByIdGlobal(noteId);
+
+    if (!note || !(await this.canAccess(note.tenantId, note, callerUserId))) {
+      throw new NotFoundException('Note not found');
+    }
+
+    return this.deleteEntry(note.tenantId, noteId, entryId, callerUserId);
+  }
+
   async delete(tenantId: string, noteId: string, callerUserId: string) {
     const existing = await this.repository.findById(tenantId, noteId);
     if (!existing) {

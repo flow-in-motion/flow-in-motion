@@ -477,6 +477,13 @@
       "when": 1792064142407,
       "tag": "0083_funny_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1792105173275,
+      "tag": "0084_editable_note_task_entries",
+      "breakpoints": true
     }
   ]
 }
