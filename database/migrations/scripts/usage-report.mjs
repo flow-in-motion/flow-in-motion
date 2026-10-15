@@ -77,30 +77,29 @@ function table(headers, rows) {
 
 export function buildUsageReport({
   generatedAt,
-  weeks,
+  days,
   totals,
-  weeklyActivity,
+  dailyActivity,
   pageVisits,
   snapshots,
   unattributedPapers,
   deidentified = false,
 }) {
-  const snapshotsByUserWeek = new Map(
+  const snapshotsByUserDate = new Map(
     snapshots.map((row) => [
-      `${row.tenant_id}:${row.user_id}:${row.week_start}`,
+      `${row.tenant_id}:${row.user_id}:${row.snapshot_date}`,
       row,
     ]),
   );
-  const weeklyRows = weeklyActivity.map((row) => {
-    const snapshot = snapshotsByUserWeek.get(
-      `${row.tenant_id}:${row.user_id}:${row.week_start}`,
+  const dailyRows = dailyActivity.map((row) => {
+    const snapshot = snapshotsByUserDate.get(
+      `${row.tenant_id}:${row.user_id}:${row.activity_date}`,
     );
     return {
-      week: row.week_start,
+      date: row.activity_date,
       workspace: row.tenant_name,
       participant: participantLabel(row, deidentified),
       sessions: number(row.sessions),
-      activeDays: number(row.active_days),
       pageViews: number(row.page_views),
       projects: snapshot ? number(snapshot.project_count) : "Not captured",
       papers: snapshot ? number(snapshot.paper_count) : "Not captured",
@@ -110,7 +109,7 @@ export function buildUsageReport({
   });
 
   const pageRows = pageVisits.map((row) => ({
-    week: row.week_start,
+    date: row.activity_date,
     workspace: row.tenant_name,
     participant: participantLabel(row, deidentified),
     page: pageLabel(row.page_key, row.feature_key),
@@ -131,27 +130,25 @@ export function buildUsageReport({
         right.visits - left.visits || left.page.localeCompare(right.page),
     );
 
-  const platformWeeks = new Map();
-  for (const row of weeklyActivity) {
-    const current = platformWeeks.get(row.week_start) ?? {
-      week: row.week_start,
+  const platformDays = new Map();
+  for (const row of dailyActivity) {
+    const current = platformDays.get(row.activity_date) ?? {
+      date: row.activity_date,
       participants: new Set(),
       sessions: 0,
-      activeDays: 0,
       pageViews: 0,
     };
     current.participants.add(row.user_id);
     current.sessions += number(row.sessions);
-    current.activeDays += number(row.active_days);
     current.pageViews += number(row.page_views);
-    platformWeeks.set(row.week_start, current);
+    platformDays.set(row.activity_date, current);
   }
-  const platformWeekRows = [...platformWeeks.values()]
+  const platformDayRows = [...platformDays.values()]
     .map((row) => ({ ...row, activeUsers: row.participants.size }))
-    .sort((left, right) => right.week.localeCompare(left.week));
+    .sort((left, right) => right.date.localeCompare(left.date));
 
   const snapshotRows = snapshots.map((row) => ({
-    week: row.week_start,
+    date: row.snapshot_date,
     workspace: row.tenant_name,
     participant: participantLabel(row, deidentified),
     projects: number(row.project_count),
@@ -160,25 +157,24 @@ export function buildUsageReport({
     notes: number(row.note_count),
   }));
 
-  const activeThisWeek = new Set(
-    weeklyActivity
-      .filter((row) => row.week_start === totals.current_week)
+  const activeToday = new Set(
+    dailyActivity
+      .filter((row) => row.activity_date === totals.current_day)
       .map((row) => row.user_id),
   ).size;
-  const currentWeekSessions = weeklyActivity
-    .filter((row) => row.week_start === totals.current_week)
+  const currentDaySessions = dailyActivity
+    .filter((row) => row.activity_date === totals.current_day)
     .reduce((sum, row) => sum + number(row.sessions), 0);
   const unattributedTotal = unattributedPapers.reduce(
     (sum, row) => sum + number(row.paper_count),
     0,
   );
 
-  const weeklyHeaders = [
-    { key: "week", label: "Week starting" },
+  const dailyHeaders = [
+    { key: "date", label: "Date" },
     { key: "workspace", label: "Workspace" },
     { key: "participant", label: "User" },
     { key: "sessions", label: "Uses (sessions)" },
-    { key: "activeDays", label: "Active days" },
     { key: "pageViews", label: "Page visits" },
     { key: "projects", label: "Projects" },
     { key: "papers", label: "Papers" },
@@ -186,26 +182,25 @@ export function buildUsageReport({
     { key: "notes", label: "Notes" },
   ];
   const pageHeaders = [
-    { key: "week", label: "Week starting" },
+    { key: "date", label: "Date" },
     { key: "workspace", label: "Workspace" },
     { key: "participant", label: "User" },
     { key: "page", label: "Page" },
     { key: "visits", label: "Visits" },
   ];
-  const platformWeekHeaders = [
-    { key: "week", label: "Week starting" },
+  const platformDayHeaders = [
+    { key: "date", label: "Date" },
     { key: "activeUsers", label: "Active users" },
     { key: "sessions", label: "Uses (sessions)" },
-    { key: "activeDays", label: "Total active-user days" },
     { key: "pageViews", label: "Page visits" },
   ];
   const platformPageHeaders = [
     { key: "page", label: "Page" },
     { key: "visits", label: "Visits" },
   ];
-  const inventoryHeaders = weeklyHeaders.filter((header) =>
+  const inventoryHeaders = dailyHeaders.filter((header) =>
     [
-      "week",
+      "date",
       "workspace",
       "participant",
       "projects",
@@ -220,23 +215,23 @@ export function buildUsageReport({
 <title>Flow usage research report</title>
 <style>
 body{font:14px/1.45 system-ui,sans-serif;color:#172033;background:#f5f7fa;margin:0;padding:32px}main{max-width:1400px;margin:auto}h1{margin:0 0 4px;font-size:28px}h2{margin:32px 0 10px;font-size:20px}.muted{color:#667085}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:24px 0}.card{background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:16px}.card strong{display:block;font-size:28px}.table-wrap{overflow:auto;background:#fff;border:1px solid #e4e7ec;border-radius:10px}table{border-collapse:collapse;width:100%;white-space:nowrap}th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #eaecf0}th{background:#f9fafb;position:sticky;top:0}section.note{background:#fff8e7;border:1px solid #f2d58a;border-radius:10px;padding:14px;margin-top:24px}code{font-size:12px}</style></head>
-<body><main><h1>Flow usage research report</h1><p class="muted">Generated ${escapeHtml(generatedAt)} · Last ${escapeHtml(weeks)} weeks · Times grouped in Australia/Sydney</p>
-<div class="cards"><div class="card"><strong>${number(totals.registered_users)}</strong>Registered users</div><div class="card"><strong>${number(totals.ever_active_users)}</strong>Users who have used Flow</div><div class="card"><strong>${activeThisWeek}</strong>Active users this week</div><div class="card"><strong>${currentWeekSessions}</strong>Uses this week</div></div>
-<section class="note"><strong>How to read this report.</strong> A “use” is one session; a new session begins after 30 minutes without activity. Page visits never include record IDs or search text. Counts are private weekly snapshots and are not displayed inside Flow.</section>
-<h2>Platform activity by week</h2>${table(platformWeekHeaders, platformWeekRows)}
+<body><main><h1>Flow usage research report</h1><p class="muted">Generated ${escapeHtml(generatedAt)} · Last ${escapeHtml(days)} days · Times grouped in Australia/Sydney</p>
+<div class="cards"><div class="card"><strong>${number(totals.registered_users)}</strong>Registered users</div><div class="card"><strong>${number(totals.ever_active_users)}</strong>Users who have used Flow</div><div class="card"><strong>${activeToday}</strong>Active users today</div><div class="card"><strong>${currentDaySessions}</strong>Uses today</div></div>
+<section class="note"><strong>How to read this report.</strong> A “use” is one session; a new session begins after 30 minutes without activity. Each route visit is counted as a page visit, including returning to Projects, Papers, Tasks or Notes. Page visits never include record IDs or search text. Item totals are private daily snapshots taken by the existing 2:00am Australia/Sydney cleanup run and are not displayed inside Flow.</section>
+<h2>Platform activity by day</h2>${table(platformDayHeaders, platformDayRows)}
 <h2>Pages visited across the platform</h2>${table(platformPageHeaders, platformPageRows)}
-<h2>Weekly activity by user</h2>${table(weeklyHeaders, weeklyRows)}
+<h2>Daily activity by user</h2>${table(dailyHeaders, dailyRows)}
 <h2>Page visits by user</h2>${table(pageHeaders, pageRows)}
-<h2>Weekly item counts</h2>${table(inventoryHeaders, snapshotRows)}
-<section class="note"><strong>Data note.</strong> ${unattributedTotal} paper(s) created before creator tracking have no reliable individual owner and are excluded from individual paper counts. Session totals begin when this research tracking version is released; older events without page categories appear as “Older activity (unclassified)”. Blank weekly counts mean the snapshot had not yet been captured.</section>
+<h2>Daily item counts</h2>${table(inventoryHeaders, snapshotRows)}
+<section class="note"><strong>Data note.</strong> ${unattributedTotal} paper(s) created before creator tracking have no reliable individual owner and are excluded from individual paper counts. Session totals begin when this research tracking version is released; older events without page categories appear as “Older activity (unclassified)”. Blank daily counts mean the 2:00am snapshot had not yet been captured.</section>
 </main></body></html>`;
 
   return {
     html,
-    weeklyRows,
+    dailyRows,
     pageRows,
     snapshotRows,
-    platformWeekRows,
+    platformDayRows,
     platformPageRows,
   };
 }
