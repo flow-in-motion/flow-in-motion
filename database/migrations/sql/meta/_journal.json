@@ -463,6 +463,13 @@
       "when": 1791936583621,
       "tag": "0081_invitation_email_optional",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1792023115038,
+      "tag": "0082_rich_talon",
+      "breakpoints": true
     }
   ]
 }

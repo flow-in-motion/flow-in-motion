@@ -12,6 +12,9 @@ export class AnalyticsRepository {
     userId: string;
     name: string;
     path?: string;
+    sessionId?: string;
+    pageKey?: string;
+    featureKey?: string;
     properties?: Record<string, unknown>;
   }) {
     const [row] = await this.drizzle.db

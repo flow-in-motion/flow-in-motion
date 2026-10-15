@@ -4820,6 +4820,18 @@
             "type": "string",
             "example": "/projects"
           },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pageKey": {
+            "type": "string",
+            "example": "papers"
+          },
+          "featureKey": {
+            "type": "string",
+            "example": "documents"
+          },
           "properties": {
             "type": "object",
             "description": "Small, flat set of extra properties describing the event.",

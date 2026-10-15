@@ -337,6 +337,7 @@ export class ProjectModulesService {
     const createValues = {
       projectId: input.projectId,
       tenantId,
+      createdBy: callerUserId,
       shortTitle: input.shortTitle,
       title: input.title,
       description: input.description,

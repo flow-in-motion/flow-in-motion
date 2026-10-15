@@ -13,6 +13,10 @@ import {
   authenticatedJson,
   responseData,
 } from "@/api/client";
+import {
+  currentUsageSessionId,
+  withUsageContext,
+} from "@/lib/usage-analytics";
 
 /**
  * None of the API's controllers annotate their response bodies with
@@ -3393,11 +3397,21 @@ export interface ApiAnalyticsSummary {
  */
 export function useTrackEvent(tenantId: string) {
   const mutation = useMutation({
-    mutationFn: (input: ApiAnalyticsEventInput) =>
-      apiJson<unknown>(
+    mutationFn: (input: ApiAnalyticsEventInput) => {
+      const body = withUsageContext(
+        input,
+        typeof window === "undefined" ? "/" : window.location.pathname,
+        currentUsageSessionId(),
+      );
+
+      return apiJson<unknown>(
         `/api/v1/tenant/${encodeURIComponent(tenantId)}/analytics/events`,
-        { method: "POST", body: JSON.stringify(input) },
-      ),
+        {
+          method: "POST",
+          body: JSON.stringify(body),
+        },
+      );
+    },
     retry: 0,
   });
 

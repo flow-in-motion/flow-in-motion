@@ -5,6 +5,7 @@ import { ArchiveCleanupService } from './modules/archive-cleanup/archive-cleanup
 export interface CleanupResult {
   deletedProjects: number;
   deletedModules: number;
+  capturedWeeklySnapshots: number;
 }
 
 type CleanupApplicationContext = Pick<INestApplicationContext, 'get' | 'close'>;
@@ -21,11 +22,13 @@ export async function runCleanup(
     const summary = {
       deletedProjects: result.deletedProjects.length,
       deletedModules: result.deletedModules.length,
+      capturedWeeklySnapshots: result.capturedWeeklySnapshots,
     };
 
     logger.log(
       `Cleanup completed: ${summary.deletedProjects} project(s), ` +
-        `${summary.deletedModules} module(s) permanently deleted`,
+        `${summary.deletedModules} module(s) permanently deleted; ` +
+        `${summary.capturedWeeklySnapshots} weekly usage snapshot(s) captured`,
     );
 
     return summary;

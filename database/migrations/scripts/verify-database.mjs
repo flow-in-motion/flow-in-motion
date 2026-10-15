@@ -29,9 +29,12 @@ const expectedTables = [
   'tenants',
   'user_preferences',
   'user_workspace_preferences',
+  'usage_weekly_snapshots',
   'users',
   'workspace_contexts',
 ];
+
+const privateTables = new Set(['usage_weekly_snapshots']);
 
 const expectedFunctions = [
   'check_module_access',
@@ -128,7 +131,11 @@ try {
     const state = tableState.get(table);
     if (!state) failures.push(`missing table: ${table}`);
     else if (!state.rls_enabled) failures.push(`RLS disabled: ${table}`);
-    else if (state.policy_count < 1) failures.push(`no RLS policy: ${table}`);
+    else if (privateTables.has(table) && state.policy_count !== 0) {
+      failures.push(`private table unexpectedly has an end-user policy: ${table}`);
+    } else if (!privateTables.has(table) && state.policy_count < 1) {
+      failures.push(`no RLS policy: ${table}`);
+    }
   }
 
   const functions = await client.query(`
@@ -155,6 +162,44 @@ try {
     }
     if (fn.public_execute) {
       failures.push(`PUBLIC can execute SECURITY DEFINER function: ${fn.proname}`);
+    }
+  }
+
+  const privateCaptureFunction = await client.query(`
+    SELECT procedure.prosecdef,
+           coalesce(array_to_string(procedure.proconfig, ','), '') AS config,
+           has_function_privilege(
+             'research_tracker_app',
+             'internal.capture_weekly_usage_snapshots()',
+             'EXECUTE'
+           ) AS runtime_execute,
+           EXISTS (
+             SELECT 1
+               FROM aclexplode(
+                 coalesce(procedure.proacl, acldefault('f', procedure.proowner))
+               ) AS acl
+              WHERE acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'
+           ) AS public_execute
+      FROM pg_proc AS procedure
+      INNER JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+     WHERE namespace.nspname = 'internal'
+       AND procedure.proname = 'capture_weekly_usage_snapshots'
+  `);
+  if (privateCaptureFunction.rowCount !== 1) {
+    failures.push('missing function: internal.capture_weekly_usage_snapshots');
+  } else {
+    const [captureFunction] = privateCaptureFunction.rows;
+    if (!captureFunction.prosecdef) {
+      failures.push('weekly usage capture function is not SECURITY DEFINER');
+    }
+    if (!captureFunction.config.includes('search_path=public, pg_temp')) {
+      failures.push('unsafe SECURITY DEFINER search_path: capture_weekly_usage_snapshots');
+    }
+    if (!captureFunction.runtime_execute) {
+      failures.push('runtime cannot execute weekly usage capture function');
+    }
+    if (captureFunction.public_execute) {
+      failures.push('PUBLIC can execute weekly usage capture function');
     }
   }
 
@@ -196,11 +241,19 @@ try {
      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
   `);
   for (const privilege of runtimePrivileges.rows) {
-    if (
-      !privilege.can_select ||
-      !privilege.can_insert ||
-      !privilege.can_update ||
-      !privilege.can_delete
+    const hasAnyPrivilege =
+      privilege.can_select ||
+      privilege.can_insert ||
+      privilege.can_update ||
+      privilege.can_delete;
+    if (privateTables.has(privilege.table_name) && hasAnyPrivilege) {
+      failures.push(`runtime can access private table: ${privilege.table_name}`);
+    } else if (
+      !privateTables.has(privilege.table_name) &&
+      (!privilege.can_select ||
+        !privilege.can_insert ||
+        !privilege.can_update ||
+        !privilege.can_delete)
     ) {
       failures.push(`runtime DML grant incomplete: ${privilege.table_name}`);
     }

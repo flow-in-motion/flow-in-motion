@@ -20,6 +20,12 @@ export class ArchiveCleanupService {
     const deletedModules = await this.drizzle.db.execute(
       sql`SELECT * FROM cleanup_archived_modules(${cutoff.toISOString()}::timestamptz)`,
     );
+    const snapshotResult = await this.drizzle.db.execute(
+      sql`SELECT internal.capture_weekly_usage_snapshots() AS captured_snapshots`,
+    );
+    const capturedWeeklySnapshots = Number(
+      snapshotResult.rows[0]?.captured_snapshots ?? 0,
+    );
 
     if (deletedProjects.rows.length > 0) {
       this.logger.log(
@@ -31,10 +37,16 @@ export class ArchiveCleanupService {
         `Permanently deleted ${deletedModules.rows.length} module(s) archived over ${RETENTION_DAYS} days ago`,
       );
     }
+    if (capturedWeeklySnapshots > 0) {
+      this.logger.log(
+        `Captured ${capturedWeeklySnapshots} private weekly usage snapshot(s)`,
+      );
+    }
 
     return {
       deletedProjects: deletedProjects.rows,
       deletedModules: deletedModules.rows,
+      capturedWeeklySnapshots,
     };
   }
 }
