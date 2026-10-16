@@ -14,6 +14,8 @@ import type { ApiTaskDescriptionEntry } from "@/api/hooks";
 const fixtures = vi.hoisted(() => ({
   updateTask: vi.fn(),
   addDescriptionEntry: vi.fn(),
+  updateDescriptionEntry: vi.fn(),
+  deleteDescriptionEntry: vi.fn(),
   deleteTask: vi.fn(),
   sharingEnabled: false,
   task: {
@@ -90,6 +92,18 @@ vi.mock("@/api/hooks", () => ({
   useCreateDraftInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
   useSendInvitation: () => ({ mutateAsync: vi.fn(), isPending: false, isError: false }),
   useRevokeCollaboratorInvitation: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+  useUpdateMyTaskDescriptionEntry: () => ({
+    mutateAsync: fixtures.updateDescriptionEntry,
+    isPending: false,
+    isError: false,
+    error: undefined,
+  }),
+  useDeleteMyTaskDescriptionEntry: () => ({
+    mutateAsync: fixtures.deleteDescriptionEntry,
+    isPending: false,
+    isError: false,
+    error: undefined,
+  }),
 }));
 
 vi.mock("@/lib/feature-flags", () => ({
@@ -100,6 +114,11 @@ vi.mock("@/lib/feature-flags", () => ({
 
 describe("TaskDetailPage", () => {
   beforeEach(() => {
+    fixtures.updateDescriptionEntry.mockReset();
+    fixtures.updateDescriptionEntry.mockResolvedValue(fixtures.task);
+
+    fixtures.deleteDescriptionEntry.mockReset();
+    fixtures.deleteDescriptionEntry.mockResolvedValue(fixtures.task);
     fixtures.sharingEnabled = false;
     fixtures.task.projectId = null;
     fixtures.task.moduleId = null;
@@ -134,6 +153,7 @@ describe("TaskDetailPage", () => {
       taskId: "task-1",
       content: "Original description",
       createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
     }];
   }
 
@@ -144,18 +164,21 @@ describe("TaskDetailPage", () => {
         taskId: "task-1",
         content: "Original description",
         createdAt: "2026-10-12T12:00:00.000Z",
+        updatedAt: "2026-10-12T12:00:00.000Z",
       },
       {
         id: "entry-middle",
         taskId: "task-1",
         content: "First update",
         createdAt: "2026-10-12T14:00:00.000Z",
+        updatedAt: "2026-10-12T14:00:00.000Z",
       },
       {
         id: "entry-new",
         taskId: "task-1",
         content: "Latest update",
         createdAt: "2026-10-12T15:00:00.000Z",
+        updatedAt: "2026-10-12T15:00:00.000Z",
       },
     ];
 
@@ -195,101 +218,95 @@ describe("TaskDetailPage", () => {
     ]);
   });
 
-  it("keeps previous dated descriptions visible during editing", () => {
+  it("opens one description editor with existing text and no date headings", () => {
     setInitialDescription();
     renderTask();
 
-    expect(screen.queryByRole("textbox", { name: "Description"})).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Description" }))
+      .toHaveTextContent("Original description");
+    expect(
+      screen.queryByRole("textbox", { name: "Description" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
 
-    const panel = screen.getByRole("region", { name: "Description" });
-    expect(panel).toHaveTextContent("Original description");
-    expect(within(panel).getByText("01/01/2026")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Description"})).toHaveValue("");
+    expect(
+      screen.queryByRole("region", { name: "Description" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByRole("textbox", { name: "Description" }),
+    ).toHaveLength(1);
+    expect(screen.getByRole("textbox", { name: "Description" }))
+      .toHaveValue("Original description");
+    expect(screen.queryByText("01/01/2026")).not.toBeInTheDocument();
   });
 
-  it("saves new description content without sending earlier content in the metadata update", async () => {
+  it("appends only new description content from the single editor", async () => {
     setInitialDescription();
     renderTask();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Description"}), {
-      target: { value: "  New observation  " },
+    fireEvent.change(screen.getByRole("textbox", { name: "Description" }), {
+      target: { value: "Original description\n\nNew observation" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
-      expect(fixtures.addDescriptionEntry).toHaveBeenCalledWith({
-        taskId: "task-1",
-        content: "New observation",
-      }),
+      expect(screen.getByRole("button", { name: "Edit Task" }))
+        .toBeInTheDocument(),
     );
 
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Edit Task" }),
-      ).toBeInTheDocument(),
-    );
-
+    expect(fixtures.addDescriptionEntry).toHaveBeenCalledWith({
+      taskId: "task-1",
+      content: "New observation",
+    });
+    expect(fixtures.updateDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.deleteDescriptionEntry).not.toHaveBeenCalled();
     expect(fixtures.updateTask.mock.calls[0][0].input)
       .not.toHaveProperty("description");
-    expect(screen.getByText("Original description")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
-    expect(screen.getByRole("textbox", { name: "Description"})).toHaveValue("");
   });
 
-  it("preserves the description draft when its save fails", async () => {
+  it("preserves the complete description draft when saving fails", async () => {
     setInitialDescription();
-    fixtures.addDescriptionEntry.mockRejectedValue(
-      new Error("Unable to save"),
-    );
+    fixtures.addDescriptionEntry.mockRejectedValue(new Error("Unable to save"));
     renderTask();
 
+    const draft = "Original description\n\nKeep this draft";
+
     fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Description"}), {
-      target: { value: "Keep this draft" },
+    fireEvent.change(screen.getByRole("textbox", { name: "Description" }), {
+      target: { value: draft },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
-    await waitFor(() =>
-      expect(fixtures.addDescriptionEntry).toHaveBeenCalledWith({
-        taskId: "task-1",
-        content: "Keep this draft",
-      }),
-    );
-
-    expect(screen.getByRole("textbox", { name: "Description"}))
-      .toHaveValue("Keep this draft");
-    expect(screen.getByText("Original description")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Save Changes" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to save");
+    expect(screen.getByRole("textbox", { name: "Description" }))
+      .toHaveValue(draft);
+    expect(screen.getByRole("button", { name: "Save Changes" })).toBeEnabled();
   });
 
-  it("saves metadata without adding a whitespace-only description entry", async () => {
+  it("saves metadata without rewriting unchanged description entries", async () => {
+    setInitialDescription();
     renderTask();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
     fireEvent.change(screen.getByLabelText("Task title"), {
       target: { value: "Updated title" },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: "Description"}), {
-      target: { value: " \n\t " },
-    });
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Edit Task" }),
-      ).toBeInTheDocument(),
+      expect(screen.getByRole("button", { name: "Edit Task" }))
+        .toBeInTheDocument(),
     );
 
-    expect(fixtures.updateTask).toHaveBeenCalledTimes(1);
     expect(fixtures.updateTask.mock.calls[0][0].input.title)
       .toBe("Updated title");
+    expect(fixtures.updateTask.mock.calls[0][0].input)
+      .not.toHaveProperty("description");
     expect(fixtures.addDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.updateDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.deleteDescriptionEntry).not.toHaveBeenCalled();
   });
 
   it("shows the description in a dedicated reading panel", () => {
@@ -299,6 +316,7 @@ describe("TaskDetailPage", () => {
       taskId: "task-1",
       content: fixtures.task.description,
       createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
     }];
 
     render(
@@ -548,5 +566,110 @@ describe("TaskDetailPage", () => {
 
     expect(screen.getByText("Avi Researcher")).toBeInTheDocument();
     expect(screen.getByText("Owner")).toBeInTheDocument();
+  });
+
+  it("saves changes to existing description text through the entry endpoint", async () => {
+    setInitialDescription();
+    renderTask();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Description" }), {
+      target: { value: "Corrected description" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit Task" }))
+        .toBeInTheDocument(),
+    );
+
+    expect(fixtures.updateDescriptionEntry).toHaveBeenCalledWith({
+      taskId: "task-1",
+      entryId: "entry-1",
+      content: "Corrected description",
+    });
+    expect(fixtures.addDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.deleteDescriptionEntry).not.toHaveBeenCalled();
+  });
+
+  it("deletes description entries when their text is erased and saved", async () => {
+    setInitialDescription();
+    renderTask();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Description" }), {
+      target: { value: "" },
+    });
+
+    expect(fixtures.deleteDescriptionEntry).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit Task" }))
+        .toBeInTheDocument(),
+    );
+
+    expect(fixtures.deleteDescriptionEntry).toHaveBeenCalledWith({
+      taskId: "task-1",
+      entryId: "entry-1",
+    });
+    expect(fixtures.updateDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.addDescriptionEntry).not.toHaveBeenCalled();
+  });
+
+  it("discards description changes when editing is cancelled", () => {
+    setInitialDescription();
+    renderTask();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Task" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Description" }), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(fixtures.updateTask).not.toHaveBeenCalled();
+    expect(fixtures.updateDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.deleteDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.addDescriptionEntry).not.toHaveBeenCalled();
+
+    expect(screen.getByRole("region", { name: "Description" }))
+      .toHaveTextContent("Original description");
+  });
+
+  it("uses entry edit dates for Modified and description ordering", () => {
+    fixtures.task.descriptionEntries = [
+      {
+        id: "entry-untouched",
+        taskId: "task-1",
+        content: "Never edited",
+        createdAt: "2026-10-02T06:00:00.000Z",
+        updatedAt: "2026-10-02T06:00:00.000Z",
+      },
+      {
+        id: "entry-edited",
+        taskId: "task-1",
+        content: "Corrected later",
+        createdAt: "2026-10-01T06:00:00.000Z",
+        updatedAt: "2026-10-10T06:00:00.000Z",
+      },
+    ];
+
+    renderTask();
+
+    expect(screen.getByText("Modified").parentElement)
+      .toHaveTextContent("Oct 10, 2026");
+
+    const panel = screen.getByRole("region", { name: "Description" });
+
+    expect(
+      [...panel.querySelectorAll("time")].map((element) => element.textContent),
+    ).toEqual(["10/10/2026", "02/10/2026"]);
+
+    expect(
+      within(panel)
+        .getAllByText(/^(Corrected later|Never edited)$/)
+        .map((element) => element.textContent),
+    ).toEqual(["Corrected later", "Never edited"]);
   });
 });

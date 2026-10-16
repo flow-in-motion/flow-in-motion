@@ -18,6 +18,8 @@ describe('NotesService', () => {
   let repository: {
     findEntriesByNote: jest.Mock;
     appendEntry: jest.Mock;
+    updateEntry: jest.Mock;
+    deleteEntry: jest.Mock;
     findById: jest.Mock;
     findByIdGlobal: jest.Mock;
     findByCreator: jest.Mock;
@@ -54,6 +56,8 @@ describe('NotesService', () => {
     repository = {
       findEntriesByNote: jest.fn().mockResolvedValue([]),
       appendEntry: jest.fn(),
+      updateEntry: jest.fn(),
+      deleteEntry: jest.fn(),
       findById: jest.fn(),
       findByIdGlobal: jest.fn(),
       findByCreator: jest.fn(),
@@ -262,6 +266,148 @@ describe('NotesService', () => {
           content: 'New content',
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    describe('editing an existing entry', () => {
+      const editedEntry = {
+        ...initialEntry,
+        content: 'Corrected content',
+        updatedAt: '2026-10-16T06:00:00.000Z',
+      };
+
+      it('saves trimmed content and returns the note with the edited entry', async () => {
+        repository.updateEntry.mockResolvedValue({ id: 'note-1' });
+        repository.findEntriesByNote
+          .mockResolvedValueOnce([initialEntry])
+          .mockResolvedValueOnce([editedEntry]);
+
+        const result = await service.updateEntry(
+          'tenant-1',
+          'note-1',
+          'entry-1',
+          'user-1',
+          { content: '  Corrected content  ' },
+        );
+
+        expect(repository.updateEntry).toHaveBeenCalledWith(
+          'tenant-1',
+          'note-1',
+          'entry-1',
+          'Corrected content',
+        );
+        expect(result.entries).toEqual([editedEntry]);
+        // Editing must never append a new entry.
+        expect(repository.appendEntry).not.toHaveBeenCalled();
+      });
+
+      it('rejects whitespace-only content without writing', async () => {
+        await expect(
+          service.updateEntry('tenant-1', 'note-1', 'entry-1', 'user-1', {
+            content: ' \n\t ',
+          }),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(repository.updateEntry).not.toHaveBeenCalled();
+      });
+
+      it('returns not found when the entry does not belong to the note', async () => {
+        repository.updateEntry.mockResolvedValue(undefined);
+
+        await expect(
+          service.updateEntry('tenant-1', 'note-1', 'missing', 'user-1', {
+            content: 'Corrected content',
+          }),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('does not write anything for an outsider', async () => {
+        await expect(
+          service.updateEntry('tenant-1', 'note-1', 'entry-1', 'outsider-1', {
+            content: 'Corrected content',
+          }),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(repository.updateEntry).not.toHaveBeenCalled();
+      });
+
+      it('allows a member to edit using the note real tenant', async () => {
+        const note = {
+          id: 'note-1',
+          tenantId: 'tenant-2',
+          createdBy: 'owner-1',
+          visibilityId: null,
+        };
+        repository.findByIdGlobal.mockResolvedValue(note);
+        repository.findById.mockResolvedValue(note);
+        noteMembers.findByNoteAndUser.mockResolvedValue({ id: 'membership-1' });
+        repository.updateEntry.mockResolvedValue({ id: 'note-1' });
+
+        await service.updateEntryForCaller('note-1', 'entry-1', 'member-1', {
+          content: 'Corrected content',
+        });
+
+        expect(repository.updateEntry).toHaveBeenCalledWith(
+          'tenant-2',
+          'note-1',
+          'entry-1',
+          'Corrected content',
+        );
+      });
+
+      it('rejects an outsider through the tenant-agnostic path', async () => {
+        repository.findByIdGlobal.mockResolvedValue({
+          id: 'note-1',
+          tenantId: 'tenant-2',
+          createdBy: 'owner-1',
+        });
+
+        await expect(
+          service.updateEntryForCaller('note-1', 'entry-1', 'outsider-1', {
+            content: 'Corrected content',
+          }),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(repository.updateEntry).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('deleting an entry', () => {
+      it('deletes the entry and returns the refreshed note', async () => {
+        repository.deleteEntry.mockResolvedValue({ id: 'note-1' });
+        repository.findEntriesByNote
+          .mockResolvedValueOnce([initialEntry])
+          .mockResolvedValueOnce([]);
+
+        const result = await service.deleteEntry(
+          'tenant-1',
+          'note-1',
+          'entry-1',
+          'user-1',
+        );
+
+        expect(repository.deleteEntry).toHaveBeenCalledWith(
+          'tenant-1',
+          'note-1',
+          'entry-1',
+        );
+        expect(result.entries).toEqual([]);
+      });
+
+      it('returns not found when the entry does not exist', async () => {
+        repository.deleteEntry.mockResolvedValue(undefined);
+
+        await expect(
+          service.deleteEntry('tenant-1', 'note-1', 'missing', 'user-1'),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('does not delete anything for an outsider', async () => {
+        await expect(
+          service.deleteEntry('tenant-1', 'note-1', 'entry-1', 'outsider-1'),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(repository.deleteEntry).not.toHaveBeenCalled();
+      });
     });
   });
 

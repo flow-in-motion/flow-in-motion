@@ -62,7 +62,7 @@ type SortColumn =
 type SortDirection = "asc" | "desc";
 
 const TASK_COLUMNS = [
-  { id: "task", label: "Task", width: "minmax(240px,1.5fr)" },
+  { id: "task", label: "Task and To Do", width: "minmax(240px,1.5fr)" },
   { id: "description", label: "Description", width: "minmax(260px,2fr)" },
   { id: "project", label: "Linked to", width: "170px" },
   { id: "status", label: "Status", width: "110px" },

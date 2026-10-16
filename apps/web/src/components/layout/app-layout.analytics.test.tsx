@@ -45,7 +45,7 @@ function NavigationHarness() {
         Notes
       </button>
       <button type="button" onClick={() => navigate("/tasks")}>
-        Tasks
+        Tasks and To Do
       </button>
       <Outlet />
     </>
@@ -86,7 +86,7 @@ describe("AppLayout usage tracking", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Notes" }));
-    fireEvent.click(screen.getByRole("button", { name: "Tasks" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tasks and To Do" }));
 
     await waitFor(() => {
       expect(analytics.trackEvent.mock.calls).toEqual([

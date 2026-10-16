@@ -15,7 +15,10 @@ import {
   type ApiNote,
   type ApiProject,
   useAddMyNoteEntry,
+  useUpdateMyNoteEntry,
   type ApiNoteEntry,
+  type ApiNoteDetail,
+  useDeleteMyNoteEntry,
 } from "@/api/hooks";
 import { NoteMembersManager } from "@/components/notes/note-members";
 import { BackButton } from "@/components/shared/back-button";
@@ -32,6 +35,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { resolveLinkTargetType, type LinkTargetType } from "@/lib/link-target";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import {
+  createEntryDocument,
+  editEntryDocument,
+  getEntryDocumentChanges,
+  type EntryDocument,
+} from "@/lib/entry-document";
+
 const VISIBILITY_OPTIONS = ["Private", "Shared"];
 const LINK_TARGETS: Array<{ value: LinkTargetType; label: string }> = [
   { value: "project", label: "Project" },
@@ -45,6 +55,7 @@ interface NoteEditForm {
   moduleId: string;
   visibility: string;
   followUpDate: string;
+  document: EntryDocument;
 }
 function formatDate(iso: string | null | undefined) {
   if (!iso) return "—";
@@ -62,7 +73,7 @@ function formatPlainDate(iso: string) {
     year: "numeric",
   });
 }
-function formValues(note: ApiNote): NoteEditForm {
+function formValues(note: ApiNoteDetail): NoteEditForm {
   return {
     title: note.title ?? "",
     linkTarget: resolveLinkTargetType(note),
@@ -70,6 +81,7 @@ function formValues(note: ApiNote): NoteEditForm {
     moduleId: note.moduleId ?? "",
     visibility: note.visibility ?? "Private",
     followUpDate: note.followUpDate ?? "",
+    document: createEntryDocument(note.entries ?? []),
   };
 }
 function FormField({ label, htmlFor, children, className = "" }: { label: string; htmlFor: string; children: ReactNode; className?: string }) {
@@ -227,31 +239,39 @@ return (
 </span>
 );
 }
+
 function groupNoteEntries(entries: ApiNoteEntry[]) {
-const formatter = new Intl.DateTimeFormat("en-GB", {
-day: "2-digit",
-month: "2-digit",
-year: "numeric",
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
+
   const groups = new Map<
     string,
     { date: string; entries: ApiNoteEntry[] }
   >();
+
   const sorted = [...entries].sort(
     (a, b) =>
-      new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime() ||
+      new Date(b.updatedAt ?? b.createdAt).getTime() -
+        new Date(a.updatedAt ?? a.createdAt).getTime() ||
       b.id.localeCompare(a.id),
   );
+
   for (const entry of sorted) {
-    const date = formatter.format(new Date(entry.createdAt));
+    const date = formatter.format(
+      new Date(entry.updatedAt ?? entry.createdAt),
+    );
     const group = groups.get(date);
+
     if (group) {
       group.entries.push(entry);
     } else {
       groups.set(date, { date, entries: [entry] });
     }
   }
+
   return [...groups.values()];
 }
 export default function DailyNoteDetailPage() {
@@ -279,10 +299,11 @@ export default function DailyNoteDetailPage() {
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
   const [isMembersVisible, setIsMembersVisible] = useState(true);
   const addEntry = useAddMyNoteEntry();
-  const [newContent, setNewContent] = useState("");
+  const updateEntry = useUpdateMyNoteEntry();
+  const deleteEntry = useDeleteMyNoteEntry();
+  const [isSavingChanges, setIsSavingChanges] = useState(false);
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && note) {
-      setNewContent("");
       setForm(formValues(note));
       setOpenedRequestedEdit(true);
     }
@@ -314,8 +335,14 @@ export default function DailyNoteDetailPage() {
   }
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!form || updateNote.isPending || addEntry.isPending) return;
-    const content = newContent.trim();
+
+    if (!form || isSavingChanges) return;
+
+    const changes = getEntryDocumentChanges(form.document);
+
+    setIsSavingChanges(true);
+    setActionError(null);
+
     try {
       await updateNote.mutateAsync({
         noteId,
@@ -325,13 +352,66 @@ export default function DailyNoteDetailPage() {
           followUpDate: form.followUpDate || undefined,
         },
       });
-      if (content) {
-        await addEntry.mutateAsync({ noteId, content });
+
+      for (const entry of changes.updates) {
+        await updateEntry.mutateAsync({
+          noteId,
+          entryId: entry.entryId,
+          content: entry.content,
+        });
+
+        // Remember completed writes if a later operation fails.
+        setForm((current) =>
+          current
+            ? {
+                ...current,
+                document: {
+                  ...current.document,
+                  entries: current.document.entries.map((item) =>
+                    item.id === entry.entryId
+                      ? { ...item, content: entry.content }
+                      : item,
+                  ),
+                },
+              }
+            : current,
+        );
       }
-      setNewContent("");
+
+      for (const entryId of changes.deletions) {
+        await deleteEntry.mutateAsync({ noteId, entryId });
+
+        setForm((current) =>
+          current
+            ? {
+                ...current,
+                document: {
+                  ...current.document,
+                  entries: current.document.entries.filter(
+                    (item) => item.id !== entryId,
+                  ),
+                },
+              }
+            : current,
+        );
+      }
+
+      if (changes.addition) {
+        await addEntry.mutateAsync({
+          noteId,
+          content: changes.addition,
+        });
+      }
+
       setForm(null);
-    } catch {
-      // Keep editing open and preserve the draft after a failed save.
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The note could not be saved.",
+      );
+    } finally {
+      setIsSavingChanges(false);
     }
   }
   async function handleChangeLink(linkTarget: LinkTargetType, newProjectId: string, newModuleId: string) {
@@ -363,7 +443,6 @@ export default function DailyNoteDetailPage() {
   }
 
   function cancelEditing() {
-    setNewContent("");
     setForm(null);
     if (searchParams.get("edit") === "true") {
       if (location.key === "default") {
@@ -377,6 +456,17 @@ export default function DailyNoteDetailPage() {
     ? modules.find((module) => module.id === note.moduleId)
     : undefined;
   const entryGroups = groupNoteEntries(note.entries ?? []);
+  const modifiedAt = (note.entries ?? []).reduce(
+    (latest: string | null, entry) => {
+      const timestamp = entry.updatedAt ?? entry.createdAt;
+
+      return !latest ||
+        new Date(timestamp).getTime() > new Date(latest).getTime()
+        ? timestamp
+        : latest;
+    },
+    null,
+  );
   return (
     <div className="page-stack">
       <BackButton fallback="/daily-notes" label="Back" />
@@ -421,7 +511,6 @@ export default function DailyNoteDetailPage() {
                <Button
                  type="button"
                  onClick={() => {
-                   setNewContent("");
                    setForm(formValues(note));
                  }}
                >
@@ -436,6 +525,10 @@ export default function DailyNoteDetailPage() {
             <HeaderStat
               label="Created"
               value={formatDate(note.createdAt)}
+            />
+            <HeaderStat
+              label="Modified"
+              value={formatDate(modifiedAt)}
             />
             <HeaderStat
               label="Follow-up date"
@@ -457,6 +550,7 @@ export default function DailyNoteDetailPage() {
       ) : null}
     </PageHeading>
 
+    {!form ? (
       <section aria-labelledby="note-content-heading">
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-border/60 bg-muted/20">
@@ -481,11 +575,11 @@ export default function DailyNoteDetailPage() {
                     <div className="space-y-3">
                       {group.entries.map((entry) => (
                         <p
-                          key={entry.id}
-                          className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]"
-                        >
-                          {entry.content}
-                        </p>
+                        key={entry.id}
+                        className="whitespace-pre-wrap text-sm leading-7 text-foreground [overflow-wrap:anywhere]"
+                      >
+                        {entry.content}
+                      </p>
                       ))}
                     </div>
                   </div>
@@ -499,34 +593,72 @@ export default function DailyNoteDetailPage() {
           </CardContent>
         </Card>
       </section>
+    ) : null}
     {form ? (
       <Card>
-        <CardHeader><CardTitle>Edit note details</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Edit Note</CardTitle>
+        </CardHeader>
+
         <CardContent>
-          <form onSubmit={(event) => void handleSave(event)} className="grid gap-6">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <FormField label="Note title" htmlFor="edit-note-title" className="sm:col-span-2">
-              <Input id="edit-note-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required autoFocus />
-                </FormField>
-                <FormField label="Note" htmlFor="edit-note-content" className="sm:col-span-2">
-                  <Textarea
-                    id="edit-note-content"
-                    value={newContent}
-                    onChange={(event) => setNewContent(event.target.value)}
-                    placeholder="Write new content…"
-                    rows={6}
-                    disabled={updateNote.isPending || addEntry.isPending}
-                  />
-                </FormField>
+          <form
+            onSubmit={(event) => void handleSave(event)}
+            className="grid gap-6"
+          >
+            <fieldset
+              disabled={isSavingChanges}
+              className="grid min-w-0 gap-6"
+            >
+              <FormField label="Note title" htmlFor="edit-note-title">
+                <Input
+                  id="edit-note-title"
+                  value={form.title}
+                  onChange={(event) =>
+                    setForm({ ...form, title: event.target.value })
+                  }
+                  required
+                  autoFocus
+                />
+              </FormField>
+
+              <FormField label="Note" htmlFor="edit-note-content">
+                <Textarea
+                  id="edit-note-content"
+                  value={form.document.text}
+                  onChange={(event) => {
+                    const text = event.target.value;
+
+                    setForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            document: editEntryDocument(current.document, text),
+                          }
+                        : current,
+                    );
+                  }}
+                  placeholder="Write your note…"
+                  rows={16}
+                  className="h-[400px] resize-y overflow-y-auto leading-7"
+                />
+              </FormField>
+
+              <div className="grid gap-5 sm:grid-cols-2">
                 {TASK_NOTE_SHARING_ENABLED ? (
-                  <FormField label="Visibility" htmlFor="edit-note-visibility">
+                  <FormField
+                    label="Visibility"
+                    htmlFor="edit-note-visibility"
+                  >
                     <Select
                       value={form.visibility}
-                      onValueChange={(value) => setForm({ ...form, visibility: value })}
+                      onValueChange={(value) =>
+                        setForm({ ...form, visibility: value })
+                      }
                     >
                       <SelectTrigger id="edit-note-visibility">
                         <SelectValue />
                       </SelectTrigger>
+
                       <SelectContent>
                         {VISIBILITY_OPTIONS.map((value) => (
                           <SelectItem key={value} value={value}>
@@ -537,39 +669,41 @@ export default function DailyNoteDetailPage() {
                     </Select>
                   </FormField>
                 ) : null}
-                <FormField label="Follow-up date" htmlFor="edit-note-follow-up"><DatePickerInput id="edit-note-follow-up" label="Follow-up date" value={form.followUpDate} onChange={(value) => setForm({ ...form, followUpDate: value })} /></FormField>
+
+                <FormField
+                  label="Follow-up date"
+                  htmlFor="edit-note-follow-up"
+                >
+                  <DatePickerInput
+                    id="edit-note-follow-up"
+                    label="Follow-up date"
+                    value={form.followUpDate}
+                    onChange={(value) =>
+                      setForm({ ...form, followUpDate: value })
+                    }
+                  />
+                </FormField>
               </div>
-              {updateNote.isError ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {updateNote.error.message}
-                </p>
-              ) : null}
-              {addEntry.isError ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {addEntry.error.message}
-                </p>
-              ) : null}
+
               <div className="flex justify-end gap-3 border-t pt-5">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={cancelEditing}
-                  disabled={updateNote.isPending || addEntry.isPending}
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={updateNote.isPending || addEntry.isPending}
-                >
+
+                <Button type="submit">
                   <Save />
-                  {updateNote.isPending || addEntry.isPending ? "Saving…" : "Save Changes"}
+                  {isSavingChanges ? "Saving…" : "Save Changes"}
                 </Button>
               </div>
-            </form>
-          </CardContent>
-        </Card>
-      ) : null}
+            </fieldset>
+          </form>
+        </CardContent>
+      </Card>
+    ) : null}
       <div className="flex flex-col gap-6">
         <section aria-labelledby="note-linked-work-heading">
         <div className="mb-3 flex items-center justify-between gap-3">

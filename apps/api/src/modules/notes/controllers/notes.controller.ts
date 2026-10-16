@@ -28,6 +28,7 @@ import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guar
 import { ConfigService } from '@nestjs/config';
 import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { CreateNoteEntryDto } from '../dto/create-note-entry.dto';
+import { UpdateNoteEntryDto } from '../dto/update-note-entry.dto';
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
 }
@@ -122,6 +123,41 @@ export class NotesController {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
 
     return this.notesService.appendEntry(tenantId, noteId, user.id, dto);
+  }
+
+  @ApiOperation({ summary: 'Edit an existing note entry' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Patch(':noteId/entries/:entryId')
+  async updateEntry(
+    @Param('tenantId') tenantId: string,
+    @Param('noteId') noteId: string,
+    @Param('entryId') entryId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateNoteEntryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.notesService.updateEntry(
+      tenantId,
+      noteId,
+      entryId,
+      user.id,
+      dto,
+    );
+  }
+
+  @ApiOperation({ summary: 'Delete a note entry' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Delete(':noteId/entries/:entryId')
+  async deleteEntry(
+    @Param('tenantId') tenantId: string,
+    @Param('noteId') noteId: string,
+    @Param('entryId') entryId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.notesService.deleteEntry(tenantId, noteId, entryId, user.id);
   }
 
   @ApiOperation({ summary: 'Delete a note' })

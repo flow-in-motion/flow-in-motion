@@ -92,6 +92,42 @@ export class MyTasksController {
     );
   }
 
+  @ApiOperation({ summary: 'Edit an existing task description entry' })
+  @UseGuards(JwtAuthGuard)
+  @Patch(':taskId/description-entries/:entryId')
+  async updateDescriptionEntry(
+    @Param('taskId') taskId: string,
+    @Param('entryId') entryId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateTaskDescriptionEntryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.tasksService.updateDescriptionEntryForCaller(
+      taskId,
+      entryId,
+      user.id,
+      dto,
+    );
+  }
+
+  @ApiOperation({ summary: 'Delete a task description entry' })
+  @UseGuards(JwtAuthGuard)
+  @Delete(':taskId/description-entries/:entryId')
+  async deleteDescriptionEntry(
+    @Param('taskId') taskId: string,
+    @Param('entryId') entryId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.tasksService.deleteDescriptionEntryForCaller(
+      taskId,
+      entryId,
+      user.id,
+    );
+  }
+
   @ApiOperation({ summary: 'Delete a task the caller can access' })
   @UseGuards(JwtAuthGuard)
   @Delete(':taskId')
