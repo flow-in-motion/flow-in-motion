@@ -1,4 +1,11 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { ChevronDown, ChevronUp, ListTodo, Pencil, Save, Trash2, Unlink, Users } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
@@ -22,12 +29,7 @@ import {
   useDeleteMyTaskDescriptionEntry,
   type ApiTaskDetail,
 } from "@/api/hooks";
-import {
-  createEntryDocument,
-  editEntryDocument,
-  getEntryDocumentChanges,
-  type EntryDocument,
-} from "@/lib/entry-document";
+
 import type { TaskFormInput } from "@/components/tasks/task-dialog";
 import { TaskMembersManager } from "@/components/tasks/task-members";
 import { BackButton } from "@/components/shared/back-button";
@@ -99,14 +101,22 @@ function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+interface EditableDescriptionEntry {
+  id: string;
+  createdAt: string;
+  originalContent: string;
+  content: string;
+}
+
 type TaskEditForm = Omit<TaskFormInput, "description"> & {
-  document: EntryDocument;
+  newEntryDate: string;
+  newContent: string;
+  entries: EditableDescriptionEntry[];
 };
 
 function formValues(task: ApiTaskDetail): TaskEditForm {
   return {
     title: task.title,
-    document: createEntryDocument(task.descriptionEntries ?? []),
     linkTarget: resolveLinkTargetType(task),
     projectId: task.projectId ?? "",
     moduleId: task.moduleId ?? "",
@@ -115,7 +125,108 @@ function formValues(task: ApiTaskDetail): TaskEditForm {
     dueDate: task.dueDate ?? "",
     estimatedHours: task.estimatedHours ?? "",
     visibility: task.visibility ?? "Private",
+    newEntryDate: new Date().toISOString(),
+    newContent: "",
+    entries: [...(task.descriptionEntries ?? [])]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime() ||
+          b.id.localeCompare(a.id),
+      )
+      .map((entry) => ({
+        id: entry.id,
+        createdAt: entry.createdAt,
+        originalContent: entry.content,
+        content: entry.content,
+      })),
   };
+}
+function formatEntryDate(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+function groupEditableDescriptionEntries(
+  entries: EditableDescriptionEntry[],
+) {
+  const groups = new Map<
+    string,
+    { date: string; entries: EditableDescriptionEntry[] }
+  >();
+
+  for (const entry of entries) {
+    const date = formatEntryDate(entry.createdAt);
+    const group = groups.get(date);
+
+    if (group) {
+      group.entries.push(entry);
+    } else {
+      groups.set(date, { date, entries: [entry] });
+    }
+  }
+
+  return [...groups.values()];
+}
+
+function DescriptionSectionInput({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id?: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    function resize() {
+      if (!element) return;
+
+      element.style.height = "0px";
+      element.style.height = `${element.scrollHeight}px`;
+    }
+
+    resize();
+
+    let previousWidth = element.getBoundingClientRect().width;
+
+    const observer = new ResizeObserver(() => {
+      const width = element.getBoundingClientRect().width;
+
+      if (width !== previousWidth) {
+        previousWidth = width;
+        resize();
+      }
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [value]);
+
+  return (
+    <Textarea
+      ref={ref}
+      id={id}
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      rows={1}
+      className="min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-1 leading-7 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+    />
+  );
 }
 
 function FormField({ label, htmlFor, children, className = "" }: { label: string; htmlFor: string; children: ReactNode; className?: string }) {
@@ -288,15 +399,13 @@ function groupDescriptionEntries(entries: ApiTaskDescriptionEntry[]) {
 
   const sorted = [...entries].sort(
     (a, b) =>
-      new Date(b.updatedAt ?? b.createdAt).getTime() -
-        new Date(a.updatedAt ?? a.createdAt).getTime() ||
+      new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime() ||
       b.id.localeCompare(a.id),
   );
 
   for (const entry of sorted) {
-    const date = formatter.format(
-      new Date(entry.updatedAt ?? entry.createdAt),
-    );
+    const date = formatter.format(new Date(entry.createdAt));
     const group = groups.get(date);
 
     if (group) {
@@ -380,7 +489,17 @@ export default function TaskDetailPage() {
 
     if (!form || isSavingChanges) return;
 
-    const changes = getEntryDocumentChanges(form.document);
+    const updates = form.entries.filter(
+      (entry) =>
+        entry.content.trim() !== "" &&
+        entry.content.trim() !== entry.originalContent.trim(),
+    );
+
+    const deletions = form.entries.filter(
+      (entry) => entry.content.trim() === "",
+    );
+
+    const addition = form.newContent.trim();
 
     setIsSavingChanges(true);
     setActionError(null);
@@ -402,52 +521,56 @@ export default function TaskDetailPage() {
         trackEvent({ name: "task_completed" });
       }
 
-      for (const entry of changes.updates) {
+      for (const entry of updates) {
+        const content = entry.content.trim();
+
         await updateDescriptionEntry.mutateAsync({
           taskId,
-          entryId: entry.entryId,
-          content: entry.content,
+          entryId: entry.id,
+          content,
+        });
+
+        // Remember completed writes if a later request fails.
+        setForm((current) =>
+          current
+            ? {
+                ...current,
+                entries: current.entries.map((item) =>
+                  item.id === entry.id
+                    ? {
+                        ...item,
+                        content,
+                        originalContent: content,
+                      }
+                    : item,
+                ),
+              }
+            : current,
+        );
+      }
+
+      for (const entry of deletions) {
+        await deleteDescriptionEntry.mutateAsync({
+          taskId,
+          entryId: entry.id,
         });
 
         setForm((current) =>
           current
             ? {
                 ...current,
-                document: {
-                  ...current.document,
-                  entries: current.document.entries.map((item) =>
-                    item.id === entry.entryId
-                      ? { ...item, content: entry.content }
-                      : item,
-                  ),
-                },
+                entries: current.entries.filter(
+                  (item) => item.id !== entry.id,
+                ),
               }
             : current,
         );
       }
 
-      for (const entryId of changes.deletions) {
-        await deleteDescriptionEntry.mutateAsync({ taskId, entryId });
-
-        setForm((current) =>
-          current
-            ? {
-                ...current,
-                document: {
-                  ...current.document,
-                  entries: current.document.entries.filter(
-                    (item) => item.id !== entryId,
-                  ),
-                },
-              }
-            : current,
-        );
-      }
-
-      if (changes.addition) {
+      if (addition) {
         await addDescriptionEntry.mutateAsync({
           taskId,
-          content: changes.addition,
+          content: addition,
         });
       }
 
@@ -524,6 +647,17 @@ export default function TaskDetailPage() {
         : latest;
     },
     null,
+  );
+
+  const editorGroups = groupEditableDescriptionEntries(
+    form?.entries ?? [],
+  );
+
+  const hasTodayEntry = Boolean(
+    form &&
+      editorGroups.some(
+        (group) => group.date === formatEntryDate(form.newEntryDate),
+      ),
   );
 
   return (
@@ -658,25 +792,80 @@ export default function TaskDetailPage() {
                   htmlFor="edit-task-description"
                   className="sm:col-span-2"
                 >
-                  <Textarea
-                    id="edit-task-description"
-                    value={form.document.text}
-                    onChange={(event) => {
-                      const text = event.target.value;
+                  <div
+                    role="group"
+                    aria-label="Dated task description"
+                    className="h-[400px] min-h-[240px] resize-y overflow-auto rounded-md border border-input bg-card px-4 py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/15"
+                  >
+                    {!hasTodayEntry ? (
+                      <section aria-label="New description content">
+                        <time
+                          dateTime={form.newEntryDate}
+                          className="block select-none text-xs font-medium text-muted-foreground"
+                        >
+                          {formatEntryDate(form.newEntryDate)}
+                        </time>
 
-                      setForm((current) =>
-                        current
-                          ? {
-                              ...current,
-                              document: editEntryDocument(current.document, text),
+                        <DescriptionSectionInput
+                          id="edit-task-description"
+                          label="New description content"
+                          value={form.newContent}
+                          placeholder="Write the task description…"
+                          onChange={(newContent) =>
+                            setForm((current) =>
+                              current ? { ...current, newContent } : current,
+                            )
+                          }
+                        />
+                      </section>
+                    ) : null}
+
+                    {editorGroups.map((group, groupIndex) => (
+                      <section
+                        key={group.date}
+                        aria-label={`Entry dated ${group.date}`}
+                        className={
+                          !hasTodayEntry || groupIndex > 0
+                            ? "mt-2 border-t border-dashed border-border pt-2"
+                            : ""
+                        }
+                      >
+                        <time
+                          dateTime={group.entries[0].createdAt}
+                          className="block select-none text-xs font-medium text-muted-foreground"
+                        >
+                          {group.date}
+                        </time>
+
+                        {group.entries.map((entry, entryIndex) => (
+                          <DescriptionSectionInput
+                            key={entry.id}
+                            id={
+                              hasTodayEntry && groupIndex === 0 && entryIndex === 0
+                                ? "edit-task-description"
+                                : undefined
                             }
-                          : current,
-                      );
-                    }}
-                    placeholder="Write the task description…"
-                    rows={16}
-                    className="h-[400px] resize-y overflow-y-auto leading-7"
-                  />
+                            label={`Description content from ${group.date}`}
+                            value={entry.content}
+                            onChange={(content) =>
+                              setForm((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      entries: current.entries.map((item) =>
+                                        item.id === entry.id
+                                          ? { ...item, content }
+                                          : item,
+                                      ),
+                                    }
+                                  : current,
+                              )
+                            }
+                          />
+                        ))}
+                      </section>
+                    ))}
+                  </div>
                 </FormField>
                 <FormField label="Link to" htmlFor="edit-task-link" className="sm:col-span-2">
                   <div id="edit-task-link" className="flex flex-wrap gap-2">{LINK_TARGETS.map((option) => <button key={option.value} type="button" aria-pressed={form.linkTarget === option.value}
