@@ -25,6 +25,7 @@ CREATE INDEX "research_change_events_entity_changed_at_idx" ON "research_change_
 ALTER TABLE "research_change_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 REVOKE ALL ON TABLE "research_change_events" FROM PUBLIC;--> statement-breakpoint
 REVOKE ALL ON TABLE "research_change_events" FROM anon, authenticated, service_role;--> statement-breakpoint
+REVOKE ALL ON TABLE "research_change_events" FROM research_tracker_app;--> statement-breakpoint
 GRANT SELECT, INSERT ON TABLE "research_change_events" TO research_tracker_app;--> statement-breakpoint
 
 CREATE POLICY research_change_events_owner_select
