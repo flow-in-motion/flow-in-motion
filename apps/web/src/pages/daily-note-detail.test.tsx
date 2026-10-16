@@ -1,5 +1,5 @@
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DailyNoteDetailPage from "@/pages/daily-note-detail";
 import {
@@ -119,8 +119,17 @@ vi.mock("@/lib/feature-flags", () => ({
   },
 }));
 
+
 describe("DailyNoteDetailPage", () => {
   beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
     fixtures.deleteEntry.mockReset();
     fixtures.deleteEntry.mockResolvedValue(fixtures.note);
     fixtures.deleteNote.mockReset();
@@ -147,6 +156,10 @@ describe("DailyNoteDetailPage", () => {
 
     fixtures.updateEntry.mockReset();
     fixtures.updateEntry.mockResolvedValue(fixtures.note);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   function renderNote() {
@@ -222,39 +235,68 @@ describe("DailyNoteDetailPage", () => {
     ]);
   });
 
-  it("shows read-only content and opens one editor without date headings", () => {
+  it("opens dated sections with fixed headings and a blank section for today", () => {
     renderNote();
 
-    const readingPanel = screen.getByRole("region", { name: "Content" });
-    expect(readingPanel).toHaveTextContent("Baseline readings look consistent.");
-    expect(
-      screen.queryByRole("textbox", { name: "Note" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /^Edit entry from/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Content" }))
+      .toHaveTextContent("Baseline readings look consistent.");
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
 
     expect(
       screen.queryByRole("region", { name: "Content" }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("textbox", { name: "Note" })).toHaveLength(1);
-    expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue(
-      "Baseline readings look consistent.",
-    );
-    expect(screen.queryByText("01/01/2026")).not.toBeInTheDocument();
+
+    const editor = screen.getByRole("group", {
+      name: "Dated note content",
+    });
+
+    const today = new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date());
+
+    expect(
+      [...editor.querySelectorAll("time")].map(
+        (element) => element.textContent,
+      ),
+    ).toEqual([today, "01/01/2026"]);
+
+    expect(
+      within(editor).getByRole("textbox", {
+        name: "New note content",
+      }),
+    ).toHaveValue("");
+
+    expect(
+      within(editor).getByRole("textbox", {
+        name: "Note content from 01/01/2026",
+      }),
+    ).toHaveValue("Baseline readings look consistent.");
+
+    // Date headings are outside the editable text.
+    for (const heading of editor.querySelectorAll("time")) {
+      expect(heading.closest("textarea")).toBeNull();
+      expect(heading.closest('[contenteditable="true"]')).toBeNull();
+    }
+
+    expect(
+      within(editor).getByRole("region", {
+        name: "Entry dated 01/01/2026",
+      }),
+    ).toHaveClass("border-t");
   });
 
-  it("appends only new content from the single editor", async () => {
+  it("adds new content without rewriting previous entries", async () => {
     renderNote();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
-      target: {
-        value: "Baseline readings look consistent.\n\nNew observation",
-      },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "New note content" }),
+      { target: { value: "New observation" } },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
@@ -273,20 +315,30 @@ describe("DailyNoteDetailPage", () => {
       .not.toHaveProperty("content");
   });
 
-  it("preserves the complete editor draft when adding content fails", async () => {
+  it("preserves new and previous content when adding content fails", async () => {
     fixtures.addEntry.mockRejectedValue(new Error("Unable to save"));
     renderNote();
 
-    const draft = "Baseline readings look consistent.\n\nKeep this draft";
-
     fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
-      target: { value: draft },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "New note content" }),
+      { target: { value: "Keep this draft" } },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to save");
-    expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue(draft);
+    expect(await screen.findByRole("alert"))
+      .toHaveTextContent("Unable to save");
+
+    expect(
+      screen.getByRole("textbox", { name: "New note content" }),
+    ).toHaveValue("Keep this draft");
+
+    expect(
+      screen.getByRole("textbox", {
+        name: "Note content from 01/01/2026",
+      }),
+    ).toHaveValue("Baseline readings look consistent.");
+
     expect(screen.getByRole("button", { name: "Save Changes" }))
       .toBeEnabled();
   });
@@ -295,7 +347,7 @@ describe("DailyNoteDetailPage", () => {
     renderNote();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Note content from 01/01/2026" }), {
       target: { value: "" },
     });
 
@@ -556,7 +608,7 @@ describe("DailyNoteDetailPage", () => {
     renderNote();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Note content from 01/01/2026" }), {
       target: { value: "Baseline readings corrected." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
@@ -579,7 +631,7 @@ describe("DailyNoteDetailPage", () => {
     renderNote();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Note" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Note content from 01/01/2026" }), {
       target: { value: "" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -593,7 +645,7 @@ describe("DailyNoteDetailPage", () => {
       .toHaveTextContent("Baseline readings look consistent.");
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
-    expect(screen.getByRole("textbox", { name: "Note" })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: "Note content from 01/01/2026" })).toHaveValue(
       "Baseline readings look consistent.",
     );
   });
@@ -614,7 +666,7 @@ describe("DailyNoteDetailPage", () => {
     expect(fixtures.addEntry).not.toHaveBeenCalled();
   });
 
-  it("uses the latest entry edit date for Modified and content ordering", () => {
+  it("uses the latest edit for Modified while preserving original entry dates", () => {
     fixtures.note.entries = [
       {
         id: "entry-untouched",
@@ -640,13 +692,94 @@ describe("DailyNoteDetailPage", () => {
     const region = screen.getByRole("region", { name: "Content" });
 
     expect(
-      [...region.querySelectorAll("time")].map((element) => element.textContent),
-    ).toEqual(["10/10/2026", "02/10/2026"]);
+      [...region.querySelectorAll("time")].map(
+        (element) => element.textContent,
+      ),
+    ).toEqual(["02/10/2026", "01/10/2026"]);
 
     expect(
       within(region)
         .getAllByText(/^(Corrected later|Never edited)$/)
         .map((element) => element.textContent),
-    ).toEqual(["Corrected later", "Never edited"]);
+    ).toEqual(["Never edited", "Corrected later"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
+
+    const editor = screen.getByRole("group", {
+      name: "Dated note content",
+    });
+
+    expect(within(editor).getByText("01/10/2026"))
+      .toBeInTheDocument();
+    expect(within(editor).queryByText("10/10/2026"))
+      .not.toBeInTheDocument();
+
+    fireEvent.change(
+      within(editor).getByRole("textbox", {
+        name: "Note content from 01/10/2026",
+      }),
+      { target: { value: "Another correction" } },
+    );
+
+    expect(within(editor).getByText("01/10/2026"))
+      .toBeInTheDocument();
+    expect(within(editor).queryByText("10/10/2026"))
+      .not.toBeInTheDocument();
+  });
+  it("edits today's existing section without creating another entry", async () => {
+    const timestamp = new Date().toISOString();
+    const today = new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date(timestamp));
+
+    fixtures.note.entries = [{
+      id: "entry-today",
+      noteId: "note-1",
+      content: "Today's existing note",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }];
+
+    renderNote();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Note" }));
+
+    const editor = screen.getByRole("group", {
+      name: "Dated note content",
+    });
+
+    expect(editor.querySelectorAll("time")).toHaveLength(1);
+    expect(
+      within(editor).queryByRole("textbox", {
+        name: "New note content",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(
+      within(editor).getByRole("textbox", {
+        name: `Note content from ${today}`,
+      }),
+      {
+        target: {
+          value: "Today's existing note\nAnother observation",
+        },
+      },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Edit Note" }))
+        .toBeInTheDocument(),
+    );
+
+    expect(fixtures.updateEntry).toHaveBeenCalledWith({
+      noteId: "note-1",
+      entryId: "entry-today",
+      content: "Today's existing note\nAnother observation",
+    });
+    expect(fixtures.addEntry).not.toHaveBeenCalled();
+    expect(fixtures.deleteEntry).not.toHaveBeenCalled();
   });
 });

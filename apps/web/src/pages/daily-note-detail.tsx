@@ -1,4 +1,11 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { CalendarClock, ChevronDown, ChevronUp, NotebookPen, Pencil, Save, Trash2, Unlink } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TASK_NOTE_SHARING_ENABLED } from "@/lib/feature-flags";
@@ -35,12 +42,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { resolveLinkTargetType, type LinkTargetType } from "@/lib/link-target";
 import { paperDisplayTitle } from "@/lib/paper-title";
-import {
-  createEntryDocument,
-  editEntryDocument,
-  getEntryDocumentChanges,
-  type EntryDocument,
-} from "@/lib/entry-document";
 
 const VISIBILITY_OPTIONS = ["Private", "Shared"];
 const LINK_TARGETS: Array<{ value: LinkTargetType; label: string }> = [
@@ -48,6 +49,13 @@ const LINK_TARGETS: Array<{ value: LinkTargetType; label: string }> = [
   { value: "module", label: "Paper" },
   { value: "none", label: "General" },
 ];
+interface EditableNoteEntry {
+  id: string;
+  createdAt: string;
+  originalContent: string;
+  content: string;
+}
+
 interface NoteEditForm {
   title: string;
   linkTarget: LinkTargetType;
@@ -55,7 +63,9 @@ interface NoteEditForm {
   moduleId: string;
   visibility: string;
   followUpDate: string;
-  document: EntryDocument;
+  newEntryDate: string;
+  newContent: string;
+  entries: EditableNoteEntry[];
 }
 function formatDate(iso: string | null | undefined) {
   if (!iso) return "—";
@@ -81,8 +91,106 @@ function formValues(note: ApiNoteDetail): NoteEditForm {
     moduleId: note.moduleId ?? "",
     visibility: note.visibility ?? "Private",
     followUpDate: note.followUpDate ?? "",
-    document: createEntryDocument(note.entries ?? []),
+    newEntryDate: new Date().toISOString(),
+    newContent: "",
+    entries: [...(note.entries ?? [])]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() -
+            new Date(a.createdAt).getTime() ||
+          b.id.localeCompare(a.id),
+      )
+      .map((entry) => ({
+        id: entry.id,
+        createdAt: entry.createdAt,
+        originalContent: entry.content,
+        content: entry.content,
+      })),
   };
+}
+function formatEntryDate(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
+function groupEditableNoteEntries(entries: EditableNoteEntry[]) {
+  const groups = new Map<
+    string,
+    { date: string; entries: EditableNoteEntry[] }
+  >();
+
+  for (const entry of entries) {
+    const date = formatEntryDate(entry.createdAt);
+    const group = groups.get(date);
+
+    if (group) {
+      group.entries.push(entry);
+    } else {
+      groups.set(date, { date, entries: [entry] });
+    }
+  }
+
+  return [...groups.values()];
+}
+
+function NoteSectionInput({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id?: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    function resize() {
+      if (!element) return;
+
+      element.style.height = "0px";
+      element.style.height = `${element.scrollHeight}px`;
+    }
+
+    resize();
+
+    let previousWidth = element.getBoundingClientRect().width;
+
+    const observer = new ResizeObserver(() => {
+      const width = element.getBoundingClientRect().width;
+
+      if (width !== previousWidth) {
+        previousWidth = width;
+        resize();
+      }
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [value]);
+
+  return (
+    <Textarea
+      ref={ref}
+      id={id}
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      rows={1}
+      className="min-h-0 resize-none overflow-hidden rounded-none border-0 bg-transparent px-0 py-1 leading-7 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+    />
+  );
 }
 function FormField({ label, htmlFor, children, className = "" }: { label: string; htmlFor: string; children: ReactNode; className?: string }) {
   return <div className={`grid gap-1.5 ${className}`}><label htmlFor={htmlFor} className="text-sm font-medium">{label}</label>{children}</div>;
@@ -254,15 +362,13 @@ function groupNoteEntries(entries: ApiNoteEntry[]) {
 
   const sorted = [...entries].sort(
     (a, b) =>
-      new Date(b.updatedAt ?? b.createdAt).getTime() -
-        new Date(a.updatedAt ?? a.createdAt).getTime() ||
+      new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime() ||
       b.id.localeCompare(a.id),
   );
 
   for (const entry of sorted) {
-    const date = formatter.format(
-      new Date(entry.updatedAt ?? entry.createdAt),
-    );
+    const date = formatter.format(new Date(entry.createdAt));
     const group = groups.get(date);
 
     if (group) {
@@ -338,7 +444,17 @@ export default function DailyNoteDetailPage() {
 
     if (!form || isSavingChanges) return;
 
-    const changes = getEntryDocumentChanges(form.document);
+    const updates = form.entries.filter(
+      (entry) =>
+        entry.content.trim() !== "" &&
+        entry.content.trim() !== entry.originalContent.trim(),
+    );
+
+    const deletions = form.entries.filter(
+      (entry) => entry.content.trim() === "",
+    );
+
+    const addition = form.newContent.trim();
 
     setIsSavingChanges(true);
     setActionError(null);
@@ -353,53 +469,56 @@ export default function DailyNoteDetailPage() {
         },
       });
 
-      for (const entry of changes.updates) {
+      for (const entry of updates) {
+        const content = entry.content.trim();
+
         await updateEntry.mutateAsync({
           noteId,
-          entryId: entry.entryId,
-          content: entry.content,
+          entryId: entry.id,
+          content,
         });
 
-        // Remember completed writes if a later operation fails.
+        // Remember completed writes if a later request fails.
         setForm((current) =>
           current
             ? {
                 ...current,
-                document: {
-                  ...current.document,
-                  entries: current.document.entries.map((item) =>
-                    item.id === entry.entryId
-                      ? { ...item, content: entry.content }
-                      : item,
-                  ),
-                },
+                entries: current.entries.map((item) =>
+                  item.id === entry.id
+                    ? {
+                        ...item,
+                        content,
+                        originalContent: content,
+                      }
+                    : item,
+                ),
               }
             : current,
         );
       }
 
-      for (const entryId of changes.deletions) {
-        await deleteEntry.mutateAsync({ noteId, entryId });
+      for (const entry of deletions) {
+        await deleteEntry.mutateAsync({
+          noteId,
+          entryId: entry.id,
+        });
 
         setForm((current) =>
           current
             ? {
                 ...current,
-                document: {
-                  ...current.document,
-                  entries: current.document.entries.filter(
-                    (item) => item.id !== entryId,
-                  ),
-                },
+                entries: current.entries.filter(
+                  (item) => item.id !== entry.id,
+                ),
               }
             : current,
         );
       }
 
-      if (changes.addition) {
+      if (addition) {
         await addEntry.mutateAsync({
           noteId,
-          content: changes.addition,
+          content: addition,
         });
       }
 
@@ -467,6 +586,14 @@ export default function DailyNoteDetailPage() {
     },
     null,
   );
+  const editorGroups = groupEditableNoteEntries(form?.entries ?? []);
+
+const hasTodayEntry = Boolean(
+  form &&
+    editorGroups.some(
+      (group) => group.date === formatEntryDate(form.newEntryDate),
+    ),
+);
   return (
     <div className="page-stack">
       <BackButton fallback="/daily-notes" label="Back" />
@@ -622,25 +749,80 @@ export default function DailyNoteDetailPage() {
               </FormField>
 
               <FormField label="Note" htmlFor="edit-note-content">
-                <Textarea
-                  id="edit-note-content"
-                  value={form.document.text}
-                  onChange={(event) => {
-                    const text = event.target.value;
+                <div
+                  role="group"
+                  aria-label="Dated note content"
+                  className="h-[400px] min-h-[240px] resize-y overflow-auto rounded-md border border-input bg-card px-4 py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/15"
+                >
+                  {!hasTodayEntry ? (
+                    <section aria-label="New note content">
+                      <time
+                        dateTime={form.newEntryDate}
+                        className="block select-none text-xs font-medium text-muted-foreground"
+                      >
+                        {formatEntryDate(form.newEntryDate)}
+                      </time>
 
-                    setForm((current) =>
-                      current
-                        ? {
-                            ...current,
-                            document: editEntryDocument(current.document, text),
+                      <NoteSectionInput
+                        id="edit-note-content"
+                        label="New note content"
+                        value={form.newContent}
+                        placeholder="Write your note…"
+                        onChange={(newContent) =>
+                          setForm((current) =>
+                            current ? { ...current, newContent } : current,
+                          )
+                        }
+                      />
+                    </section>
+                  ) : null}
+
+                  {editorGroups.map((group, groupIndex) => (
+                    <section
+                      key={group.date}
+                      aria-label={`Entry dated ${group.date}`}
+                      className={
+                        !hasTodayEntry || groupIndex > 0
+                          ? "mt-2 border-t border-dashed border-border pt-2"
+                          : ""
+                      }
+                    >
+                      <time
+                        dateTime={group.entries[0].createdAt}
+                        className="block select-none text-xs font-medium text-muted-foreground"
+                      >
+                        {group.date}
+                      </time>
+
+                      {group.entries.map((entry, entryIndex) => (
+                        <NoteSectionInput
+                          key={entry.id}
+                          id={
+                            hasTodayEntry && groupIndex === 0 && entryIndex === 0
+                              ? "edit-note-content"
+                              : undefined
                           }
-                        : current,
-                    );
-                  }}
-                  placeholder="Write your note…"
-                  rows={16}
-                  className="h-[400px] resize-y overflow-y-auto leading-7"
-                />
+                          label={`Note content from ${group.date}`}
+                          value={entry.content}
+                          onChange={(content) =>
+                            setForm((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    entries: current.entries.map((item) =>
+                                      item.id === entry.id
+                                        ? { ...item, content }
+                                        : item,
+                                    ),
+                                  }
+                                : current,
+                            )
+                          }
+                        />
+                      ))}
+                    </section>
+                  ))}
+                </div>
               </FormField>
 
               <div className="grid gap-5 sm:grid-cols-2">
