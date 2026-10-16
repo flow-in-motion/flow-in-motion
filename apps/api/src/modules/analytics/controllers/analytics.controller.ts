@@ -45,7 +45,7 @@ export class AnalyticsController {
   }
 
   @ApiOperation({
-    summary: 'Usage summary for the workspace (owner only)',
+    summary: 'Research progress and usage insights (owner only)',
   })
   @UseGuards(JwtAuthGuard, TenantMemberGuard, TenantOwnerGuard)
   @Get('summary')

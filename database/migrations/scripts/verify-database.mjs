@@ -21,6 +21,7 @@ const expectedTables = [
   'project_collaborators',
   'project_invitations',
   'projects',
+  'research_change_events',
   'task_invitations',
   'task_members',
   'tasks',
@@ -36,6 +37,12 @@ const expectedTables = [
 ];
 
 const privateTables = new Set([
+  'usage_daily_snapshots',
+  'usage_weekly_snapshots',
+]);
+
+const dataApiPrivateTables = new Set([
+  'research_change_events',
   'usage_daily_snapshots',
   'usage_weekly_snapshots',
 ]);
@@ -139,6 +146,19 @@ try {
       failures.push(`private table unexpectedly has an end-user policy: ${table}`);
     } else if (!privateTables.has(table) && state.policy_count < 1) {
       failures.push(`no RLS policy: ${table}`);
+    }
+  }
+
+  for (const table of dataApiPrivateTables) {
+    const privileges = await client.query(
+      `SELECT
+         has_table_privilege('anon', $1, 'SELECT') AS anon_select,
+         has_table_privilege('authenticated', $1, 'SELECT') AS authenticated_select,
+         has_table_privilege('service_role', $1, 'SELECT') AS service_select`,
+      [`public.${table}`],
+    );
+    if (Object.values(privileges.rows[0]).some(Boolean)) {
+      failures.push(`Data API can select private table: ${table}`);
     }
   }
 
@@ -252,6 +272,11 @@ try {
       privilege.can_delete;
     if (privateTables.has(privilege.table_name) && hasAnyPrivilege) {
       failures.push(`runtime can access private table: ${privilege.table_name}`);
+    } else if (privilege.table_name === 'research_change_events') {
+      if (!privilege.can_select || !privilege.can_insert ||
+          privilege.can_update || privilege.can_delete) {
+        failures.push('runtime history grants must be append-only');
+      }
     } else if (
       !privateTables.has(privilege.table_name) &&
       (!privilege.can_select ||

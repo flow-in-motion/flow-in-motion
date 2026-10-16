@@ -34,3 +34,4 @@ export * from './note-entries';
 export * from './task-description-entries';
 export * from './usage-weekly-snapshots';
 export * from './usage-daily-snapshots';
+export * from './research-change-events';

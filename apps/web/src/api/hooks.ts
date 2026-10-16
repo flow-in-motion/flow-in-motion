@@ -3503,9 +3503,83 @@ export interface ApiAnalyticsEventInput {
 
 export interface ApiAnalyticsSummary {
   windowDays: number;
-  totalEvents: number;
-  byName: { name: string; count: number }[];
-  byDay: { day: string; count: number }[];
+  headlines: Record<
+    | "papersMoved"
+    | "submissionsLogged"
+    | "accepted"
+    | "rejected"
+    | "revisionRequests"
+    | "tasksCompleted"
+    | "activeMembers",
+    { current: number; previous: number }
+  >;
+  stageMovements: Array<{
+    fromStage: string;
+    toStage: string;
+    papers: number;
+  }>;
+  pipelineNow: Array<{
+    stage: string;
+    papers: number;
+    medianDays: number | null;
+  }>;
+  paperStatuses: Array<{ status: string; papers: number }>;
+  submissions: {
+    logged: number;
+    accepted: number;
+    rejected: number;
+    withdrawn: number;
+    acceptanceRate: number | null;
+    medianDecisionDays: number | null;
+    awaitingDecision: number;
+    oldestAwaitingDays: number | null;
+    journals: Array<{
+      journal: string;
+      submissions: number;
+      accepted: number;
+      rejected: number;
+    }>;
+  };
+  currentlyWith: Array<{ holder: string; papers: number }>;
+  work: {
+    tasksCreated: number;
+    tasksCompleted: number;
+    overdueTasks: number;
+    estimatedOpenHours: number;
+    medianTaskCompletionDays: number | null;
+    fundingByStatus: Array<{ status: string; applications: number }>;
+    awardedByCurrency: Array<{ currency: string; amount: number }>;
+    fundingDeadlines: number;
+    conferencesAdded: number;
+    conferencePaperLinks: number;
+    conferenceDeadlines: number;
+  };
+  team: {
+    registeredMembers: number;
+    dailyActivity: Array<{
+      day: string;
+      activeMembers: number;
+      pageVisits: number;
+    }>;
+    pages: Array<{
+      page: string;
+      visits: number;
+      members: number;
+      adoptionPercent: number;
+    }>;
+    members: Array<{
+      userId: string;
+      name: string;
+      email: string;
+      sessions: number;
+      pageVisits: number;
+      projectsAdded: number;
+      papersAdded: number;
+      tasksAdded: number;
+      notesAdded: number;
+      lastActive: string | null;
+    }>;
+  };
 }
 
 /**
