@@ -43,19 +43,22 @@ export class AnalyticsService {
       Math.max(1, days ?? DEFAULT_SUMMARY_DAYS),
       MAX_SUMMARY_DAYS,
     );
-    const since = new Date();
-    since.setDate(since.getDate() - windowDays);
+    const periodEnd = new Date();
+    const currentSince = new Date(periodEnd);
+    currentSince.setDate(currentSince.getDate() - windowDays);
+    const previousSince = new Date(currentSince);
+    previousSince.setDate(previousSince.getDate() - windowDays);
 
-    const [byName, byDay] = await Promise.all([
-      this.repository.countsByName(tenantId, since),
-      this.repository.dailyTotals(tenantId, since),
-    ]);
+    const insights = await this.repository.researchInsights(
+      tenantId,
+      currentSince,
+      previousSince,
+      periodEnd,
+    );
 
     return {
       windowDays,
-      totalEvents: byName.reduce((sum, row) => sum + row.count, 0),
-      byName,
-      byDay,
+      ...insights,
     };
   }
 }
