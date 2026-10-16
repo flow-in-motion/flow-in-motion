@@ -133,6 +133,46 @@ export class TasksController {
     );
   }
 
+  @ApiOperation({ summary: 'Edit an existing task description entry' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Patch(':taskId/description-entries/:entryId')
+  async updateDescriptionEntry(
+    @Param('tenantId') tenantId: string,
+    @Param('taskId') taskId: string,
+    @Param('entryId') entryId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateTaskDescriptionEntryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.tasksService.updateDescriptionEntry(
+      tenantId,
+      taskId,
+      entryId,
+      user.id,
+      dto,
+    );
+  }
+
+  @ApiOperation({ summary: 'Delete a task description entry' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Delete(':taskId/description-entries/:entryId')
+  async deleteDescriptionEntry(
+    @Param('tenantId') tenantId: string,
+    @Param('taskId') taskId: string,
+    @Param('entryId') entryId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.tasksService.deleteDescriptionEntry(
+      tenantId,
+      taskId,
+      entryId,
+      user.id,
+    );
+  }
+
   @ApiOperation({ summary: 'Delete a task' })
   @UseGuards(JwtAuthGuard, TenantMemberGuard)
   @Delete(':taskId')

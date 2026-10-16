@@ -21,15 +21,16 @@ import {
 } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 import { getRequestContext } from '../../../db/request-context';
-
+type TasksWriteDatabase = Pick<
+  DrizzleService['db'],
+  'select' | 'insert' | 'update' | 'delete'
+>;
 @Injectable()
 export class TasksRepository {
   constructor(private readonly drizzle: DrizzleService) {}
 
   private async withinTransaction<T>(
-    operation: (
-      db: Pick<DrizzleService['db'], 'insert' | 'update'>,
-    ) => Promise<T>,
+    operation: (db: TasksWriteDatabase) => Promise<T>,
   ): Promise<T> {
     const context = getRequestContext();
 
@@ -285,6 +286,7 @@ export class TasksRepository {
           taskId: task.id,
           content: task.description,
           createdAt: task.createdAt,
+          updatedAt: task.createdAt,
         });
       }
 
@@ -331,6 +333,7 @@ export class TasksRepository {
         taskId: taskDescriptionEntries.taskId,
         content: taskDescriptionEntries.content,
         createdAt: taskDescriptionEntries.createdAt,
+        updatedAt: taskDescriptionEntries.updatedAt,
       })
       .from(taskDescriptionEntries)
       .innerJoin(tasks, eq(tasks.id, taskDescriptionEntries.taskId))
@@ -342,32 +345,20 @@ export class TasksRepository {
         ),
       )
       .orderBy(
-        desc(taskDescriptionEntries.createdAt),
+        desc(taskDescriptionEntries.updatedAt),
         desc(taskDescriptionEntries.id),
       );
   }
 
-  async appendDescriptionEntry(
+  private async mutateDescriptionEntries(
     tenantId: string,
     taskId: string,
-    content: string,
+    mutation: (tx: TasksWriteDatabase) => Promise<boolean>,
   ) {
     return this.withinTransaction(async (tx) => {
-      // Lock the parent row while prepending content, preserving
-      // concurrent additions.
-      const [task] = await tx
-        .update(tasks)
-        .set({
-          description: sql<string>`
-            CASE
-              WHEN ${tasks.description} IS NULL
-                OR btrim(${tasks.description}) = ''
-              THEN ${content}
-              ELSE ${content} || E'\n\n' || ${tasks.description}
-            END
-          `,
-          updatedAt: sql`now()`,
-        })
+      const [parent] = await tx
+        .select({ id: tasks.id })
+        .from(tasks)
         .where(
           and(
             eq(tasks.tenantId, tenantId),
@@ -375,16 +366,93 @@ export class TasksRepository {
             this.activeParentCondition(),
           ),
         )
+        .for('update');
+
+      if (!parent) return undefined;
+
+      const changed = await mutation(tx);
+      if (!changed) return undefined;
+
+      const [task] = await tx
+        .update(tasks)
+        .set({
+          description: sql<string | null>`(
+            SELECT string_agg(
+              ${taskDescriptionEntries.content},
+              E'\n\n'
+              ORDER BY
+                ${taskDescriptionEntries.updatedAt} DESC,
+                ${taskDescriptionEntries.id} DESC
+            )
+            FROM ${taskDescriptionEntries}
+            WHERE ${taskDescriptionEntries.taskId} = ${taskId}
+          )`,
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(tasks.tenantId, tenantId), eq(tasks.id, taskId)))
         .returning();
 
-      if (!task) return undefined;
+      return task;
+    });
+  }
 
+  async appendDescriptionEntry(
+    tenantId: string,
+    taskId: string,
+    content: string,
+  ) {
+    return this.mutateDescriptionEntries(tenantId, taskId, async (tx) => {
       await tx.insert(taskDescriptionEntries).values({
-        taskId: task.id,
+        taskId,
         content,
       });
 
-      return task;
+      return true;
+    });
+  }
+
+  async updateDescriptionEntry(
+    tenantId: string,
+    taskId: string,
+    entryId: string,
+    content: string,
+  ) {
+    return this.mutateDescriptionEntries(tenantId, taskId, async (tx) => {
+      const [entry] = await tx
+        .update(taskDescriptionEntries)
+        .set({
+          content,
+          updatedAt: sql`now()`,
+        })
+        .where(
+          and(
+            eq(taskDescriptionEntries.taskId, taskId),
+            eq(taskDescriptionEntries.id, entryId),
+          ),
+        )
+        .returning({ id: taskDescriptionEntries.id });
+
+      return Boolean(entry);
+    });
+  }
+
+  async deleteDescriptionEntry(
+    tenantId: string,
+    taskId: string,
+    entryId: string,
+  ) {
+    return this.mutateDescriptionEntries(tenantId, taskId, async (tx) => {
+      const [entry] = await tx
+        .delete(taskDescriptionEntries)
+        .where(
+          and(
+            eq(taskDescriptionEntries.taskId, taskId),
+            eq(taskDescriptionEntries.id, entryId),
+          ),
+        )
+        .returning({ id: taskDescriptionEntries.id });
+
+      return Boolean(entry);
     });
   }
 }

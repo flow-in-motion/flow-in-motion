@@ -18,7 +18,16 @@ import {
   type ApiTask,
   useAddMyTaskDescriptionEntry,
   type ApiTaskDescriptionEntry,
+  useUpdateMyTaskDescriptionEntry,
+  useDeleteMyTaskDescriptionEntry,
+  type ApiTaskDetail,
 } from "@/api/hooks";
+import {
+  createEntryDocument,
+  editEntryDocument,
+  getEntryDocumentChanges,
+  type EntryDocument,
+} from "@/lib/entry-document";
 import type { TaskFormInput } from "@/components/tasks/task-dialog";
 import { TaskMembersManager } from "@/components/tasks/task-members";
 import { BackButton } from "@/components/shared/back-button";
@@ -90,10 +99,14 @@ function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function formValues(task: ApiTask): TaskFormInput {
+type TaskEditForm = Omit<TaskFormInput, "description"> & {
+  document: EntryDocument;
+};
+
+function formValues(task: ApiTaskDetail): TaskEditForm {
   return {
     title: task.title,
-    description: "",
+    document: createEntryDocument(task.descriptionEntries ?? []),
     linkTarget: resolveLinkTargetType(task),
     projectId: task.projectId ?? "",
     moduleId: task.moduleId ?? "",
@@ -275,13 +288,15 @@ function groupDescriptionEntries(entries: ApiTaskDescriptionEntry[]) {
 
   const sorted = [...entries].sort(
     (a, b) =>
-      new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime() ||
+      new Date(b.updatedAt ?? b.createdAt).getTime() -
+        new Date(a.updatedAt ?? a.createdAt).getTime() ||
       b.id.localeCompare(a.id),
   );
 
   for (const entry of sorted) {
-    const date = formatter.format(new Date(entry.createdAt));
+    const date = formatter.format(
+      new Date(entry.updatedAt ?? entry.createdAt),
+    );
     const group = groups.get(date);
 
     if (group) {
@@ -309,6 +324,9 @@ export default function TaskDetailPage() {
   const modules = modulesQuery.data?.data ?? [];
   const updateTask = useUpdateMyTask();
   const addDescriptionEntry = useAddMyTaskDescriptionEntry();
+  const updateDescriptionEntry = useUpdateMyTaskDescriptionEntry();
+  const deleteDescriptionEntry = useDeleteMyTaskDescriptionEntry();
+  const [isSavingChanges, setIsSavingChanges] = useState(false);
   const deleteTask = useDeleteMyTask();
   const task = taskQuery.data;
   const trackEvent = useTrackEvent(task?.tenantId ?? "");
@@ -316,7 +334,7 @@ export default function TaskDetailPage() {
   const sameTenant = Boolean(task && tenantId && task.tenantId === tenantId);
   const membersQuery = useMembers(tenantId, 1, sameTenant);
   const members = membersQuery.data?.data ?? [];
-  const [form, setForm] = useState<TaskFormInput | null>(null);
+  const [form, setForm] = useState<TaskEditForm | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
@@ -360,15 +378,12 @@ export default function TaskDetailPage() {
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (
-      !form ||
-      updateTask.isPending ||
-      addDescriptionEntry.isPending
-    ) {
-      return;
-    }
+    if (!form || isSavingChanges) return;
 
-    const content = form.description.trim();
+    const changes = getEntryDocumentChanges(form.document);
+
+    setIsSavingChanges(true);
+    setActionError(null);
 
     try {
       await updateTask.mutateAsync({
@@ -387,13 +402,64 @@ export default function TaskDetailPage() {
         trackEvent({ name: "task_completed" });
       }
 
-      if (content) {
-        await addDescriptionEntry.mutateAsync({ taskId, content });
+      for (const entry of changes.updates) {
+        await updateDescriptionEntry.mutateAsync({
+          taskId,
+          entryId: entry.entryId,
+          content: entry.content,
+        });
+
+        setForm((current) =>
+          current
+            ? {
+                ...current,
+                document: {
+                  ...current.document,
+                  entries: current.document.entries.map((item) =>
+                    item.id === entry.entryId
+                      ? { ...item, content: entry.content }
+                      : item,
+                  ),
+                },
+              }
+            : current,
+        );
+      }
+
+      for (const entryId of changes.deletions) {
+        await deleteDescriptionEntry.mutateAsync({ taskId, entryId });
+
+        setForm((current) =>
+          current
+            ? {
+                ...current,
+                document: {
+                  ...current.document,
+                  entries: current.document.entries.filter(
+                    (item) => item.id !== entryId,
+                  ),
+                },
+              }
+            : current,
+        );
+      }
+
+      if (changes.addition) {
+        await addDescriptionEntry.mutateAsync({
+          taskId,
+          content: changes.addition,
+        });
       }
 
       setForm(null);
-    } catch {
-      // Preserve the edit form and description draft after a failed save.
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The task could not be saved.",
+      );
+    } finally {
+      setIsSavingChanges(false);
     }
   }
 
@@ -441,8 +507,24 @@ export default function TaskDetailPage() {
   const descriptionGroups = groupDescriptionEntries(
       task.descriptionEntries ?? [],
     );
-  const isSaving =
-      updateTask.isPending || addDescriptionEntry.isPending;
+    const isSaving =
+    isSavingChanges ||
+    updateTask.isPending ||
+    addDescriptionEntry.isPending ||
+    updateDescriptionEntry.isPending ||
+    deleteDescriptionEntry.isPending;
+
+  const modifiedAt = (task.descriptionEntries ?? []).reduce(
+    (latest: string | null, entry) => {
+      const timestamp = entry.updatedAt ?? entry.createdAt;
+
+      return !latest ||
+        new Date(timestamp).getTime() > new Date(latest).getTime()
+        ? timestamp
+        : latest;
+    },
+    null,
+  );
 
   return (
     <div className="page-stack">
@@ -493,6 +575,18 @@ export default function TaskDetailPage() {
       >
         {!form ? (
           <div className="flex flex-wrap gap-2">
+            <HeaderStat
+              label="Modified"
+              value={
+                modifiedAt
+                  ? new Date(modifiedAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })
+                  : "—"
+              }
+            />
             <HeaderStat label="Due date" value={formatDueDate(task.dueDate)} />
             <HeaderStat label="Estimated hours" value={task.estimatedHours ? `${task.estimatedHours}h` : "—"} />
             {TASK_NOTE_SHARING_ENABLED ? (
@@ -504,6 +598,7 @@ export default function TaskDetailPage() {
           </div>
         ) : null}
       </PageHeading>
+      {!form ? (
       <section aria-labelledby="task-description-heading">
         <Card className="overflow-hidden">
           <CardHeader className="border-b border-border/60 bg-muted/20">
@@ -546,12 +641,14 @@ export default function TaskDetailPage() {
           </CardContent>
         </Card>
       </section>
+      ) : null}
 
       {form ? (
         <Card>
           <CardHeader><CardTitle>Edit task details</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={(event) => void handleSave(event)} className="grid gap-6">
+            <fieldset disabled={isSaving} className="grid min-w-0 gap-6">
               <div className="grid gap-5 sm:grid-cols-2">
                 <FormField label="Task title" htmlFor="edit-task-title" className="sm:col-span-2">
                   <Input id="edit-task-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required autoFocus />
@@ -563,13 +660,22 @@ export default function TaskDetailPage() {
                 >
                   <Textarea
                     id="edit-task-description"
-                    value={form.description}
-                    onChange={(event) =>
-                      setForm({ ...form, description: event.target.value })
-                    }
-                    placeholder="Write new description content…"
-                    rows={4}
-                    disabled={isSaving}
+                    value={form.document.text}
+                    onChange={(event) => {
+                      const text = event.target.value;
+
+                      setForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              document: editEntryDocument(current.document, text),
+                            }
+                          : current,
+                      );
+                    }}
+                    placeholder="Write the task description…"
+                    rows={16}
+                    className="h-[400px] resize-y overflow-y-auto leading-7"
                   />
                 </FormField>
                 <FormField label="Link to" htmlFor="edit-task-link" className="sm:col-span-2">
@@ -614,7 +720,6 @@ export default function TaskDetailPage() {
                 </p>
               ) : null}
               <div className="flex justify-end gap-3 border-t pt-5">
-                disabled={isSaving}
                 <Button
                   type="button"
                   variant="outline"
@@ -628,6 +733,7 @@ export default function TaskDetailPage() {
                   {isSaving ? "Saving…" : "Save Changes"}
                 </Button>
               </div>
+              </fieldset>
             </form>
           </CardContent>
         </Card>

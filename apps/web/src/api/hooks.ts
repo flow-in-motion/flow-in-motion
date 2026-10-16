@@ -203,6 +203,7 @@ export interface ApiTaskDescriptionEntry {
   taskId: string;
   content: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface ApiTaskDetail extends ApiTask {
@@ -229,6 +230,8 @@ export interface ApiNoteEntry {
   noteId: string;
   content: string;
   createdAt: string;
+  /** Equals createdAt until the entry is edited. */
+  updatedAt: string;
 }
 
 export interface ApiNoteDetail extends ApiNote {
@@ -2285,6 +2288,63 @@ export function useAddMyTaskDescriptionEntry() {
   });
 }
 
+export function useUpdateMyTaskDescriptionEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      entryId,
+      content,
+    }: {
+      taskId: string;
+      entryId: string;
+      content: string;
+    }) =>
+      authenticatedJson<ApiTaskDetail>(
+        `/api/v1/me/tasks/${encodeURIComponent(taskId)}/description-entries/${encodeURIComponent(entryId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ content }),
+        },
+      ),
+    async onSuccess(task) {
+      queryClient.setQueryData(myTaskKey(task.id), task);
+      queryClient.setQueryData(
+        apiKeys.task(task.tenantId, task.id),
+        task,
+      );
+      await invalidateResourceEverywhere(queryClient, "tasks");
+    },
+  });
+}
+
+export function useDeleteMyTaskDescriptionEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      taskId,
+      entryId,
+    }: {
+      taskId: string;
+      entryId: string;
+    }) =>
+      authenticatedJson<ApiTaskDetail>(
+        `/api/v1/me/tasks/${encodeURIComponent(taskId)}/description-entries/${encodeURIComponent(entryId)}`,
+        { method: "DELETE" },
+      ),
+    async onSuccess(task) {
+      queryClient.setQueryData(myTaskKey(task.id), task);
+      queryClient.setQueryData(
+        apiKeys.task(task.tenantId, task.id),
+        task,
+      );
+      await invalidateResourceEverywhere(queryClient, "tasks");
+    },
+  });
+}
+
 export function useDeleteMyTask() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -2654,6 +2714,63 @@ export function useAddMyNoteEntry() {
           method: "POST",
           body: JSON.stringify({ content }),
         },
+      ),
+    async onSuccess(note) {
+      queryClient.setQueryData(myNoteKey(note.id), note);
+      queryClient.setQueryData(
+        apiKeys.note(note.tenantId, note.id),
+        note,
+      );
+      await invalidateResourceEverywhere(queryClient, "notes");
+    },
+  });
+}
+
+export function useUpdateMyNoteEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      noteId,
+      entryId,
+      content,
+    }: {
+      noteId: string;
+      entryId: string;
+      content: string;
+    }) =>
+      authenticatedJson<ApiNoteDetail>(
+        `/api/v1/me/notes/${encodeURIComponent(noteId)}/entries/${encodeURIComponent(entryId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ content }),
+        },
+      ),
+    async onSuccess(note) {
+      queryClient.setQueryData(myNoteKey(note.id), note);
+      queryClient.setQueryData(
+        apiKeys.note(note.tenantId, note.id),
+        note,
+      );
+      await invalidateResourceEverywhere(queryClient, "notes");
+    },
+  });
+}
+
+export function useDeleteMyNoteEntry() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      noteId,
+      entryId,
+    }: {
+      noteId: string;
+      entryId: string;
+    }) =>
+      authenticatedJson<ApiNoteDetail>(
+        `/api/v1/me/notes/${encodeURIComponent(noteId)}/entries/${encodeURIComponent(entryId)}`,
+        { method: "DELETE" },
       ),
     async onSuccess(note) {
       queryClient.setQueryData(myNoteKey(note.id), note);

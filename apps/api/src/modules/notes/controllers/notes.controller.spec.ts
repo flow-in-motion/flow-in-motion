@@ -8,6 +8,8 @@ describe('NotesController', () => {
   let controller: NotesController;
   let notesService: {
     appendEntry: jest.Mock;
+    updateEntry: jest.Mock;
+    deleteEntry: jest.Mock;
     list: jest.Mock;
     findOne: jest.Mock;
     create: jest.Mock;
@@ -22,6 +24,8 @@ describe('NotesController', () => {
   beforeEach(() => {
     notesService = {
       appendEntry: jest.fn(),
+      updateEntry: jest.fn(),
+      deleteEntry: jest.fn(),
       list: jest.fn(),
       findOne: jest.fn(),
       create: jest.fn(),
@@ -44,6 +48,58 @@ describe('NotesController', () => {
   const req = {
     user: { sub: 'supabase-user-1', accessToken: 'token-1' },
   } as any;
+
+  describe('updateEntry', () => {
+    it('edits an entry using the authenticated internal user id', async () => {
+      usersService.findByExternalAuthId.mockResolvedValue({ id: 'user-1' });
+      const dto = { content: 'Corrected research update' };
+      const response = { id: 'note-1', entries: [{ id: 'entry-1' }] };
+      notesService.updateEntry.mockResolvedValue(response);
+
+      const result = await controller.updateEntry(
+        'tenant-1',
+        'note-1',
+        'entry-1',
+        req,
+        dto,
+      );
+
+      expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
+        'supabase-user-1',
+      );
+      expect(notesService.updateEntry).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        'entry-1',
+        'user-1',
+        dto,
+      );
+      expect(result).toBe(response);
+    });
+  });
+
+  describe('deleteEntry', () => {
+    it('deletes an entry using the authenticated internal user id', async () => {
+      usersService.findByExternalAuthId.mockResolvedValue({ id: 'user-1' });
+      const response = { id: 'note-1', entries: [] };
+      notesService.deleteEntry.mockResolvedValue(response);
+
+      const result = await controller.deleteEntry(
+        'tenant-1',
+        'note-1',
+        'entry-1',
+        req,
+      );
+
+      expect(notesService.deleteEntry).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        'entry-1',
+        'user-1',
+      );
+      expect(result).toBe(response);
+    });
+  });
 
   describe('appendEntry', () => {
     it('uses the authenticated internal user id to add dated content', async () => {

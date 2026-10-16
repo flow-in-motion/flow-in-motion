@@ -34,6 +34,8 @@ describe('MyNotesController', () => {
   let controller: MyNotesController;
   let notesService: {
     appendEntryForCaller: jest.Mock;
+    updateEntryForCaller: jest.Mock;
+    deleteEntryForCaller: jest.Mock;
     listForCaller: jest.Mock;
     findOneForCaller: jest.Mock;
     updateForCaller: jest.Mock;
@@ -44,6 +46,8 @@ describe('MyNotesController', () => {
   beforeEach(() => {
     notesService = {
       appendEntryForCaller: jest.fn(),
+      updateEntryForCaller: jest.fn(),
+      deleteEntryForCaller: jest.fn(),
       listForCaller: jest.fn(),
       findOneForCaller: jest.fn(),
       updateForCaller: jest.fn(),
@@ -61,6 +65,44 @@ describe('MyNotesController', () => {
   function req() {
     return { user: { sub: 'supabase-user-1' } } as never;
   }
+
+  it('updateEntry() delegates using the authenticated caller without a workspace id', async () => {
+    const dto = { content: 'Corrected research update' };
+    const response = { id: 'note-1', tenantId: 'another-tenant', entries: [] };
+    notesService.updateEntryForCaller.mockResolvedValue(response);
+
+    const result = await controller.updateEntry(
+      'note-1',
+      'entry-1',
+      req(),
+      dto,
+    );
+
+    expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
+      'supabase-user-1',
+    );
+    expect(notesService.updateEntryForCaller).toHaveBeenCalledWith(
+      'note-1',
+      'entry-1',
+      'user-1',
+      dto,
+    );
+    expect(result).toBe(response);
+  });
+
+  it('deleteEntry() delegates to deleteEntryForCaller with the note, entry and caller ids', async () => {
+    const response = { id: 'note-1', entries: [] };
+    notesService.deleteEntryForCaller.mockResolvedValue(response);
+
+    const result = await controller.deleteEntry('note-1', 'entry-1', req());
+
+    expect(notesService.deleteEntryForCaller).toHaveBeenCalledWith(
+      'note-1',
+      'entry-1',
+      'user-1',
+    );
+    expect(result).toBe(response);
+  });
 
   it('list() resolves the caller and delegates to listForCaller', async () => {
     notesService.listForCaller.mockResolvedValue([{ id: 'note-1' }]);

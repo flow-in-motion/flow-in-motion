@@ -18,6 +18,7 @@ import { UsersService } from '../../users/users.service';
 import { UpdateNoteDto } from '../dto/update-note.dto';
 import { NotesService } from '../services/notes.service';
 import { CreateNoteEntryDto } from '../dto/create-note-entry.dto';
+import { UpdateNoteEntryDto } from '../dto/update-note-entry.dto';
 
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
@@ -84,6 +85,42 @@ export class MyNotesController {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
 
     return this.notesService.appendEntryForCaller(noteId, user.id, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Edit an existing entry on a note the caller can access',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Patch(':noteId/entries/:entryId')
+  async updateEntry(
+    @Param('noteId') noteId: string,
+    @Param('entryId') entryId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateNoteEntryDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.notesService.updateEntryForCaller(
+      noteId,
+      entryId,
+      user.id,
+      dto,
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Delete an entry from a note the caller can access',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Delete(':noteId/entries/:entryId')
+  async deleteEntry(
+    @Param('noteId') noteId: string,
+    @Param('entryId') entryId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.notesService.deleteEntryForCaller(noteId, entryId, user.id);
   }
 
   @ApiOperation({ summary: 'Delete a note the caller can access' })

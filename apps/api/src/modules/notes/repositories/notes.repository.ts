@@ -20,24 +20,23 @@ import {
 } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 import { getRequestContext } from '../../../db/request-context';
-
+type NotesWriteDatabase = Pick<
+  DrizzleService['db'],
+  'select' | 'insert' | 'update' | 'delete'
+>;
 @Injectable()
 export class NotesRepository {
   constructor(private readonly drizzle: DrizzleService) {}
 
   private async withinTransaction<T>(
-    operation: (
-      db: Pick<DrizzleService['db'], 'insert' | 'update'>,
-    ) => Promise<T>,
+    operation: (db: NotesWriteDatabase) => Promise<T>,
   ): Promise<T> {
     const context = getRequestContext();
 
     if (context) {
-      // The interceptor owns commit/rollback and the RLS settings.
       return operation(context.tx);
     }
 
-    // Calls outside an HTTP request need their own transaction.
     return this.drizzle.db.transaction((tx) => operation(tx));
   }
 
@@ -244,6 +243,7 @@ export class NotesRepository {
           noteId: note.id,
           content: note.content,
           createdAt: note.createdAt,
+          updatedAt: note.createdAt,
         });
       }
 
@@ -286,6 +286,7 @@ export class NotesRepository {
         noteId: noteEntries.noteId,
         content: noteEntries.content,
         createdAt: noteEntries.createdAt,
+        updatedAt: noteEntries.updatedAt,
       })
       .from(noteEntries)
       .innerJoin(notes, eq(notes.id, noteEntries.noteId))
@@ -296,26 +297,18 @@ export class NotesRepository {
           this.activeParentCondition(),
         ),
       )
-      .orderBy(desc(noteEntries.createdAt), desc(noteEntries.id));
+      .orderBy(desc(noteEntries.updatedAt), desc(noteEntries.id));
   }
 
-  async appendEntry(tenantId: string, noteId: string, content: string) {
+  private async mutateEntries(
+    tenantId: string,
+    noteId: string,
+    mutation: (tx: NotesWriteDatabase) => Promise<boolean>,
+  ) {
     return this.withinTransaction(async (tx) => {
-      // Updating the parent locks its row, so concurrent additions
-      // preserve each other's content.
-      const [note] = await tx
-        .update(notes)
-        .set({
-          content: sql<string>`
-            CASE
-              WHEN ${notes.content} IS NULL
-                OR btrim(${notes.content}) = ''
-              THEN ${content}
-              ELSE ${content} || E'\n\n' || ${notes.content}
-            END
-          `,
-          updatedAt: sql`now()`,
-        })
+      const [parent] = await tx
+        .select({ id: notes.id })
+        .from(notes)
         .where(
           and(
             eq(notes.tenantId, tenantId),
@@ -323,16 +316,73 @@ export class NotesRepository {
             this.activeParentCondition(),
           ),
         )
+        .for('update');
+
+      if (!parent) return undefined;
+
+      const changed = await mutation(tx);
+      if (!changed) return undefined;
+
+      const [note] = await tx
+        .update(notes)
+        .set({
+          content: sql<string | null>`(
+            SELECT string_agg(
+              ${noteEntries.content},
+              E'\n\n'
+              ORDER BY ${noteEntries.updatedAt} DESC, ${noteEntries.id} DESC
+            )
+            FROM ${noteEntries}
+            WHERE ${noteEntries.noteId} = ${noteId}
+          )`,
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(notes.tenantId, tenantId), eq(notes.id, noteId)))
         .returning();
 
-      if (!note) return undefined;
+      return note;
+    });
+  }
 
+  async appendEntry(tenantId: string, noteId: string, content: string) {
+    return this.mutateEntries(tenantId, noteId, async (tx) => {
       await tx.insert(noteEntries).values({
-        noteId: note.id,
+        noteId,
         content,
       });
 
-      return note;
+      return true;
+    });
+  }
+
+  async updateEntry(
+    tenantId: string,
+    noteId: string,
+    entryId: string,
+    content: string,
+  ) {
+    return this.mutateEntries(tenantId, noteId, async (tx) => {
+      const [entry] = await tx
+        .update(noteEntries)
+        .set({
+          content,
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(noteEntries.noteId, noteId), eq(noteEntries.id, entryId)))
+        .returning({ id: noteEntries.id });
+
+      return Boolean(entry);
+    });
+  }
+
+  async deleteEntry(tenantId: string, noteId: string, entryId: string) {
+    return this.mutateEntries(tenantId, noteId, async (tx) => {
+      const [entry] = await tx
+        .delete(noteEntries)
+        .where(and(eq(noteEntries.noteId, noteId), eq(noteEntries.id, entryId)))
+        .returning({ id: noteEntries.id });
+
+      return Boolean(entry);
     });
   }
 }

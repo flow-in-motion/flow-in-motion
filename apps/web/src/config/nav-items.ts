@@ -51,7 +51,7 @@ export const navGroups: NavGroup[] = [
       { label: "Dashboard", to: "/", icon: LayoutDashboard, end: true },
       { label: "Projects", to: "/projects", icon: FolderKanban },
       { label: "Papers", to: "/modules", icon: FileStack },
-      { label: "Tasks", to: "/tasks", icon: ClipboardList },
+      { label: "Tasks and To Do", to: "/tasks", icon: ClipboardList },
       { label: "Notes", to: "/daily-notes", icon: NotebookPen },
       { label: "Trash", to: "/projects/archive", icon: Trash2 },
     ],
