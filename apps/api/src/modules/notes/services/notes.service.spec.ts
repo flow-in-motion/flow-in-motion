@@ -855,10 +855,11 @@ describe('NotesService', () => {
       repository.findById.mockResolvedValue(existingNote());
       repository.update.mockResolvedValue(existingNote());
       modulesRepository.findById.mockImplementation(
-        async (_tenantId: string, moduleId: string) => ({
-          id: moduleId,
-          projectId: null,
-        }),
+        (_tenantId: string, moduleId: string) =>
+          Promise.resolve({
+            id: moduleId,
+            projectId: null,
+          }),
       );
     });
 
