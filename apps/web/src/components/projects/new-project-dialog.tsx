@@ -1,6 +1,14 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useContext,
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+import { QueryClientContext } from "@tanstack/react-query";
 
 import {
+  apiKeys,
   createDraftInvitation,
   useModules,
   useMe,
@@ -103,6 +111,9 @@ export function NewProjectDialog({
     DraftCollaboratorInput[]
   >([]);
   const me = useMe();
+  // Read the client without throwing so the dialog still renders in tests
+  // that mock the API layer and have no QueryClientProvider.
+  const queryClient = useContext(QueryClientContext);
 
   const modulesQuery = useModules(tenantId, undefined, 1, open);
   const tasksQuery = useTasks(tenantId, undefined, 1, open);
@@ -197,6 +208,11 @@ export function NewProjectDialog({
           }),
         ),
       ]);
+      if (queryClient && draftCollaborators.length > 0) {
+        await queryClient.invalidateQueries({
+          queryKey: apiKeys.projectInvitations(tenantId, project.id),
+        });
+      }
       resetForm();
       onOpenChange(false);
     } catch (error) {

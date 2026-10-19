@@ -40,6 +40,11 @@ interface CollaboratorRosterProps {
   onRemoveCollaborator: (userId: string) => void;
   isRemoving?: boolean;
   canManage: boolean;
+  /**
+   * Load and list added (draft/pending) collaborators even when the roster is
+   * read-only. Defaults to `canManage`. The API only lets the owner list them.
+   */
+  showInvitations?: boolean;
   noCollaboratorsMessage?: string;
 }
 
@@ -114,6 +119,7 @@ export function CollaboratorRoster({
   onRemoveCollaborator,
   isRemoving = false,
   canManage,
+  showInvitations = canManage,
   noCollaboratorsMessage = "No additional collaborators yet.",
 }: CollaboratorRosterProps) {
   const me = useMe();
@@ -121,7 +127,7 @@ export function CollaboratorRoster({
     target,
     tenantId,
     entityId,
-    canManage,
+    showInvitations,
   );
   const createDraft = useCreateDraftInvitation(target, tenantId, entityId);
   const sendInvitation = useSendInvitation(target, tenantId, entityId);
@@ -171,7 +177,7 @@ export function CollaboratorRoster({
       )
     : collaborators;
 
-  const invitations = invitationsQuery.data ?? [];
+  const invitations = showInvitations ? (invitationsQuery.data ?? []) : [];
   const drafts = invitations.filter(
     (invitation) => invitation.status === "draft",
   );

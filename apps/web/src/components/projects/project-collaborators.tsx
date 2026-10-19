@@ -13,6 +13,8 @@ interface ProjectCollaboratorsProps {
   members: Membership[];
   entityTitle: string;
   canManage: boolean;
+  /** List added collaborators even in read-only mode (owner only). */
+  showInvitations?: boolean;
 }
 
 export function ProjectCollaborators({
@@ -22,6 +24,7 @@ export function ProjectCollaborators({
   members,
   entityTitle,
   canManage,
+  showInvitations,
 }: ProjectCollaboratorsProps) {
   const collaboratorsQuery = useProjectCollaborators(tenantId, projectId);
   const removeCollaborator = useRemoveProjectCollaborator(tenantId, projectId);
@@ -51,6 +54,7 @@ export function ProjectCollaborators({
       onRemoveCollaborator={(userId) => removeCollaborator.mutate(userId)}
       isRemoving={removeCollaborator.isPending}
       canManage={canManage}
+      showInvitations={showInvitations}
     />
   );
 }
