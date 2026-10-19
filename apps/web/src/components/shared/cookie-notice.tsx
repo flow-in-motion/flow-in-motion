@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 
-const DISMISSED_KEY = "research-in-motion.cookie-notice-dismissed.v2";
+const DISMISSED_KEY = "research-in-motion.cookie-notice-dismissed.v3";
 
 function readDismissed() {
   try {
@@ -41,10 +41,10 @@ export function CookieNotice() {
             <Cookie className="h-4 w-4" />
           </span>
           <p className="text-sm leading-6 text-muted-foreground">
-            We use only strictly-necessary local storage — things like your theme and layout
-            preferences — and log basic first-party usage events (pages visited, key actions) to
-            show your workspace owner an aggregate usage summary. No third-party trackers, no ads,
-            nothing sold.{" "}
+            We use only strictly-necessary local storage, such as your sign-in session and display
+            preferences. While you&apos;re signed in, we also record how you use the app (sections
+            visited, key actions and errors) to improve it, and your workspace owner can see a usage
+            summary that includes your activity. No third-party trackers, no ads, nothing sold.{" "}
             <Link to="/privacy" className="font-medium text-foreground underline underline-offset-2">
               Privacy Policy
             </Link>
