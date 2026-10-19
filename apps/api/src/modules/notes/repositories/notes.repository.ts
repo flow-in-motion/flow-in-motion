@@ -261,6 +261,7 @@ export class NotesRepository {
       projectId: string | null;
       moduleId: string | null;
       followUpDate: string | null;
+      modulePinned: boolean;
     }>,
   ) {
     const [note] = await this.drizzle.db

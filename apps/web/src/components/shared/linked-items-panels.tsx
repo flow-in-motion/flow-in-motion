@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Unlink } from "lucide-react";
+import { ChevronDown, ChevronUp, Unlink, Pin } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -37,6 +37,7 @@ export interface PanelNote {
   content?: string | null;
   updatedAt?: string | null;
   createdAt?: string | null;
+  modulePinned?: boolean;
 }
 
 function formatDate(iso: string | null) {
@@ -63,10 +64,24 @@ function sortActiveTasks<T extends PanelTask>(tasks: T[]): T[] {
     });
 }
 
-/** Most recently updated first. */
-function sortRecentNotes<T extends PanelNote>(notes: T[]): T[] {
+/** Pinned first when enabled, then most recently updated. */
+function sortRecentNotes<T extends PanelNote>(
+  notes: T[],
+  pinnedFirst = false,
+): T[] {
   const stamp = (note: PanelNote) => note.updatedAt ?? note.createdAt ?? "";
-  return [...notes].sort((a, b) => stamp(b).localeCompare(stamp(a)));
+
+  return [...notes].sort((a, b) => {
+    const pinOrder = pinnedFirst
+      ? Number(Boolean(b.modulePinned)) - Number(Boolean(a.modulePinned))
+      : 0;
+
+    return (
+      pinOrder ||
+      stamp(b).localeCompare(stamp(a)) ||
+      a.id.localeCompare(b.id)
+    );
+  });
 }
 
 export function PanelToggleButton({
@@ -250,6 +265,9 @@ export function LinkedNotesPanel<T extends PanelNote>({
   visible,
   onToggleVisible,
   actions,
+  pinnedFirst = false,
+  onTogglePin,
+  pinDisabled = false,
   onUnlink,
   unlinkLabel = (note) => `Unlink ${note.title} from this ${entityLabel}`,
 }: {
@@ -259,11 +277,14 @@ export function LinkedNotesPanel<T extends PanelNote>({
   visible: boolean;
   onToggleVisible: () => void;
   actions?: ReactNode;
+  pinnedFirst?: boolean;
+  onTogglePin?: (note: T) => void;
+  pinDisabled?: boolean;
   onUnlink?: (note: T) => void;
   unlinkLabel?: (note: T) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const sortedNotes = sortRecentNotes(notes);
+  const sortedNotes = sortRecentNotes(notes, pinnedFirst);
   const shownNotes = expanded
     ? sortedNotes
     : sortedNotes.slice(0, PANEL_PREVIEW_COUNT);
@@ -306,6 +327,39 @@ export function LinkedNotesPanel<T extends PanelNote>({
                       </p>
                     ) : null}
                   </Link>
+                  {onTogglePin ? (
+                    <button
+                      type="button"
+                      onClick={() => onTogglePin(note)}
+                      disabled={pinDisabled}
+                      aria-label={`${note.modulePinned ? "Unpin" : "Pin"} ${note.title}`}
+                      aria-pressed={Boolean(note.modulePinned)}
+                      title={note.modulePinned ? "Unpin note" : "Pin note"}
+                      className={`shrink-0 rounded-md p-1.5 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+                        note.modulePinned
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Pin
+                        className="h-3.5 w-3.5"
+                        fill={note.modulePinned ? "currentColor" : "none"}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ) : pinnedFirst && note.modulePinned ? (
+                    <span
+                      className="shrink-0 p-1.5 text-primary"
+                      title="Pinned note"
+                    >
+                      <Pin
+                        className="h-3.5 w-3.5"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      />
+                      <span className="sr-only">Pinned note</span>
+                    </span>
+                  ) : null}
                   {onUnlink ? (
                     <UnlinkButton
                       label={unlinkLabel(note)}

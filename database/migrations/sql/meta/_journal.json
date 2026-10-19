@@ -491,6 +491,13 @@
       "when": 1792113617180,
       "tag": "0085_editable_note_task_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1792389269417,
+      "tag": "0086_paper_pinned_notes",
+      "breakpoints": true
     }
   ]
 }

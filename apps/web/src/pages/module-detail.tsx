@@ -246,6 +246,8 @@ function ModuleNotesDetails({
   addNoteHref,
   onLinkExisting,
   onUnlinkNote,
+  onTogglePin,
+  pinDisabled,
 }: {
   notes: ApiNote[];
   visible: boolean;
@@ -253,9 +255,14 @@ function ModuleNotesDetails({
   addNoteHref?: string;
   onLinkExisting?: () => void;
   onUnlinkNote?: (note: ApiNote) => void;
+  onTogglePin?: (note: ApiNote) => void;
+  pinDisabled?: boolean;
 }) {
   return (
     <LinkedNotesPanel
+    pinnedFirst
+    onTogglePin={onTogglePin}
+    pinDisabled={pinDisabled}
       notes={notes}
       entityLabel="paper"
       contentId="module-notes-content"
@@ -411,7 +418,9 @@ export default function ModuleDetailPage() {
   const moduleQuery = useMyModule(moduleId);
   const tasksQuery = useTasks(tenantId);
   const tasks = tasksQuery.data?.data ?? [];
-  const notesQuery = useNotes(tenantId);
+  const notesQuery = useNotes(tenantId, undefined, 1, true, {
+    pageSize: "all",
+  });
   const notes = notesQuery.data?.data ?? [];
   const membersQuery = useMembers(tenantId);
   const members = membersQuery.data?.data ?? [];
@@ -471,6 +480,7 @@ export default function ModuleDetailPage() {
   );
   const [form, setForm] = useState<EditableModule | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isPinSaving, setIsPinSaving] = useState(false);
   const [isHeaderSaving, setIsHeaderSaving] = useState(false);
   const [isCollaboratorsOpen, setIsCollaboratorsOpen] = useState(false);
   const [isProjectPickerOpen, setIsProjectPickerOpen] = useState(false);
@@ -640,6 +650,37 @@ async function saveHeaderField(input: HeaderUpdateInput) {
 
     if (shouldCelebrate) {
       setIsPaperCelebrationOpen(true);
+    }
+  }
+
+  async function handleToggleNotePin(note: ApiNote) {
+    if (
+      !sameTenant ||
+      note.moduleId !== moduleId ||
+      isPinSaving ||
+      updateNote.isPending
+    ) {
+      return;
+    }
+
+    setIsPinSaving(true);
+    setActionError(null);
+
+    try {
+      await updateNote.mutateAsync({
+        noteId: note.id,
+        input: {
+          modulePinned: !note.modulePinned,
+        },
+      });
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The note pin could not be updated.",
+      );
+    } finally {
+      setIsPinSaving(false);
     }
   }
 
@@ -1613,6 +1654,12 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           onUnlinkNote={
             sameTenant ? (note) => void handleUnlinkNote(note) : undefined
           }
+          onTogglePin={
+            sameTenant
+              ? (note) => void handleToggleNotePin(note)
+              : undefined
+          }
+          pinDisabled={isPinSaving || updateNote.isPending}
         />
 
         {sameTenant ? (
