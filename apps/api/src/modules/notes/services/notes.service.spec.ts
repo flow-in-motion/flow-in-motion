@@ -838,6 +838,135 @@ describe('NotesService', () => {
     });
   });
 
+  describe('paper note pins', () => {
+    const existingNote = () => ({
+      id: 'note-1',
+      tenantId: 'tenant-1',
+      createdBy: 'user-1',
+      title: 'Test note',
+      content: 'Existing content',
+      projectId: null,
+      moduleId: 'module-1',
+      modulePinned: true,
+      visibilityId: null,
+    });
+
+    beforeEach(() => {
+      repository.findById.mockResolvedValue(existingNote());
+      repository.update.mockResolvedValue(existingNote());
+      modulesRepository.findById.mockImplementation(
+        (_tenantId: string, moduleId: string) =>
+          Promise.resolve({
+            id: moduleId,
+            projectId: null,
+          }),
+      );
+    });
+
+    it.each([true, false])('saves modulePinned=%s', async (modulePinned) => {
+      await service.update('tenant-1', 'note-1', 'user-1', {
+        modulePinned,
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        expect.objectContaining({ modulePinned }),
+      );
+      expect(repository.appendEntry).not.toHaveBeenCalled();
+      expect(repository.updateEntry).not.toHaveBeenCalled();
+      expect(repository.deleteEntry).not.toHaveBeenCalled();
+    });
+
+    it('preserves the pin when editing other note details', async () => {
+      await service.update('tenant-1', 'note-1', 'user-1', {
+        title: 'Updated title',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        expect.objectContaining({
+          title: 'Updated title',
+          modulePinned: undefined,
+        }),
+      );
+    });
+
+    it('resets the pin when moving to another paper', async () => {
+      await service.update('tenant-1', 'note-1', 'user-1', {
+        moduleId: 'module-2',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        expect.objectContaining({
+          moduleId: 'module-2',
+          modulePinned: false,
+        }),
+      );
+    });
+
+    it('preserves the pin when the paper link stays the same', async () => {
+      await service.update('tenant-1', 'note-1', 'user-1', {
+        moduleId: 'module-1',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        expect.objectContaining({
+          moduleId: 'module-1',
+          modulePinned: undefined,
+        }),
+      );
+    });
+
+    it('resets the pin when unlinking from a paper', async () => {
+      const input = {
+        moduleId: null,
+      } as unknown as Parameters<NotesService['update']>[3];
+
+      await service.update('tenant-1', 'note-1', 'user-1', input);
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        expect.objectContaining({
+          moduleId: null,
+          modulePinned: false,
+        }),
+      );
+    });
+
+    it('rejects pinning a note without a linked paper', async () => {
+      repository.findById.mockResolvedValue({
+        ...existingNote(),
+        moduleId: null,
+        modulePinned: false,
+      });
+
+      await expect(
+        service.update('tenant-1', 'note-1', 'user-1', {
+          modulePinned: true,
+        }),
+      ).rejects.toThrow('Only notes linked to a paper can be pinned');
+
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects pin changes from a caller without note access', async () => {
+      await expect(
+        service.update('tenant-1', 'note-1', 'outsider-1', {
+          modulePinned: true,
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(repository.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('delete', () => {
     it('throws NotFoundException if the note does not exist', async () => {
       repository.findById.mockResolvedValue(undefined);

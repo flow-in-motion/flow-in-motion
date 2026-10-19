@@ -89,6 +89,7 @@ const fixtures = vi.hoisted(() => ({
       title: "Meeting notes",
       content: "Discussed scope",
       updatedAt: "2026-09-02T00:00:00.000Z",
+      modulePinned: false,
     },
     {
       id: "note-2",
@@ -96,6 +97,7 @@ const fixtures = vi.hoisted(() => ({
       title: "Independent note",
       content: "Unrelated",
       updatedAt: "2026-09-01T00:00:00.000Z",
+      modulePinned: false,
     },
   ],
   module: {
@@ -340,6 +342,9 @@ vi.mock("@/api/hooks", () => ({
 
 describe("ModuleDetailPage", () => {
   beforeEach(() => {
+    fixtures.notes.forEach((note) => {
+      note.modulePinned = false;
+    });
     fixtures.module.dueDate = "2026-09-15";
     fixtures.module.status = "Active";
     fixtures.confetti.mockReset();
@@ -1167,5 +1172,63 @@ describe("ModuleDetailPage", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
+  });
+  it.each([
+    [false, "Pin Meeting notes", true],
+    [true, "Unpin Meeting notes", false],
+  ] as const)(
+    "saves the paper note pin when initially pinned=%s",
+    async (initialPinned, buttonName, expectedPinned) => {
+      fixtures.notes[0].modulePinned = initialPinned;
+      renderPage();
+
+      fireEvent.click(
+        screen.getByRole("button", { name: buttonName }),
+      );
+
+      await waitFor(() =>
+        expect(fixtures.updateNote).toHaveBeenCalledWith({
+          noteId: "note-1",
+          input: {
+            modulePinned: expectedPinned,
+          },
+        }),
+      );
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: buttonName }),
+        ).toBeEnabled(),
+      );
+
+      expect(fixtures.updateNote).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("keeps the existing pin state and shows an error when saving fails", async () => {
+    fixtures.notes[0].modulePinned = true;
+    fixtures.updateNote.mockRejectedValueOnce(
+      new Error("Unable to update note pin"),
+    );
+
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Unpin Meeting notes" }),
+    );
+
+    expect(
+      await screen.findByText("Unable to update note pin"),
+    ).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Unpin Meeting notes" }),
+      ).toBeEnabled(),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Unpin Meeting notes" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 });

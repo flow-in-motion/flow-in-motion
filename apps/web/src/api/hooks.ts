@@ -224,6 +224,9 @@ export interface ApiNote {
   followUpDate: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Pin this note within its linked paper's Notes panel. */
+  modulePinned?: boolean;
+
 }
 export interface ApiNoteEntry {
   id: string;
@@ -2453,6 +2456,7 @@ export type UpdateNoteInput = Omit<
   projectId?: string | null;
   moduleId?: string | null;
   followUpDate?: string | null;
+  modulePinned?: boolean;
 };
 
 export function useNotes(

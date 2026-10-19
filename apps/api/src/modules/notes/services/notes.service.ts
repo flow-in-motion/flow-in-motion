@@ -215,6 +215,7 @@ export class NotesService {
       projectId: string;
       moduleId: string;
       followUpDate: string | null;
+      modulePinned: boolean;
     }>,
   ) {
     const existing = await this.findOne(tenantId, noteId, callerUserId);
@@ -237,12 +238,26 @@ export class NotesService {
         : undefined,
     ]);
 
+    const nextModuleId = linkage ? linkage.moduleId : existing.moduleId;
+
+    const changesPaper =
+      linkage !== undefined &&
+      (linkage.moduleId ?? null) !== (existing.moduleId ?? null);
+
+    if (input.modulePinned === true && !nextModuleId) {
+      throw new BadRequestException(
+        'Only notes linked to a paper can be pinned',
+      );
+    }
+
+    const modulePinned = changesPaper ? false : input.modulePinned;
     const note = await this.repository.update(tenantId, noteId, {
       title: input.title,
       visibilityId,
       projectId: linkage ? linkage.projectId : undefined,
       moduleId: linkage ? linkage.moduleId : undefined,
       followUpDate: input.followUpDate,
+      modulePinned,
     });
 
     if (!note) {

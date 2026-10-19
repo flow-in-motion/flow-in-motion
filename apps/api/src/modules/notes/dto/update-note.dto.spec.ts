@@ -20,4 +20,19 @@ describe('UpdateNoteDto', () => {
 
     expect(errors.map((error) => error.property)).toContain('followUpDate');
   });
+  it.each([true, false])('accepts modulePinned=%s', async (modulePinned) => {
+    const dto = Object.assign(new UpdateNoteDto(), { modulePinned });
+
+    expect(await validate(dto)).toEqual([]);
+  });
+
+  it.each(['true', 'false', 1, 0, null])(
+    'rejects invalid modulePinned=%j',
+    async (modulePinned) => {
+      const dto = Object.assign(new UpdateNoteDto(), { modulePinned });
+      const errors = await validate(dto);
+
+      expect(errors.map((error) => error.property)).toContain('modulePinned');
+    },
+  );
 });

@@ -1,5 +1,10 @@
 import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
-import { IsDateString, IsOptional } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsOptional,
+  ValidateIf,
+} from 'class-validator';
 import { CreateNoteDto } from './create-note.dto';
 
 export class UpdateNoteDto extends PartialType(
@@ -9,4 +14,9 @@ export class UpdateNoteDto extends PartialType(
   @IsOptional()
   @IsDateString()
   followUpDate?: string | null;
+
+  @ApiProperty({ required: false, type: Boolean })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  modulePinned?: boolean;
 }

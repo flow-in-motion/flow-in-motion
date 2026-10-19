@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, date, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, date, uniqueIndex, boolean } from 'drizzle-orm/pg-core';
 import { projects } from './projects';
 import { modules } from './modules';
 import { tenants } from './tenants';
@@ -16,6 +16,7 @@ export const notes = pgTable(
     projectId: uuid('project_id')
       .references(() => projects.id, { onDelete: 'cascade' }),
     moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'cascade' }),
+    modulePinned: boolean('module_pinned').default(false).notNull(),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),

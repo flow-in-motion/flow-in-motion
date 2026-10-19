@@ -1,0 +1,1 @@
+ALTER TABLE "notes" ADD COLUMN "module_pinned" boolean DEFAULT false NOT NULL;
