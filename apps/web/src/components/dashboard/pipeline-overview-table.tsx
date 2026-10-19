@@ -1,4 +1,9 @@
-import { useMemo, type Dispatch, type SetStateAction } from "react";
+import {
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -16,6 +21,7 @@ import {
   useModules,
   type ModuleSortField,
   type SortDirection,
+  usePaperCurrentlyWithCollaborators,
 } from "@/api/hooks";
 import {
   PipelineBar,
@@ -66,6 +72,7 @@ import { paperDisplayTitle } from "@/lib/paper-title";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
 import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
+import { CurrentlyWithFilter } from "@/components/modules/currently-with-filter";
 
 const PIPELINE_COLUMNS = [
   { id: "paper", label: "Paper" },
@@ -200,6 +207,42 @@ export function PipelineOverviewTable() {
     PIPELINE_COLUMNS.map((column) => column.id),
     "dashboard-pipeline",
   );
+  const [selectedCurrentlyWith, setSelectedCurrentlyWith] =
+  useSessionListState<Set<string>>(
+    me.data?.id,
+    tenantId,
+    "dashboard-papers:currently-with",
+    () => new Set(),
+  );
+
+const [selectedCurrentlyWithContacts, setSelectedCurrentlyWithContacts] =
+  useSessionListState<Set<string>>(
+    me.data?.id,
+    tenantId,
+    "dashboard-papers:currently-with-contacts",
+    () => new Set(),
+  );
+
+const [currentlyWithFilterOpen, setCurrentlyWithFilterOpen] = useState(false);
+
+const currentlyWithCollaboratorsQuery = usePaperCurrentlyWithCollaborators(
+  tenantId,
+  currentlyWithFilterOpen || selectedCurrentlyWithContacts.size > 0,
+);
+
+const currentlyWithCollaborators = currentlyWithCollaboratorsQuery.data ?? [];
+
+const selectedCollaborators = currentlyWithCollaborators.filter((contact) =>
+  selectedCurrentlyWithContacts.has(contact.id),
+);
+
+const selectedCurrentlyWithUserIds = new Set(
+  selectedCollaborators.flatMap((contact) => contact.userIds),
+);
+
+const selectedCurrentlyWithInvitationIds = new Set(
+  selectedCollaborators.flatMap((contact) => contact.invitationIds),
+);
 
   const stages = useMemo(
     () =>
@@ -233,6 +276,9 @@ export function PipelineOverviewTable() {
           name: paperDisplayTitle(paper),
           createdAt: paper.createdAt ?? "",
           status: paper.status ?? "",
+          currentlyWithType: paper.currentlyWithType ?? "",
+          assignedToUserId: paper.assignedToUserId ?? null,
+          assignedToInvitationId: paper.assignedToInvitationId ?? null,
           stageIndex,
           completion: progressByStage.get(paper.pipelineStage ?? "") ?? 0,
         };
@@ -251,6 +297,22 @@ export function PipelineOverviewTable() {
         return false;
       if (selectedStatuses.size > 0 && !selectedStatuses.has(row.status))
         return false;
+      if (
+        (selectedCurrentlyWith.size > 0 ||
+          selectedCurrentlyWithContacts.size > 0) &&
+        !selectedCurrentlyWith.has(row.currentlyWithType) &&
+        !(
+          row.currentlyWithType === "collaborator" &&
+          ((row.assignedToUserId !== null &&
+            selectedCurrentlyWithUserIds.has(row.assignedToUserId)) ||
+            (row.assignedToInvitationId !== null &&
+              selectedCurrentlyWithInvitationIds.has(
+                row.assignedToInvitationId,
+              )))
+        )
+      ) {
+        return false;
+      }
       if (query && !row.name.toLowerCase().includes(query)) return false;
       return true;
     });
@@ -277,15 +339,25 @@ export function PipelineOverviewTable() {
     sortBy,
     sortDirection,
     stageNames,
+    selectedCurrentlyWith,
+    selectedCurrentlyWithContacts,
+    selectedCurrentlyWithUserIds,
+    selectedCurrentlyWithInvitationIds,
   ]);
 
   const hasActiveFilters =
-    search !== "" || selectedStages.size > 0 || selectedStatuses.size > 0;
+  search !== "" ||
+  selectedStages.size > 0 ||
+  selectedStatuses.size > 0 ||
+  selectedCurrentlyWith.size > 0 ||
+  selectedCurrentlyWithContacts.size > 0;
 
   function clearFilters() {
     setSearch("");
     setSelectedStages(new Set());
     setSelectedStatuses(new Set());
+    setSelectedCurrentlyWith(new Set());
+    setSelectedCurrentlyWithContacts(new Set());
   }
 
   function toggleSelected(
@@ -330,6 +402,31 @@ export function PipelineOverviewTable() {
           triggerClassName="sm:w-44"
           onToggle={(value) => toggleSelected(setSelectedStages, value)}
           onClear={() => setSelectedStages(new Set())}
+        />
+                <CurrentlyWithFilter
+          selectedTypes={selectedCurrentlyWith}
+          selectedContactIds={selectedCurrentlyWithContacts}
+          collaborators={currentlyWithCollaborators}
+          isLoading={currentlyWithCollaboratorsQuery.isLoading}
+          onOpenChange={setCurrentlyWithFilterOpen}
+          onToggleType={(value) => {
+            if (value === "collaborator") {
+              setSelectedCurrentlyWithContacts(new Set());
+            }
+            toggleSelected(setSelectedCurrentlyWith, value);
+          }}
+          onToggleCollaborator={(contactId) => {
+            setSelectedCurrentlyWith((current) => {
+              const next = new Set(current);
+              next.delete("collaborator");
+              return next;
+            });
+            toggleSelected(setSelectedCurrentlyWithContacts, contactId);
+          }}
+          onClear={() => {
+            setSelectedCurrentlyWith(new Set());
+            setSelectedCurrentlyWithContacts(new Set());
+          }}
         />
         <Select
           value={sortBy}
@@ -519,7 +616,7 @@ export function PipelineOverviewTable() {
             </CardTitle>
             <CardDescription>
               Every paper&rsquo;s individual position on the pipeline,
-              searchable and filterable by stage.
+              searchable and filterable by status, stage and current holder.
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-3">
