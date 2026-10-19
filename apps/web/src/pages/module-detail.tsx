@@ -91,6 +91,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { InlineFieldSelect } from "@/components/shared/inline-field-select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const MODULE_STATUSES = ["Active", "Stalled", "Complete"];
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
@@ -463,6 +471,9 @@ export default function ModuleDetailPage() {
   );
   const [form, setForm] = useState<EditableModule | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isHeaderSaving, setIsHeaderSaving] = useState(false);
+  const [isCollaboratorsOpen, setIsCollaboratorsOpen] = useState(false);
+  const [isProjectPickerOpen, setIsProjectPickerOpen] = useState(false);
   const venueSuggestions = usePaperVenueSuggestions(
     tenantId,
     sameTenant && Boolean(form),
@@ -480,16 +491,17 @@ export default function ModuleDetailPage() {
   const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
   const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
   const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [editingSubmission, setEditingSubmission] =
     useState<ApiModuleSubmission | null>(null);
   const editProjectsQuery = useProjects(
-    tenantId,
-    1,
-    sameTenant && Boolean(form),
-    {
-      pageSize: "all",
-    },
-  );
+      tenantId,
+      1,
+      sameTenant && (Boolean(form) || isProjectPickerOpen),
+      {
+        pageSize: "all",
+      },
+    );
   const editGeneralProject =
     editProjectsQuery.data?.generalProject ?? generalProject;
   const editProjectOptions: LinkExistingOption[] = [
@@ -555,6 +567,43 @@ export default function ModuleDetailPage() {
     );
   }
 
+  type HeaderUpdateInput = Parameters<
+  typeof updateModule.mutateAsync
+>[0]["input"];
+
+async function saveHeaderField(input: HeaderUpdateInput) {
+  if (!module || isHeaderSaving || updateModule.isPending) return;
+
+  const shouldCelebrate =
+    input.pipelineStage !== undefined &&
+    enteredSubmittedUnderReview(
+      module.pipelineStage,
+      input.pipelineStage,
+    );
+
+  setIsHeaderSaving(true);
+  setActionError(null);
+
+  try {
+    await updateModule.mutateAsync({ moduleId, input });
+
+    if (shouldCelebrate) {
+      setIsPaperCelebrationOpen(true);
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "The paper could not be updated.";
+
+    setActionError(message);
+
+    // InlineFieldSelect uses this rejection to restore its previous value.
+    throw error;
+  } finally {
+    setIsHeaderSaving(false);
+  }
+}
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form || !module) return;
@@ -817,6 +866,7 @@ export default function ModuleDetailPage() {
               <Button
                 type="button"
                 onClick={() => setForm(editableValues(module, me.data?.id))}
+                disabled={isHeaderSaving || updateModule.isPending}
               >
                 <Pencil /> Edit Paper
               </Button>
@@ -829,37 +879,296 @@ export default function ModuleDetailPage() {
             {module.title ? (
               <HeaderStat label="Formal title" value={module.title} />
             ) : null}
-            <HeaderStat label="Status" value={module.status ?? "—"} />
-            <HeaderStat label="Priority" value={module.priority ?? "—"} />
+            <HeaderStat
+              label="Status"
+              value={
+                <InlineFieldSelect
+                  value={module.status}
+                  options={MODULE_STATUSES}
+                  fieldLabel="status"
+                  itemLabel={paperDisplayTitle(module)}
+                  triggerClassName="h-auto w-auto gap-1 rounded-sm border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+                  disabled={isHeaderSaving || updateModule.isPending}
+                  onChange={(status) => saveHeaderField({ status })}
+                  onError={setActionError}
+                />
+              }
+            />
+
+            <HeaderStat
+              label="Priority"
+              value={
+                <InlineFieldSelect
+                  value={module.priority}
+                  options={PAPER_PRIORITIES}
+                  fieldLabel="priority"
+                  itemLabel={paperDisplayTitle(module)}
+                  triggerClassName="h-auto w-auto gap-1 rounded-sm border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+                  disabled={isHeaderSaving || updateModule.isPending}
+                  onChange={(priority) => saveHeaderField({ priority })}
+                  onError={setActionError}
+                />
+              }
+            />
+
             <HeaderStat
               label="Pipeline stage"
-              value={module.pipelineStage ?? "Unassigned"}
+              value={
+                <InlineFieldSelect
+                  value={module.pipelineStage}
+                  options={(stagesQuery.data ?? [])
+                    .filter((stage) => !stage.hidden)
+                    .map((stage) => stage.value)}
+                  fieldLabel="pipeline stage"
+                  itemLabel={paperDisplayTitle(module)}
+                  triggerClassName="h-auto w-auto gap-1 rounded-sm border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+                  placeholder="Unassigned"
+                  disabled={
+                    isHeaderSaving ||
+                    updateModule.isPending ||
+                    stagesQuery.isPending ||
+                    stagesQuery.isError
+                  }
+                  onChange={(pipelineStage) =>
+                    saveHeaderField({ pipelineStage })
+                  }
+                  onError={setActionError}
+                />
+              }
             />
-            <HeaderStat label="Next Due Date" value={formatDate(module.dueDate)} />
-            <HeaderStat label="Currently With" value={currentlyWith} />
+            <HeaderStat
+              label="Next Due Date"
+              value={
+                <button
+                  type="button"
+                  aria-label="Change next due date"
+                  aria-haspopup="dialog"
+                  disabled={isHeaderSaving || updateModule.isPending}
+                  onClick={() => {
+                    setActionError(null);
+                    setIsDatePickerOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  {formatDate(module.dueDate)}
+                  <Pencil className="h-3 w-3" />
+                </button>
+              }
+            />
+            <HeaderStat
+              label="Currently With"
+              value={
+                <PaperCurrentlyWithSelect
+                  id="header-module-currently-with"
+                  ariaLabel={`Change currently with for ${paperDisplayTitle(module)}`}
+                  currentlyWithType={
+                    editableValues(module, me.data?.id).currentlyWithType
+                  }
+                  assignedToUserId={module.assignedToUserId ?? null}
+                  assignedToInvitationId={module.assignedToInvitationId ?? null}
+                  assignedToDisplayName={currentlyWith}
+                  currentUserId={me.data?.id}
+                  collaborators={paperCollaborators}
+                  collaboratorsPending={collaboratorsQuery.isPending}
+                  disabled={isHeaderSaving || updateModule.isPending}
+                  triggerClassName="h-auto w-auto min-w-0 gap-1 rounded-sm border-0 bg-transparent p-0 text-xs font-medium shadow-none hover:bg-transparent"
+                  onChange={(
+                    currentlyWithType,
+                    assignedToUserId,
+                    assignedToInvitationId,
+                  ) => {
+                    void saveHeaderField({
+                      currentlyWithType,
+                      assignedToUserId,
+                      assignedToInvitationId,
+                    }).catch(() => {
+                      // The save handler displays the error.
+                    });
+                  }}
+                />
+              }
+            />
             <HeaderStat
               label="Linked project"
               value={
-                module.projectId ? (
-                  <Link
-                    to={`/projects/${module.projectId}`}
-                    className="hover:underline"
-                  >
-                    {linkedProjectQuery.data?.title ?? "Loading…"}
-                  </Link>
-                ) : (
-                  "—"
-                )
+                <span className="inline-flex items-center gap-1">
+                  {module.projectId ? (
+                    <Link
+                      to={`/projects/${module.projectId}`}
+                      className="hover:underline"
+                    >
+                      {linkedProjectQuery.data?.title ?? "Loading…"}
+                    </Link>
+                  ) : (
+                    <span>—</span>
+                  )}
+
+                  {sameTenant ? (
+                    <button
+                      type="button"
+                      aria-label="Change linked project"
+                      aria-haspopup="dialog"
+                      disabled={isHeaderSaving || updateModule.isPending}
+                      onClick={() => {
+                        setActionError(null);
+                        setIsProjectPickerOpen(true);
+                      }}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                </span>
               }
             />
+            <Dialog
+              open={isDatePickerOpen}
+              onOpenChange={(open) => {
+                if (!isHeaderSaving) {
+                  setIsDatePickerOpen(open);
+                }
+              }}
+            >
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Next Due Date</DialogTitle>
+                  <DialogDescription>
+                    Choose the paper’s next due date. Changes save automatically.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <fieldset
+                  disabled={isHeaderSaving || updateModule.isPending}
+                  className="grid min-w-0 gap-3"
+                >
+                  <label
+                    htmlFor="header-module-due"
+                    className="text-sm font-medium"
+                  >
+                    Next Due Date
+                  </label>
+
+                  <DatePickerInput
+                    id="header-module-due"
+                    label="Next Due Date"
+                    value={module.dueDate ?? ""}
+                    allowTyped
+                    onChange={(value) => {
+                      const dueDate = value || null;
+
+                      if (dueDate === (module.dueDate ?? null)) {
+                        return;
+                      }
+
+                      void saveHeaderField({ dueDate })
+                        .then(() => setIsDatePickerOpen(false))
+                        .catch(() => {
+                          // Keep the picker open so the user can retry.
+                        });
+                    }}
+                  />
+
+                  {actionError ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {actionError}
+                    </p>
+                  ) : null}
+
+                  {isHeaderSaving ? (
+                    <p role="status" className="text-sm text-muted-foreground">
+                      Saving…
+                    </p>
+                  ) : null}
+                </fieldset>
+              </DialogContent>
+            </Dialog>
+            <Dialog
+              open={isProjectPickerOpen}
+              onOpenChange={(open) => {
+                if (!isHeaderSaving) {
+                  setIsProjectPickerOpen(open);
+                }
+              }}
+            >
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Change linked project</DialogTitle>
+                  <DialogDescription>
+                    Choose a project for this paper. Select General for an independent
+                    paper.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <fieldset
+                  disabled={isHeaderSaving || updateModule.isPending}
+                  className="grid min-w-0 gap-3"
+                >
+                  <label
+                    htmlFor="header-module-project"
+                    className="text-sm font-medium"
+                  >
+                    Linked project
+                  </label>
+
+                  <LinkExistingField
+                    id="header-module-project"
+                    inlineResults
+                    placeholder="Search projects by title"
+                    options={editProjectOptions}
+                    selected={[]}
+                    onAdd={(project) => {
+                      if (project.id === module.projectId) {
+                        setIsProjectPickerOpen(false);
+                        return;
+                      }
+
+                      void saveHeaderField({ projectId: project.id })
+                        .then(() => setIsProjectPickerOpen(false))
+                        .catch(() => {
+                          // Keep the picker open so the user can retry.
+                        });
+                    }}
+                    onRemove={() => {}}
+                    emptyMessage={
+                      editProjectsQuery.isError
+                        ? "Projects could not be loaded."
+                        : editProjectsQuery.isPending
+                          ? "Loading projects…"
+                          : "No matching projects."
+                    }
+                  />
+
+                  {actionError ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {actionError}
+                    </p>
+                  ) : null}
+
+                  {isHeaderSaving ? (
+                    <p role="status" className="text-sm text-muted-foreground">
+                      Saving…
+                    </p>
+                  ) : null}
+                </fieldset>
+              </DialogContent>
+            </Dialog>
             <HeaderStat
               label="Collaborators"
               value={
                 sameTenant ? (
-                  <ModuleCollaboratorsSummary
-                    tenantId={tenantId}
-                    moduleId={module.id}
-                  />
+                  <button
+                    type="button"
+                    aria-label="Manage paper collaborators"
+                    aria-haspopup="dialog"
+                    onClick={() => setIsCollaboratorsOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ModuleCollaboratorsSummary
+                      tenantId={tenantId}
+                      moduleId={module.id}
+                    />
+                    <Plus className="h-3.5 w-3.5 shrink-0" />
+                  </button>
                 ) : (
                   "Shared from another workspace"
                 )
@@ -1366,6 +1675,29 @@ export default function ModuleDetailPage() {
           confirmLabel="Link notes"
           onConfirm={handleLinkNotes}
         />
+        <Dialog
+          open={isCollaboratorsOpen}
+          onOpenChange={setIsCollaboratorsOpen}
+        >
+          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Paper collaborators</DialogTitle>
+              <DialogDescription>
+                View and manage collaborators for {paperDisplayTitle(module)}.
+              </DialogDescription>
+            </DialogHeader>
+
+            {sameTenant ? (
+              <ModuleCollaboratorsManager
+                tenantId={tenantId}
+                moduleId={module.id}
+                moduleTitle={paperDisplayTitle(module)}
+                members={members}
+                projectOwnerUserId={linkedProjectQuery.data?.userId}
+              />
+            ) : null}
+          </DialogContent>
+        </Dialog>
         <PaperStageCelebration
           open={isPaperCelebrationOpen}
           onOpenChange={setIsPaperCelebrationOpen}

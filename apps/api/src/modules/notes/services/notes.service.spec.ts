@@ -742,6 +742,78 @@ describe('NotesService', () => {
   });
 
   describe('update', () => {
+    it.each([
+      ['sets', '2026-11-20'],
+      ['clears', null],
+    ] as const)(
+      '%s the follow-up date without changing content',
+      async (_, followUpDate) => {
+        const existing = {
+          id: 'note-1',
+          tenantId: 'tenant-1',
+          createdBy: 'user-1',
+          title: 'Test note',
+          content: 'Existing content',
+          projectId: null,
+          moduleId: null,
+          visibilityId: null,
+          followUpDate: '2026-04-15',
+        };
+
+        repository.findById.mockResolvedValue(existing);
+        repository.update.mockResolvedValue({
+          ...existing,
+          followUpDate,
+        });
+
+        await service.update('tenant-1', 'note-1', 'user-1', {
+          followUpDate,
+        });
+
+        expect(repository.update).toHaveBeenCalledWith(
+          'tenant-1',
+          'note-1',
+          expect.objectContaining({ followUpDate }),
+        );
+        expect(repository.appendEntry).not.toHaveBeenCalled();
+        expect(repository.updateEntry).not.toHaveBeenCalled();
+        expect(repository.deleteEntry).not.toHaveBeenCalled();
+      },
+    );
+
+    it('leaves the follow-up date unchanged when omitted', async () => {
+      const existing = {
+        id: 'note-1',
+        tenantId: 'tenant-1',
+        createdBy: 'user-1',
+        title: 'Test note',
+        content: 'Existing content',
+        projectId: null,
+        moduleId: null,
+        visibilityId: null,
+        followUpDate: '2026-04-15',
+      };
+
+      repository.findById.mockResolvedValue(existing);
+      repository.update.mockResolvedValue({
+        ...existing,
+        title: 'Updated title',
+      });
+
+      await service.update('tenant-1', 'note-1', 'user-1', {
+        title: 'Updated title',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        expect.objectContaining({
+          title: 'Updated title',
+          followUpDate: undefined,
+        }),
+      );
+    });
+
     it('throws NotFoundException if the note does not exist', async () => {
       repository.findById.mockResolvedValue(undefined);
 

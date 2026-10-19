@@ -686,7 +686,7 @@ export class ProjectModulesRepository {
       assignedToUserId: string | null;
       assignedToInvitationId: string | null;
       currentlyWithType: string | null;
-      dueDate: string;
+      dueDate: string | null;
     }>,
   ) {
     const [module] = await this.drizzle.db

@@ -219,12 +219,12 @@ export class ProjectsRepository {
     values: Partial<{
       title: string;
       description: string;
-      researchArea: string;
+      researchArea: string | null;
       statusId: string;
       importanceId: string;
-      scheduledFor: string;
-      dueDate: string;
-      totalBudget: string;
+      scheduledFor: string | null;
+      dueDate: string | null;
+      totalBudget: string | null;
       targetJournals: string;
     }>,
   ) {

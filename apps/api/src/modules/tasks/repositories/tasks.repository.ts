@@ -304,8 +304,8 @@ export class TasksRepository {
       priorityId: string;
       visibilityId: string;
       workingWith: string | null;
-      estimatedHours: string;
-      dueDate: string;
+      estimatedHours: string | null;
+      dueDate: string | null;
       projectId: string | null;
       moduleId: string | null;
     }>,

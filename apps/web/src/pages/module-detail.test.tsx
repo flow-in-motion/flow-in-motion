@@ -115,7 +115,7 @@ const fixtures = vi.hoisted(() => ({
     status: "Active",
     priority: "High" as string | null,
     pipelineStage: "Concept",
-    dueDate: "2026-09-15",
+    dueDate: "2026-09-15" as string | null,
     assignedToUserId: null,
     currentlyWithType: null,
     archivedAt: null,
@@ -340,6 +340,8 @@ vi.mock("@/api/hooks", () => ({
 
 describe("ModuleDetailPage", () => {
   beforeEach(() => {
+    fixtures.module.dueDate = "2026-09-15";
+    fixtures.module.status = "Active";
     fixtures.confetti.mockReset();
     fixtures.module.pipelineStage = "Concept";
     fixtures.module.priority = "High";
@@ -391,6 +393,106 @@ describe("ModuleDetailPage", () => {
       </MemoryRouter>,
     );
   }
+
+  it("accepts a typed next due date from the header", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change next due date" }),
+    );
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Next Due Date" }),
+      { target: { value: "20/11/2026" } },
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { dueDate: "2026-11-20" },
+      }),
+    );
+  });
+
+  it("changes the next due date from the header", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change next due date" }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Choose next due date" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(nativeDateInputFor("header-module-due"), {
+      target: { value: "2026-11-20" },
+    });
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { dueDate: "2026-11-20" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Change next due date" }),
+    ).toHaveTextContent("20/11/2026");
+  });
+
+  it("clears the next due date from the header", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change next due date" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear next due date" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { dueDate: null },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Change next due date" }),
+    ).toHaveTextContent("—");
+  });
+
+  it("keeps the previous date and picker open when saving fails", async () => {
+    fixtures.updateModule.mockRejectedValueOnce(
+      new Error("Unable to update date"),
+    );
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change next due date" }),
+    );
+    fireEvent.change(nativeDateInputFor("header-module-due"), {
+      target: { value: "2026-11-20" },
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("dialog"))
+        .toHaveTextContent("Unable to update date"),
+    );
+
+    expect(
+      screen.getByRole("textbox", { name: "Next Due Date" }),
+    ).toHaveValue("15/09/2026");
+  });
 
   it("shows and edits paper priority", async () => {
     renderPage();
@@ -507,7 +609,7 @@ describe("ModuleDetailPage", () => {
     );
   });
 
-  it("shows collaborator management only inside Edit Paper", () => {
+  it("also offers collaborator management inside Edit Paper", () => {
     renderPage();
 
     expect(
@@ -903,5 +1005,167 @@ describe("ModuleDetailPage", () => {
     expect(
       screen.getByRole("button", { name: "Show submission history" }),
     ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("changes status directly from the paper header", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change status for Literature synthesis",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Stalled" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { status: "Stalled" },
+      }),
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Edit paper details" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("changes priority directly from the paper header", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change priority for Literature synthesis",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Critical" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { priority: "Critical" },
+      }),
+    );
+  });
+
+  it("celebrates a successful submission-stage change from the header", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change pipeline stage for Literature synthesis",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("option", {
+        name: "Submitted, Under Review",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { pipelineStage: "Submitted, Under Review" },
+      }),
+    );
+
+    expect(await screen.findByRole("status"))
+      .toHaveTextContent("Paper submitted — congratulations!");
+    expect(fixtures.confetti).toHaveBeenCalledOnce();
+  });
+
+  it("restores the previous header value when saving fails", async () => {
+    fixtures.updateModule.mockRejectedValueOnce(
+      new Error("Unable to update priority"),
+    );
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change priority for Literature synthesis",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Critical" }));
+
+    expect(await screen.findByRole("alert"))
+      .toHaveTextContent("Unable to update priority");
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", {
+          name: "Change priority for Literature synthesis",
+        }),
+      ).toHaveTextContent("High"),
+    );
+  });
+
+  it("changes Currently With directly from the header", async () => {
+    renderPage();
+
+    fireEvent.keyDown(
+      screen.getByRole("combobox", {
+        name: "Change currently with for Literature synthesis",
+      }),
+      { key: "Enter" },
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Journal" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: {
+          currentlyWithType: "journal",
+          assignedToUserId: null,
+          assignedToInvitationId: null,
+        },
+      }),
+    );
+  });
+
+  it("opens collaborator management directly from the header", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Manage paper collaborators",
+      }),
+    );
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add collaborator" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Edit paper details" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("changes the linked project directly from the header", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change linked project" }),
+    );
+
+    const search = await screen.findByRole("combobox", {
+      name: "Linked project",
+    });
+
+    fireEvent.change(search, {
+      target: { value: "Genome" },
+    });
+    fireEvent.click(
+      screen.getByRole("option", { name: /Genome Sequencing Study/ }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { projectId: "project-1" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
   });
 });

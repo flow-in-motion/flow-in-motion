@@ -174,12 +174,12 @@ export class ProjectsService {
     input: Partial<{
       title: string;
       description: string;
-      researchArea: string;
+      researchArea: string | null;
       status: string;
       importance: string;
-      scheduledFor: string;
-      dueDate: string;
-      totalBudget: string;
+      scheduledFor: string | null;
+      dueDate: string | null;
+      totalBudget: string | null;
       targetJournals: string;
     }>,
   ) {

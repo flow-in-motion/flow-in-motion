@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,12 +34,12 @@ const fixtures = vi.hoisted(() => ({
     tenantId: "workspace-1",
     title: "Enzyme Kinetics Inhibition Study",
     description: null,
-    researchArea: "Biochemistry",
+    researchArea: "Biochemistry" as string | null,
     status: "Active",
     importance: "Medium",
-    scheduledFor: "2026-08-06",
-    dueDate: "2026-08-15",
-    totalBudget: "5000",
+    scheduledFor: "2026-08-06" as string | null,
+    dueDate: "2026-08-15" as string | null,
+    totalBudget: "5000" as string | null,
     targetJournals: null,
     archivedAt: null,
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -190,6 +196,8 @@ vi.mock("@/components/projects/archive-project-dialog", () => ({
 
 describe("ProjectDetailPage", () => {
   beforeEach(() => {
+    fixtures.project.status = "Active";
+    fixtures.project.totalBudget = "5000";
     fixtures.project.title = "Enzyme Kinetics Inhibition Study";
     fixtures.project.researchArea = "Biochemistry";
     fixtures.project.scheduledFor = "2026-08-06";
@@ -208,6 +216,19 @@ describe("ProjectDetailPage", () => {
     fixtures.updateNote.mockReset();
     fixtures.updateNote.mockResolvedValue(fixtures.notes[0]);
   });
+
+  function renderProject() {
+    return render(
+      <MemoryRouter initialEntries={["/projects/PRJ-101"]}>
+        <Routes>
+          <Route
+            path="projects/:projectId"
+            element={<ProjectDetailPage />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
 
   it("edits project details in place", async () => {
     render(
@@ -570,5 +591,367 @@ describe("ProjectDetailPage", () => {
         input: { projectId: "PRJ-101" },
       }),
     );
+  });
+
+  it("changes status directly from the project header", async () => {
+    renderProject();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change status for Enzyme Kinetics Inhibition Study",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Stalled" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { status: "Stalled" },
+      }),
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Edit project details" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("restores the previous status when a header update fails", async () => {
+    fixtures.updateProject.mockRejectedValueOnce(
+      new Error("Unable to update status"),
+    );
+    renderProject();
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: "Change status for Enzyme Kinetics Inhibition Study",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Stalled" }));
+
+    expect(await screen.findByRole("alert"))
+      .toHaveTextContent("Unable to update status");
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", {
+          name: "Change status for Enzyme Kinetics Inhibition Study",
+        }),
+      ).toHaveTextContent("Active"),
+    );
+  });
+
+  it.each([
+    {
+      button: "Change research area",
+      label: "Research area",
+      role: "textbox" as const,
+      field: "researchArea",
+      value: "Molecular biology",
+    },
+    {
+      button: "Change budget",
+      label: "Budget",
+      role: "spinbutton" as const,
+      field: "totalBudget",
+      value: "7500",
+    },
+  ])("edits $label from the header", async ({
+    button,
+    label,
+    role,
+    field,
+    value,
+  }) => {
+    renderProject();
+
+    fireEvent.click(screen.getByRole("button", { name: button }));
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(
+      within(dialog).getByRole(role, { name: label }),
+      { target: { value } },
+    );
+
+    // Typing alone must not save the field.
+    expect(fixtures.updateProject).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { [field]: value },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it.each([
+    {
+      button: "Change research area",
+      label: "Research area",
+      role: "textbox" as const,
+      field: "researchArea",
+    },
+    {
+      button: "Change budget",
+      label: "Budget",
+      role: "spinbutton" as const,
+      field: "totalBudget",
+    },
+  ])("clears $label from the header", async ({
+    button,
+    label,
+    role,
+    field,
+  }) => {
+    renderProject();
+
+    fireEvent.click(screen.getByRole("button", { name: button }));
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(
+      within(dialog).getByRole(role, { name: label }),
+      { target: { value: "" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { [field]: null },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("saves a zero budget without treating it as empty", async () => {
+    renderProject();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change budget" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(
+      within(dialog).getByRole("spinbutton", { name: "Budget" }),
+      { target: { value: "0" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { totalBudget: "0" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("discards a research-area draft when cancelled", () => {
+    renderProject();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change research area" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Research area" }),
+      { target: { value: "Unsaved area" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    );
+
+    expect(fixtures.updateProject).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change research area" }),
+    );
+
+    expect(
+      screen.getByRole("textbox", { name: "Research area" }),
+    ).toHaveValue("Biochemistry");
+  });
+
+  it("preserves the research-area draft when saving fails", async () => {
+    fixtures.updateProject.mockRejectedValueOnce(
+      new Error("Unable to update research area"),
+    );
+    renderProject();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change research area" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Research area" }),
+      { target: { value: "Keep this draft" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save" }),
+    );
+
+    expect(await within(dialog).findByRole("alert"))
+      .toHaveTextContent("Unable to update research area");
+    expect(
+      within(dialog).getByRole("textbox", { name: "Research area" }),
+    ).toHaveValue("Keep this draft");
+    expect(
+      within(dialog).getByRole("button", { name: "Save" }),
+    ).toBeEnabled();
+  });
+
+  it.each([
+    {
+      button: "Change scheduled date",
+      label: "Scheduled date",
+      field: "scheduledFor",
+    },
+    {
+      button: "Change due date",
+      label: "Due date",
+      field: "dueDate",
+    },
+  ])("accepts a typed $label from the header", async ({
+    button,
+    label,
+    field,
+  }) => {
+    renderProject();
+
+    fireEvent.click(screen.getByRole("button", { name: button }));
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: label }),
+      { target: { value: "20/11/2026" } },
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { [field]: "2026-11-20" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it.each([
+    {
+      button: "Change scheduled date",
+      field: "scheduledFor",
+    },
+    {
+      button: "Change due date",
+      field: "dueDate",
+    },
+  ])("accepts a calendar selection for $field", async ({
+    button,
+    field,
+  }) => {
+    renderProject();
+
+    fireEvent.click(screen.getByRole("button", { name: button }));
+
+    const dateInput = screen
+      .getByRole("dialog")
+      .querySelector<HTMLInputElement>('input[type="date"]');
+
+    expect(dateInput).not.toBeNull();
+
+    fireEvent.change(dateInput!, {
+      target: { value: "2026-11-20" },
+    });
+
+    await waitFor(() =>
+      expect(fixtures.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { [field]: "2026-11-20" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it.each([
+    {
+      button: "Change scheduled date",
+      clearButton: "Clear scheduled date",
+      field: "scheduledFor",
+    },
+    {
+      button: "Change due date",
+      clearButton: "Clear due date",
+      field: "dueDate",
+    },
+  ])("clears $field from the header", async ({
+    button,
+    clearButton,
+    field,
+  }) => {
+    renderProject();
+
+    fireEvent.click(screen.getByRole("button", { name: button }));
+    fireEvent.click(
+      screen.getByRole("button", { name: clearButton }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateProject).toHaveBeenCalledWith({
+        projectId: "PRJ-101",
+        input: { [field]: null },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("keeps the previous due date when saving a new date fails", async () => {
+    fixtures.updateProject.mockRejectedValueOnce(
+      new Error("Unable to update due date"),
+    );
+    renderProject();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change due date" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Due date" }),
+      { target: { value: "20/11/2026" } },
+    );
+
+    expect(await within(dialog).findByRole("alert"))
+      .toHaveTextContent("Unable to update due date");
+
+    expect(
+      within(dialog).getByRole("textbox", { name: "Due date" }),
+    ).toHaveValue("15/08/2026");
   });
 });

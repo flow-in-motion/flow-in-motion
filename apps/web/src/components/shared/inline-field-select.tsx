@@ -17,6 +17,7 @@ type InlineFieldSelectProps = {
   onChange: (value: string) => Promise<unknown>;
   onError?: (message: string) => void;
   valueClassName?: (value: string | null) => string;
+  triggerClassName?: string;
   disabled?: boolean;
   placeholder?: string;
 };
@@ -29,6 +30,7 @@ export function InlineFieldSelect({
   onChange,
   onError,
   valueClassName,
+  triggerClassName,
   disabled = false,
   placeholder = "—",
 }: InlineFieldSelectProps) {
@@ -70,6 +72,7 @@ export function InlineFieldSelect({
         className={cn(
           "h-8 min-w-0 px-2 text-xs font-medium",
           valueClassName?.(displayedValue),
+          triggerClassName,
         )}
       >
         <SelectValue placeholder={placeholder} />

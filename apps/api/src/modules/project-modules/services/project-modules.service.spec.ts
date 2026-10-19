@@ -859,6 +859,52 @@ describe('ProjectModulesService', () => {
   });
 
   describe('update', () => {
+    it.each([
+      {
+        label: 'sets a new due date',
+        dueDate: '2026-11-20',
+      },
+      {
+        label: 'clears the due date',
+        dueDate: null,
+      },
+      {
+        label: 'leaves the due date unchanged when omitted',
+        dueDate: undefined,
+      },
+    ])('$label', async ({ dueDate }) => {
+      const existing = {
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+        dueDate: '2026-09-15',
+      };
+
+      repository.findById.mockResolvedValue(existing);
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'owner-role-id',
+      });
+      repository.update.mockResolvedValue({
+        ...existing,
+        dueDate: dueDate === undefined ? existing.dueDate : dueDate,
+      });
+
+      await service.update(
+        'tenant-1',
+        'module-1',
+        'user-1',
+        dueDate === undefined ? {} : { dueDate },
+      );
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({ dueDate }),
+      );
+    });
+
     it('assigns Currently With to a collaborator already on the paper', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',

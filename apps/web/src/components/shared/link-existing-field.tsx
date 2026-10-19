@@ -18,6 +18,7 @@ interface LinkExistingFieldProps {
   onAdd: (option: LinkExistingOption) => void;
   onRemove: (id: string) => void;
   emptyMessage?: string;
+  inlineResults?: boolean;
 }
 
 export function LinkExistingField({
@@ -28,6 +29,7 @@ export function LinkExistingField({
   onAdd,
   onRemove,
   emptyMessage = "Nothing found.",
+  inlineResults = false,
 }: LinkExistingFieldProps) {
   const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -71,11 +73,15 @@ export function LinkExistingField({
           className="pl-9"
           autoComplete="off"
         />
-        {isOpen ? (
+        {isOpen && (!inlineResults || query.length > 0) ? (
           <div
             id={`${id}-options`}
             role="listbox"
-            className="absolute z-50 mt-1 max-h-[32rem] w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+            className={
+              inlineResults
+                ? "mt-2 max-h-60 w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground"
+                : "absolute z-50 mt-1 max-h-[32rem] w-full overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+            }
           >
             {matches.length ? (
               matches.map((option) => (

@@ -782,4 +782,116 @@ describe("DailyNoteDetailPage", () => {
     expect(fixtures.addEntry).not.toHaveBeenCalled();
     expect(fixtures.deleteEntry).not.toHaveBeenCalled();
   });
+
+  it("accepts a typed follow-up date from the header", async () => {
+    renderNote();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change follow-up date" }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Follow-up date" }),
+      { target: { value: "20/11/2026" } },
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateNote).toHaveBeenCalledWith({
+        noteId: "note-1",
+        input: { followUpDate: "2026-11-20" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(fixtures.addEntry).not.toHaveBeenCalled();
+    expect(fixtures.updateEntry).not.toHaveBeenCalled();
+    expect(fixtures.deleteEntry).not.toHaveBeenCalled();
+  });
+
+  it("accepts a calendar selection for the follow-up date", async () => {
+    renderNote();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change follow-up date" }),
+    );
+
+    const dateInput = screen
+      .getByRole("dialog")
+      .querySelector<HTMLInputElement>('input[type="date"]');
+
+    expect(dateInput).not.toBeNull();
+
+    fireEvent.change(dateInput!, {
+      target: { value: "2026-11-20" },
+    });
+
+    await waitFor(() =>
+      expect(fixtures.updateNote).toHaveBeenCalledWith({
+        noteId: "note-1",
+        input: { followUpDate: "2026-11-20" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("clears the follow-up date from the header", async () => {
+    fixtures.note.followUpDate = "2026-04-15";
+    renderNote();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change follow-up date" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear follow-up date" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateNote).toHaveBeenCalledWith({
+        noteId: "note-1",
+        input: { followUpDate: null },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("restores the saved follow-up date when saving fails", async () => {
+    fixtures.note.followUpDate = "2026-04-15";
+    fixtures.updateNote.mockRejectedValueOnce(
+      new Error("Unable to update follow-up date"),
+    );
+    renderNote();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change follow-up date" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+
+    fireEvent.change(
+      within(dialog).getByRole("textbox", {
+        name: "Follow-up date",
+      }),
+      { target: { value: "20/11/2026" } },
+    );
+
+    expect(await within(dialog).findByRole("alert"))
+      .toHaveTextContent("Unable to update follow-up date");
+
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("textbox", {
+          name: "Follow-up date",
+        }),
+      ).toHaveValue("15/04/2026"),
+    );
+  });
+
 });

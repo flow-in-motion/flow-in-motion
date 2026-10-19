@@ -77,7 +77,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { InlineFieldSelect } from "@/components/shared/inline-field-select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 const PROJECT_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
+const PROJECT_HEADER_FIELDS = {
+  researchArea: "Research area",
+  scheduledFor: "Scheduled date",
+  dueDate: "Due date",
+  totalBudget: "Budget",
+} as const;
+
+type ProjectHeaderField = keyof typeof PROJECT_HEADER_FIELDS;
 
 interface EditableProject {
   title: string;
@@ -120,7 +137,13 @@ function formatCurrency(value: string | null) {
   }).format(amount);
 }
 
-function HeaderStat({ label, value }: { label: string; value: string }) {
+function HeaderStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-2.5 py-1 text-xs">
       <span className="font-medium text-muted-foreground">{label}</span>
@@ -289,6 +312,7 @@ export default function ProjectDetailPage() {
   const [isLinkModulesOpen, setIsLinkModulesOpen] = useState(false);
   const [isLinkTasksOpen, setIsLinkTasksOpen] = useState(false);
   const [isLinkNotesOpen, setIsLinkNotesOpen] = useState(false);
+  const [headerDateReset, setHeaderDateReset] = useState(0);
 
   // Unfiltered lists are only fetched once their "link existing" dialog is
   // open, since they're just candidate pools for that picker.
@@ -305,6 +329,11 @@ export default function ProjectDetailPage() {
   );
   const [form, setForm] = useState<EditableProject | null>(null);
 
+  const [isHeaderSaving, setIsHeaderSaving] = useState(false);
+  const [headerError, setHeaderError] = useState<string | null>(null);
+  const [headerField, setHeaderField] =
+    useState<ProjectHeaderField | null>(null);
+  const [headerDraft, setHeaderDraft] = useState("");
   useEffect(() => {
     if (project && isEditing && form === null) {
       setForm(editableValues(project));
@@ -357,6 +386,67 @@ export default function ProjectDetailPage() {
       }
     }
   }
+
+  type ProjectHeaderUpdateInput = Parameters<
+  typeof updateProject.mutateAsync
+>[0]["input"];
+
+async function saveHeaderField(input: ProjectHeaderUpdateInput) {
+  if (isHeaderSaving || updateProject.isPending) return;
+
+  setIsHeaderSaving(true);
+  setHeaderError(null);
+
+  try {
+    await updateProject.mutateAsync({ projectId, input });
+  } catch (error) {
+    setHeaderError(
+      error instanceof Error
+        ? error.message
+        : "The project could not be updated.",
+    );
+
+    throw error;
+  } finally {
+    setIsHeaderSaving(false);
+  }
+}
+
+function openHeaderEditor(field: ProjectHeaderField) {
+  if (!project || isHeaderSaving || updateProject.isPending) return;
+
+  setHeaderError(null);
+  setHeaderDraft(project[field] ?? "");
+  setHeaderField(field);
+}
+
+async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+
+  if (
+    !headerField ||
+    isHeaderSaving ||
+    updateProject.isPending
+  ) {
+    return;
+  }
+
+  const value = headerDraft.trim() || null;
+
+  try {
+    if (headerField === "researchArea") {
+      await saveHeaderField({ researchArea: value });
+    } else if (headerField === "totalBudget") {
+      await saveHeaderField({ totalBudget: value });
+    } else {
+      return;
+    }
+
+    setHeaderField(null);
+  } catch {
+    // Keep the editor and draft open for retry.
+  }
+}
 
   async function saveProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -422,7 +512,7 @@ export default function ProjectDetailPage() {
     if (!generalProject) {
       return;
     }
-  
+
     if (
       !window.confirm(
         `Move "${paperDisplayTitle(module)}" to General? It will become an independent paper.`,
@@ -430,7 +520,7 @@ export default function ProjectDetailPage() {
     ) {
       return;
     }
-  
+
     await updateModule.mutateAsync({
       moduleId: module.id,
       input: {
@@ -522,6 +612,132 @@ export default function ProjectDetailPage() {
     <div className="page-stack">
       <BackButton fallback="/projects" label="Back" />
 
+      {headerError && !headerField ? (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <span>{headerError}</span>
+          <button
+            type="button"
+            onClick={() => setHeaderError(null)}
+            className="font-medium underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      <Dialog
+        open={headerField !== null}
+        onOpenChange={(open) => {
+          if (!open && !isHeaderSaving) {
+            setHeaderField(null);
+            setHeaderError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          {headerField ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {PROJECT_HEADER_FIELDS[headerField]}
+                </DialogTitle>
+                <DialogDescription>
+                  {headerField === "scheduledFor" || headerField === "dueDate"
+                    ? "Type a date or choose one from the calendar. Changes save automatically."
+                    : "Update this project detail, then save your changes."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={(event) => void saveHeaderText(event)}>
+                <fieldset
+                  disabled={isHeaderSaving || updateProject.isPending}
+                  className="grid min-w-0 gap-4"
+                >
+                  <label
+                    htmlFor={`header-project-${headerField}`}
+                    className="text-sm font-medium"
+                  >
+                    {PROJECT_HEADER_FIELDS[headerField]}
+                  </label>
+
+                  {headerField === "scheduledFor" || headerField === "dueDate" ? (
+                    <DatePickerInput
+                      key={`${headerField}-${headerDateReset}`}
+                      id={`header-project-${headerField}`}
+                      label={PROJECT_HEADER_FIELDS[headerField]}
+                      value={project[headerField] ?? ""}
+                      allowTyped
+                      onChange={(value) => {
+                        const field = headerField;
+                        const date = value || null;
+
+                        if (date === (project[field] ?? null)) return;
+
+                        const input =
+                          field === "scheduledFor"
+                            ? { scheduledFor: date }
+                            : { dueDate: date };
+
+                        void saveHeaderField(input)
+                          .then(() => setHeaderField(null))
+                          .catch(() => {
+                            // Restore the saved date while keeping the error and picker visible.
+                            setHeaderDateReset((value) => value + 1);
+                          });
+                      }}
+                    />
+                  ) : (
+                    <Input
+                      id={`header-project-${headerField}`}
+                      type={headerField === "totalBudget" ? "number" : "text"}
+                      min={headerField === "totalBudget" ? "0" : undefined}
+                      step={headerField === "totalBudget" ? "0.01" : undefined}
+                      value={headerDraft}
+                      onChange={(event) => setHeaderDraft(event.target.value)}
+                      autoFocus
+                    />
+                  )}
+
+                  {headerError ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {headerError}
+                    </p>
+                  ) : null}
+
+                  {isHeaderSaving ? (
+                    <p role="status" className="text-sm text-muted-foreground">
+                      Saving…
+                    </p>
+                  ) : null}
+
+                  {headerField === "researchArea" ||
+                  headerField === "totalBudget" ? (
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setHeaderField(null);
+                          setHeaderError(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+
+                      <Button type="submit">
+                        {isHeaderSaving ? "Saving…" : "Save"}
+                      </Button>
+                    </div>
+                  ) : null}
+                </fieldset>
+              </form>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
       <ArchiveProjectDialog
         open={isArchiveOpen}
         onOpenChange={setIsArchiveOpen}
@@ -621,10 +837,14 @@ export default function ProjectDetailPage() {
               Delete Project
             </Button>
             {!form ? (
-              <Button type="button" onClick={beginEditing}>
-                <Pencil />
-                Edit Project
-              </Button>
+              <Button
+              type="button"
+              onClick={beginEditing}
+              disabled={isHeaderSaving || updateProject.isPending}
+            >
+              <Pencil />
+              Edit Project
+            </Button>
             ) : null}
           </div>
         }
@@ -634,20 +854,86 @@ export default function ProjectDetailPage() {
             <HeaderStat label="Role" value={myRole} />
             <HeaderStat
               label="Status"
-              value={project.status ?? "Unknown status"}
+              value={
+                <InlineFieldSelect
+                  value={project.status}
+                  options={PROJECT_STATUSES}
+                  fieldLabel="status"
+                  itemLabel={project.title}
+                  triggerClassName="h-auto w-auto gap-1 rounded-sm border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
+                  disabled={isHeaderSaving || updateProject.isPending}
+                  onChange={(status) => saveHeaderField({ status })}
+                  onError={setHeaderError}
+                />
+              }
             />
+
             <HeaderStat
               label="Research area"
-              value={project.researchArea ?? "—"}
+              value={
+                <button
+                  type="button"
+                  aria-label="Change research area"
+                  aria-haspopup="dialog"
+                  disabled={isHeaderSaving || updateProject.isPending}
+                  onClick={() => openHeaderEditor("researchArea")}
+                  className="inline-flex items-center gap-2 rounded-sm py-1 text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  {project.researchArea || "—"}
+                  <Pencil className="h-3 w-3 shrink-0" />
+                </button>
+              }
             />
+
             <HeaderStat
               label="Scheduled"
-              value={formatDate(project.scheduledFor)}
+              value={
+                <button
+                  type="button"
+                  aria-label="Change scheduled date"
+                  aria-haspopup="dialog"
+                  disabled={isHeaderSaving || updateProject.isPending}
+                  onClick={() => openHeaderEditor("scheduledFor")}
+                  className="inline-flex items-center gap-2 rounded-sm py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  {formatDate(project.scheduledFor)}
+                  <Pencil className="h-3 w-3" />
+                </button>
+              }
             />
-            <HeaderStat label="Due" value={formatDate(project.dueDate)} />
+
+            <HeaderStat
+              label="Due"
+              value={
+                <button
+                  type="button"
+                  aria-label="Change due date"
+                  aria-haspopup="dialog"
+                  disabled={isHeaderSaving || updateProject.isPending}
+                  onClick={() => openHeaderEditor("dueDate")}
+                  className="inline-flex items-center gap-2 rounded-sm py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  {formatDate(project.dueDate)}
+                  <Pencil className="h-3 w-3" />
+                </button>
+              }
+            />
+
             <HeaderStat
               label="Budget"
-              value={formatCurrency(project.totalBudget)}
+              value={
+                <button
+                  type="button"
+                  aria-label="Change budget"
+                  aria-haspopup="dialog"
+                  disabled={isHeaderSaving || updateProject.isPending}
+                  onClick={() => openHeaderEditor("totalBudget")}
+                  className="inline-flex items-center gap-2 rounded-sm py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  {formatCurrency(project.totalBudget)}
+                  <Pencil className="h-3 w-3" />
+                </button>
+              }
             />
             {project.targetJournals ? (
               <HeaderStat

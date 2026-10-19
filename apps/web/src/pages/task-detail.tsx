@@ -46,6 +46,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { resolveLinkTargetType, type LinkTargetType } from "@/lib/link-target";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const TASK_STATUSES = ["To do", "Underway", "Waiting", "Complete"];
 const TASK_PRIORITIES = ["Low", "Medium", "High", "Critical"];
@@ -445,6 +452,11 @@ export default function TaskDetailPage() {
   const members = membersQuery.data?.data ?? [];
   const [form, setForm] = useState<TaskEditForm | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [headerField, setHeaderField] =
+  useState<"dueDate" | "estimatedHours" | null>(null);
+  const [isHeaderSaving, setIsHeaderSaving] = useState(false);
+  const [hoursDraft, setHoursDraft] = useState("");
+  const [headerDateReset, setHeaderDateReset] = useState(0);
   const [openedRequestedEdit, setOpenedRequestedEdit] = useState(false);
   const [isLinkedWorkVisible, setIsLinkedWorkVisible] = useState(true);
   const [isCollaboratorsVisible, setIsCollaboratorsVisible] = useState(true);
@@ -482,6 +494,48 @@ export default function TaskDetailPage() {
         }
       />
     );
+  }
+
+  async function saveTaskHeader(
+    input: {
+      dueDate?: string | null;
+      estimatedHours?: string | null;
+    },
+  ) {
+    if (isSaving) return;
+
+    setIsHeaderSaving(true);
+    setActionError(null);
+
+    try {
+      await updateTask.mutateAsync({ taskId, input });
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The task could not be updated.",
+      );
+
+      throw error;
+    } finally {
+      setIsHeaderSaving(false);
+    }
+  }
+
+  async function saveHeaderHours(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (isSaving || headerField !== "estimatedHours") return;
+
+    try {
+      await saveTaskHeader({
+        estimatedHours: hoursDraft.trim() || null,
+      });
+
+      setHeaderField(null);
+    } catch {
+      // Keep the draft and error visible for retry.
+    }
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -631,11 +685,12 @@ export default function TaskDetailPage() {
       task.descriptionEntries ?? [],
     );
     const isSaving =
-    isSavingChanges ||
-    updateTask.isPending ||
-    addDescriptionEntry.isPending ||
-    updateDescriptionEntry.isPending ||
-    deleteDescriptionEntry.isPending;
+      isHeaderSaving ||
+      isSavingChanges ||
+      updateTask.isPending ||
+      addDescriptionEntry.isPending ||
+      updateDescriptionEntry.isPending ||
+      deleteDescriptionEntry.isPending;
 
   const modifiedAt = (task.descriptionEntries ?? []).reduce(
     (latest: string | null, entry) => {
@@ -663,8 +718,117 @@ export default function TaskDetailPage() {
   return (
     <div className="page-stack">
       <BackButton fallback="/tasks" label="Back" />
+      <Dialog
+        open={headerField !== null}
+        onOpenChange={(open) => {
+          if (!open && !isSaving) {
+            setHeaderField(null);
+            setActionError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {headerField === "dueDate" ? "Due date" : "Estimated hours"}
+            </DialogTitle>
+            <DialogDescription>
+              {headerField === "dueDate"
+                ? "Type a date or choose one from the calendar. Changes save automatically."
+                : "Update the estimated hours, then save your changes."}
+            </DialogDescription>
+          </DialogHeader>
 
-      {actionError ? (
+          <form onSubmit={(event) => void saveHeaderHours(event)}>
+            <fieldset
+              disabled={isSaving}
+              className="grid min-w-0 gap-4"
+            >
+              {headerField === "dueDate" ? (
+                <>
+                  <label
+                    htmlFor="header-task-due"
+                    className="text-sm font-medium"
+                  >
+                    Due date
+                  </label>
+
+                  <DatePickerInput
+                    key={headerDateReset}
+                    id="header-task-due"
+                    label="Due date"
+                    value={task.dueDate ?? ""}
+                    allowTyped
+                    onChange={(value) => {
+                      const dueDate = value || null;
+
+                      if (dueDate === (task.dueDate ?? null)) return;
+
+                      void saveTaskHeader({ dueDate })
+                        .then(() => setHeaderField(null))
+                        .catch(() => {
+                          setHeaderDateReset((value) => value + 1);
+                        });
+                    }}
+                  />
+                </>
+              ) : headerField === "estimatedHours" ? (
+                <>
+                  <label
+                    htmlFor="header-task-hours"
+                    className="text-sm font-medium"
+                  >
+                    Estimated hours
+                  </label>
+
+                  <Input
+                    id="header-task-hours"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={hoursDraft}
+                    onChange={(event) => setHoursDraft(event.target.value)}
+                    autoFocus
+                  />
+                </>
+              ) : null}
+
+              {actionError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {actionError}
+                </p>
+              ) : null}
+
+              {isHeaderSaving ? (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Saving…
+                </p>
+              ) : null}
+
+              {headerField === "estimatedHours" ? (
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setHeaderField(null);
+                      setActionError(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+
+                  <Button type="submit">
+                    {isHeaderSaving ? "Saving…" : "Save"}
+                  </Button>
+                </div>
+              ) : null}
+            </fieldset>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {actionError && !headerField ? (
         <div
           role="alert"
           className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
@@ -703,7 +867,16 @@ export default function TaskDetailPage() {
             >
               <Trash2 /> Delete Task
             </Button>
-            {!form ? <Button type="button" onClick={() => setForm(formValues(task))}><Pencil /> Edit Task</Button> : null}
+            {!form ? (
+              <Button
+                type="button"
+                onClick={() => setForm(formValues(task))}
+                disabled={isSaving}
+              >
+                <Pencil />
+                Edit Task
+              </Button>
+            ) : null}
           </div>
         }
       >
@@ -721,8 +894,46 @@ export default function TaskDetailPage() {
                   : "—"
               }
             />
-            <HeaderStat label="Due date" value={formatDueDate(task.dueDate)} />
-            <HeaderStat label="Estimated hours" value={task.estimatedHours ? `${task.estimatedHours}h` : "—"} />
+            <HeaderStat
+              label="Due date"
+              value={
+                <button
+                  type="button"
+                  aria-label="Change task due date"
+                  aria-haspopup="dialog"
+                  disabled={isSaving}
+                  onClick={() => {
+                    setActionError(null);
+                    setHeaderField("dueDate");
+                  }}
+                  className="inline-flex items-center gap-2 rounded-sm py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  {formatDueDate(task.dueDate)}
+                  <Pencil className="h-3 w-3" />
+                </button>
+              }
+            />
+
+            <HeaderStat
+              label="Estimated hours"
+              value={
+                <button
+                  type="button"
+                  aria-label="Change estimated hours"
+                  aria-haspopup="dialog"
+                  disabled={isSaving}
+                  onClick={() => {
+                    setActionError(null);
+                    setHoursDraft(task.estimatedHours ?? "");
+                    setHeaderField("estimatedHours");
+                  }}
+                  className="inline-flex items-center gap-2 rounded-sm py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                >
+                  {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
+                  <Pencil className="h-3 w-3" />
+                </button>
+              }
+            />
             {TASK_NOTE_SHARING_ENABLED ? (
               <HeaderStat label="Visibility" value={task.visibility ?? "Private"} />
             ) : null}

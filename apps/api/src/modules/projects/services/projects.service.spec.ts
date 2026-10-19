@@ -392,6 +392,79 @@ describe('ProjectsService', () => {
   });
 
   describe('update', () => {
+    it.each([
+      { field: 'researchArea', value: 'Molecular biology' },
+      { field: 'scheduledFor', value: '2026-11-20' },
+      { field: 'dueDate', value: '2026-12-01' },
+      { field: 'totalBudget', value: '7500' },
+      { field: 'totalBudget', value: '0' },
+      { field: 'researchArea', value: null },
+      { field: 'scheduledFor', value: null },
+      { field: 'dueDate', value: null },
+      { field: 'totalBudget', value: null },
+    ] as const)(
+      'passes $field = $value to the repository',
+      async ({ field, value }) => {
+        const existing = {
+          id: 'project-1',
+          userId: 'user-1',
+          statusId: null,
+          importanceId: null,
+        };
+
+        repository.findById.mockResolvedValue(existing);
+        repository.update.mockResolvedValue({
+          ...existing,
+          [field]: value,
+        });
+
+        await service.update('tenant-1', 'project-1', 'user-1', {
+          [field]: value,
+        });
+
+        expect(repository.update).toHaveBeenCalledWith(
+          'tenant-1',
+          'project-1',
+          expect.objectContaining({ [field]: value }),
+        );
+        expect(enumRepository.findByCategoryAndValue).not.toHaveBeenCalled();
+      },
+    );
+
+    it('leaves omitted optional fields undefined in the repository update', async () => {
+      const existing = {
+        id: 'project-1',
+        userId: 'user-1',
+        statusId: null,
+        importanceId: null,
+        researchArea: 'Biochemistry',
+        scheduledFor: '2026-08-06',
+        dueDate: '2026-08-15',
+        totalBudget: '5000',
+      };
+
+      repository.findById.mockResolvedValue(existing);
+      repository.update.mockResolvedValue({
+        ...existing,
+        title: 'Updated title',
+      });
+
+      await service.update('tenant-1', 'project-1', 'user-1', {
+        title: 'Updated title',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'project-1',
+        expect.objectContaining({
+          researchArea: undefined,
+          scheduledFor: undefined,
+          dueDate: undefined,
+          totalBudget: undefined,
+        }),
+      );
+    });
+
     it('only resolves enum fields that were actually provided', async () => {
       repository.findById.mockResolvedValue({
         id: 'project-1',
