@@ -397,7 +397,7 @@ export class ProjectModulesService {
       assignedToUserId: string | null;
       assignedToInvitationId: string | null;
       currentlyWithType: CurrentlyWithType;
-      dueDate: string;
+      dueDate: string | null;
     }>,
   ) {
     const existing = await this.findOne(tenantId, moduleId, callerUserId);

@@ -214,7 +214,7 @@ export class NotesService {
       visibility: string;
       projectId: string;
       moduleId: string;
-      followUpDate: string;
+      followUpDate: string | null;
     }>,
   ) {
     const existing = await this.findOne(tenantId, noteId, callerUserId);

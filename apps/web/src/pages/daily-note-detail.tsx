@@ -42,6 +42,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { resolveLinkTargetType, type LinkTargetType } from "@/lib/link-target";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const VISIBILITY_OPTIONS = ["Private", "Shared"];
 const LINK_TARGETS: Array<{ value: LinkTargetType; label: string }> = [
@@ -408,6 +415,17 @@ export default function DailyNoteDetailPage() {
   const updateEntry = useUpdateMyNoteEntry();
   const deleteEntry = useDeleteMyNoteEntry();
   const [isSavingChanges, setIsSavingChanges] = useState(false);
+  const [isFollowUpOpen, setIsFollowUpOpen] = useState(false);
+  const [isFollowUpSaving, setIsFollowUpSaving] = useState(false);
+  const [followUpReset, setFollowUpReset] = useState(0);
+
+  const isNoteSaving =
+    isSavingChanges ||
+    isFollowUpSaving ||
+    updateNote.isPending ||
+    addEntry.isPending ||
+    updateEntry.isPending ||
+    deleteEntry.isPending;
   useEffect(() => {
     if (!openedRequestedEdit && searchParams.get("edit") === "true" && note) {
       setForm(formValues(note));
@@ -439,6 +457,38 @@ export default function DailyNoteDetailPage() {
       />
     );
   }
+
+  async function saveFollowUpDate(value: string) {
+    if (!note || isNoteSaving) return;
+
+    const followUpDate = value || null;
+
+    if (followUpDate === (note.followUpDate ?? null)) return;
+
+    setIsFollowUpSaving(true);
+    setActionError(null);
+
+    try {
+      await updateNote.mutateAsync({
+        noteId,
+        input: { followUpDate },
+      });
+
+      setIsFollowUpOpen(false);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The follow-up date could not be updated.",
+      );
+
+      // Restore the saved date in the typed input.
+      setFollowUpReset((value) => value + 1);
+    } finally {
+      setIsFollowUpSaving(false);
+    }
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -597,8 +647,63 @@ const hasTodayEntry = Boolean(
   return (
     <div className="page-stack">
       <BackButton fallback="/daily-notes" label="Back" />
+      <Dialog
+        open={isFollowUpOpen}
+        onOpenChange={(open) => {
+          if (!isNoteSaving) {
+            setIsFollowUpOpen(open);
 
-      {actionError ? (
+            if (!open) {
+              setActionError(null);
+            }
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Follow-up date</DialogTitle>
+            <DialogDescription>
+              Type a date or choose one from the calendar. Changes save
+              automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          <fieldset
+            disabled={isNoteSaving}
+            className="grid min-w-0 gap-3"
+          >
+            <label
+              htmlFor="header-note-follow-up"
+              className="text-sm font-medium"
+            >
+              Follow-up date
+            </label>
+
+            <DatePickerInput
+              key={followUpReset}
+              id="header-note-follow-up"
+              label="Follow-up date"
+              value={note.followUpDate ?? ""}
+              allowTyped
+              onChange={(value) => void saveFollowUpDate(value)}
+            />
+
+            {actionError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {actionError}
+              </p>
+            ) : null}
+
+            {isFollowUpSaving ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                Saving…
+              </p>
+            ) : null}
+          </fieldset>
+        </DialogContent>
+      </Dialog>
+
+      {actionError && !isFollowUpOpen ? (
         <div
           role="alert"
           className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
@@ -637,6 +742,7 @@ const hasTodayEntry = Boolean(
             {form ? null : (
                <Button
                  type="button"
+                 disabled={isNoteSaving}
                  onClick={() => {
                    setForm(formValues(note));
                  }}
@@ -660,19 +766,36 @@ const hasTodayEntry = Boolean(
             <HeaderStat
               label="Follow-up date"
               value={
-                note.followUpDate ? (
-                  <Link
-                  to="/calendar"
-                  className="inline-flex items-center gap-1.5 text-primary hover:underline"
-                >
-                  <CalendarClock className="h-3.5 w-3.5" />
-                  {formatPlainDate(note.followUpDate)}
-                </Link>
-              ) : (
-                "—"
-              )
-            }
-          />
+                <span className="inline-flex items-center gap-1">
+                  {note.followUpDate ? (
+                    <Link
+                      to="/calendar"
+                      className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                    >
+                      <CalendarClock className="h-3.5 w-3.5" />
+                      {formatPlainDate(note.followUpDate)}
+                    </Link>
+                  ) : (
+                    <span>—</span>
+                  )}
+
+                  <button
+                    type="button"
+                    aria-label="Change follow-up date"
+                    aria-haspopup="dialog"
+                    disabled={isNoteSaving}
+                    onClick={() => {
+                      setActionError(null);
+                      setIsFollowUpOpen(true);
+                    }}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </span>
+              }
+            />
+
         </div>
       ) : null}
     </PageHeading>
@@ -904,7 +1027,7 @@ const hasTodayEntry = Boolean(
                 linkedProjectTitle={linkedProjectQuery.data?.title}
                 linkedProjectError={linkedProjectQuery.isError}
                 linkedModuleTitle={linkedModule ? paperDisplayTitle(linkedModule) : undefined}
-                isSaving={updateNote.isPending || addEntry.isPending}
+                isSaving={isNoteSaving}
                 onChangeLink={handleChangeLink}
               />
             </div>

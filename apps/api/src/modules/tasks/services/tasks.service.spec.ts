@@ -691,4 +691,85 @@ describe('TasksService', () => {
       expect(result).toEqual({ id: 'task-1' });
     });
   });
+
+  describe('header field updates', () => {
+    it.each([
+      { field: 'dueDate', value: '2026-11-20' },
+      { field: 'dueDate', value: null },
+      { field: 'estimatedHours', value: '3.5' },
+      { field: 'estimatedHours', value: '0' },
+      { field: 'estimatedHours', value: null },
+    ] as const)(
+      'passes $field = $value to the repository',
+      async ({ field, value }) => {
+        const existing = {
+          id: 'task-1',
+          tenantId: 'tenant-1',
+          createdBy: 'user-1',
+          title: 'Test task',
+          description: null,
+          projectId: null,
+          moduleId: null,
+          statusId: null,
+          priorityId: null,
+          visibilityId: null,
+          dueDate: '2026-08-15',
+          estimatedHours: '2',
+        };
+
+        repository.findById.mockResolvedValue(existing);
+        repository.update.mockResolvedValue({
+          ...existing,
+          [field]: value,
+        });
+
+        await service.update('tenant-1', 'task-1', 'user-1', {
+          [field]: value,
+        });
+
+        expect(repository.update).toHaveBeenCalledWith(
+          'tenant-1',
+          'task-1',
+          expect.objectContaining({ [field]: value }),
+        );
+        expect(repository.appendDescriptionEntry).not.toHaveBeenCalled();
+      },
+    );
+
+    it('leaves omitted planning fields undefined in the update', async () => {
+      const existing = {
+        id: 'task-1',
+        tenantId: 'tenant-1',
+        createdBy: 'user-1',
+        title: 'Test task',
+        description: null,
+        projectId: null,
+        moduleId: null,
+        statusId: null,
+        priorityId: null,
+        visibilityId: null,
+        dueDate: '2026-08-15',
+        estimatedHours: '2',
+      };
+
+      repository.findById.mockResolvedValue(existing);
+      repository.update.mockResolvedValue({
+        ...existing,
+        title: 'Updated title',
+      });
+
+      await service.update('tenant-1', 'task-1', 'user-1', {
+        title: 'Updated title',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'task-1',
+        expect.objectContaining({
+          dueDate: undefined,
+          estimatedHours: undefined,
+        }),
+      );
+    });
+  });
 });

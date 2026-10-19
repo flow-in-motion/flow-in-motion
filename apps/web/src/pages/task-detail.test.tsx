@@ -169,6 +169,218 @@ describe("TaskDetailPage", () => {
     }];
   }
 
+  it("accepts a typed due date from the task header", async () => {
+    renderTask();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change task due date" }),
+    );
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Due date" }),
+      { target: { value: "20/11/2026" } },
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateTask).toHaveBeenCalledWith({
+        taskId: "task-1",
+        input: { dueDate: "2026-11-20" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(fixtures.addDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.updateDescriptionEntry).not.toHaveBeenCalled();
+    expect(fixtures.deleteDescriptionEntry).not.toHaveBeenCalled();
+  });
+
+  it("accepts a calendar date from the task header", async () => {
+    renderTask();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change task due date" }),
+    );
+
+    const dateInput = screen
+      .getByRole("dialog")
+      .querySelector<HTMLInputElement>('input[type="date"]');
+
+    expect(dateInput).not.toBeNull();
+
+    fireEvent.change(dateInput!, {
+      target: { value: "2026-11-20" },
+    });
+
+    await waitFor(() =>
+      expect(fixtures.updateTask).toHaveBeenCalledWith({
+        taskId: "task-1",
+        input: { dueDate: "2026-11-20" },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("clears the task due date from the header", async () => {
+    fixtures.task.dueDate = "2026-08-15";
+    renderTask();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change task due date" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear due date" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateTask).toHaveBeenCalledWith({
+        taskId: "task-1",
+        input: { dueDate: null },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("restores the saved task date when updating fails", async () => {
+    fixtures.task.dueDate = "2026-08-15";
+    fixtures.updateTask.mockRejectedValueOnce(
+      new Error("Unable to update date"),
+    );
+    renderTask();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change task due date" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Due date" }),
+      { target: { value: "20/11/2026" } },
+    );
+
+    expect(await within(dialog).findByRole("alert"))
+      .toHaveTextContent("Unable to update date");
+
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole("textbox", { name: "Due date" }),
+      ).toHaveValue("15/08/2026"),
+    );
+  });
+
+  it.each([
+    { label: "fractional hours", draft: "3.5", expected: "3.5" },
+    { label: "zero hours", draft: "0", expected: "0" },
+    { label: "cleared hours", draft: "", expected: null },
+  ])("saves $label from the header", async ({ draft, expected }) => {
+    fixtures.task.estimatedHours = "2";
+    renderTask();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change estimated hours" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+
+    fireEvent.change(
+      within(dialog).getByRole("spinbutton", {
+        name: "Estimated hours",
+      }),
+      { target: { value: draft } },
+    );
+
+    expect(fixtures.updateTask).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateTask).toHaveBeenCalledWith({
+        taskId: "task-1",
+        input: { estimatedHours: expected },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("discards an estimated-hours draft when cancelled", () => {
+    fixtures.task.estimatedHours = "2";
+    renderTask();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change estimated hours" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+
+    fireEvent.change(
+      within(dialog).getByRole("spinbutton", {
+        name: "Estimated hours",
+      }),
+      { target: { value: "5" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Cancel" }),
+    );
+
+    expect(fixtures.updateTask).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change estimated hours" }),
+    );
+
+    expect(
+      screen.getByRole("spinbutton", { name: "Estimated hours" }),
+    ).toHaveValue(2);
+  });
+
+  it("preserves the estimated-hours draft when saving fails", async () => {
+    fixtures.updateTask.mockRejectedValueOnce(
+      new Error("Unable to update hours"),
+    );
+    renderTask();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change estimated hours" }),
+    );
+
+    const dialog = screen.getByRole("dialog");
+
+    fireEvent.change(
+      within(dialog).getByRole("spinbutton", {
+        name: "Estimated hours",
+      }),
+      { target: { value: "3.5" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save" }),
+    );
+
+    expect(await within(dialog).findByRole("alert"))
+      .toHaveTextContent("Unable to update hours");
+    expect(
+      within(dialog).getByRole("spinbutton", {
+        name: "Estimated hours",
+      }),
+    ).toHaveValue(3.5);
+    expect(
+      within(dialog).getByRole("button", { name: "Save" }),
+    ).toBeEnabled();
+  });
+
   it("groups descriptions by local date with newest content first", () => {
     fixtures.task.descriptionEntries = [
       {

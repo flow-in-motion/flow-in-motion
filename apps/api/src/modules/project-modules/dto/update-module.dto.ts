@@ -1,9 +1,9 @@
 import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsDateString, IsOptional, IsUUID } from 'class-validator';
 import { CreateModuleDto } from './create-module.dto';
 
 export class UpdateModuleDto extends PartialType(
-  OmitType(CreateModuleDto, ['assignedToUserId'] as const),
+  OmitType(CreateModuleDto, ['assignedToUserId', 'dueDate'] as const),
 ) {
   @ApiProperty({ required: false, nullable: true })
   @IsOptional()
@@ -14,4 +14,9 @@ export class UpdateModuleDto extends PartialType(
   @IsOptional()
   @IsUUID()
   assignedToInvitationId?: string | null;
+
+  @ApiProperty({ required: false, nullable: true, example: '2026-11-20' })
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string | null;
 }

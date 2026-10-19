@@ -260,7 +260,7 @@ export class NotesRepository {
       visibilityId: string;
       projectId: string | null;
       moduleId: string | null;
-      followUpDate: string;
+      followUpDate: string | null;
     }>,
   ) {
     const [note] = await this.drizzle.db

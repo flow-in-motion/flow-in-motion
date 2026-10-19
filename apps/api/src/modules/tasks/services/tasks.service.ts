@@ -254,8 +254,8 @@ export class TasksService {
       priority: string;
       visibility: string;
       workingWith: string;
-      estimatedHours: string;
-      dueDate: string;
+      estimatedHours: string | null;
+      dueDate: string | null;
       projectId: string;
       moduleId: string;
     }>,

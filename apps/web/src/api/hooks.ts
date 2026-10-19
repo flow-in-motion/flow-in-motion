@@ -910,7 +910,15 @@ export interface CreateProjectInput {
   totalBudget?: string;
   targetJournals?: string;
 }
-export type UpdateProjectInput = Partial<CreateProjectInput>;
+export type UpdateProjectInput = Omit<
+  Partial<CreateProjectInput>,
+  "researchArea" | "scheduledFor" | "dueDate" | "totalBudget"
+> & {
+  researchArea?: string | null;
+  scheduledFor?: string | null;
+  dueDate?: string | null;
+  totalBudget?: string | null;
+};
 export interface ProjectsPageResponse extends PaginatedResponse<ApiProject> {
   generalProject: ApiProject | null;
 }
@@ -1038,7 +1046,8 @@ export function useUpdateProject(tenantId: string) {
           "/api/v1/tenant/{tenantId}/projects/{projectId}",
           {
             params: { path: { tenantId, projectId } },
-            body: input,
+            // The generated client does not yet describe nullable update fields.
+            body: input as Partial<CreateProjectInput>,
           },
         ),
       ),
@@ -1192,7 +1201,8 @@ export function useUpdateMyProject() {
       responseData<ApiProject>(
         await apiClient.PATCH("/api/v1/me/projects/{projectId}", {
           params: { path: { projectId } },
-          body: input,
+          // The generated client does not yet describe nullable update fields.
+          body: input as Partial<CreateProjectInput>,
         }),
       ),
     async onSuccess(project) {
@@ -1396,17 +1406,19 @@ export interface CreateModuleInput {
 }
 export type UpdateModuleInput = Omit<
   Partial<CreateModuleInput>,
-  "assignedToUserId"
+  "assignedToUserId" | "dueDate"
 > & {
   assignedToUserId?: string | null;
   assignedToInvitationId?: string | null;
+  dueDate?: string | null;
 };
 type GeneratedModuleUpdateInput = Omit<
   UpdateModuleInput,
-  "assignedToUserId" | "assignedToInvitationId"
+  "assignedToUserId" | "assignedToInvitationId" | "dueDate"
 > & {
   assignedToUserId?: string;
   assignedToInvitationId?: string;
+  dueDate?: string;
 };
 export type ModuleSortField = "dateAdded" | "alphabetical" | "progress";
 export type SortDirection = "asc" | "desc";
@@ -2021,13 +2033,16 @@ export interface CreateTaskInput {
   estimatedHours?: string;
   dueDate?: string;
 }
+
 export type UpdateTaskInput = Omit<
   Partial<CreateTaskInput>,
-  "projectId" | "moduleId"
+  "projectId" | "moduleId" | "estimatedHours" | "dueDate"
 > & {
-  /** `null` clears the link (project unset, or unlinked from its module); omit to leave unchanged. */
+  /** null clears the link; omit to leave unchanged. */
   projectId?: string | null;
   moduleId?: string | null;
+  estimatedHours?: string | null;
+  dueDate?: string | null;
 };
 
 export function useTasks(
@@ -2162,10 +2177,8 @@ export function useUpdateTask(tenantId: string) {
           // The generated type only allows `string | undefined` for
           // projectId/moduleId, but the backend accepts an explicit `null`
           // to clear either link — see TasksService.resolveLinkage.
-          body: input as typeof input & {
-            projectId?: string;
-            moduleId?: string;
-          },
+          // Generated API types do not yet describe nullable update fields.
+          body: input as Partial<CreateTaskInput>,
         }),
       ),
     async onSuccess(task) {
@@ -2242,10 +2255,8 @@ export function useUpdateMyTask() {
         await apiClient.PATCH("/api/v1/me/tasks/{taskId}", {
           params: { path: { taskId } },
           // See the tenant-scoped useUpdateTask above.
-          body: input as typeof input & {
-            projectId?: string;
-            moduleId?: string;
-          },
+          // Generated API types do not yet describe nullable update fields.
+          body: input as Partial<CreateTaskInput>,
         }),
       ),
       async onSuccess(task) {
@@ -2436,11 +2447,12 @@ export interface CreateNoteInput {
 }
 export type UpdateNoteInput = Omit<
   Partial<CreateNoteInput>,
-  "projectId" | "moduleId"
+  "projectId" | "moduleId" | "followUpDate"
 > & {
-  /** `null` clears the link (project unset, or unlinked from its module); omit to leave unchanged. */
+  /** null clears the link; omit to leave unchanged. */
   projectId?: string | null;
   moduleId?: string | null;
+  followUpDate?: string | null;
 };
 
 export function useNotes(
@@ -2544,10 +2556,8 @@ export function useUpdateNote(tenantId: string) {
           // The generated type only allows `string | undefined` for
           // projectId/moduleId, but the backend accepts an explicit `null`
           // to clear either link — see NotesService.resolveLinkage.
-          body: input as typeof input & {
-            projectId?: string;
-            moduleId?: string;
-          },
+          // Generated API types do not yet describe nullable update fields.
+          body: input as Partial<CreateNoteInput>,
         }),
       ),
     async onSuccess(note) {
@@ -2680,10 +2690,8 @@ export function useUpdateMyNote() {
         await apiClient.PATCH("/api/v1/me/notes/{noteId}", {
           params: { path: { noteId } },
           // See the tenant-scoped useUpdateNote above.
-          body: input as typeof input & {
-            projectId?: string;
-            moduleId?: string;
-          },
+          // Generated API types do not yet describe nullable update fields.
+          body: input as Partial<CreateNoteInput>,
         }),
       ),
     async onSuccess(note) {
