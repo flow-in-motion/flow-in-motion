@@ -881,9 +881,22 @@ export default function TaskDetailPage() {
         }
       >
         {!form ? (
+          
           <div className="flex flex-wrap gap-2">
-            <HeaderStat
-              label="Modified"
+          <HeaderStat
+            label="Created"
+            value={
+              task.createdAt
+                ? new Date(task.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : "—"
+            }
+          />
+          <HeaderStat
+            label="Modified"
               value={
                 modifiedAt
                   ? new Date(modifiedAt).toLocaleDateString("en-US", {
