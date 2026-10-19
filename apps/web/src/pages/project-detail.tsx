@@ -933,6 +933,7 @@ export default function ProjectDetailPage() {
                       members={members}
                       entityTitle={project.title}
                       canManage={false}
+                      showInvitations={me.data?.id === project.userId}
                     />
                   ) : (
                     <p className="text-sm text-muted-foreground">

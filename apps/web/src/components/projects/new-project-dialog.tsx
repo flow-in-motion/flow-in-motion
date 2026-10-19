@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
+  apiKeys,
   createDraftInvitation,
   useModules,
   useMe,
@@ -103,6 +105,7 @@ export function NewProjectDialog({
     DraftCollaboratorInput[]
   >([]);
   const me = useMe();
+  const queryClient = useQueryClient();
 
   const modulesQuery = useModules(tenantId, undefined, 1, open);
   const tasksQuery = useTasks(tenantId, undefined, 1, open);
@@ -197,6 +200,11 @@ export function NewProjectDialog({
           }),
         ),
       ]);
+      if (draftCollaborators.length > 0) {
+        await queryClient.invalidateQueries({
+          queryKey: apiKeys.projectInvitations(tenantId, project.id),
+        });
+      }
       resetForm();
       onOpenChange(false);
     } catch (error) {

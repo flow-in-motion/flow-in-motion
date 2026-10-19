@@ -5,8 +5,10 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
+  apiKeys,
   createDraftInvitation,
   useModulePipelineStagePool,
   useNotes,
@@ -169,6 +171,7 @@ export function ModuleDialog({
   const tasksQuery = useTasks(tenantId, undefined, 1, open && !isEditing);
   const notesQuery = useNotes(tenantId, undefined, 1, open && !isEditing);
   const updateTask = useUpdateTask(tenantId);
+  const queryClient = useQueryClient();
   const updateNote = useUpdateNote(tenantId);
 
   const taskOptions = (tasksQuery.data?.data ?? []).map((task) => ({
@@ -322,6 +325,22 @@ export function ModuleDialog({
             }),
           ),
         ]);
+        if (draftCollaborators.length > 0) {
+          await Promise.all([
+            queryClient.invalidateQueries({
+              queryKey: apiKeys.moduleInvitations(tenantId, savedModule.id),
+            }),
+            queryClient.invalidateQueries({
+              queryKey: apiKeys.moduleCollaboratorContacts(
+                tenantId,
+                savedModule.id,
+              ),
+            }),
+            queryClient.invalidateQueries({
+              queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
+            }),
+          ]);
+        }
       }
       if (shouldCelebrate) {
         setCelebrationPaperTitle(submittedPaperTitle);
