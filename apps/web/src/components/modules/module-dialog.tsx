@@ -1,11 +1,12 @@
 import {
+  useContext,
   useEffect,
   useMemo,
   useState,
   type FormEvent,
   type ReactNode,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { QueryClientContext } from "@tanstack/react-query";
 
 import {
   apiKeys,
@@ -171,7 +172,9 @@ export function ModuleDialog({
   const tasksQuery = useTasks(tenantId, undefined, 1, open && !isEditing);
   const notesQuery = useNotes(tenantId, undefined, 1, open && !isEditing);
   const updateTask = useUpdateTask(tenantId);
-  const queryClient = useQueryClient();
+  // Read the client without throwing so the dialog still renders in tests
+  // that mock the API layer and have no QueryClientProvider.
+  const queryClient = useContext(QueryClientContext);
   const updateNote = useUpdateNote(tenantId);
 
   const taskOptions = (tasksQuery.data?.data ?? []).map((task) => ({
@@ -325,7 +328,7 @@ export function ModuleDialog({
             }),
           ),
         ]);
-        if (draftCollaborators.length > 0) {
+        if (queryClient && draftCollaborators.length > 0) {
           await Promise.all([
             queryClient.invalidateQueries({
               queryKey: apiKeys.moduleInvitations(tenantId, savedModule.id),
