@@ -9,6 +9,10 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PipelineOverviewTable } from "@/components/dashboard/pipeline-overview-table";
+import type {
+  PaperCurrentlyWithCollaborator,
+  PaperCurrentlyWithType,
+} from "@/api/hooks";
 
 const stages = vi.hoisted(() => [
   "Concept, Ideation",
@@ -29,6 +33,7 @@ const stages = vi.hoisted(() => [
 ]);
 
 const fixtures = vi.hoisted(() => ({
+  collaborators: [] as PaperCurrentlyWithCollaborator[],
   hidden: [] as string[],
   reversed: false,
   currentStage: "Drafting & Writing" as string | null,
@@ -40,6 +45,9 @@ const fixtures = vi.hoisted(() => ({
     status?: string | null;
     pipelineStage: string | null;
     createdAt: string;
+    currentlyWithType?: PaperCurrentlyWithType | null;
+    assignedToUserId?: string | null;
+    assignedToInvitationId?: string | null;
   }>,
 }));
 
@@ -79,10 +87,16 @@ vi.mock("@/api/hooks", () => ({
       hidden: fixtures.hidden.includes(value),
     })),
   }),
+  usePaperCurrentlyWithCollaborators: () => ({
+    data: fixtures.collaborators,
+    isLoading: false,
+  }),
 }));
 
 describe("PipelineOverviewTable popup", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
+    fixtures.collaborators = [];
     window.localStorage.clear();
     fixtures.hidden = [];
     fixtures.reversed = false;
@@ -403,6 +417,241 @@ describe("PipelineOverviewTable popup", () => {
     const filterNames = screen
       .getAllByRole("button", { name: /^Filter by / })
       .map((button) => button.getAttribute("aria-label"));
-    expect(filterNames).toEqual(["Filter by statuses", "Filter by stages"]);
+      expect(filterNames).toEqual([
+        "Filter by statuses",
+        "Filter by stages",
+        "Filter by current holders",
+      ]);
+  });
+  it("filters registered and invited collaborators while keeping multiple selections open", async () => {
+    fixtures.collaborators = [
+      {
+        id: "contact-sam",
+        displayName: "Sam Coauthor",
+        affiliation: null,
+        userIds: ["user-sam"],
+        invitationIds: ["invite-sam"],
+      },
+      {
+        id: "contact-alex",
+        displayName: "Alex Researcher",
+        affiliation: null,
+        userIds: ["user-alex"],
+        invitationIds: [],
+      },
+      {
+        id: "contact-unused",
+        displayName: "Taylor Collaborator",
+        affiliation: null,
+        userIds: ["user-taylor"],
+        invitationIds: [],
+      },
+    ];
+
+    const paper = (
+      id: string,
+      title: string,
+      assignedToUserId: string | null,
+      assignedToInvitationId: string | null = null,
+    ) => ({
+      id,
+      title,
+      shortTitle: null,
+      status: "Active",
+      pipelineStage: "Drafting & Writing",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      currentlyWithType: "collaborator" as const,
+      assignedToUserId,
+      assignedToInvitationId,
+    });
+
+    fixtures.papers = [
+      paper("paper-sam", "Registered Sam paper", "user-sam"),
+      paper("paper-invited", "Invited Sam paper", null, "invite-sam"),
+      paper("paper-alex", "Alex paper", "user-alex"),
+      {
+        ...paper("paper-journal", "Journal paper", null),
+        currentlyWithType: "journal",
+      },
+    ];
+
+    render(
+      <MemoryRouter>
+        <PipelineOverviewTable />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by current holders" }),
+      { key: "Enter" },
+    );
+    fireEvent.keyDown(
+      screen.getByRole("menuitem", { name: "Collaborators/Coauthors" }),
+      { key: "ArrowRight" },
+    );
+
+    const sam = await screen.findByRole("menuitemcheckbox", {
+      name: "Sam Coauthor",
+    });
+
+    // The pool includes collaborators without a current assignment.
+    expect(
+      screen.getByRole("menuitemcheckbox", {
+        name: "Taylor Collaborator",
+      }),
+    ).toBeVisible();
+
+    fireEvent.click(sam);
+
+    expect(sam).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "Alex Researcher" }),
+    ).toBeVisible();
+
+    expect(
+      screen.getByRole("link", {
+        name: "Registered Sam paper",
+        hidden: true,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: "Invited Sam paper",
+        hidden: true,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Alex paper", hidden: true }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Alex Researcher" }),
+    );
+
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "Sam Coauthor" }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: "Alex Researcher" }),
+    ).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.keyDown(
+      screen.getByRole("menuitemcheckbox", { name: "Alex Researcher" }),
+      { key: "Escape" },
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Registered Sam paper" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Invited Sam paper" }),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Alex paper" })).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: "Journal paper" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Filter by current holders" }),
+    ).toHaveTextContent("2 current holders");
+
+    fireEvent.click(screen.getByRole("button", { name: "Enlarge pipeline" }));
+
+    const popup = within(screen.getByRole("dialog"));
+
+    expect(
+      popup.getByRole("link", { name: "Registered Sam paper" }),
+    ).toBeVisible();
+    expect(
+      popup.getByRole("link", { name: "Invited Sam paper" }),
+    ).toBeVisible();
+    expect(popup.getByRole("link", { name: "Alex paper" })).toBeVisible();
+    expect(
+      popup.queryByRole("link", { name: "Journal paper" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(popup.getByRole("button", { name: "Clear filters" }));
+
+    expect(
+      popup.getByRole("link", { name: "Journal paper" }),
+    ).toBeVisible();
+    expect(
+      popup.getByRole("button", { name: "Filter by current holders" }),
+    ).toHaveTextContent("All current holders");
+  });
+  it("combines multiple current-holder categories with the status filter", async () => {
+    const paper = (
+      id: string,
+      title: string,
+      currentlyWithType: PaperCurrentlyWithType,
+      status = "Active",
+    ) => ({
+      id,
+      title,
+      shortTitle: null,
+      status,
+      pipelineStage: "Drafting & Writing",
+      createdAt: "2026-09-01T00:00:00.000Z",
+      currentlyWithType,
+    });
+
+    fixtures.papers = [
+      paper("paper-me", "My active paper", "me"),
+      paper("paper-journal", "Journal active paper", "journal"),
+      paper("paper-stalled", "My stalled paper", "me", "Stalled"),
+      paper("paper-others", "Other holder paper", "others"),
+    ];
+
+    render(
+      <MemoryRouter>
+        <PipelineOverviewTable />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by current holders" }),
+      { key: "Enter" },
+    );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Me" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Journal" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+
+    await waitFor(() =>
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByRole("link", { name: "My stalled paper" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: "Other holder paper" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by statuses" }),
+      { key: "Enter" },
+    );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Active" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+
+    await waitFor(() =>
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByRole("link", { name: "My active paper" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("link", { name: "Journal active paper" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: "My stalled paper" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Other holder paper" }),
+    ).not.toBeInTheDocument();
   });
 });
