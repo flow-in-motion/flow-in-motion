@@ -14,7 +14,10 @@ describe("TermsPage", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Terms of Service" })).toBeInTheDocument();
-    expect(screen.getByText(/has not been reviewed by a lawyer/)).toBeInTheDocument();
+    expect(screen.queryByText(/has not been reviewed by a lawyer/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "5. Usage data and monitoring" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -27,6 +30,9 @@ describe("PrivacyPage", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Privacy Policy" })).toBeInTheDocument();
-    expect(screen.getByText(/14 days/)).toBeInTheDocument();
+    expect(screen.getAllByText(/14 days/).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/lists each member by name and email address/),
+    ).toBeInTheDocument();
   });
 });
