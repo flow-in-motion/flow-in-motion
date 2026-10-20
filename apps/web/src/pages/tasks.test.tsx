@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +14,7 @@ const hookMocks = vi.hoisted(() => ({
   updateTask: vi.fn(),
   search: vi.fn(),
   filters: vi.fn(),
+  completedRequests: vi.fn(),
   pagination: {
     totalItems: 1,
     totalPages: 1,
@@ -140,29 +147,69 @@ vi.mock("@/api/hooks", async () => {
       page = 1,
       enabled = true,
       options?: {
+        pageSize?: number | "all";
         search?: string;
         statuses?: readonly string[];
         priorities?: readonly string[];
       },
     ) => {
       void enabled;
-      hookMocks.useTasks(tenantId, projectId, page);
-      hookMocks.search(options?.search);
-      hookMocks.filters({
-        statuses: options?.statuses ?? [],
-        priorities: options?.priorities ?? [],
-      });
+
+      const isCompletedQuery =
+        options?.statuses?.length === 1 &&
+        options.statuses[0] === "Complete";
+
+      if (isCompletedQuery) {
+        hookMocks.completedRequests({
+          page,
+          pageSize: options?.pageSize ?? 20,
+          search: options?.search,
+          statuses: options?.statuses ?? [],
+          priorities: options?.priorities ?? [],
+        });
+      } else {
+        hookMocks.useTasks(tenantId, projectId, page);
+        hookMocks.search(options?.search);
+        hookMocks.filters({
+          statuses: options?.statuses ?? [],
+          priorities: options?.priorities ?? [],
+        });
+      }
 
       const tasks = useSyncExternalStore(store.subscribe, store.getTasks);
 
+      // Model server-side status and priority filtering.
+      // Search results remain supplied by fixtures, including linked-paper matches.
+      const matching = tasks.filter(
+        (task) =>
+          (!options?.statuses?.length ||
+            options.statuses.includes(task.status ?? "")) &&
+          (!options?.priorities?.length ||
+            options.priorities.includes(task.priority ?? "")),
+      );
+
+      const requestedPageSize = options?.pageSize ?? 20;
+      const pageSize =
+        requestedPageSize === "all"
+          ? Math.max(matching.length, 1)
+          : requestedPageSize;
+
+      const data = isCompletedQuery
+        ? matching.slice((page - 1) * pageSize, page * pageSize)
+        : matching;
+
       return {
         data: {
-          data: tasks,
+          data,
           meta: {
             page,
-            pageSize: 20,
-            totalItems: hookMocks.pagination.totalItems,
-            totalPages: hookMocks.pagination.totalPages,
+            pageSize,
+            totalItems: isCompletedQuery
+              ? matching.length
+              : hookMocks.pagination.totalItems,
+            totalPages: isCompletedQuery
+              ? Math.max(1, Math.ceil(matching.length / pageSize))
+              : hookMocks.pagination.totalPages,
           },
         },
         isPending: false,
@@ -234,6 +281,7 @@ vi.mock("@/api/hooks", async () => {
 
 describe("TasksPage", () => {
   beforeEach(() => {
+    hookMocks.completedRequests.mockClear();
     fixtures.sharingEnabled = false;
     window.sessionStorage.clear();
     sharingMutations.addTaskMember.mockClear();
@@ -304,6 +352,202 @@ describe("TasksPage", () => {
     );
   }
 
+  it("hides completed tasks until their section is expanded", () => {
+    const original = store.getTasks()[0];
+
+    store.setTasks([
+      original,
+      {
+        ...original,
+        id: "task-completed",
+        title: "Finished report",
+        status: "Complete",
+      },
+    ]);
+
+    renderTasks();
+
+    expect(
+      screen.getByRole("link", {
+        name: "Submit interim safety report to IRB",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: "Finished report" }),
+    ).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole("button", {
+      name: /^Completed tasks/,
+    });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveTextContent("1");
+    expect(hookMocks.completedRequests).toHaveBeenLastCalledWith({
+      page: 1,
+      pageSize: 1,
+      search: "",
+      statuses: ["Complete"],
+      priorities: [],
+    });
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("link", { name: "Finished report" }),
+    ).toBeVisible();
+    expect(hookMocks.completedRequests).toHaveBeenLastCalledWith({
+      page: 1,
+      pageSize: 20,
+      search: "",
+      statuses: ["Complete"],
+      priorities: [],
+    });
+
+    fireEvent.click(toggle);
+
+    expect(
+      screen.queryByRole("link", { name: "Finished report" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("moves completed work out of the main list and lets it be reopened", async () => {
+    renderTasks();
+
+    const title = "Submit interim safety report to IRB";
+
+    fireEvent.click(
+      screen.getByRole("combobox", {
+        name: `Change status for ${title}`,
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Complete" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("link", { name: title }),
+      ).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByText("No tasks match the current filters."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /^Completed tasks/ }),
+    );
+
+    const completed = within(
+      screen.getByRole("region", { name: /^Completed tasks/ }),
+    );
+
+    expect(
+      completed.getByRole("link", { name: title }),
+    ).toBeVisible();
+
+    fireEvent.click(
+      completed.getByRole("combobox", {
+        name: `Change status for ${title}`,
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "To do" }));
+
+    await waitFor(() =>
+      expect(
+        completed.queryByRole("link", { name: title }),
+      ).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByRole("link", { name: title }),
+    ).toBeVisible();
+    expect(hookMocks.updateTask).toHaveBeenLastCalledWith({
+      taskId: "task-1",
+      input: { status: "To do" },
+    });
+  });
+
+  it("paginates completed tasks independently from unfinished tasks", () => {
+    const original = store.getTasks()[0];
+
+    store.setTasks([
+      original,
+      ...Array.from({ length: 21 }, (_, index) => ({
+        ...original,
+        id: `completed-${index}`,
+        title: `Finished task ${index}`,
+        status: "Complete",
+      })),
+    ]);
+
+    renderTasks();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /^Completed tasks/ }),
+    );
+
+    const completed = within(
+      screen.getByRole("region", { name: /^Completed tasks/ }),
+    );
+
+    expect(
+      completed.getByRole("link", { name: "Finished task 0" }),
+    ).toBeVisible();
+    expect(
+      completed.queryByRole("link", { name: "Finished task 20" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(completed.getByRole("button", { name: "Next" }));
+
+    expect(
+      completed.getByRole("link", { name: "Finished task 20" }),
+    ).toBeVisible();
+    expect(
+      completed.queryByRole("link", { name: "Finished task 0" }),
+    ).not.toBeInTheDocument();
+
+    expect(hookMocks.completedRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2, pageSize: 20 }),
+    );
+    expect(hookMocks.useTasks).toHaveBeenLastCalledWith(
+      fixtures.tenantId,
+      undefined,
+      1,
+    );
+  });
+
+  it("sends search and priority filters to both lists", async () => {
+    renderTasks();
+
+    fireEvent.change(screen.getByPlaceholderText("Search tasks…"), {
+      target: { value: "report" },
+    });
+
+    await waitFor(() => {
+      expect(hookMocks.search).toHaveBeenLastCalledWith("report");
+      expect(hookMocks.completedRequests).toHaveBeenLastCalledWith(
+        expect.objectContaining({ search: "report" }),
+      );
+    });
+
+    openFilter("priorities");
+    fireEvent.click(
+      await screen.findByRole("menuitemcheckbox", { name: "Critical" }),
+    );
+    closeFilter("Critical");
+
+    expect(hookMocks.filters).toHaveBeenLastCalledWith({
+      statuses: ["To do", "Underway", "Waiting"],
+      priorities: ["Critical"],
+    });
+    expect(hookMocks.completedRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        search: "report",
+        statuses: ["Complete"],
+        priorities: ["Critical"],
+      }),
+    );
+  });
   it("keeps the status menu open while selecting multiple statuses", async () => {
     renderTasks();
     openFilter("statuses");
@@ -330,8 +574,8 @@ describe("TasksPage", () => {
       screen.getByRole("menuitemcheckbox", { name: "Waiting" }),
     ).toHaveAttribute("aria-checked", "true");
     expect(
-      screen.getByRole("menuitemcheckbox", { name: "Complete" }),
-    ).toHaveAttribute("aria-checked", "false");
+      screen.queryByRole("menuitemcheckbox", { name: "Complete" }),
+    ).not.toBeInTheDocument();
 
     expect(hookMocks.filters).toHaveBeenLastCalledWith({
       statuses: ["To do", "Underway", "Waiting"],
@@ -376,7 +620,7 @@ describe("TasksPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
 
     expect(hookMocks.filters).toHaveBeenLastCalledWith({
-      statuses: [],
+      statuses: ["To do", "Underway", "Waiting"],
       priorities: [],
     });
   });

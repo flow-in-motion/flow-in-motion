@@ -1,6 +1,14 @@
 import { useListSearch } from "@/hooks/use-list-search";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ListTodo, Pencil, Trash2, UserPlus } from "lucide-react";
+import {
+  CheckCheck,
+  ChevronDown,
+  ChevronUp,
+  ListTodo,
+  Pencil,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
@@ -48,6 +56,7 @@ import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 
 const STATUS_OPTIONS = ["To do", "Underway", "Waiting", "Complete"] as const;
+const ACTIVE_STATUS_OPTIONS = ["To do", "Underway", "Waiting"] as const;
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
 
 type SortColumn =
@@ -201,7 +210,7 @@ export default function TasksPage() {
   useSessionListState<Set<string>>(
     me.data?.id,
     tenantId,
-    "tasks:statuses",
+    "tasks:active-statuses",
     () => new Set<string>(),
   );
 
@@ -213,16 +222,51 @@ const [selectedPriorities, setSelectedPriorities] =
     () => new Set<string>(),
   );
 
-  const tasksQuery = useTasks(tenantId, undefined, page, true, {
+  const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
+  const [completedPage, setCompletedPage] = useState(1);
+  const [completedPageSize, setCompletedPageSize] =
+  useSessionListState<number | "all">(
+    me.data?.id,
+    tenantId,
+    "tasks:completed-page-size",
+    20,
+  );
+
+  const activeStatuses = ACTIVE_STATUS_OPTIONS.filter((status) =>
+    selectedStatuses.has(status),
+  );
+
+  const priorityFilters = PRIORITY_OPTIONS.filter((priority) =>
+    selectedPriorities.has(priority),
+  );
+
+    const tasksQuery = useTasks(tenantId, undefined, page, true, {
     pageSize,
     search: requestSearch,
-    statuses: STATUS_OPTIONS.filter((option) =>
-      selectedStatuses.has(option),
-    ),
-    priorities: PRIORITY_OPTIONS.filter((option) =>
-      selectedPriorities.has(option),
-    ),
+    statuses:
+      activeStatuses.length > 0
+        ? activeStatuses
+        : ACTIVE_STATUS_OPTIONS,
+    priorities: priorityFilters,
   });
+  const completedQuery = useTasks(
+    tenantId,
+    undefined,
+    isCompletedExpanded ? completedPage : 1,
+    true,
+    {
+      // While collapsed, request one row to obtain the matching total.
+      pageSize: isCompletedExpanded ? completedPageSize : 1,
+      search: requestSearch,
+      statuses: ["Complete"],
+      priorities: priorityFilters,
+    },
+  );
+
+  const completedTasks = (completedQuery.data?.data ?? []).filter(
+    (task) => task.status === "Complete",
+  );
+  const completedMeta = completedQuery.data?.meta;
   const tasks = tasksQuery.data?.data ?? [];
   const paginationMeta = tasksQuery.data?.meta;
   const projectsQuery = useProjects(tenantId);
@@ -263,6 +307,13 @@ const [selectedPriorities, setSelectedPriorities] =
     sortColumn,
     sortDirection,
   ]);
+  useEffect(() => {
+    setCompletedPage(1);
+  }, [tenantId, requestSearch, selectedPriorities, completedPageSize]);
+
+  useEffect(() => {
+    setIsCompletedExpanded(false);
+  }, [tenantId]);
   const columns = useColumnVisibility(
     TASK_COLUMNS.map((column) => column.id),
     "tasks",
@@ -337,7 +388,7 @@ const [selectedPriorities, setSelectedPriorities] =
   }
 
   const visibleTasks = useMemo(() => {
-    return [...tasks].sort(
+    return tasks.filter((task) => task.status !== "Complete").sort(
       (a, b) =>
         compareTasks(a, b, sortColumn) * (sortDirection === "asc" ? 1 : -1),
     );
@@ -498,7 +549,7 @@ const [selectedPriorities, setSelectedPriorities] =
         />
         <TaskMultiSelectFilter
   pluralLabel="statuses"
-  options={STATUS_OPTIONS}
+  options={ACTIVE_STATUS_OPTIONS}
   selected={selectedStatuses}
   onToggle={toggleStatus}
   onClear={() => setSelectedStatuses(new Set<string>())}
@@ -721,6 +772,152 @@ const [selectedPriorities, setSelectedPriorities] =
           </div>
         </div>
       </div>
+      <section
+        aria-labelledby="completed-tasks-heading"
+        className="overflow-hidden rounded-xl border border-border/70 bg-muted/15"
+      >
+        <h2 id="completed-tasks-heading">
+          <button
+            type="button"
+            aria-expanded={isCompletedExpanded}
+            aria-controls="completed-tasks-content"
+            onClick={() => setIsCompletedExpanded((value) => !value)}
+            className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+              <CheckCheck className="h-4 w-4" aria-hidden="true" />
+            </span>
+
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">
+                Completed tasks
+                {completedMeta ? (
+                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {completedMeta.totalItems}
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                {search.trim() || selectedPriorities.size > 0
+                  ? "Completed work matching your search and priority filters."
+                  : "Your finished work, kept here for reference."}
+              </span>
+            </span>
+
+            {isCompletedExpanded ? (
+              <ChevronUp
+                className="h-4 w-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+            ) : (
+              <ChevronDown
+                className="h-4 w-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+            )}
+          </button>
+        </h2>
+
+        {isCompletedExpanded ? (
+          <div
+            id="completed-tasks-content"
+            className="space-y-4 border-t border-border/60 p-4 sm:p-5"
+          >
+            {completedQuery.isError ? (
+              <ErrorState
+                title="Completed tasks could not be loaded"
+                description={completedQuery.error.message}
+                onRetry={() => void completedQuery.refetch()}
+              />
+            ) : completedQuery.isPending ? (
+              <p role="status" className="py-6 text-center text-sm text-muted-foreground">
+                Loading completed tasks…
+              </p>
+            ) : (
+              <>
+                {completedMeta ? (
+                  <PaginationControls
+                    page={completedMeta.page}
+                    pageSize={completedMeta.pageSize}
+                    selectedPageSize={completedPageSize}
+                    totalItems={completedMeta.totalItems}
+                    totalPages={completedMeta.totalPages}
+                    isPending={completedQuery.isFetching}
+                    onPageChange={setCompletedPage}
+                    onPageSizeChange={(nextPageSize) => {
+                      setCompletedPageSize(nextPageSize);
+                      setCompletedPage(1);
+                    }}
+                  />
+                ) : null}
+                {completedTasks.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    No completed tasks match the current filters.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border/60">
+                    {completedTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className="flex flex-wrap items-center gap-3 py-3 first:pt-0"
+                      >
+                        <CheckCheck
+                          className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+                          aria-hidden="true"
+                        />
+
+                        <div className="min-w-0 flex-1 basis-48">
+                          <Link
+                            to={`/tasks/${task.id}`}
+                            className="text-sm font-medium text-muted-foreground hover:text-primary hover:underline"
+                          >
+                            {task.title}
+                          </Link>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                            {task.displayId ? (
+                              <span className="font-mono">{task.displayId}</span>
+                            ) : null}
+                            <span>{linkTargetLabel(task)}</span>
+                            {task.priority ? <span>{task.priority}</span> : null}
+                          </div>
+                        </div>
+                        <div className="w-36 shrink-0">
+                        <InlineFieldSelect
+                          value={task.status}
+                          options={STATUS_OPTIONS}
+                          fieldLabel="status"
+                          itemLabel={task.title}
+                          valueClassName={statusPillClass}
+                          disabled={updateTask.isPending}
+                          onChange={async (nextStatus) => {
+                            setActionError(null);
+                            await updateTask.mutateAsync({
+                              taskId: task.id,
+                              input: { status: nextStatus },
+                            });
+                          }}
+                          onError={(message) =>
+                            setActionError(
+                              `Could not update the status for “${task.title}”. ${message}`,
+                            )
+                          }
+                        />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Change a task’s status to return it to your unfinished work.
+                </p>
+
+
+              </>
+            )}
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
