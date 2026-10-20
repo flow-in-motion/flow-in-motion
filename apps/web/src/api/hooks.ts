@@ -3279,7 +3279,8 @@ export function useEnumValues(category: string, enabled = true) {
 export interface ApiUserSearchResult {
   id: string;
   displayName: string;
-  email: string;
+  /** Null for contacts that were added with only a name (and affiliation). */
+  email: string | null;
   affiliation?: string | null;
 }
 
