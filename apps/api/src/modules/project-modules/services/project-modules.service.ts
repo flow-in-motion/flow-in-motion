@@ -669,14 +669,15 @@ export class ProjectModulesService {
       };
     }
     if (currentlyWithType === 'collaborator') {
-      if (!requestedUserId || requestedUserId === callerUserId) {
+      if (requestedUserId === callerUserId) {
         throw new BadRequestException(
           'Choose a paper collaborator or coauthor',
         );
       }
+      // No specific person means a general "Collaborator/Author".
       return {
         currentlyWithType,
-        assignedToUserId: requestedUserId,
+        assignedToUserId: requestedUserId ?? null,
       };
     }
     return {
@@ -724,8 +725,15 @@ export class ProjectModulesService {
       };
     }
     if (currentlyWithType === 'collaborator') {
+      // No specific person means a general "Collaborator/Author".
+      if (!selectedUserId && !selectedInvitationId) {
+        return {
+          currentlyWithType,
+          assignedToUserId: null,
+          assignedToInvitationId: null,
+        };
+      }
       if (
-        (!selectedUserId && !selectedInvitationId) ||
         selectedUserId === callerUserId ||
         (selectedUserId && selectedInvitationId)
       ) {

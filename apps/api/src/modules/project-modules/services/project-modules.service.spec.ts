@@ -550,6 +550,31 @@ describe('ProjectModulesService', () => {
       );
     });
 
+    it('creates a paper Currently With a general collaborator/author', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        pipelineStageId: null,
+      });
+
+      await service.create('tenant-1', 'user-1', {
+        projectId: 'project-1',
+        shortTitle: 'New Paper',
+        currentlyWithType: 'collaborator',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currentlyWithType: 'collaborator',
+          assignedToUserId: null,
+        }),
+      );
+    });
+
     it('keeps the chosen status when created in the submitted-under-review stage', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
@@ -981,6 +1006,43 @@ describe('ProjectModulesService', () => {
         }),
       );
     });
+    it('sets Currently With to a general collaborator/author without a specific person', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+        assignedToUserId: 'user-2',
+        assignedToInvitationId: null,
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValueOnce({
+        roleId: 'owner-role-id',
+      });
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+      });
+
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        currentlyWithType: 'collaborator',
+        assignedToUserId: null,
+        assignedToInvitationId: null,
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({
+          currentlyWithType: 'collaborator',
+          assignedToUserId: null,
+          assignedToInvitationId: null,
+        }),
+      );
+    });
+
     it('rejects a Currently With collaborator who is not on the paper', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',

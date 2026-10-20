@@ -11,6 +11,9 @@ export const PAPER_CURRENTLY_WITH_LABELS: Record<
   others: "Others",
 };
 
+/** Shown when a paper is with a collaborator but no specific person is chosen. */
+export const GENERAL_COLLABORATOR_LABEL = "Collaborator/Author";
+
 export function paperCurrentlyWithLabel(
   paper: Pick<
     ApiModule,
@@ -45,6 +48,9 @@ export function paperCurrentlyWithLabel(
       nameByAssigneeId?.get(paper.assignedToInvitationId) ??
       "Collaborator/Coauthor"
     );
+  }
+  if (paper.currentlyWithType === "collaborator") {
+    return GENERAL_COLLABORATOR_LABEL;
   }
   return paper.currentlyWithType
     ? PAPER_CURRENTLY_WITH_LABELS[paper.currentlyWithType]
