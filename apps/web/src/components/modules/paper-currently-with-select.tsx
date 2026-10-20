@@ -4,7 +4,10 @@ import type {
   PaperCollaboratorContact,
   PaperCurrentlyWithType,
 } from "@/api/hooks";
-import { PAPER_CURRENTLY_WITH_LABELS } from "@/lib/paper-currently-with";
+import {
+  GENERAL_COLLABORATOR_LABEL,
+  PAPER_CURRENTLY_WITH_LABELS,
+} from "@/lib/paper-currently-with";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,11 +64,17 @@ export function PaperCurrentlyWithSelect({
       (assignedToInvitationId &&
         collaborator.invitationId === assignedToInvitationId),
   );
+  const isGeneralCollaborator =
+    currentlyWithType === "collaborator" &&
+    !assignedToUserId &&
+    !assignedToInvitationId;
   const label =
     currentlyWithType === "collaborator"
-      ? (selectedCollaborator?.displayName ??
-        assignedToDisplayName ??
-        PAPER_CURRENTLY_WITH_LABELS.collaborator)
+      ? isGeneralCollaborator
+        ? GENERAL_COLLABORATOR_LABEL
+        : (selectedCollaborator?.displayName ??
+          assignedToDisplayName ??
+          PAPER_CURRENTLY_WITH_LABELS.collaborator)
       : currentlyWithType
         ? PAPER_CURRENTLY_WITH_LABELS[currentlyWithType]
         : "Not set";
@@ -100,6 +109,16 @@ export function PaperCurrentlyWithSelect({
             Collaborators/Coauthors
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
+            <DropdownMenuItem
+              onSelect={() => onChange("collaborator", null, null)}
+            >
+              {GENERAL_COLLABORATOR_LABEL}
+            </DropdownMenuItem>
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              className="-mx-1 my-1 h-px bg-muted"
+            />
             {collaboratorsPending ? (
               <DropdownMenuItem disabled>
                 Loading collaborators…
