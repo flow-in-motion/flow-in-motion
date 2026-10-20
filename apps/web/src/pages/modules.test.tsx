@@ -125,9 +125,6 @@ const fixtures = vi.hoisted(() => ({
     },
   ],
 }));
-vi.mock("canvas-confetti", () => ({
-  default: vi.fn(),
-}));
 vi.mock("@/api/client", () => ({
   apiClient: {
     POST: vi.fn().mockResolvedValue({
