@@ -2097,7 +2097,9 @@ export function useTasks(
       if (
         previousKey?.[2] !== tenantId ||
         previousKey?.[4] !== (projectId || "all") ||
-        previousKey?.[8] !== projectOnly
+        previousKey?.[8] !== projectOnly ||
+        previousKey?.at(-2) !== statuses ||
+        previousKey?.at(-1) !== priorities
       ) {
         return undefined;
       }
