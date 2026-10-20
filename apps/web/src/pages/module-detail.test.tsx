@@ -15,7 +15,6 @@ interface FixtureTask {
 }
 
 const fixtures = vi.hoisted(() => ({
-  confetti: vi.fn(),
   updateModule: vi.fn(),
   archiveModule: vi.fn(),
   createTask: vi.fn(),
@@ -168,9 +167,6 @@ const fixtures = vi.hoisted(() => ({
       updatedAt: "",
     },
   ],
-}));
-vi.mock("canvas-confetti", () => ({
-  default: fixtures.confetti,
 }));
 vi.mock("@/api/hooks", () => ({
   useModule: () => ({ data: fixtures.module }),
@@ -347,7 +343,6 @@ describe("ModuleDetailPage", () => {
     });
     fixtures.module.dueDate = "2026-09-15";
     fixtures.module.status = "Active";
-    fixtures.confetti.mockReset();
     fixtures.module.pipelineStage = "Concept";
     fixtures.module.priority = "High";
     fixtures.module.projectId = "project-general";
@@ -1075,7 +1070,7 @@ describe("ModuleDetailPage", () => {
 
     expect(await screen.findByRole("status"))
       .toHaveTextContent("Paper submitted — congratulations!");
-    expect(fixtures.confetti).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("celebration-video")).toBeInTheDocument();
   });
 
   it("restores the previous header value when saving fails", async () => {

@@ -77,14 +77,9 @@ const stages = vi.hoisted(() => {
 });
 
 const fixtures = vi.hoisted(() => ({
-  confetti: vi.fn(),
   tenantId: "workspace-1",
   projects: [] as ProjectFixture[],
   moduleQueryArgs: [] as unknown[],
-}));
-
-vi.mock("canvas-confetti", () => ({
-  default: fixtures.confetti,
 }));
 
 vi.mock("@/api/hooks", async () => {
@@ -302,7 +297,6 @@ describe("PipelinePage", () => {
     modules.set(baseModules());
     fixtures.projects = [];
     fixtures.moduleQueryArgs = [];
-    fixtures.confetti.mockReset();
   });
 
   it("requests all accessible papers for the pipeline", () => {
