@@ -82,7 +82,7 @@ export function CustomizeDashboardDialog<T extends string>({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
+        <div className="max-h-[calc(100dvh-15rem)] space-y-2 overflow-y-auto pr-1">
           <div className="mb-1 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Dashboard widgets

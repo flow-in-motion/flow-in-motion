@@ -115,7 +115,7 @@ export function ArchiveModuleDialog({
         if (!isSaving) onOpenChange(nextOpen);
       }}
     >
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Delete {paperDisplayTitle(paper)}?</DialogTitle>
           <DialogDescription>

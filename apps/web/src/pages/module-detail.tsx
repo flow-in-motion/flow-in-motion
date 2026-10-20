@@ -1716,7 +1716,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           open={isCollaboratorsOpen}
           onOpenChange={setIsCollaboratorsOpen}
         >
-          <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogContent className="overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Paper collaborators</DialogTitle>
               <DialogDescription>

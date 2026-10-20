@@ -199,6 +199,69 @@ describe("CollaboratorRoster", () => {
     );
   });
 
+  it("does not suggest people who are already on the item", () => {
+    userSearchResults.current = [
+      { id: "user-sam", displayName: "Sam Lee", email: "sam.other@example.com" },
+      { id: "contact:jamie", displayName: "Jamie Draft", email: "JAMIE@example.com" },
+      { id: "contact:riley", displayName: "Riley Name-Only", email: "riley@example.com" },
+      { id: "contact:new", displayName: "Sasha New", email: "sasha@example.com" },
+    ];
+    invitations.current = [
+      {
+        id: "invite-1",
+        projectId: "project-1",
+        email: "jamie@example.com",
+        name: "Jamie Draft",
+        affiliation: null,
+        invitedBy: "user-owner",
+        status: "draft",
+        expiresAt: null,
+        ...timestamps,
+      } as ApiInvitation,
+      {
+        id: "invite-2",
+        projectId: "project-1",
+        email: null,
+        name: "Riley Name-Only",
+        affiliation: null,
+        invitedBy: "user-owner",
+        status: "draft",
+        expiresAt: null,
+        ...timestamps,
+      } as ApiInvitation,
+    ];
+
+    render(
+      <CollaboratorRoster
+        target="project"
+        tenantId="tenant-1"
+        entityId="project-1"
+        entityTitle="Coral reef survey"
+        members={[]}
+        collaborators={[
+          {
+            id: "collab-1",
+            userId: "user-sam",
+            displayName: "Sam Lee",
+            email: "sam@example.com",
+            role: "Collaborator",
+          },
+        ]}
+        onRemoveCollaborator={vi.fn()}
+        canManage
+      />,
+    );
+
+    const nameInput = screen.getByLabelText("Collaborator name");
+    fireEvent.focus(nameInput);
+    fireEvent.change(nameInput, { target: { value: "a" } });
+
+    const options = screen
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual([expect.stringContaining("Sasha New")]);
+  });
+
   it("reuses a contact from a previous invitation", async () => {
     userSearchResults.current = [
       {
