@@ -1,17 +1,14 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CELEBRATION_DURATION_MS,
+  CELEBRATION_VIDEO_SRC,
   enteredSubmittedUnderReview,
   PaperStageCelebration,
 } from "@/components/modules/paper-stage-celebration";
 
-const confettiMock = vi.fn();
-
-vi.mock("canvas-confetti", () => ({
-  default: (...args: unknown[]) => confettiMock(...args),
-}));
+const playMock = vi.fn(() => Promise.resolve());
 
 describe("enteredSubmittedUnderReview", () => {
   it("returns true only when entering the submitted stage", () => {
@@ -36,9 +33,14 @@ describe("enteredSubmittedUnderReview", () => {
 });
 
 describe("PaperStageCelebration", () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(playMock);
+  });
+
   afterEach(() => {
     vi.useRealTimers();
-    confettiMock.mockClear();
+    vi.restoreAllMocks();
+    playMock.mockClear();
     window.localStorage.clear();
   });
 
@@ -57,7 +59,6 @@ describe("PaperStageCelebration", () => {
       "Paper submitted — congratulations!",
     );
     expect(screen.getByRole("status")).toHaveTextContent("Genome analysis");
-    expect(confettiMock).toHaveBeenCalled();
 
     fireEvent.click(
       screen.getByRole("button", { name: "Close celebration" }),
@@ -66,16 +67,20 @@ describe("PaperStageCelebration", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it("plays the fireworks video with sound by default", () => {
+    render(<PaperStageCelebration open onOpenChange={vi.fn()} />);
+
+    const video = screen.getByTestId("celebration-video") as HTMLVideoElement;
+    expect(video).toHaveAttribute("src", CELEBRATION_VIDEO_SRC);
+    expect(video.muted).toBe(false);
+    expect(playMock).toHaveBeenCalled();
+  });
+
   it("dismisses automatically", () => {
     vi.useFakeTimers();
     const onOpenChange = vi.fn();
 
-    render(
-      <PaperStageCelebration
-        open
-        onOpenChange={onOpenChange}
-      />,
-    );
+    render(<PaperStageCelebration open onOpenChange={onOpenChange} />);
 
     act(() => {
       vi.advanceTimersByTime(CELEBRATION_DURATION_MS - 1);
@@ -88,18 +93,6 @@ describe("PaperStageCelebration", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("fires follow-up confetti bursts after the first one", () => {
-    vi.useFakeTimers();
-
-    render(<PaperStageCelebration open onOpenChange={vi.fn()} />);
-
-    expect(confettiMock).toHaveBeenCalledTimes(1);
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(confettiMock.mock.calls.length).toBeGreaterThan(1);
-  });
-
   it("closes with the Escape key", () => {
     const onOpenChange = vi.fn();
 
@@ -109,23 +102,45 @@ describe("PaperStageCelebration", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("remembers when the sound is muted", () => {
+  it("mutes the video and remembers the choice", () => {
+    const onOpenChange = vi.fn();
     const { unmount } = render(
-      <PaperStageCelebration open onOpenChange={vi.fn()} />,
+      <PaperStageCelebration open onOpenChange={onOpenChange} />,
     );
 
     fireEvent.click(
       screen.getByRole("button", { name: "Mute celebration sound" }),
     );
     expect(
-      screen.getByRole("button", { name: "Unmute celebration sound" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      (screen.getByTestId("celebration-video") as HTMLVideoElement).muted,
+    ).toBe(true);
+    expect(onOpenChange).not.toHaveBeenCalled();
 
     unmount();
     render(<PaperStageCelebration open onOpenChange={vi.fn()} />);
 
     expect(
       screen.getByRole("button", { name: "Unmute celebration sound" }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      (screen.getByTestId("celebration-video") as HTMLVideoElement).muted,
+    ).toBe(true);
+  });
+
+  it("skips the video when the user prefers reduced motion", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          matches: query.includes("reduce"),
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
+
+    render(<PaperStageCelebration open onOpenChange={vi.fn()} />);
+
+    expect(screen.queryByTestId("celebration-video")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toBeInTheDocument();
   });
 });
