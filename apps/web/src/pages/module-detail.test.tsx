@@ -445,7 +445,7 @@ describe("ModuleDetailPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Literature synthesis",
     );
-    expect(fixtures.confetti).toHaveBeenCalled();
+    expect(screen.getByTestId("celebration-video")).toBeInTheDocument();
   });
   it("returns to whatever page linked into edit mode when editing is cancelled", () => {
     render(

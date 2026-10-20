@@ -551,7 +551,7 @@ describe("PipelinePage", () => {
       "Paper submitted — congratulations!",
     );
     expect(screen.getByRole("status")).toHaveTextContent(title);
-    expect(fixtures.confetti).toHaveBeenCalled();
+    expect(screen.getByTestId("celebration-video")).toBeInTheDocument();
   });
   it("hides stages the workspace has marked hidden", () => {
     stages.set([
