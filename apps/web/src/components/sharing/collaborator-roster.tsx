@@ -199,12 +199,33 @@ export function CollaboratorRoster({
   const ownerEmail = (
     owner?.email ?? (me.data?.id === ownerUserId ? me.data?.email : undefined)
   )?.toLowerCase();
-  const availableUsers = (userSearch.data ?? []).filter(
-    (user) =>
-      user.id !== ownerUserId &&
-      !collaboratorEmails.has(user.email.toLowerCase()) &&
-      !pendingEmails.has(user.email.toLowerCase()),
+  const collaboratorUserIds = new Set(
+    collaborators.map((collaborator) => collaborator.userId),
   );
+  // People added by name only can't be matched by email, so match by name.
+  const nameOnlyNames = new Set(
+    [
+      ...collaborators.map((collaborator) => ({
+        name: collaborator.displayName,
+        email: collaborator.email,
+      })),
+      ...drafts,
+      ...pending,
+    ]
+      .filter((entry) => !entry.email?.trim() && entry.name?.trim())
+      .map((entry) => entry.name!.trim().toLowerCase()),
+  );
+  const availableUsers = (userSearch.data ?? []).filter((user) => {
+    const userEmail = user.email.trim().toLowerCase();
+    return (
+      user.id !== ownerUserId &&
+      !collaboratorUserIds.has(user.id) &&
+      userEmail !== ownerEmail &&
+      !collaboratorEmails.has(userEmail) &&
+      !pendingEmails.has(userEmail) &&
+      !nameOnlyNames.has(user.displayName.trim().toLowerCase())
+    );
+  });
 
   const hasNothingToShow =
     !showOwnerRow &&
@@ -291,7 +312,8 @@ export function CollaboratorRoster({
         id={id}
         role="listbox"
         aria-label={label}
-        className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+        ref={(element) => element?.scrollIntoView?.({ block: "nearest" })}
+        className="mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-sm"
       >
         {userSearch.isPending ? (
           <p className="px-3 py-2 text-sm text-muted-foreground">Searching…</p>

@@ -61,6 +61,14 @@ export function OptionalCollaboratorEntries({
     ),
   );
   const normalizedOwnerEmail = ownerEmail?.trim().toLowerCase();
+  // Entries added by name only can't be matched by email, so match by name.
+  const usedNameOnlyNames = new Set(
+    value.flatMap((entry) =>
+      !entry.email?.trim() && entry.name?.trim()
+        ? [entry.name.trim().toLowerCase()]
+        : [],
+    ),
+  );
 
   const availableUsers = (userSearch.data ?? []).filter((user) => {
     const normalizedEmail = user.email.trim().toLowerCase();
@@ -68,7 +76,8 @@ export function OptionalCollaboratorEntries({
     return (
       user.id !== ownerUserId &&
       normalizedEmail !== normalizedOwnerEmail &&
-      !usedEmails.has(normalizedEmail)
+      !usedEmails.has(normalizedEmail) &&
+      !usedNameOnlyNames.has(user.displayName.trim().toLowerCase())
     );
   });
 
@@ -135,7 +144,8 @@ export function OptionalCollaboratorEntries({
         id={id}
         role="listbox"
         aria-label={label}
-        className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+        ref={(element) => element?.scrollIntoView?.({ block: "nearest" })}
+        className="mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-sm"
       >
         {userSearch.isPending ? (
           <p className="px-3 py-2 text-sm text-muted-foreground">
