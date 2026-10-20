@@ -70,14 +70,23 @@ export function OptionalCollaboratorEntries({
     ),
   );
 
-  const availableUsers = (userSearch.data ?? []).filter((user) => {
-    const normalizedEmail = user.email.trim().toLowerCase();
+  const usedNames = new Set(
+    value.flatMap((entry) =>
+      entry.name?.trim() ? [entry.name.trim().toLowerCase()] : [],
+    ),
+  );
 
+  const availableUsers = (userSearch.data ?? []).filter((user) => {
+    const normalizedName = user.displayName.trim().toLowerCase();
+    if (user.id === ownerUserId) return false;
+    // A suggestion without an email can only be matched by name.
+    if (!user.email?.trim()) return !usedNames.has(normalizedName);
+
+    const normalizedEmail = user.email.trim().toLowerCase();
     return (
-      user.id !== ownerUserId &&
       normalizedEmail !== normalizedOwnerEmail &&
       !usedEmails.has(normalizedEmail) &&
-      !usedNameOnlyNames.has(user.displayName.trim().toLowerCase())
+      !usedNameOnlyNames.has(normalizedName)
     );
   });
 
@@ -91,7 +100,7 @@ export function OptionalCollaboratorEntries({
 
   function selectUser(user: ApiUserSearchResult) {
     setName(user.displayName);
-    setEmail(user.email);
+    setEmail(user.email ?? "");
     setAffiliation(user.affiliation ?? "");
     setActivePicker(null);
     setEntryError(null);
@@ -170,9 +179,11 @@ export function OptionalCollaboratorEntries({
                 <span className="block truncate text-sm font-medium">
                   {user.displayName}
                 </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {user.email}
-                </span>
+                {user.email ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </span>
+                ) : null}
                 {user.affiliation ? (
                   <span className="block truncate text-xs text-muted-foreground">
                     {user.affiliation}

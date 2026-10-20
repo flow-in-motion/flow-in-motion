@@ -262,6 +262,73 @@ describe("CollaboratorRoster", () => {
     expect(options).toEqual([expect.stringContaining("Sasha New")]);
   });
 
+  it("suggests contacts saved with only a name or a name and affiliation", () => {
+    userSearchResults.current = [
+      {
+        id: "contact:name:riley",
+        displayName: "Riley Name-Only",
+        email: null,
+        affiliation: null,
+      },
+      {
+        id: "contact:name:rita",
+        displayName: "Rita Affiliated",
+        email: null,
+        affiliation: "Macquarie University",
+      },
+      {
+        id: "contact:name:jamie",
+        displayName: "Jamie Existing",
+        email: null,
+        affiliation: null,
+      },
+    ];
+    invitations.current = [
+      {
+        id: "invite-1",
+        projectId: "project-1",
+        email: null,
+        name: "Jamie Existing",
+        affiliation: null,
+        invitedBy: "user-owner",
+        status: "draft",
+        expiresAt: null,
+        ...timestamps,
+      } as ApiInvitation,
+    ];
+
+    render(
+      <CollaboratorRoster
+        target="project"
+        tenantId="tenant-1"
+        entityId="project-1"
+        entityTitle="Coral reef survey"
+        members={[]}
+        collaborators={[]}
+        onRemoveCollaborator={vi.fn()}
+        canManage
+      />,
+    );
+
+    const nameInput = screen.getByLabelText("Collaborator name");
+    fireEvent.focus(nameInput);
+    fireEvent.change(nameInput, { target: { value: "R" } });
+
+    const options = screen.getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Riley Name-Only",
+      "Rita AffiliatedMacquarie University",
+    ]);
+
+    fireEvent.click(options[1]);
+
+    expect(nameInput).toHaveValue("Rita Affiliated");
+    expect(screen.getByLabelText("Collaborator email")).toHaveValue("");
+    expect(screen.getByLabelText("Collaborator affiliation")).toHaveValue(
+      "Macquarie University",
+    );
+  });
+
   it("reuses a contact from a previous invitation", async () => {
     userSearchResults.current = [
       {

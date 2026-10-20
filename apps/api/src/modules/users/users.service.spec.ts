@@ -155,6 +155,33 @@ describe('UsersService', () => {
       ]);
     });
 
+    it('maps contacts saved with only a name and affiliation', async () => {
+      const executeMock = jest.fn().mockResolvedValue({
+        rows: [
+          {
+            id: 'contact:name:rita affiliated',
+            display_name: 'Rita Affiliated',
+            email: null,
+            affiliation: 'Macquarie University',
+          },
+        ],
+      });
+      const drizzle = {
+        db: { execute: executeMock },
+      } as unknown as DrizzleService;
+
+      const service = new UsersService(drizzle, {} as SupabaseAdminService);
+
+      await expect(service.search('rita', 'user-owner')).resolves.toEqual([
+        {
+          id: 'contact:name:rita affiliated',
+          displayName: 'Rita Affiliated',
+          email: null,
+          affiliation: 'Macquarie University',
+        },
+      ]);
+    });
+
     it('returns an empty array without querying for a blank query', async () => {
       const executeMock = jest.fn();
       const drizzle = {

@@ -215,15 +215,29 @@ export function CollaboratorRoster({
       .filter((entry) => !entry.email?.trim() && entry.name?.trim())
       .map((entry) => entry.name!.trim().toLowerCase()),
   );
+  const existingNames = new Set(
+    [
+      ...collaborators.map((collaborator) => collaborator.displayName),
+      ...drafts.map((invitation) => invitation.name),
+      ...pending.map((invitation) => invitation.name),
+    ]
+      .filter((name): name is string => Boolean(name?.trim()))
+      .map((name) => name.trim().toLowerCase()),
+  );
   const availableUsers = (userSearch.data ?? []).filter((user) => {
+    const userName = user.displayName.trim().toLowerCase();
+    if (user.id === ownerUserId || collaboratorUserIds.has(user.id)) {
+      return false;
+    }
+    // A suggestion without an email can only be matched by name.
+    if (!user.email?.trim()) return !existingNames.has(userName);
+
     const userEmail = user.email.trim().toLowerCase();
     return (
-      user.id !== ownerUserId &&
-      !collaboratorUserIds.has(user.id) &&
       userEmail !== ownerEmail &&
       !collaboratorEmails.has(userEmail) &&
       !pendingEmails.has(userEmail) &&
-      !nameOnlyNames.has(user.displayName.trim().toLowerCase())
+      !nameOnlyNames.has(userName)
     );
   });
 
@@ -300,7 +314,7 @@ export function CollaboratorRoster({
   }
 
   function selectUser(user: (typeof availableUsers)[number]) {
-    setEmail(user.email);
+    setEmail(user.email ?? "");
     setName(user.displayName);
     setAffiliation(user.affiliation ?? "");
     setActivePicker(null);
@@ -332,9 +346,16 @@ export function CollaboratorRoster({
                 <span className="block truncate text-sm font-medium">
                   {user.displayName}
                 </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {user.email}
-                </span>
+                {user.email ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </span>
+                ) : null}
+                {user.affiliation ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {user.affiliation}
+                  </span>
+                ) : null}
               </span>
             </button>
           ))
