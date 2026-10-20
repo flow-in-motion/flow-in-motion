@@ -13,6 +13,15 @@ import { ProjectCollaboratorsRepository } from '../../project-collaborators/repo
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 import { DrizzleService } from '../../../db/drizzle.service';
+import {
+  DUPLICATE_COLLABORATOR_MESSAGE,
+  isEmailAlreadyOnEntity,
+} from '../../../common/collaborator-email-check';
+import {
+  projectInvitations,
+  projectCollaborators,
+  projects,
+} from '@research-tracker/migrations';
 import { sql } from 'drizzle-orm';
 
 function normaliseEmail(value: string) {
@@ -48,9 +57,35 @@ export class ProjectInvitationsService {
       throw new NotFoundException('Project not found');
     }
 
+    const email = input.email?.trim() ? normaliseEmail(input.email) : null;
+    if (
+      email &&
+      (await isEmailAlreadyOnEntity(
+        this.drizzle,
+        {
+          invitations: {
+            table: projectInvitations,
+            entityId: projectInvitations.projectId,
+            email: projectInvitations.email,
+            status: projectInvitations.status,
+          },
+          members: {
+            table: projectCollaborators,
+            entityId: projectCollaborators.projectId,
+            userId: projectCollaborators.userId,
+          },
+          owner: { table: projects, id: projects.id, userId: projects.userId },
+        },
+        projectId,
+        email,
+      ))
+    ) {
+      throw new ConflictException(DUPLICATE_COLLABORATOR_MESSAGE);
+    }
+
     const invitation = await this.repository.create({
       projectId,
-      email: input.email?.trim() ? normaliseEmail(input.email) : null,
+      email,
       name: input.name,
       affiliation: input.affiliation,
       role: 'Collaborator',

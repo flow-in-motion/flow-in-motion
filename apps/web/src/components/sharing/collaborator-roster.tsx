@@ -141,6 +141,7 @@ export function CollaboratorRoster({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [affiliation, setAffiliation] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
   const [activePicker, setActivePicker] = useState<"name" | "email" | null>(
     null,
   );
@@ -191,10 +192,13 @@ export function CollaboratorRoster({
       .filter(Boolean),
   );
   const pendingEmails = new Set(
-    pending
+    [...drafts, ...pending]
       .map((invitation) => invitation.email?.toLowerCase())
       .filter(Boolean),
   );
+  const ownerEmail = (
+    owner?.email ?? (me.data?.id === ownerUserId ? me.data?.email : undefined)
+  )?.toLowerCase();
   const availableUsers = (userSearch.data ?? []).filter(
     (user) =>
       user.id !== ownerUserId &&
@@ -219,18 +223,40 @@ export function CollaboratorRoster({
     setEmail("");
     setAffiliation("");
     setActivePicker(null);
+    setAddError(null);
   }
 
   async function handleAddDraft(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // A name on its own is enough; email and affiliation can be added later.
     if (!name.trim() && !email.trim()) return;
-    await createDraft.mutateAsync({
-      email: email.trim() || undefined,
-      name: name.trim() || undefined,
-      affiliation: affiliation.trim() || undefined,
-    });
-    resetForm();
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail) {
+      if (ownerEmail && normalizedEmail === ownerEmail) {
+        setAddError("That's the owner, who is already included.");
+        return;
+      }
+      if (
+        collaboratorEmails.has(normalizedEmail) ||
+        pendingEmails.has(normalizedEmail)
+      ) {
+        setAddError("This person has already been added as a collaborator.");
+        return;
+      }
+    }
+
+    setAddError(null);
+    try {
+      await createDraft.mutateAsync({
+        email: email.trim() || undefined,
+        name: name.trim() || undefined,
+        affiliation: affiliation.trim() || undefined,
+      });
+      resetForm();
+    } catch {
+      // The server's reason is shown under the form via createDraft.error.
+    }
   }
 
   async function handleSend(invitation: ApiInvitation) {
@@ -499,6 +525,7 @@ export function CollaboratorRoster({
                 onFocus={() => setActivePicker("email")}
                 onChange={(event) => {
                   setEmail(event.target.value);
+                  setAddError(null);
                   setActivePicker("email");
                 }}
                 placeholder="Email"
@@ -534,8 +561,12 @@ export function CollaboratorRoster({
           >
             {createDraft.isPending ? "Adding…" : "Add collaborator"}
           </Button>
-          {createDraft.isError ? (
-            <p className="text-xs text-destructive">
+          {addError ? (
+            <p role="alert" className="text-xs text-destructive">
+              {addError}
+            </p>
+          ) : createDraft.isError ? (
+            <p role="alert" className="text-xs text-destructive">
               {createDraft.error.message}
             </p>
           ) : null}

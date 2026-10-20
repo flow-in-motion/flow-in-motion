@@ -14,6 +14,15 @@ import { TaskInvitationsRepository } from '../repositories/task-invitations.repo
 import { TaskMembersRepository } from '../../task-members/repositories/task-members.repository';
 import { TasksRepository } from '../../tasks/repositories/tasks.repository';
 import { DrizzleService } from '../../../db/drizzle.service';
+import {
+  DUPLICATE_COLLABORATOR_MESSAGE,
+  isEmailAlreadyOnEntity,
+} from '../../../common/collaborator-email-check';
+import {
+  taskInvitations,
+  taskMembers,
+  tasks,
+} from '@research-tracker/migrations';
 
 function normaliseEmail(value: string) {
   return value.trim().toLowerCase();
@@ -47,9 +56,35 @@ export class TaskInvitationsService {
       throw new NotFoundException('Task not found');
     }
 
+    const email = input.email?.trim() ? normaliseEmail(input.email) : null;
+    if (
+      email &&
+      (await isEmailAlreadyOnEntity(
+        this.drizzle,
+        {
+          invitations: {
+            table: taskInvitations,
+            entityId: taskInvitations.taskId,
+            email: taskInvitations.email,
+            status: taskInvitations.status,
+          },
+          members: {
+            table: taskMembers,
+            entityId: taskMembers.taskId,
+            userId: taskMembers.userId,
+          },
+          owner: { table: tasks, id: tasks.id, userId: tasks.createdBy },
+        },
+        taskId,
+        email,
+      ))
+    ) {
+      throw new ConflictException(DUPLICATE_COLLABORATOR_MESSAGE);
+    }
+
     const invitation = await this.repository.create({
       taskId,
-      email: input.email?.trim() ? normaliseEmail(input.email) : null,
+      email,
       name: input.name,
       affiliation: input.affiliation,
       invitedBy,

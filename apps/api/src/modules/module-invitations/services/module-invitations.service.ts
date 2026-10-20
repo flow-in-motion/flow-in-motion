@@ -14,6 +14,15 @@ import { ModuleCollaboratorsRepository } from '../../module-collaborators/reposi
 import { EnumRepository } from '../../enum/repositories/enum.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
 import { DrizzleService } from '../../../db/drizzle.service';
+import {
+  DUPLICATE_COLLABORATOR_MESSAGE,
+  isEmailAlreadyOnEntity,
+} from '../../../common/collaborator-email-check';
+import {
+  moduleInvitations,
+  moduleCollaborators,
+  modules,
+} from '@research-tracker/migrations';
 
 function normaliseEmail(value: string) {
   return value.trim().toLowerCase();
@@ -48,9 +57,35 @@ export class ModuleInvitationsService {
       throw new NotFoundException('Module not found');
     }
 
+    const email = input.email?.trim() ? normaliseEmail(input.email) : null;
+    if (
+      email &&
+      (await isEmailAlreadyOnEntity(
+        this.drizzle,
+        {
+          invitations: {
+            table: moduleInvitations,
+            entityId: moduleInvitations.moduleId,
+            email: moduleInvitations.email,
+            status: moduleInvitations.status,
+          },
+          members: {
+            table: moduleCollaborators,
+            entityId: moduleCollaborators.moduleId,
+            userId: moduleCollaborators.userId,
+          },
+          owner: { table: modules, id: modules.id, userId: modules.createdBy },
+        },
+        moduleId,
+        email,
+      ))
+    ) {
+      throw new ConflictException(DUPLICATE_COLLABORATOR_MESSAGE);
+    }
+
     const invitation = await this.repository.create({
       moduleId,
-      email: input.email?.trim() ? normaliseEmail(input.email) : null,
+      email,
       name: input.name,
       affiliation: input.affiliation,
       role: 'Collaborator',

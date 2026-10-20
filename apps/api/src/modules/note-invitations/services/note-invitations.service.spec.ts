@@ -11,6 +11,16 @@ import { NoteInvitationsRepository } from '../repositories/note-invitations.repo
 import { NoteMembersRepository } from '../../note-members/repositories/note-members.repository';
 import { NotesRepository } from '../../notes/repositories/notes.repository';
 import { DrizzleService } from '../../../db/drizzle.service';
+import { isEmailAlreadyOnEntity } from '../../../common/collaborator-email-check';
+
+jest.mock('../../../common/collaborator-email-check', () => ({
+  ...jest.requireActual<
+    typeof import('../../../common/collaborator-email-check')
+  >('../../../common/collaborator-email-check'),
+  isEmailAlreadyOnEntity: jest.fn(),
+}));
+
+const isEmailAlreadyOnEntityMock = isEmailAlreadyOnEntity as jest.Mock;
 
 describe('NoteInvitationsService', () => {
   let service: NoteInvitationsService;
@@ -29,6 +39,7 @@ describe('NoteInvitationsService', () => {
   let configService: { getOrThrow: jest.Mock };
 
   beforeEach(() => {
+    isEmailAlreadyOnEntityMock.mockReset().mockResolvedValue(false);
     repository = {
       findByNote: jest.fn(),
       findByToken: jest.fn(),
@@ -57,6 +68,49 @@ describe('NoteInvitationsService', () => {
   });
 
   describe('createDraft', () => {
+    it('rejects an email that is already on the note', async () => {
+      notesRepository.findByIdGlobal.mockResolvedValue({
+        id: 'note-1',
+        tenantId: 'tenant-1',
+      });
+      isEmailAlreadyOnEntityMock.mockResolvedValue(true);
+
+      await expect(
+        service.createDraft('note-1', 'user-owner', {
+          email: ' Collaborator@Example.com ',
+          name: 'Jamie Collaborator',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(isEmailAlreadyOnEntityMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        'note-1',
+        'collaborator@example.com',
+      );
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('does not check for duplicates when only a name is given', async () => {
+      notesRepository.findByIdGlobal.mockResolvedValue({
+        id: 'note-1',
+        tenantId: 'tenant-1',
+      });
+      repository.create.mockResolvedValue({
+        id: 'invite-2',
+        noteId: 'note-1',
+        email: null,
+        name: 'Name Only',
+        status: 'draft',
+        token: null,
+      });
+
+      await service.createDraft('note-1', 'user-owner', { name: 'Name Only' });
+
+      expect(isEmailAlreadyOnEntityMock).not.toHaveBeenCalled();
+      expect(repository.create).toHaveBeenCalled();
+    });
+
     it('creates a draft invitation without sending anything', async () => {
       notesRepository.findByIdGlobal.mockResolvedValue({
         id: 'note-1',
