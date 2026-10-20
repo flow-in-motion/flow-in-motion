@@ -291,6 +291,88 @@ describe("CollaboratorRoster", () => {
     );
   });
 
+  it.each([
+    ["an existing collaborator", "Sam@Example.com"],
+    ["an unsent collaborator", "JAMIE@example.com"],
+  ])("does not add %s again", async (_label, typedEmail) => {
+    invitations.current = [
+      {
+        id: "invite-1",
+        projectId: "project-1",
+        email: "jamie@example.com",
+        name: "Jamie Collaborator",
+        affiliation: null,
+        invitedBy: "user-owner",
+        status: "draft",
+        expiresAt: null,
+        ...timestamps,
+      } as ApiInvitation,
+    ];
+
+    render(
+      <CollaboratorRoster
+        target="project"
+        tenantId="tenant-1"
+        entityId="project-1"
+        entityTitle="Coral reef survey"
+        members={[]}
+        collaborators={[
+          {
+            id: "collab-1",
+            userId: "user-sam",
+            displayName: "Sam Lee",
+            email: "sam@example.com",
+            role: "Collaborator",
+          },
+        ]}
+        onRemoveCollaborator={vi.fn()}
+        canManage
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Collaborator email"), {
+      target: { value: ` ${typedEmail} ` },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add collaborator" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This person has already been added as a collaborator.",
+    );
+    expect(createDraftMutate).not.toHaveBeenCalled();
+  });
+
+  it("does not add the owner as a collaborator", async () => {
+    render(
+      <CollaboratorRoster
+        target="project"
+        tenantId="tenant-1"
+        entityId="project-1"
+        entityTitle="Coral reef survey"
+        ownerUserId="user-owner"
+        members={[
+          {
+            userId: "user-owner",
+            displayName: "Avi Owner",
+            email: "owner@example.com",
+          } as never,
+        ]}
+        collaborators={[]}
+        onRemoveCollaborator={vi.fn()}
+        canManage
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Collaborator email"), {
+      target: { value: "Owner@Example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add collaborator" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That's the owner, who is already included.",
+    );
+    expect(createDraftMutate).not.toHaveBeenCalled();
+  });
+
   it("shows a name-only collaborator and lets it be removed", () => {
     invitations.current = [
       {

@@ -14,6 +14,15 @@ import { NoteInvitationsRepository } from '../repositories/note-invitations.repo
 import { NoteMembersRepository } from '../../note-members/repositories/note-members.repository';
 import { NotesRepository } from '../../notes/repositories/notes.repository';
 import { DrizzleService } from '../../../db/drizzle.service';
+import {
+  DUPLICATE_COLLABORATOR_MESSAGE,
+  isEmailAlreadyOnEntity,
+} from '../../../common/collaborator-email-check';
+import {
+  noteInvitations,
+  noteMembers,
+  notes,
+} from '@research-tracker/migrations';
 
 function normaliseEmail(value: string) {
   return value.trim().toLowerCase();
@@ -47,9 +56,35 @@ export class NoteInvitationsService {
       throw new NotFoundException('Note not found');
     }
 
+    const email = input.email?.trim() ? normaliseEmail(input.email) : null;
+    if (
+      email &&
+      (await isEmailAlreadyOnEntity(
+        this.drizzle,
+        {
+          invitations: {
+            table: noteInvitations,
+            entityId: noteInvitations.noteId,
+            email: noteInvitations.email,
+            status: noteInvitations.status,
+          },
+          members: {
+            table: noteMembers,
+            entityId: noteMembers.noteId,
+            userId: noteMembers.userId,
+          },
+          owner: { table: notes, id: notes.id, userId: notes.createdBy },
+        },
+        noteId,
+        email,
+      ))
+    ) {
+      throw new ConflictException(DUPLICATE_COLLABORATOR_MESSAGE);
+    }
+
     const invitation = await this.repository.create({
       noteId,
-      email: input.email?.trim() ? normaliseEmail(input.email) : null,
+      email,
       name: input.name,
       affiliation: input.affiliation,
       invitedBy,

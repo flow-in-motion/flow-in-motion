@@ -10,6 +10,16 @@ import { TaskInvitationsRepository } from '../repositories/task-invitations.repo
 import { TaskMembersRepository } from '../../task-members/repositories/task-members.repository';
 import { TasksRepository } from '../../tasks/repositories/tasks.repository';
 import { DrizzleService } from '../../../db/drizzle.service';
+import { isEmailAlreadyOnEntity } from '../../../common/collaborator-email-check';
+
+jest.mock('../../../common/collaborator-email-check', () => ({
+  ...jest.requireActual<
+    typeof import('../../../common/collaborator-email-check')
+  >('../../../common/collaborator-email-check'),
+  isEmailAlreadyOnEntity: jest.fn(),
+}));
+
+const isEmailAlreadyOnEntityMock = isEmailAlreadyOnEntity as jest.Mock;
 
 describe('TaskInvitationsService', () => {
   let service: TaskInvitationsService;
@@ -28,6 +38,7 @@ describe('TaskInvitationsService', () => {
   let configService: { getOrThrow: jest.Mock };
 
   beforeEach(() => {
+    isEmailAlreadyOnEntityMock.mockReset().mockResolvedValue(false);
     repository = {
       findByTask: jest.fn(),
       findByToken: jest.fn(),
@@ -56,6 +67,49 @@ describe('TaskInvitationsService', () => {
   });
 
   describe('createDraft', () => {
+    it('rejects an email that is already on the task', async () => {
+      tasksRepository.findByIdGlobal.mockResolvedValue({
+        id: 'task-1',
+        tenantId: 'tenant-1',
+      });
+      isEmailAlreadyOnEntityMock.mockResolvedValue(true);
+
+      await expect(
+        service.createDraft('task-1', 'user-owner', {
+          email: ' Collaborator@Example.com ',
+          name: 'Jamie Collaborator',
+        }),
+      ).rejects.toThrow(ConflictException);
+
+      expect(isEmailAlreadyOnEntityMock).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        'task-1',
+        'collaborator@example.com',
+      );
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('does not check for duplicates when only a name is given', async () => {
+      tasksRepository.findByIdGlobal.mockResolvedValue({
+        id: 'task-1',
+        tenantId: 'tenant-1',
+      });
+      repository.create.mockResolvedValue({
+        id: 'invite-2',
+        taskId: 'task-1',
+        email: null,
+        name: 'Name Only',
+        status: 'draft',
+        token: null,
+      });
+
+      await service.createDraft('task-1', 'user-owner', { name: 'Name Only' });
+
+      expect(isEmailAlreadyOnEntityMock).not.toHaveBeenCalled();
+      expect(repository.create).toHaveBeenCalled();
+    });
+
     it('creates a draft invitation without sending anything', async () => {
       tasksRepository.findByIdGlobal.mockResolvedValue({
         id: 'task-1',
