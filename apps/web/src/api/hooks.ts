@@ -1900,6 +1900,87 @@ export function useArchiveMyModule() {
   });
 }
 
+export type ModuleArchiveMode =
+  | "archive_contents"
+  | "move_contents";
+
+export interface ModuleArchiveImpact {
+  tasks: number;
+  notes: number;
+}
+
+export interface ModuleArchiveInput {
+  moduleId: string;
+  mode: ModuleArchiveMode;
+  destinationModuleId?: string;
+}
+
+export type ModuleArchiveDestination = Pick<
+  ApiModule,
+  "id" | "shortTitle" | "title" | "displayId"
+>;
+
+export function useMyModuleArchiveImpact(
+  moduleId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ["api", "me", "modules", moduleId, "archive-impact"],
+    enabled: Boolean(moduleId) && enabled,
+    retry: false,
+    queryFn: () =>
+      authenticatedJson<ModuleArchiveImpact>(
+        `/api/v1/me/modules/${encodeURIComponent(moduleId)}/archive-impact`,
+      ),
+  });
+}
+
+export function useMyModuleArchiveDestinations(
+  moduleId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ["api", "me", "modules", moduleId, "archive-destinations"],
+    enabled: Boolean(moduleId) && enabled,
+    retry: false,
+    queryFn: () =>
+      authenticatedJson<ModuleArchiveDestination[]>(
+        `/api/v1/me/modules/${encodeURIComponent(moduleId)}/archive-destinations`,
+      ),
+  });
+}
+
+export function useArchiveMyModuleWithOptions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: ModuleArchiveInput) =>
+      authenticatedJson<{ module: ApiModule; warning: string }>(
+        `/api/v1/me/modules/${encodeURIComponent(input.moduleId)}/archive`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            mode: input.mode,
+            ...(input.mode === "move_contents"
+              ? { destinationModuleId: input.destinationModuleId }
+              : {}),
+          }),
+        },
+      ),
+    async onSuccess(result) {
+      await Promise.all([
+        invalidateResourceEverywhere(queryClient, "modules"),
+        invalidateResourceEverywhere(queryClient, "tasks"),
+        invalidateResourceEverywhere(queryClient, "notes"),
+        invalidateResourceEverywhere(queryClient, "projects"),
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.archive(result.module.tenantId),
+        }),
+      ]);
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Module submissions (a paper's submission history)
 // ---------------------------------------------------------------------------

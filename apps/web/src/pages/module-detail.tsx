@@ -18,7 +18,6 @@ import {
 } from "react-router-dom";
 
 import {
-  useArchiveMyModule,
   useCreateModuleSubmission,
   useCreateTask,
   useCurrentWorkspace,
@@ -99,6 +98,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ArchiveModuleDialog } from "@/components/modules/archive-module-dialog";
 
 const MODULE_STATUSES = ["Active", "Stalled", "Complete"];
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
@@ -425,7 +425,6 @@ export default function ModuleDetailPage() {
   const membersQuery = useMembers(tenantId);
   const members = membersQuery.data?.data ?? [];
   const updateModule = useUpdateMyModule();
-  const archiveModule = useArchiveMyModule();
   const createTask = useCreateTask(tenantId);
   const updateTask = useUpdateTask(tenantId);
   const updateNote = useUpdateNote(tenantId);
@@ -480,6 +479,7 @@ export default function ModuleDetailPage() {
   );
   const [form, setForm] = useState<EditableModule | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isPinSaving, setIsPinSaving] = useState(false);
   const [isHeaderSaving, setIsHeaderSaving] = useState(false);
   const [isCollaboratorsOpen, setIsCollaboratorsOpen] = useState(false);
@@ -770,26 +770,8 @@ async function saveHeaderField(input: HeaderUpdateInput) {
     await deleteSubmission.mutateAsync(submission.id);
   }
 
-  async function handleDeleteModule() {
-    if (!module) return;
-    if (
-      !window.confirm(
-        `Delete "${paperDisplayTitle(module)}"? It will be permanently deleted after 14 days.`,
-      )
-    ) {
-      return;
-    }
-    setActionError(null);
-    try {
-      await archiveModule.mutateAsync(module.id);
-      navigate("/modules");
-    } catch (error) {
-      setActionError(
-        error instanceof Error
-          ? error.message
-          : "The paper could not be deleted.",
-      );
-    }
+  function handleDeleteModule() {
+    setIsArchiveOpen(true);
   }
 
   function cancelEditing() {
@@ -865,6 +847,15 @@ async function saveHeaderField(input: HeaderUpdateInput) {
   return (
     <div className="page-stack">
       <BackButton fallback="/modules" label="Back" />
+      {isArchiveOpen ? (
+        <ArchiveModuleDialog
+          key={module.id}
+          open
+          paper={module}
+          onOpenChange={setIsArchiveOpen}
+          onArchived={() => navigate("/modules")}
+        />
+      ) : null}
 
       {actionError ? (
         <div
@@ -897,7 +888,6 @@ async function saveHeaderField(input: HeaderUpdateInput) {
               type="button"
               variant="outline"
               onClick={() => void handleDeleteModule()}
-              disabled={archiveModule.isPending}
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 />

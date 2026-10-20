@@ -498,6 +498,13 @@
       "when": 1792389269417,
       "tag": "0086_paper_pinned_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1792466188740,
+      "tag": "0087_paper_archive_options",
+      "breakpoints": true
     }
   ]
 }

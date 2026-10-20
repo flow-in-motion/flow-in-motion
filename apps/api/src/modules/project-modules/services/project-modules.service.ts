@@ -21,6 +21,7 @@ import type {
   SortDirection,
 } from '../dto/list-modules-query.dto';
 import type { CurrentlyWithType } from '../dto/create-module.dto';
+import type { ModuleArchiveMode } from '../dto/archive-module.dto';
 const ARCHIVE_RETENTION_DAYS = 14;
 // Papers no longer use the "Review" status (being under review is a pipeline
 // stage, not a status). Older clients may still send it, so treat it as Active.
@@ -491,32 +492,182 @@ export class ProjectModulesService {
     return this.update(module.tenantId, moduleId, callerUserId, input);
   }
 
-  async archive(tenantId: string, moduleId: string, callerUserId: string) {
-    const existingModule = await this.repository.findById(tenantId, moduleId);
-    if (!existingModule) {
+  private async requireArchiveOwner(
+    tenantId: string,
+    moduleId: string,
+    callerUserId: string,
+  ) {
+    const module = await this.repository.findById(tenantId, moduleId);
+    if (!module) {
       throw new NotFoundException('Module not found');
     }
-    const ownerMembership =
-      await this.collaboratorsRepository.findByModuleAndUser(
+
+    const [membership, ownerRole] = await Promise.all([
+      this.collaboratorsRepository.findByModuleAndUser(
         tenantId,
         moduleId,
         callerUserId,
-      );
-    const ownerRole = await this.enumRepository.findByCategoryAndValue(
-      'project_role',
-      'Owner',
-    );
-    if (
-      !ownerMembership ||
-      !ownerRole ||
-      ownerMembership.roleId !== ownerRole.id
-    ) {
+      ),
+      this.enumRepository.findByCategoryAndValue('project_role', 'Owner'),
+    ]);
+
+    if (!membership || !ownerRole || membership.roleId !== ownerRole.id) {
       throw new ForbiddenException(
         'Only the module owner can archive this module',
       );
     }
 
-    const module = await this.repository.archive(tenantId, moduleId);
+    return { module, ownerRoleId: ownerRole.id };
+  }
+
+  private async runArchiveOperation<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error: unknown) {
+      // Drizzle may wrap the PostgreSQL error in one or more causes.
+      let current: unknown = error;
+
+      for (let depth = 0; depth < 5; depth += 1) {
+        if (typeof current !== 'object' || current === null) break;
+
+        const detail = current as {
+          code?: unknown;
+          message?: unknown;
+          cause?: unknown;
+        };
+
+        if (detail.code === '42501') {
+          throw new ForbiddenException(
+            'Only the owner of an active paper can perform this action',
+          );
+        }
+
+        if (detail.code === '22023') {
+          throw new BadRequestException(
+            typeof detail.message === 'string'
+              ? detail.message
+              : 'Invalid paper archive options',
+          );
+        }
+
+        current = detail.cause;
+      }
+
+      throw error;
+    }
+  }
+
+  async archiveDestinations(
+    tenantId: string,
+    moduleId: string,
+    callerUserId: string,
+  ) {
+    await this.requireArchiveOwner(tenantId, moduleId, callerUserId);
+
+    return this.repository.findArchiveDestinations(
+      tenantId,
+      moduleId,
+      callerUserId,
+    );
+  }
+
+  async archiveDestinationsForCaller(moduleId: string, callerUserId: string) {
+    const module = await this.repository.findByIdGlobal(moduleId);
+    if (!module) {
+      throw new NotFoundException('Module not found');
+    }
+
+    return this.archiveDestinations(module.tenantId, moduleId, callerUserId);
+  }
+
+  async archiveImpact(
+    tenantId: string,
+    moduleId: string,
+    callerUserId: string,
+  ) {
+    await this.requireArchiveOwner(tenantId, moduleId, callerUserId);
+
+    return this.runArchiveOperation(() =>
+      this.repository.archiveImpact(tenantId, moduleId),
+    );
+  }
+
+  async archive(
+    tenantId: string,
+    moduleId: string,
+    callerUserId: string,
+    input: {
+      mode: ModuleArchiveMode;
+      destinationModuleId?: string;
+    } = { mode: 'archive_contents' },
+  ) {
+    const { ownerRoleId } = await this.requireArchiveOwner(
+      tenantId,
+      moduleId,
+      callerUserId,
+    );
+
+    if (input.mode !== 'archive_contents' && input.mode !== 'move_contents') {
+      throw new BadRequestException('Unknown paper archive mode');
+    }
+
+    if (input.mode === 'move_contents') {
+      if (!input.destinationModuleId) {
+        throw new BadRequestException(
+          'Choose a destination paper before moving linked work',
+        );
+      }
+
+      if (input.destinationModuleId === moduleId) {
+        throw new BadRequestException(
+          'The destination paper must be different from the deleted paper',
+        );
+      }
+
+      const destination = await this.repository.findById(
+        tenantId,
+        input.destinationModuleId,
+      );
+
+      const destinationMembership = destination
+        ? await this.collaboratorsRepository.findByModuleAndUser(
+            tenantId,
+            destination.id,
+            callerUserId,
+          )
+        : undefined;
+
+      if (
+        !destination ||
+        destination.archivedAt ||
+        destinationMembership?.roleId !== ownerRoleId
+      ) {
+        throw new BadRequestException(
+          'Choose another active paper that you own',
+        );
+      }
+
+      if (
+        destination.projectId &&
+        !(await this.projectsRepository.findById(
+          tenantId,
+          destination.projectId,
+        ))
+      ) {
+        throw new BadRequestException(
+          'The destination paper must belong to an active project',
+        );
+      }
+    }
+
+    const module = await this.runArchiveOperation(() =>
+      input.mode === 'move_contents'
+        ? this.repository.archive(tenantId, moduleId, input.destinationModuleId)
+        : this.repository.archive(tenantId, moduleId),
+    );
+
     if (!module) {
       throw new NotFoundException('Module not found');
     }
@@ -525,7 +676,7 @@ export class ProjectModulesService {
 
     return {
       module: shaped,
-      warning: `This module has been archived and will be permanently deleted in ${ARCHIVE_RETENTION_DAYS} days.`,
+      warning: `This paper has been archived and will be permanently deleted in ${ARCHIVE_RETENTION_DAYS} days.`,
     };
   }
 
@@ -536,6 +687,27 @@ export class ProjectModulesService {
       throw new NotFoundException('Module not found');
     }
     return this.archive(module.tenantId, moduleId, callerUserId);
+  }
+  async archiveImpactForCaller(moduleId: string, callerUserId: string) {
+    const module = await this.repository.findByIdGlobal(moduleId);
+    if (!module) {
+      throw new NotFoundException('Module not found');
+    }
+
+    return this.archiveImpact(module.tenantId, moduleId, callerUserId);
+  }
+
+  async archiveForCallerWithOptions(
+    moduleId: string,
+    callerUserId: string,
+    input: Parameters<ProjectModulesService['archive']>[3],
+  ) {
+    const module = await this.repository.findByIdGlobal(moduleId);
+    if (!module) {
+      throw new NotFoundException('Module not found');
+    }
+
+    return this.archive(module.tenantId, moduleId, callerUserId, input);
   }
 
   async restore(tenantId: string, moduleId: string, callerUserId: string) {

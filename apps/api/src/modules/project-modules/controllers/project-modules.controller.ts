@@ -29,6 +29,7 @@ import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guar
 import { ModuleAccessGuard } from '../policies/module-access.guard';
 import { ConfigService } from '@nestjs/config';
 import { ListModulesQueryDto } from '../dto/list-modules-query.dto';
+import { ArchiveModuleDto } from '../dto/archive-module.dto';
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
 }
@@ -116,6 +117,47 @@ export class ProjectModulesController {
       tenantId,
       user.id,
     );
+  }
+  @ApiOperation({ summary: 'List eligible destination papers for linked work' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard, ModuleAccessGuard)
+  @Get(':moduleId/archive-destinations')
+  async archiveDestinations(
+    @Param('tenantId') tenantId: string,
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.modulesService.archiveDestinations(tenantId, moduleId, user.id);
+  }
+
+  @ApiOperation({ summary: 'Count linked work before deleting a paper' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard, ModuleAccessGuard)
+  @Get(':moduleId/archive-impact')
+  async archiveImpact(
+    @Param('tenantId') tenantId: string,
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.modulesService.archiveImpact(tenantId, moduleId, user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Archive a paper, optionally moving its linked tasks and notes',
+  })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard, ModuleAccessGuard)
+  @Post(':moduleId/archive')
+  async archiveWithOptions(
+    @Param('tenantId') tenantId: string,
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ArchiveModuleDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.modulesService.archive(tenantId, moduleId, user.id, dto);
   }
 
   @ApiOperation({ summary: 'Get a single module' })

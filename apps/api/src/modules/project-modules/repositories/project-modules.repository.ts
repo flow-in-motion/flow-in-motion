@@ -696,17 +696,92 @@ export class ProjectModulesRepository {
       .returning();
     return module;
   }
-
-  async archive(tenantId: string, moduleId: string) {
-    const [module] = await this.drizzle.db
-      .update(modules)
-      .set({
-        archivedAt: new Date(),
-        updatedAt: new Date(),
+  async findArchiveDestinations(
+    tenantId: string,
+    sourceModuleId: string,
+    callerUserId: string,
+  ) {
+    return this.drizzle.db
+      .select({
+        id: modules.id,
+        shortTitle: modules.shortTitle,
+        title: modules.title,
+        displayId: modules.displayId,
       })
-      .where(and(eq(modules.tenantId, tenantId), eq(modules.id, moduleId)))
-      .returning();
-    return module;
+      .from(modules)
+      .innerJoin(
+        moduleCollaborators,
+        and(
+          eq(moduleCollaborators.moduleId, modules.id),
+          eq(moduleCollaborators.tenantId, modules.tenantId),
+        ),
+      )
+      .innerJoin(enumTable, eq(enumTable.id, moduleCollaborators.roleId))
+      .where(
+        and(
+          eq(modules.tenantId, tenantId),
+          ne(modules.id, sourceModuleId),
+          isNull(modules.archivedAt),
+          eq(moduleCollaborators.userId, callerUserId),
+          eq(enumTable.category, 'project_role'),
+          eq(enumTable.value, 'Owner'),
+          or(
+            isNull(modules.projectId),
+            exists(
+              this.drizzle.db
+                .select({ id: projects.id })
+                .from(projects)
+                .where(
+                  and(
+                    eq(projects.id, modules.projectId),
+                    eq(projects.tenantId, tenantId),
+                    isNull(projects.archivedAt),
+                  ),
+                ),
+            ),
+          ),
+        ),
+      )
+      .orderBy(asc(modules.shortTitle), asc(modules.title), asc(modules.id));
+  }
+
+  async archiveImpact(tenantId: string, moduleId: string) {
+    const result = await this.drizzle.db.execute<{
+      impact: { tasks: number; notes: number };
+    }>(sql`
+      SELECT internal.paper_archive_operation(
+        ${tenantId}::uuid,
+        ${moduleId}::uuid,
+        'impact'::text,
+        NULL::uuid
+      ) AS impact
+    `);
+
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('The paper archive impact query returned no result');
+    }
+
+    return row.impact;
+  }
+
+  async archive(
+    tenantId: string,
+    moduleId: string,
+    destinationModuleId?: string,
+  ) {
+    const mode = destinationModuleId ? 'move_contents' : 'archive_contents';
+
+    await this.drizzle.db.execute(sql`
+      SELECT internal.paper_archive_operation(
+        ${tenantId}::uuid,
+        ${moduleId}::uuid,
+        ${mode}::text,
+        ${destinationModuleId ?? null}::uuid
+      )
+    `);
+
+    return this.findArchivedById(tenantId, moduleId);
   }
 
   async restore(tenantId: string, moduleId: string, statusId: string | null) {

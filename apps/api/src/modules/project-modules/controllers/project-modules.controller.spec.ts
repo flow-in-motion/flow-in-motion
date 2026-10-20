@@ -14,6 +14,7 @@ describe('ProjectModulesController', () => {
     archive: jest.Mock;
     listVenueSuggestions: jest.Mock;
     listCurrentlyWithCollaborators: jest.Mock;
+    archiveImpact: jest.Mock;
   };
   let usersService: { findByExternalAuthId: jest.Mock };
   let configService: {
@@ -29,6 +30,7 @@ describe('ProjectModulesController', () => {
       archive: jest.fn(),
       listVenueSuggestions: jest.fn(),
       listCurrentlyWithCollaborators: jest.fn(),
+      archiveImpact: jest.fn(),
     };
     usersService = {
       findByExternalAuthId: jest.fn().mockResolvedValue({ id: 'user-1' }),
@@ -256,4 +258,55 @@ describe('ProjectModulesController', () => {
       expect(result.warning).toBe('14 days');
     });
   });
+
+  it('returns archive impact for the authenticated caller', async () => {
+    const impact = { tasks: 3, notes: 2 };
+    modulesService.archiveImpact.mockResolvedValue(impact);
+
+    const request = req as Parameters<
+      ProjectModulesController['archiveImpact']
+    >[2];
+
+    await expect(
+      controller.archiveImpact('tenant-1', 'module-1', request),
+    ).resolves.toEqual(impact);
+
+    expect(modulesService.archiveImpact).toHaveBeenCalledWith(
+      'tenant-1',
+      'module-1',
+      'user-1',
+    );
+  });
+
+  it.each(['archive_contents', 'move_contents'] as const)(
+    'passes %s options to the archive service',
+    async (mode) => {
+      const input = {
+        mode,
+        ...(mode === 'move_contents'
+          ? { destinationModuleId: 'module-2' }
+          : {}),
+      };
+      const response = {
+        module: { id: 'module-1' },
+        warning: '14 days',
+      };
+      modulesService.archive.mockResolvedValue(response);
+
+      const request = req as Parameters<
+        ProjectModulesController['archiveWithOptions']
+      >[2];
+
+      await expect(
+        controller.archiveWithOptions('tenant-1', 'module-1', request, input),
+      ).resolves.toEqual(response);
+
+      expect(modulesService.archive).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        'user-1',
+        input,
+      );
+    },
+  );
 });

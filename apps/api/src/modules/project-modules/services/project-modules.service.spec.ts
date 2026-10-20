@@ -27,6 +27,7 @@ describe('ProjectModulesService', () => {
     findRememberedVenueValues: jest.Mock;
     findCurrentlyWithCollaborators: jest.Mock;
     findInvitationById: jest.Mock;
+    archiveImpact: jest.Mock;
   };
   let enumRepository: {
     findByCategoryAndValue: jest.Mock;
@@ -54,6 +55,7 @@ describe('ProjectModulesService', () => {
       findRememberedVenueValues: jest.fn(),
       findCurrentlyWithCollaborators: jest.fn(),
       findInvitationById: jest.fn(),
+      archiveImpact: jest.fn(),
     };
     projectsRepository = {
       findById: jest.fn().mockResolvedValue({
@@ -1363,6 +1365,227 @@ describe('ProjectModulesService', () => {
         'module-1',
         expect.objectContaining({ pipelineStageChangedAt: undefined }),
       );
+    });
+  });
+
+  describe('paper archive options', () => {
+    beforeEach(() => {
+      repository.findById.mockImplementation(
+        (_tenantId: string, moduleId: string) =>
+          Promise.resolve({
+            id: moduleId,
+            tenantId: 'tenant-1',
+            projectId: null,
+            archivedAt: null,
+            statusId: null,
+            priorityId: null,
+            pipelineStageId: null,
+          }),
+      );
+
+      repository.findByIdGlobal.mockResolvedValue({
+        id: 'module-1',
+        tenantId: 'tenant-1',
+      });
+
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'owner-role-id',
+      });
+
+      enumRepository.findByCategoryAndValue.mockResolvedValue({
+        id: 'owner-role-id',
+      });
+
+      repository.archive.mockResolvedValue({
+        id: 'module-1',
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+      });
+
+      repository.archiveImpact.mockResolvedValue({
+        tasks: 3,
+        notes: 2,
+      });
+    });
+
+    it('returns linked-work counts for the paper owner', async () => {
+      await expect(
+        service.archiveImpact('tenant-1', 'module-1', 'user-1'),
+      ).resolves.toEqual({ tasks: 3, notes: 2 });
+
+      expect(repository.archiveImpact).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+      );
+    });
+
+    it('rejects impact requests from non-owners', async () => {
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'editor-role-id',
+      });
+
+      await expect(
+        service.archiveImpact('tenant-1', 'module-1', 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(repository.archiveImpact).not.toHaveBeenCalled();
+    });
+
+    it('moves linked work to another owned paper through one archive operation', async () => {
+      await service.archive('tenant-1', 'module-1', 'user-1', {
+        mode: 'move_contents',
+        destinationModuleId: 'module-2',
+      });
+
+      expect(repository.archive).toHaveBeenCalledTimes(1);
+      expect(repository.archive).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        'module-2',
+      );
+    });
+
+    it('rejects archiving by a non-owner', async () => {
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'editor-role-id',
+      });
+
+      await expect(
+        service.archive('tenant-1', 'module-1', 'user-1', {
+          mode: 'archive_contents',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(repository.archive).not.toHaveBeenCalled();
+    });
+
+    it.each([undefined, 'module-1'])(
+      'rejects a missing or identical destination: %s',
+      async (destinationModuleId) => {
+        await expect(
+          service.archive('tenant-1', 'module-1', 'user-1', {
+            mode: 'move_contents',
+            destinationModuleId,
+          }),
+        ).rejects.toThrow(BadRequestException);
+
+        expect(repository.archive).not.toHaveBeenCalled();
+      },
+    );
+
+    it('rejects a destination the caller does not own', async () => {
+      collaboratorsRepository.findByModuleAndUser.mockImplementation(
+        (_tenantId: string, moduleId: string) =>
+          Promise.resolve({
+            roleId:
+              moduleId === 'module-1' ? 'owner-role-id' : 'editor-role-id',
+          }),
+      );
+
+      await expect(
+        service.archive('tenant-1', 'module-1', 'user-1', {
+          mode: 'move_contents',
+          destinationModuleId: 'module-2',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(repository.archive).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      undefined,
+      {
+        id: 'module-2',
+        projectId: null,
+        archivedAt: new Date(),
+      },
+    ])('rejects an unavailable destination: %j', async (destination) => {
+      repository.findById.mockResolvedValueOnce({
+        id: 'module-1',
+        projectId: null,
+        archivedAt: null,
+      });
+      repository.findById.mockResolvedValueOnce(destination);
+
+      await expect(
+        service.archive('tenant-1', 'module-1', 'user-1', {
+          mode: 'move_contents',
+          destinationModuleId: 'module-2',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(repository.archive).not.toHaveBeenCalled();
+    });
+
+    it('rejects a destination whose parent project is unavailable', async () => {
+      repository.findById.mockResolvedValueOnce({
+        id: 'module-1',
+        projectId: null,
+      });
+      repository.findById.mockResolvedValueOnce({
+        id: 'module-2',
+        projectId: 'archived-project',
+        archivedAt: null,
+      });
+      projectsRepository.findById.mockResolvedValue(undefined);
+
+      await expect(
+        service.archive('tenant-1', 'module-1', 'user-1', {
+          mode: 'move_contents',
+          destinationModuleId: 'module-2',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(repository.archive).not.toHaveBeenCalled();
+    });
+
+    it('resolves the real tenant for caller-scoped archive options', async () => {
+      await service.archiveForCallerWithOptions('module-1', 'user-1', {
+        mode: 'move_contents',
+        destinationModuleId: 'module-2',
+      });
+
+      expect(repository.findByIdGlobal).toHaveBeenCalledWith('module-1');
+      expect(repository.archive).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        'module-2',
+      );
+    });
+
+    it('resolves the real tenant for caller-scoped impact', async () => {
+      await expect(
+        service.archiveImpactForCaller('module-1', 'user-1'),
+      ).resolves.toEqual({ tasks: 3, notes: 2 });
+
+      expect(repository.archiveImpact).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+      );
+    });
+
+    it('translates wrapped database destination errors', async () => {
+      repository.archive.mockRejectedValue({
+        cause: {
+          code: '22023',
+          message: 'Choose another active paper that you own',
+        },
+      });
+
+      await expect(
+        service.archive('tenant-1', 'module-1', 'user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('translates wrapped database permission errors', async () => {
+      repository.archive.mockRejectedValue({
+        cause: { code: '42501' },
+      });
+
+      await expect(
+        service.archive('tenant-1', 'module-1', 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

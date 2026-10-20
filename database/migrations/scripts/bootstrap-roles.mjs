@@ -80,6 +80,10 @@ try {
   await client.query('GRANT CONNECT ON DATABASE postgres TO research_tracker_app');
   await client.query('GRANT USAGE ON SCHEMA public TO research_tracker_app');
 
+  await client.query(
+    'GRANT USAGE, CREATE ON SCHEMA internal TO research_tracker_migration',
+  );
+
   await client.query('COMMIT');
   console.log('Supabase migration and runtime roles are ready.');
 } catch (error) {
