@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -169,6 +169,31 @@ const fixtures = vi.hoisted(() => ({
   ],
 }));
 vi.mock("@/api/hooks", () => ({
+  useMyModuleArchiveImpact: () => ({
+    data: { tasks: 3, notes: 2 },
+    isPending: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useMyModuleArchiveDestinations: () => ({
+    data: [
+      {
+        id: "destination-paper",
+        shortTitle: "Destination paper",
+        title: null,
+        displayId: "MOD-0099",
+      },
+    ],
+    isPending: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useArchiveMyModuleWithOptions: () => ({
+    mutateAsync: fixtures.archiveModule,
+    isPending: false,
+  }),
   useModule: () => ({ data: fixtures.module }),
   useModules: () => ({
     data: {
@@ -393,6 +418,94 @@ describe("ModuleDetailPage", () => {
       </MemoryRouter>,
     );
   }
+
+  it("returns to Papers after deleting through the linked-work dialog", async () => {
+    render(
+      <MemoryRouter initialEntries={["/modules/module-1"]}>
+        <Routes>
+          <Route
+            path="modules/:moduleId"
+            element={<ModuleDetailPage />}
+          />
+          <Route path="modules" element={<h1>Papers list</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Paper" }),
+    );
+
+    const dialog = within(await screen.findByRole("dialog"));
+
+    expect(fixtures.archiveModule).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      dialog.getByRole("button", { name: "Delete Paper" }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.archiveModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        mode: "archive_contents",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Papers list" }),
+    ).toBeInTheDocument();
+  });
+
+  it("cancels paper deletion without sending an archive request", async () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Paper" }),
+    );
+
+    const dialog = within(await screen.findByRole("dialog"));
+
+    fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(fixtures.archiveModule).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Edit Paper" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the deletion dialog open when archiving fails", async () => {
+    fixtures.archiveModule.mockRejectedValueOnce(
+      new Error("Unable to delete paper"),
+    );
+
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Paper" }),
+    );
+
+    const dialog = within(await screen.findByRole("dialog"));
+
+    fireEvent.click(
+      dialog.getByRole("button", { name: "Delete Paper" }),
+    );
+
+    expect(
+      await dialog.findByRole("alert"),
+    ).toHaveTextContent("Unable to delete paper");
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(
+        dialog.getByRole("button", { name: "Delete Paper" }),
+      ).toBeEnabled(),
+    );
+  });
 
   it("accepts a typed next due date from the header", async () => {
     renderPage();

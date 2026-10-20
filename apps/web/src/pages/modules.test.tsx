@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,6 +65,7 @@ const hookMocks = vi.hoisted(() => ({
   updateModule: vi.fn(),
   createDraftInvitation: vi.fn(),
   useModuleCollaborators: vi.fn(),
+  archiveModule: vi.fn(),
   currentlyWithCollaborators: [
     {
       id: "user:user-collaborator",
@@ -138,6 +145,31 @@ vi.mock("@/api/client", () => ({
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore: useStore } = await import("react");
   return {
+    useMyModuleArchiveImpact: () => ({
+      data: { tasks: 3, notes: 2 },
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    }),
+    useMyModuleArchiveDestinations: () => ({
+      data: [
+        {
+          id: "destination-paper",
+          shortTitle: "Destination paper",
+          title: null,
+          displayId: "MOD-0099",
+        },
+      ],
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    }),
+    useArchiveMyModuleWithOptions: () => ({
+      mutateAsync: hookMocks.archiveModule,
+      isPending: false,
+    }),
     usePaperVenueSuggestions: () => ({
       data: { journals: [], conferences: [] },
       isPending: false,
@@ -348,6 +380,20 @@ vi.mock("@/api/hooks", async () => {
 
 describe("ModulesPage", () => {
   beforeEach(() => {
+    hookMocks.archiveModule.mockReset();
+    hookMocks.archiveModule.mockImplementation(
+      ({ moduleId }: { moduleId: string }) => {
+        const module = store
+          .getModules()
+          .find((item) => item.id === moduleId);
+
+        store.setModules(
+          store.getModules().filter((item) => item.id !== moduleId),
+        );
+
+        return Promise.resolve({ module, warning: "14 days" });
+      },
+    );
     window.sessionStorage.clear();
     store.setModules([
       {
@@ -438,6 +484,102 @@ describe("ModulesPage", () => {
     },
   );
 
+  it("deletes a paper from the list through the linked-work dialog", async () => {
+    const paper = store.getModules()[0]!;
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    const title = paper.shortTitle || paper.title || "Untitled paper";
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Delete ${title}` }),
+    );
+
+    const dialog = within(await screen.findByRole("dialog"));
+
+    expect(
+      dialog.getByText(/3 tasks and 2 notes are linked/),
+    ).toBeInTheDocument();
+
+    expect(hookMocks.archiveModule).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      dialog.getByRole("button", { name: "Delete Paper" }),
+    );
+
+    await waitFor(() =>
+      expect(hookMocks.archiveModule).toHaveBeenCalledWith({
+        moduleId: paper.id,
+        mode: "archive_contents",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.queryByRole("button", { name: `Delete ${title}` }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("moves linked work to the selected paper before deleting from the list", async () => {
+    const paper = store.getModules()[0]!;
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    const title = paper.shortTitle || paper.title || "Untitled paper";
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Delete ${title}` }),
+    );
+
+    const dialog = within(await screen.findByRole("dialog"));
+
+    fireEvent.click(
+      dialog.getByRole("radio", {
+        name: /Move linked work, then delete paper/,
+      }),
+    );
+
+    expect(
+      dialog.getByRole("button", { name: "Delete Paper" }),
+    ).toBeDisabled();
+
+    fireEvent.change(dialog.getByPlaceholderText("Search papers…"), {
+      target: { value: "Destination" },
+    });
+
+    fireEvent.click(
+      dialog.getByRole("option", {
+        name: /Destination paper/,
+      }),
+    );
+
+    fireEvent.click(
+      dialog.getByRole("button", { name: "Delete Paper" }),
+    );
+
+    await waitFor(() =>
+      expect(hookMocks.archiveModule).toHaveBeenCalledWith({
+        moduleId: paper.id,
+        mode: "move_contents",
+        destinationModuleId: "destination-paper",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
   it("restores paper search and status filters after returning", async () => {
     const first = render(
       <MemoryRouter>
@@ -724,26 +866,6 @@ describe("ModulesPage", () => {
     expect(
       screen.getByRole("link", { name: "Edit Literature synthesis" }),
     ).toHaveAttribute("href", "/modules/module-1?edit=true");
-  });
-
-  it("deletes a module", async () => {
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(
-      <MemoryRouter>
-        <ModulesPage />
-      </MemoryRouter>,
-    );
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Delete Literature synthesis" }),
-    );
-    expect(confirm).toHaveBeenCalled();
-
-    await waitFor(() =>
-      expect(
-        screen.queryByText("Literature synthesis"),
-      ).not.toBeInTheDocument(),
-    );
   });
 
   it("allows a module to be linked to a project", async () => {

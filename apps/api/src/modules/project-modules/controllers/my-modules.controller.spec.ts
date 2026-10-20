@@ -10,6 +10,8 @@ describe('MyModulesController', () => {
     findOneForCaller: jest.Mock;
     updateForCaller: jest.Mock;
     archiveForCaller: jest.Mock;
+    archiveImpactForCaller: jest.Mock;
+    archiveForCallerWithOptions: jest.Mock;
   };
   let usersService: { findByExternalAuthId: jest.Mock };
   let configService: {
@@ -22,6 +24,8 @@ describe('MyModulesController', () => {
       findOneForCaller: jest.fn(),
       updateForCaller: jest.fn(),
       archiveForCaller: jest.fn(),
+      archiveImpactForCaller: jest.fn(),
+      archiveForCallerWithOptions: jest.fn(),
     };
     usersService = {
       findByExternalAuthId: jest.fn().mockResolvedValue({ id: 'user-1' }),
@@ -103,4 +107,46 @@ describe('MyModulesController', () => {
     );
     expect(result).toEqual({ id: 'module-1' });
   });
+
+  it('returns archive impact using the paper and caller ids', async () => {
+    const impact = { tasks: 3, notes: 2 };
+    modulesService.archiveImpactForCaller.mockResolvedValue(impact);
+
+    await expect(controller.archiveImpact('module-1', req())).resolves.toEqual(
+      impact,
+    );
+
+    expect(modulesService.archiveImpactForCaller).toHaveBeenCalledWith(
+      'module-1',
+      'user-1',
+    );
+  });
+
+  it.each(['archive_contents', 'move_contents'] as const)(
+    'passes %s options through the caller-scoped endpoint',
+    async (mode) => {
+      const input = {
+        mode,
+        ...(mode === 'move_contents'
+          ? { destinationModuleId: 'module-2' }
+          : {}),
+      };
+      const response = {
+        module: { id: 'module-1' },
+        warning: '14 days',
+      };
+
+      modulesService.archiveForCallerWithOptions.mockResolvedValue(response);
+
+      await expect(
+        controller.archiveWithOptions('module-1', req(), input),
+      ).resolves.toEqual(response);
+
+      expect(modulesService.archiveForCallerWithOptions).toHaveBeenCalledWith(
+        'module-1',
+        'user-1',
+        input,
+      );
+    },
+  );
 });

@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
   Query,
+  Post,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -19,6 +20,7 @@ import { UpdateModuleDto } from '../dto/update-module.dto';
 import { ProjectModulesService } from '../services/project-modules.service';
 import { ConfigService } from '@nestjs/config';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { ArchiveModuleDto } from '../dto/archive-module.dto';
 
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
@@ -61,6 +63,37 @@ export class MyModulesController {
     );
   }
 
+  @ApiOperation({ summary: 'Count linked work before deleting an owned paper' })
+  @UseGuards(JwtAuthGuard)
+  @Get(':moduleId/archive-impact')
+  async archiveImpact(
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.modulesService.archiveImpactForCaller(moduleId, user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Archive an owned paper, optionally moving its linked work',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Post(':moduleId/archive')
+  async archiveWithOptions(
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ArchiveModuleDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.modulesService.archiveForCallerWithOptions(
+      moduleId,
+      user.id,
+      dto,
+    );
+  }
+
   @ApiOperation({ summary: 'Get a single module the caller can access' })
   @UseGuards(JwtAuthGuard)
   @Get(':moduleId')
@@ -93,5 +126,16 @@ export class MyModulesController {
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return this.modulesService.archiveForCaller(moduleId, user.id);
+  }
+  @ApiOperation({ summary: 'List eligible destination papers for linked work' })
+  @UseGuards(JwtAuthGuard)
+  @Get(':moduleId/archive-destinations')
+  async archiveDestinations(
+    @Param('moduleId') moduleId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.modulesService.archiveDestinationsForCaller(moduleId, user.id);
   }
 }

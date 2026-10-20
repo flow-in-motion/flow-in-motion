@@ -12,7 +12,6 @@ import { Link } from "react-router-dom";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
-  useArchiveModule,
   useCreateModule,
   useCurrentWorkspace,
   useMe,
@@ -59,6 +58,7 @@ import { formatListDate, isOverdue } from "@/lib/list-format";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { CurrentlyWithFilter } from "@/components/modules/currently-with-filter";
+import { ArchiveModuleDialog } from "@/components/modules/archive-module-dialog";
 
 const STATUS_OPTIONS = ["Active", "Stalled", "Complete"] as const;
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
@@ -346,8 +346,8 @@ export default function ModulesPage() {
   const members = workspaceMembers.data?.data ?? [];
   const createModule = useCreateModule(tenantId);
   const updateModule = useUpdateModule(tenantId);
-  const archiveModule = useArchiveModule(tenantId);
   const trackEvent = useTrackEvent(tenantId);
+  const [archiveTarget, setArchiveTarget] = useState<ApiModule | null>(null);
 
   const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
     me.data?.id,
@@ -556,24 +556,8 @@ export default function ModulesPage() {
     return module;
   }
 
-  async function archive(module: ApiModule) {
-    if (
-      !window.confirm(
-        `Delete "${paperDisplayTitle(module)}"? It will be permanently deleted after 14 days.`,
-      )
-    ) {
-      return;
-    }
-    setActionError(null);
-    try {
-      await archiveModule.mutateAsync(module.id);
-    } catch (error) {
-      setActionError(
-        error instanceof Error
-          ? error.message
-          : "The paper could not be deleted.",
-      );
-    }
+  function archive(module: ApiModule) {
+    setArchiveTarget(module);
   }
 
   if (workspace.isPending || modulesQuery.isPending) {
@@ -593,6 +577,17 @@ export default function ModulesPage() {
 
   return (
     <div className="page-stack">
+            {archiveTarget ? (
+        <ArchiveModuleDialog
+          key={archiveTarget.id}
+          open
+          paper={archiveTarget}
+          onOpenChange={(open) => {
+            if (!open) setArchiveTarget(null);
+          }}
+        />
+      ) : null}
+
       <PaperStageCelebration
         open={isPaperCelebrationOpen}
         onOpenChange={setIsPaperCelebrationOpen}
@@ -782,7 +777,6 @@ export default function ModulesPage() {
                             aria-label={`Delete ${paperDisplayTitle(module)}`}
                             title="Delete paper"
                             onClick={() => void archive(module)}
-                            disabled={archiveModule.isPending}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
