@@ -29,7 +29,7 @@ import {
   useMyModule,
   useNotes,
   usePaperVenueSuggestions,
-  useProject,
+  useMyProject,
   useProjects,
   useTasks,
   useTrackEvent,
@@ -421,9 +421,13 @@ export default function ModuleDetailPage() {
   // Papers can open across workspaces through explicit paper membership
   // or ownership of their parent project.
   const moduleQuery = useMyModule(moduleId);
-  const tasksQuery = useTasks(tenantId);
+  const tasksQuery = useTasks(tenantId, undefined, 1, true, {
+    moduleId,
+    pageSize: "all",
+  });
   const tasks = tasksQuery.data?.data ?? [];
   const notesQuery = useNotes(tenantId, undefined, 1, true, {
+    moduleId,
     pageSize: "all",
   });
   const notes = notesQuery.data?.data ?? [];
@@ -439,11 +443,7 @@ export default function ModuleDetailPage() {
   const sameTenant = Boolean(
     module && tenantId && module.tenantId === tenantId,
   );
-  const linkedProjectQuery = useProject(
-    tenantId,
-    module?.projectId ?? "",
-    Boolean(module?.projectId),
-  );
+  const linkedProjectQuery = useMyProject(module?.projectId ?? "");
   const collaboratorsQuery = useModuleCollaboratorContacts(
     tenantId,
     module?.id ?? "",

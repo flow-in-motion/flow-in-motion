@@ -16,12 +16,11 @@ import {
   useMembers,
   useModules,
   useMyTask,
-  useProject,
+  useMyProject,
+  useMyModule,
   useProjects,
   useUpdateMyTask,
   useTrackEvent,
-  type ApiModule,
-  type ApiProject,
   type ApiTask,
   useAddMyTaskDescriptionEntry,
   type ApiTaskDescriptionEntry,
@@ -248,24 +247,27 @@ function linkTargetPillClass(selected: boolean) {
 
 function LinkedWorkCard({
   task,
-  projects,
-  modules,
-  linkedProjectTitle,
-  linkedProjectError,
-  linkedModuleTitle,
+  tenantId,
   isSaving,
   onChangeLink,
 }: {
   task: ApiTask;
-  projects: ApiProject[];
-  modules: ApiModule[];
-  linkedProjectTitle?: string;
-  linkedProjectError: boolean;
-  linkedModuleTitle?: string;
+  tenantId: string;
   isSaving: boolean;
   onChangeLink: (linkTarget: LinkTargetType, projectId: string, moduleId: string) => Promise<void>;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const projectsQuery = useProjects(tenantId, 1, isEditing);
+  const projects = projectsQuery.data?.data ?? [];
+  const modulesQuery = useModules(tenantId, undefined, 1, isEditing);
+  const modules = modulesQuery.data?.data ?? [];
+  const linkedProjectQuery = useMyProject(task.projectId ?? "");
+  const linkedModuleQuery = useMyModule(task.moduleId ?? "");
+  const linkedProjectTitle = linkedProjectQuery.data?.title;
+  const linkedProjectError = linkedProjectQuery.isError;
+  const linkedModuleTitle = linkedModuleQuery.data
+    ? paperDisplayTitle(linkedModuleQuery.data)
+    : undefined;
   const [linkTarget, setLinkTarget] = useState<LinkTargetType>(resolveLinkTargetType(task));
   const [projectId, setProjectId] = useState(task.projectId ?? "");
   const [moduleId, setModuleId] = useState(task.moduleId ?? "");
@@ -366,7 +368,7 @@ function LinkedWorkCard({
           <div className="flex flex-col gap-2">
             <Link to={`/modules/${task.moduleId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
-              <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? "Loading…"}</span>
+              <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? (linkedModuleQuery.isError ? "Unknown paper" : "Loading…")}</span>
             </Link>
             {task.projectId ? (
               <Link to={`/projects/${task.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -434,9 +436,10 @@ export default function TaskDetailPage() {
   const tenantId = workspace.data?.id ?? "";
 
   const taskQuery = useMyTask(taskId);
-  const projectsQuery = useProjects(tenantId);
+  const [form, setForm] = useState<TaskEditForm | null>(null);
+  const projectsQuery = useProjects(tenantId, 1, Boolean(form));
   const projects = projectsQuery.data?.data ?? [];
-  const modulesQuery = useModules(tenantId);
+  const modulesQuery = useModules(tenantId, undefined, 1, Boolean(form));
   const modules = modulesQuery.data?.data ?? [];
   const updateTask = useUpdateMyTask();
   const addDescriptionEntry = useAddMyTaskDescriptionEntry();
@@ -446,11 +449,9 @@ export default function TaskDetailPage() {
   const deleteTask = useDeleteMyTask();
   const task = taskQuery.data;
   const trackEvent = useTrackEvent(task?.tenantId ?? "");
-  const linkedProjectQuery = useProject(tenantId, task?.projectId ?? "", Boolean(task?.projectId));
   const sameTenant = Boolean(task && tenantId && task.tenantId === tenantId);
   const membersQuery = useMembers(tenantId, 1, sameTenant);
   const members = membersQuery.data?.data ?? [];
-  const [form, setForm] = useState<TaskEditForm | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [headerField, setHeaderField] =
   useState<"dueDate" | "estimatedHours" | null>(null);
@@ -676,10 +677,6 @@ export default function TaskDetailPage() {
       }
     }
   }
-
-  const linkedModule = task.moduleId
-    ? (modules).find((module) => module.id === task.moduleId)
-    : undefined;
 
   const descriptionGroups = groupDescriptionEntries(
       task.descriptionEntries ?? [],
@@ -1165,11 +1162,7 @@ export default function TaskDetailPage() {
             <div id="task-linked-work-content">
               <LinkedWorkCard
                 task={task}
-                projects={projects}
-                modules={modules}
-                linkedProjectTitle={linkedProjectQuery.data?.title}
-                linkedProjectError={linkedProjectQuery.isError}
-                linkedModuleTitle={linkedModule ? paperDisplayTitle(linkedModule) : undefined}
+                tenantId={tenantId}
                 onChangeLink={handleChangeLink}
                 isSaving={isSaving}
               />
