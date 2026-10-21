@@ -66,7 +66,7 @@ const CONFERENCE_COLUMNS = [
   { id: "conferenceDates", label: "Conference Dates" },
   { id: "type", label: "Type" },
   { id: "intent", label: "Intent" },
-  { id: "linkedProjects", label: "Linked Projects or Modules/Papers" },
+  { id: "linkedProjects", label: "Linked Projects or Papers" },
   { id: "actions", label: "Actions" },
 ] as const;
 
@@ -208,7 +208,7 @@ export function ConferenceSubmissionsTable({
             </CardTitle>
             <CardDescription>
               Submission deadlines, event dates, and linked projects or
-              modules/papers.
+              papers.
             </CardDescription>
           </div>
           {dashboardView || hideCreateButton ? null : (
@@ -301,7 +301,7 @@ export function ConferenceSubmissionsTable({
                 <TableHead>Intent</TableHead>
               ) : null}
               {columns.isColumnVisible("linkedProjects") ? (
-                <TableHead>Linked Projects or Modules/Papers</TableHead>
+                <TableHead>Linked Projects or Papers</TableHead>
               ) : null}
               {columns.isColumnVisible("actions") ? (
                 <TableHead className="text-right">Actions</TableHead>
