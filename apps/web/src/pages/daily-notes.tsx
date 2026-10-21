@@ -1,6 +1,6 @@
 import { useListSearch } from "@/hooks/use-list-search";
 import { useEffect, useMemo, useState } from "react";
-import { NotebookPen, Pencil, Trash2, UserPlus } from "lucide-react";
+import { NotebookPen, Pencil, Pin, Trash2, UserPlus } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
@@ -14,6 +14,7 @@ import {
   useNotes,
   useProjects,
   useTrackEvent,
+  useUpdateNote,
   type ApiNote,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
@@ -126,6 +127,9 @@ export default function DailyNotesPage() {
 
   const createNote = useCreateNote(tenantId);
   const deleteNote = useDeleteNote(tenantId);
+  const updateNote = useUpdateNote(tenantId);
+  const [pinningNoteId, setPinningNoteId] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
   const trackEvent = useTrackEvent(tenantId);
 
   const [visibility, setVisibility] = useSessionListState<VisibilityFilter>(
@@ -258,10 +262,12 @@ export default function DailyNotesPage() {
       }
       return true;
     });
+    // Pinned notes always stay at the top, whatever the sort column.
     return [...filtered].sort(
       (a, b) =>
+        Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) ||
         compareNotes(a, b, effectiveSortColumn) *
-        (effectiveSortDirection === "asc" ? 1 : -1),
+          (effectiveSortDirection === "asc" ? 1 : -1),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -298,6 +304,26 @@ export default function DailyNotesPage() {
       followUpDate: input.followUpDate || undefined,
     });
     trackEvent({ name: "note_created" });
+  }
+
+  async function handleTogglePin(note: ApiNote) {
+    if (pinningNoteId) return;
+    setPinningNoteId(note.id);
+    setPinError(null);
+    try {
+      await updateNote.mutateAsync({
+        noteId: note.id,
+        input: { pinned: !note.pinned },
+      });
+    } catch (error) {
+      setPinError(
+        error instanceof Error
+          ? error.message
+          : "The note pin could not be updated.",
+      );
+    } finally {
+      setPinningNoteId(null);
+    }
   }
 
   async function handleDeleteNote(note: ApiNote) {
@@ -427,6 +453,12 @@ export default function DailyNotesPage() {
         />
       ) : null}
 
+      {pinError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {pinError}
+        </p>
+      ) : null}
+
       <div className="overflow-x-auto rounded-lg border bg-card p-2 sm:p-3">
         <div className="min-w-[1050px]">
           <div
@@ -456,7 +488,10 @@ export default function DailyNotesPage() {
               visibleNotes.map((note) => (
                 <div
                   key={note.id}
-                  className="grid items-center gap-4 rounded-md border border-transparent bg-card px-4 py-3.5 transition-colors hover:bg-muted/45"
+                  className={cn(
+                    "grid items-center gap-4 rounded-md border border-transparent bg-card px-4 py-3.5 transition-colors hover:bg-muted/45",
+                    note.pinned && "border-primary/20 bg-primary/5",
+                  )}
                   style={{ gridTemplateColumns: gridTemplate }}
                 >
                   {columns.isColumnVisible("note") ? (
@@ -485,6 +520,26 @@ export default function DailyNotesPage() {
                             <UserPlus className="h-3.5 w-3.5" />
                           </button>
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={() => void handleTogglePin(note)}
+                          disabled={pinningNoteId !== null}
+                          aria-label={`${note.pinned ? "Unpin" : "Pin"} ${noteTitle(note)}`}
+                          aria-pressed={Boolean(note.pinned)}
+                          title={note.pinned ? "Unpin from top" : "Pin to top"}
+                          className={cn(
+                            "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+                            note.pinned
+                              ? "text-primary"
+                              : "text-muted-foreground hover:text-primary",
+                          )}
+                        >
+                          <Pin
+                            className="h-3.5 w-3.5"
+                            fill={note.pinned ? "currentColor" : "none"}
+                            aria-hidden="true"
+                          />
+                        </button>
                         <Link
                           to={`/daily-notes/${note.id}?edit=true`}
                           aria-label={`Edit ${noteTitle(note)}`}

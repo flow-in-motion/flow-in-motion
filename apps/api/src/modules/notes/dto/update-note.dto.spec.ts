@@ -35,4 +35,16 @@ describe('UpdateNoteDto', () => {
       expect(errors.map((error) => error.property)).toContain('modulePinned');
     },
   );
+
+  it.each([true, false])('accepts pinned=%s', async (pinned) => {
+    const dto = Object.assign(new UpdateNoteDto(), { pinned });
+    const errors = await validate(dto);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects a non-boolean pinned value', async () => {
+    const dto = Object.assign(new UpdateNoteDto(), { pinned: 'yes' });
+    const errors = await validate(dto);
+    expect(errors.map((error) => error.property)).toContain('pinned');
+  });
 });

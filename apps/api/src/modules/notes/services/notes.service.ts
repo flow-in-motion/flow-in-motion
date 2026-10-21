@@ -216,6 +216,7 @@ export class NotesService {
       moduleId: string;
       followUpDate: string | null;
       modulePinned: boolean;
+      pinned: boolean;
     }>,
   ) {
     const existing = await this.findOne(tenantId, noteId, callerUserId);
@@ -258,6 +259,7 @@ export class NotesService {
       moduleId: linkage ? linkage.moduleId : undefined,
       followUpDate: input.followUpDate,
       modulePinned,
+      pinned: input.pinned,
     });
 
     if (!note) {

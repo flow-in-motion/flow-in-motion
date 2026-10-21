@@ -17,6 +17,7 @@ type NoteFixture = {
   followUpDate: string | null;
   createdAt: string | null;
   updatedAt: string;
+  pinned?: boolean;
 };
 
 // Mirrors react-query's cache-subscription behaviour so hand-written mocks
@@ -69,6 +70,7 @@ const fixtures = vi.hoisted(() => ({
 }));
 
 const deleteNoteMock = vi.hoisted(() => vi.fn());
+const updateNoteMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/feature-flags", () => ({
   get TASK_NOTE_SHARING_ENABLED() {
@@ -234,6 +236,7 @@ vi.mock("@/api/hooks", async () => {
       }),
     }),
     useDeleteNote: () => ({ mutateAsync: deleteNoteMock }),
+    useUpdateNote: () => ({ mutateAsync: updateNoteMock, isPending: false }),
   };
 });
 
@@ -264,6 +267,8 @@ describe("DailyNotesPage", () => {
     hookMocks.pagination.totalPages = 1;
     deleteNoteMock.mockReset();
     deleteNoteMock.mockResolvedValue({});
+    updateNoteMock.mockReset();
+    updateNoteMock.mockResolvedValue({});
     store.setNotes([
       {
         id: "note-1",
@@ -508,6 +513,61 @@ describe("DailyNotesPage", () => {
     );
 
     expect(deleteNoteMock).toHaveBeenCalledWith("note-1");
+  });
+
+  it("pins a note to the top of the Notes page", async () => {
+    renderPage();
+
+    const pinButton = screen.getByRole("button", {
+      name: "Pin Initial observations",
+    });
+    expect(pinButton).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(pinButton);
+
+    await waitFor(() =>
+      expect(updateNoteMock).toHaveBeenCalledWith({
+        noteId: "note-1",
+        input: { pinned: true },
+      }),
+    );
+  });
+
+  it("unpins a pinned note", async () => {
+    store.setNotes([{ ...store.getNotes()[0], pinned: true }]);
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Unpin Initial observations" }),
+    );
+
+    await waitFor(() =>
+      expect(updateNoteMock).toHaveBeenCalledWith({
+        noteId: "note-1",
+        input: { pinned: false },
+      }),
+    );
+  });
+
+  it("keeps pinned notes above others whatever the sort", () => {
+    const base = store.getNotes()[0];
+    store.setNotes([
+      { ...base, id: "note-a", title: "Alpha note", pinned: false },
+      { ...base, id: "note-z", title: "Zulu pinned note", pinned: true },
+      { ...base, id: "note-m", title: "Mike note", pinned: false },
+    ]);
+    renderPage();
+
+    // Sort by title A→Z; the pinned "Zulu" note should still come first.
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Note" }));
+
+    const titles = screen
+      .getAllByRole("link")
+      .filter((link) =>
+        /^\/daily-notes\/note-[a-z]$/.test(link.getAttribute("href") ?? ""),
+      )
+      .map((link) => link.textContent);
+    expect(titles).toEqual(["Zulu pinned note", "Alpha note", "Mike note"]);
   });
 
   it("renders and sorts legacy notes that have a missing title or created date, without crashing", () => {

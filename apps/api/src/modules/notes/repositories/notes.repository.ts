@@ -204,7 +204,8 @@ export class NotesRepository {
         .select()
         .from(notes)
         .where(whereCondition)
-        .orderBy(desc(notes.updatedAt), desc(notes.id))
+        // Notes pinned on the Notes page come first, across every page.
+        .orderBy(desc(notes.pinned), desc(notes.updatedAt), desc(notes.id))
         .limit(limit)
         .offset(offset),
 
@@ -262,6 +263,7 @@ export class NotesRepository {
       moduleId: string | null;
       followUpDate: string | null;
       modulePinned: boolean;
+      pinned: boolean;
     }>,
   ) {
     const [note] = await this.drizzle.db

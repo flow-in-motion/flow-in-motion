@@ -19,4 +19,10 @@ export class UpdateNoteDto extends PartialType(
   @ValidateIf((_, value) => value !== undefined)
   @IsBoolean()
   modulePinned?: boolean;
+
+  /** Pin to the top of the Notes page (separate from the paper pin). */
+  @ApiProperty({ required: false, type: Boolean })
+  @ValidateIf((_, value) => value !== undefined)
+  @IsBoolean()
+  pinned?: boolean;
 }

@@ -17,6 +17,8 @@ export const notes = pgTable(
       .references(() => projects.id, { onDelete: 'cascade' }),
     moduleId: uuid('module_id').references(() => modules.id, { onDelete: 'cascade' }),
     modulePinned: boolean('module_pinned').default(false).notNull(),
+    // Pinned to the top of the Notes page (separate from the paper pin).
+    pinned: boolean('pinned').default(false).notNull(),
     createdBy: uuid('created_by')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
