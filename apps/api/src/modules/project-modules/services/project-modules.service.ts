@@ -296,7 +296,7 @@ export class ProjectModulesService {
     tenantId: string,
     callerUserId: string,
     input: {
-      projectId: string;
+      projectId?: string;
       shortTitle: string;
       title?: string;
       description?: string;
@@ -313,11 +313,14 @@ export class ProjectModulesService {
       dueDate?: string;
     },
   ) {
-    await this.ensureProjectOwnedByCaller(
-      tenantId,
-      input.projectId,
-      callerUserId,
-    );
+    // Papers don't have to belong to a project ("independent papers").
+    if (input.projectId) {
+      await this.ensureProjectOwnedByCaller(
+        tenantId,
+        input.projectId,
+        callerUserId,
+      );
+    }
     const status = paperStatus(input.status);
 
     const [statusId, priorityId] = await Promise.all([
@@ -391,7 +394,7 @@ export class ProjectModulesService {
       backupJournal: string;
       targetConference: string;
       backupConference: string;
-      projectId: string;
+      projectId: string | null;
       status: string;
       priority: string;
       pipelineStage: string;
@@ -407,17 +410,27 @@ export class ProjectModulesService {
       assignedToInvitationId?: string | null;
     };
     if (Object.prototype.hasOwnProperty.call(input, 'projectId')) {
-      if (!input.projectId) {
-        throw new BadRequestException(
-          'A paper must belong to a project. Use the General project for independent papers.',
+      if (input.projectId) {
+        await this.ensureProjectOwnedByCaller(
+          tenantId,
+          input.projectId,
+          callerUserId,
         );
+      } else if (existing?.projectId) {
+        // Making a paper independent: only someone on the paper itself can,
+        // since project access no longer applies once it leaves the project.
+        const membership =
+          await this.collaboratorsRepository.findByModuleAndUser(
+            tenantId,
+            moduleId,
+            callerUserId,
+          );
+        if (!membership) {
+          throw new ForbiddenException(
+            'Only collaborators on this paper can remove it from its project',
+          );
+        }
       }
-
-      await this.ensureProjectOwnedByCaller(
-        tenantId,
-        input.projectId,
-        callerUserId,
-      );
     }
     const status = paperStatus(input.status);
     const [statusId, priorityId, pipelineStageId] = await Promise.all([
@@ -459,7 +472,8 @@ export class ProjectModulesService {
       backupJournal: input.backupJournal,
       targetConference: input.targetConference,
       backupConference: input.backupConference,
-      projectId: input.projectId,
+      projectId:
+        input.projectId === undefined ? undefined : (input.projectId ?? null),
       statusId,
       priorityId,
       pipelineStageId,

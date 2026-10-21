@@ -1349,6 +1349,36 @@ describe("ModuleDetailPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("makes a paper independent (no project) from the header", async () => {
+    fixtures.module.projectId = "project-1";
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Change linked project" }),
+    );
+    const search = await screen.findByRole("combobox", {
+      name: "Linked project",
+    });
+    fireEvent.change(search, { target: { value: "Independent" } });
+    fireEvent.click(
+      screen.getByRole("option", { name: /Independent paper/ }),
+    );
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { projectId: null },
+      }),
+    );
+  });
+
+  it("shows a paper with no project as an independent paper", () => {
+    fixtures.module.projectId = null;
+    renderPage();
+
+    expect(screen.getByText("Independent paper")).toBeInTheDocument();
+  });
+
   it("changes the linked project directly from the header", async () => {
     renderPage();
 

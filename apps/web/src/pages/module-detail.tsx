@@ -409,6 +409,13 @@ function SubmissionHistoryCard({
   );
 }
 
+/** Picker option that removes the paper from its project. */
+const INDEPENDENT_PAPER_OPTION = {
+  id: "independent-paper",
+  label: "Independent paper",
+  sublabel: "No project",
+};
+
 export default function ModuleDetailPage() {
   const { moduleId = "" } = useParams();
   const navigate = useNavigate();
@@ -646,8 +653,11 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         assignedToUserId: form.assignedToUserId || null,
         assignedToInvitationId: form.assignedToInvitationId || null,
         currentlyWithType: form.currentlyWithType || undefined,
+        // An empty project means an independent paper (no project).
         projectId:
-          form.projectId !== module.projectId ? form.projectId : undefined,
+          (form.projectId || null) !== (module.projectId ?? null)
+            ? form.projectId || null
+            : undefined,
       },
     });
 
@@ -1038,7 +1048,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                       {linkedProjectQuery.data?.title ?? "Loading…"}
                     </Link>
                   ) : (
-                    <span>—</span>
+                    <span>Independent paper</span>
                   )}
 
                   {sameTenant ? (
@@ -1132,8 +1142,8 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                 <DialogHeader>
                   <DialogTitle>Change linked project</DialogTitle>
                   <DialogDescription>
-                    Choose a project for this paper. Select General for an independent
-                    paper.
+                    Choose a project for this paper, or make it an independent
+                    paper with no project.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -1152,7 +1162,11 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     id="header-module-project"
                     inlineResults
                     placeholder="Search projects by title"
-                    options={editProjectOptions}
+                    options={
+                      module.projectId
+                        ? [INDEPENDENT_PAPER_OPTION, ...editProjectOptions]
+                        : editProjectOptions
+                    }
                     selected={[]}
                     onAdd={(project) => {
                       if (project.id === module.projectId) {
@@ -1160,7 +1174,12 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                         return;
                       }
 
-                      void saveHeaderField({ projectId: project.id })
+                      void saveHeaderField({
+                        projectId:
+                          project.id === INDEPENDENT_PAPER_OPTION.id
+                            ? null
+                            : project.id,
+                      })
                         .then(() => setIsProjectPickerOpen(false))
                         .catch(() => {
                           // Keep the picker open so the user can retry.
@@ -1299,6 +1318,10 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                         : "No matching projects."
                     }
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Optional. Leave empty for an independent paper with no
+                    project.
+                  </p>
                 </FormField>
                 <FormField
                   label="Abstract"
@@ -1499,7 +1522,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
               <Button
                 type="submit"
                 form="edit-module-details-form"
-                disabled={updateModule.isPending || !form.projectId}
+                disabled={updateModule.isPending}
               >
                 <Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}
               </Button>

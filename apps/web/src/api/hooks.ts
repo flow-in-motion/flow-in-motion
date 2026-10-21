@@ -259,10 +259,11 @@ export interface ApiConferencePaper {
 export interface ApiConferenceLinkOption {
   kind: "project" | "paper";
   id: string;
-  projectId: string;
+  /** null for an independent paper with no project. */
+  projectId: string | null;
   displayId: string | null;
   label: string;
-  projectTitle: string;
+  projectTitle: string | null;
 }
 
 export const CONFERENCE_INTENTS = [
@@ -1413,7 +1414,8 @@ export interface CreateModuleInput {
   backupJournal?: string;
   targetConference?: string;
   backupConference?: string;
-  projectId: string;
+  /** Omit for an independent paper with no project. */
+  projectId?: string;
   status?: string;
   priority?: string;
   pipelineStage?: string;
@@ -1423,16 +1425,19 @@ export interface CreateModuleInput {
 }
 export type UpdateModuleInput = Omit<
   Partial<CreateModuleInput>,
-  "assignedToUserId" | "dueDate"
+  "assignedToUserId" | "dueDate" | "projectId"
 > & {
+  /** null removes the paper from its project, making it independent. */
+  projectId?: string | null;
   assignedToUserId?: string | null;
   assignedToInvitationId?: string | null;
   dueDate?: string | null;
 };
 type GeneratedModuleUpdateInput = Omit<
   UpdateModuleInput,
-  "assignedToUserId" | "assignedToInvitationId" | "dueDate"
+  "assignedToUserId" | "assignedToInvitationId" | "dueDate" | "projectId"
 > & {
+  projectId?: string;
   assignedToUserId?: string;
   assignedToInvitationId?: string;
   dueDate?: string;

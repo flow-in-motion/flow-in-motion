@@ -836,6 +836,8 @@ describe("ModulesPage", () => {
       ).toBeInTheDocument(),
     );
     expect(screen.getAllByText("Independent paper").length).toBeGreaterThan(0);
+    // Independent papers no longer go into the General project.
+    expect(store.getModules().at(-1)?.projectId).toBeNull();
     expect(screen.getAllByText("Concept & Ideation").length).toBeGreaterThan(0);
     expect(screen.getByText("Medium")).toBeInTheDocument();
     expect(hookMocks.createDraftInvitation).not.toHaveBeenCalled();
@@ -897,6 +899,49 @@ describe("ModulesPage", () => {
     expect(
       screen.getByRole("link", { name: "Genome Project" }),
     ).toBeInTheDocument();
+  });
+
+  it("creates an independent paper even after the project is cleared", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "No project at all" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Remove Independent paper/ }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("No project at all")).toBeInTheDocument(),
+    );
+    expect(store.getModules().at(-1)?.projectId).toBeNull();
+  });
+
+  it("still lets a paper be put in the existing General project", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "Paper in General" },
+    });
+    fireEvent.click(screen.getByPlaceholderText("Search projects by title"));
+    fireEvent.click(await screen.findByText("General project"));
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Paper in General")).toBeInTheDocument(),
+    );
+    expect(store.getModules().at(-1)?.projectId).toBe("project-general");
   });
 
   it("keeps collaborator management inside the paper edit page", () => {

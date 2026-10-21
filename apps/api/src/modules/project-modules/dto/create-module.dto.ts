@@ -91,11 +91,13 @@ export class CreateModuleDto {
 
   @ApiProperty({
     format: 'uuid',
+    required: false,
     description:
-      'The owned project this paper belongs to. Independent papers use the General project.',
+      'The owned project this paper belongs to. Omit it for an independent paper with no project.',
   })
+  @IsOptional()
   @IsUUID()
-  projectId!: string;
+  projectId?: string;
 
   @ApiProperty({
     required: false,

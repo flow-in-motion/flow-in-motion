@@ -59,6 +59,13 @@ import {
 const MODULE_STATUSES = ["Active", "Stalled", "Complete"] as const;
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 
+/** Picker option for a paper that doesn't belong to any project. */
+const INDEPENDENT_PAPER_OPTION: LinkExistingOption = {
+  id: "independent-paper",
+  label: "Independent paper",
+  sublabel: "No project",
+};
+
 export interface ModuleFormInput {
   shortTitle: string;
   title: string;
@@ -68,7 +75,8 @@ export interface ModuleFormInput {
   backupJournal: string;
   targetConference: string;
   backupConference: string;
-  projectId: string;
+  /** null for an independent paper with no project. */
+  projectId: string | null;
   status: string;
   priority: string;
   pipelineStage: string;
@@ -160,12 +168,14 @@ export function ModuleDialog({
   const me = useMe();
   const venueSuggestions = usePaperVenueSuggestions(tenantId, open);
 
+  // The existing General project stays available as an ordinary project,
+  // but independent papers no longer need it.
   const generalProjectOption =
     generalProject && generalProject.userId === me.data?.id
       ? {
           id: generalProject.id,
-          label: "Independent paper",
-          sublabel: "Stored in General",
+          label: generalProject.title,
+          sublabel: "General project",
         }
       : null;
 
@@ -188,6 +198,7 @@ export function ModuleDialog({
     sublabel: note.moduleId ? "Linked to another paper" : "Unlinked",
   }));
   const projectOptions = [
+    INDEPENDENT_PAPER_OPTION,
     ...(generalProjectOption ? [generalProjectOption] : []),
     ...projects
       .filter((project) => project.userId === me.data?.id)
@@ -247,7 +258,7 @@ export function ModuleDialog({
                 )!.title,
               }
             : { id: module.projectId, label: "Unknown project" }
-          : null,
+          : INDEPENDENT_PAPER_OPTION,
       );
     } else if (initialProjectId) {
       setForm({ ...INITIAL_FORM, projectId: initialProjectId });
@@ -260,11 +271,8 @@ export function ModuleDialog({
           : { id: initialProjectId, label: "Unknown project" },
       );
     } else {
-      setForm({
-        ...INITIAL_FORM,
-        projectId: generalProjectOption?.id ?? "",
-      });
-      setSelectedProject(generalProjectOption);
+      setForm({ ...INITIAL_FORM, projectId: null });
+      setSelectedProject(INDEPENDENT_PAPER_OPTION);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, module, initialProjectId]);
@@ -279,10 +287,6 @@ export function ModuleDialog({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedProject) {
-      setSaveError("Choose a project or select Independent paper.");
-      return;
-    }
     setIsSaving(true);
     setSaveError(null);
     const shouldCelebrate = enteredSubmittedUnderReview(
@@ -303,7 +307,11 @@ export function ModuleDialog({
         backupJournal: form.backupJournal.trim(),
         targetConference: form.targetConference.trim(),
         backupConference: form.backupConference.trim(),
-        projectId: selectedProject.id,
+        // No project selected, or "Independent paper": no project.
+        projectId:
+          selectedProject && selectedProject.id !== INDEPENDENT_PAPER_OPTION.id
+            ? selectedProject.id
+            : null,
       });
       if (!isEditing && savedModule) {
         await Promise.all([
@@ -631,7 +639,7 @@ export function ModuleDialog({
                 <p className="text-sm font-medium">
                   Link existing work (optional)
                 </p>
-                <FormField label="Project" htmlFor="module-project" required>
+                <FormField label="Project" htmlFor="module-project">
                   <LinkExistingField
                     id="module-project"
                     placeholder="Search projects by title"
@@ -642,8 +650,8 @@ export function ModuleDialog({
                     emptyMessage="No matching projects."
                   />
                   <p className="text-xs text-muted-foreground">
-                    Select Independent paper to store this paper under General,
-                    or choose one of your projects.
+                    Optional. Papers don't need a project — leave it as
+                    Independent paper, or choose one of your projects.
                   </p>
                 </FormField>
                 <FormField label="Tasks" htmlFor="new-module-link-tasks">
