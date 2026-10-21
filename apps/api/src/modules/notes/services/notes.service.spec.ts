@@ -838,6 +838,64 @@ describe('NotesService', () => {
     });
   });
 
+  describe('Notes page pins', () => {
+    const existingNote = (overrides: Record<string, unknown> = {}) => ({
+      id: 'note-1',
+      tenantId: 'tenant-1',
+      createdBy: 'user-1',
+      title: 'Test note',
+      content: 'Existing content',
+      projectId: null,
+      moduleId: null,
+      modulePinned: false,
+      pinned: false,
+      visibilityId: null,
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      repository.findById.mockResolvedValue(existingNote());
+      repository.update.mockResolvedValue(existingNote());
+    });
+
+    it.each([true, false])(
+      'saves pinned=%s, even for a note without a paper',
+      async (pinned) => {
+        await service.update('tenant-1', 'note-1', 'user-1', { pinned });
+
+        expect(repository.update).toHaveBeenCalledWith(
+          'tenant-1',
+          'note-1',
+          expect.objectContaining({ pinned, modulePinned: undefined }),
+        );
+      },
+    );
+
+    it('keeps the Notes page pin when the paper changes', async () => {
+      repository.findById.mockResolvedValue(
+        existingNote({
+          moduleId: 'module-1',
+          modulePinned: true,
+          pinned: true,
+        }),
+      );
+      modulesRepository.findById.mockImplementation(
+        (_tenantId: string, moduleId: string) =>
+          Promise.resolve({ id: moduleId, projectId: null }),
+      );
+
+      await service.update('tenant-1', 'note-1', 'user-1', {
+        moduleId: 'module-2',
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'note-1',
+        expect.objectContaining({ modulePinned: false, pinned: undefined }),
+      );
+    });
+  });
+
   describe('paper note pins', () => {
     const existingNote = () => ({
       id: 'note-1',

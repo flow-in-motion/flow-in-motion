@@ -226,6 +226,8 @@ export interface ApiNote {
   updatedAt: string;
   /** Pin this note within its linked paper's Notes panel. */
   modulePinned?: boolean;
+  /** Pin this note to the top of the Notes page (separate from the paper pin). */
+  pinned?: boolean;
 
 }
 export interface ApiNoteEntry {
@@ -2540,6 +2542,7 @@ export type UpdateNoteInput = Omit<
   moduleId?: string | null;
   followUpDate?: string | null;
   modulePinned?: boolean;
+  pinned?: boolean;
 };
 
 export function useNotes(
