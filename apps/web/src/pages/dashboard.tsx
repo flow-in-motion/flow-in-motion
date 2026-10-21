@@ -31,7 +31,6 @@ import { ConferenceSubmissionsTable } from "@/components/dashboard/conference-su
 import {
   StalledPapersCard,
   PriorityWorkloadCard,
-  ProjectProgressCard,
   TaskHealthCard,
 } from "@/components/dashboard/dashboard-insights";
 import {
@@ -135,7 +134,6 @@ type DashboardWidgetId =
   | "stalled-papers"
   | "task-health"
   | "priority-workload"
-  | "project-progress"
   | "tasks"
   | "pipeline"
   | "conferences";
@@ -182,14 +180,6 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
     span: 2,
   },
   {
-    id: "project-progress",
-    label: "Project progress",
-    description: "Top project completion based on linked tasks.",
-    group: "Insights",
-    component: ProjectProgressCard,
-    span: 3,
-  },
-  {
     id: "tasks",
     label: "Tasks to be done",
     description: "Priority work across projects.",
@@ -221,7 +211,6 @@ const DEFAULT_HIDDEN_WIDGETS: readonly DashboardWidgetId[] = [
   "stalled-papers",
   "task-health",
   "priority-workload",
-  "project-progress",
   "tasks",
 ];
 const DASHBOARD_LAYOUT_KEY = "research-in-motion.dashboard-layout.v1";

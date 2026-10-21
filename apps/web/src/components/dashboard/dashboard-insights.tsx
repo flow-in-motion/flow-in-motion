@@ -5,14 +5,12 @@ import {
   CircleDashed,
   Clock3,
   Hourglass,
-  TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import {
   useCurrentWorkspace,
   useModules,
-  useProjects,
   useTasks,
 } from "@/api/hooks";
 import { Badge } from "@/components/ui/badge";
@@ -24,22 +22,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 
 export type DashboardInsightId =
   | "stalled-papers"
   | "task-health"
-  | "priority-workload"
-  | "project-progress";
+  | "priority-workload";
 
 const PRIORITY_ROWS = [
   { label: "Critical", tone: "bg-red-500" },
@@ -266,95 +255,6 @@ export function PriorityWorkloadCard() {
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function ProjectProgressCard() {
-  const workspace = useCurrentWorkspace();
-  const tenantId = workspace.data?.id ?? "";
-  const projectsQuery = useProjects(tenantId);
-  const projects = projectsQuery.data?.data ?? [];
-  const tasksQuery = useTasks(tenantId);
-  const tasks = tasksQuery.data?.data ?? [];
-
-  const taskCountsByProject = new Map<string, { completed: number; total: number }>();
-  for (const task of tasks) {
-    if (!task.projectId) continue;
-    const counts = taskCountsByProject.get(task.projectId) ?? { completed: 0, total: 0 };
-    counts.total += 1;
-    if (task.status === "Complete") counts.completed += 1;
-    taskCountsByProject.set(task.projectId, counts);
-  }
-  const projectProgress = projects
-    .map((project) => {
-      const counts = taskCountsByProject.get(project.id) ?? { completed: 0, total: 0 };
-      return {
-        ...project,
-        ...counts,
-        percent: counts.total > 0 ? Math.round((counts.completed / counts.total) * 100) : 0,
-      };
-    })
-    .sort((a, b) => b.percent - a.percent || b.total - a.total || a.title.localeCompare(b.title))
-    .slice(0, 5);
-
-  return (
-    <Card className="overflow-hidden">
-      <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1.5">
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
-            Project progress
-          </CardTitle>
-          <CardDescription>Completion based on tasks linked directly to each project.</CardDescription>
-        </div>
-        <Badge variant="outline" className="mt-3 w-fit bg-background sm:mt-0">Top 5 projects</Badge>
-      </CardHeader>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Project</TableHead>
-              <TableHead className="hidden sm:table-cell">Status</TableHead>
-              <TableHead className="w-28 text-right">Tasks</TableHead>
-              <TableHead className="w-44">Progress</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projectProgress.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="h-36 text-center text-muted-foreground">
-                  Project progress will appear when projects are created.
-                </TableCell>
-              </TableRow>
-            ) : projectProgress.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="max-w-48 truncate font-medium" title={project.title}>
-                  <Link to={`/projects/${project.id}`} className="text-primary hover:underline">
-                    {project.title}
-                  </Link>
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <Badge variant="outline" className="max-w-44 truncate bg-muted/40 font-normal">
-                    {project.status ?? "Unassigned"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right text-sm tabular-nums text-muted-foreground">
-                  {project.completed}/{project.total}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${project.percent}%` }} />
-                    </div>
-                    <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{project.percent}%</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
       </CardContent>
     </Card>
   );
