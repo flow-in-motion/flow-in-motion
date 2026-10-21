@@ -1994,6 +1994,8 @@ export interface ApiModuleSubmission {
   createdBy: string;
   submittedDate: string;
   journalName: string;
+  /** The paper title as submitted to this venue. */
+  paperTitle: string | null;
   status: string;
   revisionRounds: number | null;
   decisionDate: string | null;
@@ -2005,6 +2007,8 @@ export interface ApiModuleSubmission {
 export interface SubmissionInput {
   submittedDate: string;
   journalName: string;
+  /** null clears the title on update. */
+  paperTitle?: string | null;
   status: string;
   revisionRounds?: number;
   decisionDate?: string;

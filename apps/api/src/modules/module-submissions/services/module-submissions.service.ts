@@ -23,6 +23,7 @@ export class ModuleSubmissionsService {
       createdBy: callerUserId,
       submittedDate: input.submittedDate,
       journalName: input.journalName.trim(),
+      paperTitle: input.paperTitle?.trim() || null,
       status: input.status,
       revisionRounds: input.revisionRounds,
       decisionDate: input.decisionDate,
@@ -58,6 +59,11 @@ export class ModuleSubmissionsService {
       {
         submittedDate: input.submittedDate,
         journalName: input.journalName?.trim(),
+        // undefined leaves the title unchanged; null or blank clears it.
+        paperTitle:
+          input.paperTitle === undefined
+            ? undefined
+            : input.paperTitle?.trim() || null,
         status: input.status,
         revisionRounds: input.revisionRounds,
         decisionDate: input.decisionDate,

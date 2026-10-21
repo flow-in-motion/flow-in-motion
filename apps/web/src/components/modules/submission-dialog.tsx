@@ -35,6 +35,7 @@ export const SUBMISSION_STATUSES = [
 export interface SubmissionFormInput {
   submittedDate: string;
   journalName: string;
+  paperTitle: string;
   status: string;
   revisionRounds: string;
   decisionDate: string;
@@ -45,12 +46,15 @@ interface SubmissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   submission?: ApiModuleSubmission | null;
+  /** Pre-fills the title for a new submission (the paper's current title). */
+  defaultPaperTitle?: string;
   onSave: (input: SubmissionFormInput) => Promise<void> | void;
 }
 
 const INITIAL_FORM: SubmissionFormInput = {
   submittedDate: "",
   journalName: "",
+  paperTitle: "",
   status: SUBMISSION_STATUSES[0],
   revisionRounds: "",
   decisionDate: "",
@@ -61,6 +65,7 @@ function formFromSubmission(submission: ApiModuleSubmission): SubmissionFormInpu
   return {
     submittedDate: submission.submittedDate,
     journalName: submission.journalName,
+    paperTitle: submission.paperTitle ?? "",
     status: submission.status,
     revisionRounds:
       submission.revisionRounds === null ? "" : String(submission.revisionRounds),
@@ -90,6 +95,7 @@ export function SubmissionDialog({
   open,
   onOpenChange,
   submission,
+  defaultPaperTitle = "",
   onSave,
 }: SubmissionDialogProps) {
   const [form, setForm] = useState<SubmissionFormInput>(INITIAL_FORM);
@@ -100,8 +106,12 @@ export function SubmissionDialog({
   useEffect(() => {
     if (!open) return;
     setSaveError(null);
-    setForm(submission ? formFromSubmission(submission) : INITIAL_FORM);
-  }, [open, submission]);
+    setForm(
+      submission
+        ? formFromSubmission(submission)
+        : { ...INITIAL_FORM, paperTitle: defaultPaperTitle },
+    );
+  }, [open, submission, defaultPaperTitle]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,6 +122,7 @@ export function SubmissionDialog({
       await onSave({
         ...form,
         journalName: form.journalName.trim(),
+        paperTitle: form.paperTitle.trim(),
         notes: form.notes.trim(),
       });
       onOpenChange(false);
@@ -134,6 +145,18 @@ export function SubmissionDialog({
         </DialogHeader>
 
         <form onSubmit={(event) => void handleSubmit(event)} className="grid gap-5">
+          <FormField label="Paper title (as submitted)" htmlFor="submission-paper-title">
+            <Textarea
+              id="submission-paper-title"
+              value={form.paperTitle}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, paperTitle: event.target.value }))
+              }
+              placeholder="The title used for this submission"
+              rows={2}
+            />
+          </FormField>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Submitted date" htmlFor="submission-submitted-date" required>
               <DatePickerInput

@@ -5,7 +5,9 @@ import {
   IsOptional,
   IsString,
   Length,
+  MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class CreateSubmissionDto {
@@ -17,6 +19,17 @@ export class CreateSubmissionDto {
   @IsString()
   @Length(1, 300)
   journalName!: string;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    example: 'Deep learning for coral reef monitoring',
+    description: 'The paper title as submitted to this venue.',
+  })
+  @ValidateIf((_, value) => value !== undefined && value !== null)
+  @IsString()
+  @MaxLength(1000)
+  paperTitle?: string | null;
 
   @ApiProperty({ example: 'Submitted' })
   @IsString()

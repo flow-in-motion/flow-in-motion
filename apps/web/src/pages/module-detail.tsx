@@ -348,6 +348,11 @@ function SubmissionHistoryCard({
                       </span>
                       <StatusBadge status={submission.status} />
                     </div>
+                    {submission.paperTitle ? (
+                      <p className="mt-1 text-sm italic text-foreground/80">
+                        “{submission.paperTitle}”
+                      </p>
+                    ) : null}
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>
                         Submitted {formatDate(submission.submittedDate)}
@@ -742,6 +747,8 @@ async function saveHeaderField(input: HeaderUpdateInput) {
     const payload = {
       submittedDate: input.submittedDate,
       journalName: input.journalName,
+      // Send null when editing so a cleared title is removed.
+      paperTitle: input.paperTitle || (editingSubmission ? null : undefined),
       status: input.status,
       revisionRounds: input.revisionRounds
         ? Number(input.revisionRounds)
@@ -1670,6 +1677,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           open={isSubmissionDialogOpen}
           onOpenChange={setIsSubmissionDialogOpen}
           submission={editingSubmission}
+          defaultPaperTitle={module.title || module.shortTitle || ""}
           onSave={handleSaveSubmission}
         />
 

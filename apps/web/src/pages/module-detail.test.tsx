@@ -54,6 +54,7 @@ const fixtures = vi.hoisted(() => ({
     createdBy: string;
     submittedDate: string;
     journalName: string;
+    paperTitle?: string | null;
     status: string;
     revisionRounds: number | null;
     decisionDate: string | null;
@@ -902,9 +903,85 @@ describe("ModuleDetailPage", () => {
         expect.objectContaining({
           submittedDate: "2026-03-01",
           journalName: "Nature Communications",
+          paperTitle: "Literature synthesis",
           status: "Submitted",
         }),
       ),
+    );
+  });
+
+  it("starts a new submission with the paper's current title, which can be changed", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Log submission" }));
+
+    const titleField = screen.getByRole("textbox", {
+      name: "Paper title (as submitted)",
+    });
+    expect(titleField).toHaveValue("Literature synthesis");
+
+    fireEvent.change(titleField, {
+      target: { value: "  A shorter title for this journal  " },
+    });
+    fireEvent.change(nativeDateInputFor("submission-submitted-date"), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: /Journal \/ venue/ }),
+      { target: { value: "PLOS ONE" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
+
+    await waitFor(() =>
+      expect(fixtures.createSubmission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          journalName: "PLOS ONE",
+          paperTitle: "A shorter title for this journal",
+        }),
+      ),
+    );
+  });
+
+  it("shows the submitted title and lets it be cleared when editing", async () => {
+    fixtures.submissions = [
+      {
+        id: "submission-1",
+        tenantId: "workspace-1",
+        moduleId: "module-1",
+        createdBy: "user-owner",
+        submittedDate: "2026-03-01",
+        journalName: "Nature Communications",
+        paperTitle: "An earlier working title",
+        status: "Submitted",
+        revisionRounds: null,
+        decisionDate: null,
+        notes: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    renderPage();
+
+    expect(screen.getByText("“An earlier working title”")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Edit submission to Nature Communications",
+      }),
+    );
+    const titleField = screen.getByRole("textbox", {
+      name: "Paper title (as submitted)",
+    });
+    expect(titleField).toHaveValue("An earlier working title");
+
+    fireEvent.change(titleField, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateSubmission).toHaveBeenCalledWith({
+        submissionId: "submission-1",
+        input: expect.objectContaining({ paperTitle: null }),
+      }),
     );
   });
 

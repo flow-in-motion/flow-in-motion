@@ -61,11 +61,51 @@ describe('ModuleSubmissionsService', () => {
         createdBy: callerUserId,
         submittedDate: '2026-03-01',
         journalName: 'Nature Communications',
+        paperTitle: null,
         status: 'Submitted',
         revisionRounds: 2,
         decisionDate: '2026-06-15',
         notes: 'Reviewer 2 requested more controls',
       });
+    });
+  });
+
+  describe('paper title', () => {
+    it('saves the trimmed title the paper was submitted under', async () => {
+      repository.create.mockResolvedValue({ id: 'submission-1' });
+
+      await service.create(tenantId, moduleId, callerUserId, {
+        submittedDate: '2026-03-01',
+        journalName: 'Nature',
+        paperTitle: '  Reef monitoring with deep learning  ',
+        status: 'Submitted',
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paperTitle: 'Reef monitoring with deep learning',
+        }),
+      );
+    });
+
+    it.each([
+      ['changes', 'A new title', 'A new title'],
+      ['clears with a blank value', '   ', null],
+      ['clears with null', null, null],
+    ])('%s the title on update', async (_label, input, expected) => {
+      repository.findById.mockResolvedValue({ id: 'submission-1' });
+      repository.update.mockResolvedValue({ id: 'submission-1' });
+
+      await service.update(tenantId, moduleId, 'submission-1', {
+        paperTitle: input,
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        tenantId,
+        moduleId,
+        'submission-1',
+        expect.objectContaining({ paperTitle: expected }),
+      );
     });
   });
 
@@ -100,6 +140,7 @@ describe('ModuleSubmissionsService', () => {
         {
           submittedDate: undefined,
           journalName: undefined,
+          paperTitle: undefined,
           status: 'Accepted',
           revisionRounds: undefined,
           decisionDate: undefined,

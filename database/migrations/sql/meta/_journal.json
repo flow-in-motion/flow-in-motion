@@ -512,6 +512,13 @@
       "when": 1792541903453,
       "tag": "0088_notes_page_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1792542938748,
+      "tag": "0089_submission_paper_title",
+      "breakpoints": true
     }
   ]
 }
