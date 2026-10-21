@@ -135,6 +135,7 @@ export class NotesRepository {
     projectId?: string,
     search?: string,
     projectOnly = false,
+    moduleId?: string,
   ) {
     const visibilityCondition = or(
       eq(notes.createdBy, callerUserId),
@@ -161,6 +162,7 @@ export class NotesRepository {
     if (projectId) {
       conditions.push(eq(notes.projectId, projectId));
     }
+    if (moduleId) conditions.push(eq(notes.moduleId, moduleId));
     if (projectOnly) conditions.push(isNull(notes.moduleId));
     if (search) {
       const pattern = searchPattern(search);

@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsIn, IsOptional } from 'class-validator';
-import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { LinkedWorkPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 
 function parseSelections(value: unknown): unknown {
   if (typeof value === 'string') {
@@ -25,7 +25,7 @@ function parseSelections(value: unknown): unknown {
   return value;
 }
 
-export class TaskListQueryDto extends ProjectScopedPaginationQueryDto {
+export class TaskListQueryDto extends LinkedWorkPaginationQueryDto {
   @ApiPropertyOptional({
     type: String,
     example: 'To do,Underway,Waiting',

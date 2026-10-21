@@ -138,6 +138,7 @@ export class TasksRepository {
     projectOnly = false,
     statuses?: string[],
     priorities?: string[],
+    moduleId?: string,
   ) {
     const accessCondition = or(
       eq(tasks.createdBy, callerUserId),
@@ -164,6 +165,7 @@ export class TasksRepository {
     if (projectId) {
       conditions.push(eq(tasks.projectId, projectId));
     }
+    if (moduleId) conditions.push(eq(tasks.moduleId, moduleId));
     if (projectOnly) conditions.push(isNull(tasks.moduleId));
     if (search) {
       const pattern = searchPattern(search);

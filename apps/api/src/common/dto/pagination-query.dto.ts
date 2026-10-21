@@ -46,3 +46,10 @@ export class ProjectScopedPaginationQueryDto extends PaginationQueryDto {
   @IsBoolean()
   projectOnly?: boolean;
 }
+
+export class LinkedWorkPaginationQueryDto extends ProjectScopedPaginationQueryDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  moduleId?: string;
+}

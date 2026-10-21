@@ -68,6 +68,7 @@ export class TasksController {
       query.projectOnly ?? false,
       query.statuses,
       query.priorities,
+      query.moduleId,
     );
   }
 

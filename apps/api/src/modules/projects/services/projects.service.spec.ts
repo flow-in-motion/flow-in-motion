@@ -65,6 +65,42 @@ describe('ProjectsService', () => {
   });
 
   describe('findOne', () => {
+    it('preserves status, importance and role with one batched display-value lookup', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'project-1',
+        title: 'Test',
+        userId: 'user-1',
+        statusId: 'status-active',
+        importanceId: 'importance-high',
+      });
+      collaboratorsRepository.findByProjectIdsAndUser.mockResolvedValue(
+        new Map([['project-1', { roleId: 'role-owner' }]]),
+      );
+      enumRepository.findValuesByIds.mockResolvedValue(
+        new Map([
+          ['status-active', 'Active'],
+          ['importance-high', 'High'],
+          ['role-owner', 'Owner'],
+        ]),
+      );
+
+      const result = await service.findOne('tenant-1', 'project-1', 'user-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          status: 'Active',
+          importance: 'High',
+          role: 'Owner',
+        }),
+      );
+      expect(enumRepository.findValuesByIds).toHaveBeenCalledTimes(1);
+      expect(enumRepository.findValuesByIds).toHaveBeenCalledWith([
+        'status-active',
+        'importance-high',
+        'role-owner',
+      ]);
+    });
+
     it('throws NotFoundException when the project does not exist', async () => {
       repository.findById.mockResolvedValue(undefined);
       await expect(

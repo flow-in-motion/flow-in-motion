@@ -89,6 +89,7 @@ export class NotesService {
     projectId?: string,
     search?: string,
     projectOnly = false,
+    moduleId?: string,
   ) {
     const limit = listPageSize(pageSize);
     const requestedPage = pageSize === 'all' ? 1 : page;
@@ -102,6 +103,7 @@ export class NotesService {
       projectId,
       search,
       projectOnly,
+      moduleId,
     );
 
     assertAllFits(pageSize, totalItems);

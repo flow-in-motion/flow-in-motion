@@ -405,18 +405,18 @@ export class ProjectsService {
 
     const projectIds = rows.map((r) => r.id);
 
-    const [valuesById, roleByProjectId] = await Promise.all([
-      this.enumRepository.findValuesByIds(enumIds),
-      this.collaboratorsRepository.findByProjectIdsAndUser(
+    const roleByProjectId =
+      await this.collaboratorsRepository.findByProjectIdsAndUser(
         projectIds,
         callerUserId,
-      ),
-    ]);
+      );
 
     const roleIds = Array.from(roleByProjectId.values())
       .map((r) => r.roleId)
       .filter((id): id is string => !!id);
-    const roleValuesById = await this.enumRepository.findValuesByIds(roleIds);
+    const valuesById = await this.enumRepository.findValuesByIds([
+      ...new Set([...enumIds, ...roleIds]),
+    ]);
 
     return rows.map(({ id, statusId, importanceId, ...rest }) => {
       const roleId = roleByProjectId.get(id)?.roleId;
@@ -427,7 +427,7 @@ export class ProjectsService {
         importance: importanceId
           ? (valuesById.get(importanceId) ?? null)
           : null,
-        role: roleId ? (roleValuesById.get(roleId) ?? null) : null,
+        role: roleId ? (valuesById.get(roleId) ?? null) : null,
       };
     });
   }

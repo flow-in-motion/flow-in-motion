@@ -61,6 +61,7 @@ describe('TasksController', () => {
         pageSize: 20,
         statuses: ['To do', 'Underway', 'Waiting'],
         priorities: ['High', 'Critical'],
+        moduleId: 'paper-24',
       });
 
       expect(tasksService.list).toHaveBeenCalledWith(
@@ -73,6 +74,7 @@ describe('TasksController', () => {
         false,
         ['To do', 'Underway', 'Waiting'],
         ['High', 'Critical'],
+        'paper-24',
       );
     });
     it('passes the page and configured page size to the service', async () => {
@@ -109,6 +111,7 @@ describe('TasksController', () => {
         false,
         undefined,
         undefined,
+        undefined,
       );
 
       expect(result).toBe(tasks);
@@ -139,6 +142,7 @@ describe('TasksController', () => {
         undefined,
         undefined,
         false,
+        undefined,
         undefined,
         undefined,
       );
