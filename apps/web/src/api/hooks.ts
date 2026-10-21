@@ -2904,16 +2904,26 @@ export function useDeleteMyNote() {
 // Conferences
 // ---------------------------------------------------------------------------
 
-export function useConferences(tenantId: string, page = 1, enabled = true) {
+export function useConferences(
+  tenantId: string,
+  page = 1,
+  enabled = true,
+  options?: { search?: string },
+) {
+  const search = options?.search?.trim() ?? "";
   return useQuery({
-    queryKey: apiKeys.conferences(tenantId, page),
+    // Search results share the conferences prefix so writes still invalidate them.
+    queryKey: search
+      ? [...apiKeys.conferences(tenantId, page), "search", search]
+      : apiKeys.conferences(tenantId, page),
     enabled: Boolean(tenantId) && enabled,
-    queryFn: () =>
-      authenticatedJson<PaginatedResponse<ApiConference>>(
-        `/api/v1/tenant/${encodeURIComponent(
-          tenantId,
-        )}/conferences?page=${page}`,
-      ),
+    queryFn: () => {
+      const params = new URLSearchParams({ page: String(page) });
+      if (search) params.set("search", search);
+      return authenticatedJson<PaginatedResponse<ApiConference>>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/conferences?${params}`,
+      );
+    },
   });
 }
 

@@ -286,6 +286,7 @@ describe('ConferencesService', () => {
         'user-1',
         20,
         20,
+        undefined,
       );
 
       expect(repository.findLinkedProjectsForConferences).toHaveBeenCalledWith(

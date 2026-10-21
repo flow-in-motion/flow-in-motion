@@ -74,9 +74,24 @@ describe('ConferencesController', () => {
         'user-1',
         2,
         20,
+        undefined,
       );
 
       expect(result).toBe(response);
+    });
+
+    it('passes a trimmed search term to the service', async () => {
+      conferencesService.list.mockResolvedValue({ data: [], meta: {} });
+
+      await controller.list('tenant-1', req, { page: 1, search: '  ICRA  ' });
+
+      expect(conferencesService.list).toHaveBeenCalledWith(
+        'tenant-1',
+        'user-1',
+        1,
+        20,
+        'ICRA',
+      );
     });
   });
 

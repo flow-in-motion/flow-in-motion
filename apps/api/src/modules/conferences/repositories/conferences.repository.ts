@@ -65,7 +65,9 @@ export class ConferencesRepository {
     userId: string,
     offset: number,
     limit: number,
+    search?: string,
   ) {
+    const pattern = search ? searchPattern(search) : undefined;
     const visibility = and(
       eq(conferences.tenantId, tenantId),
       or(
@@ -73,6 +75,14 @@ export class ConferencesRepository {
         isNotNull(projectCollaborators.userId),
         sql<boolean>`public.is_conference_module_collaborator(${conferences.id}, ${userId}::uuid)`,
       ),
+      pattern
+        ? or(
+            ilike(conferences.name, pattern),
+            ilike(conferences.acronym, pattern),
+            ilike(conferences.location, pattern),
+            ilike(conferences.submissionType, pattern),
+          )
+        : undefined,
     );
 
     const [rows, countResult] = await Promise.all([
