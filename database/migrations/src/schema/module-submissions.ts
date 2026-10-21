@@ -22,6 +22,8 @@ export const moduleSubmissions = pgTable(
 
     submittedDate: date('submitted_date').notNull(),
     journalName: text('journal_name').notNull(),
+    // The paper's title as submitted, since it often changes between submissions.
+    paperTitle: text('paper_title'),
     status: text('status').notNull(),
     revisionRounds: integer('revision_rounds'),
     decisionDate: date('decision_date'),

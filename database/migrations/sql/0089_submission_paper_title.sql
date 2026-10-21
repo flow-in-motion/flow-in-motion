@@ -1,0 +1,1 @@
+ALTER TABLE "module_submissions" ADD COLUMN "paper_title" text;
