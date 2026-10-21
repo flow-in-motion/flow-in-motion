@@ -322,17 +322,30 @@ export class ConferencesService {
     const projectIds = linkedModules
       .map((module) => module.projectId)
       .filter((projectId): projectId is string => Boolean(projectId));
-    if (projectIds.length !== linkedModules.length) {
-      throw new BadRequestException(
-        'Every paper linked to a conference must belong to a project',
-      );
-    }
-
     await this.validateProjectOwnership(
       tenantId,
       [...new Set(projectIds)],
       callerUserId,
     );
+
+    // Papers without a project: the caller must be an Owner of the paper.
+    const independentModuleIds = linkedModules
+      .filter((module) => !module.projectId)
+      .map((module) => module.id);
+    if (independentModuleIds.length > 0) {
+      const ownedModuleIds = new Set(
+        await this.repository.findOwnedModuleIds(
+          tenantId,
+          independentModuleIds,
+          callerUserId,
+        ),
+      );
+      if (independentModuleIds.some((id) => !ownedModuleIds.has(id))) {
+        throw new ForbiddenException(
+          'Only the paper owner can link this paper to a conference',
+        );
+      }
+    }
   }
 
   /**

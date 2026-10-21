@@ -4,6 +4,7 @@ import {
   conferenceProjects,
   conferences,
   enumTable,
+  moduleCollaborators,
   modules,
   projectCollaborators,
   projects,
@@ -12,6 +13,7 @@ import {
   and,
   asc,
   eq,
+  exists,
   ilike,
   inArray,
   isNotNull,
@@ -241,8 +243,39 @@ export class ConferencesRepository {
   }
 
   /**
-   * Returns papers that exist in the tenant together with their parent project.
-   * Archived papers and papers under archived projects are excluded.
+   * Returns the papers (from the given ids) the user is an Owner of. Used for
+   * papers without a project, which have no project owner to check.
+   */
+  async findOwnedModuleIds(
+    tenantId: string,
+    moduleIds: string[],
+    userId: string,
+  ) {
+    if (moduleIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.drizzle.db
+      .selectDistinct({ moduleId: moduleCollaborators.moduleId })
+      .from(moduleCollaborators)
+      .innerJoin(enumTable, eq(moduleCollaborators.roleId, enumTable.id))
+      .where(
+        and(
+          eq(moduleCollaborators.tenantId, tenantId),
+          eq(moduleCollaborators.userId, userId),
+          inArray(moduleCollaborators.moduleId, moduleIds),
+          eq(enumTable.category, 'project_role'),
+          eq(enumTable.value, 'Owner'),
+        ),
+      );
+
+    return rows.map((row) => row.moduleId);
+  }
+
+  /**
+   * Returns papers that exist in the tenant together with their parent project
+   * (null for papers without a project). Archived papers and papers under
+   * archived projects are excluded.
    */
   async findModulesByIds(tenantId: string, moduleIds: string[]) {
     if (moduleIds.length === 0) {
@@ -255,13 +288,13 @@ export class ConferencesRepository {
         projectId: modules.projectId,
       })
       .from(modules)
-      .innerJoin(projects, eq(projects.id, modules.projectId))
+      .leftJoin(projects, eq(projects.id, modules.projectId))
       .where(
         and(
           eq(modules.tenantId, tenantId),
           inArray(modules.id, moduleIds),
           isNull(modules.archivedAt),
-          isNull(projects.archivedAt),
+          or(isNull(modules.projectId), isNull(projects.archivedAt)),
         ),
       );
   }
@@ -321,11 +354,12 @@ export class ConferencesRepository {
           displayId: modules.displayId,
           shortTitle: modules.shortTitle,
           title: modules.title,
-          projectId: projects.id,
+          projectId: modules.projectId,
           projectTitle: projects.title,
         })
         .from(modules)
-        .innerJoin(projects, eq(projects.id, modules.projectId))
+        // Papers without a project are included too.
+        .leftJoin(projects, eq(projects.id, modules.projectId))
         .leftJoin(
           projectCollaborators,
           and(
@@ -338,10 +372,29 @@ export class ConferencesRepository {
         .where(
           and(
             eq(modules.tenantId, tenantId),
-            eq(projects.tenantId, tenantId),
             isNull(modules.archivedAt),
-            isNull(projects.archivedAt),
-            ownedByCaller,
+            or(isNull(modules.projectId), isNull(projects.archivedAt)),
+            or(
+              ownedByCaller,
+              // The caller is an Owner of the paper itself.
+              exists(
+                this.drizzle.db
+                  .select({ id: moduleCollaborators.id })
+                  .from(moduleCollaborators)
+                  .innerJoin(
+                    enumTable,
+                    eq(enumTable.id, moduleCollaborators.roleId),
+                  )
+                  .where(
+                    and(
+                      eq(moduleCollaborators.moduleId, modules.id),
+                      eq(moduleCollaborators.userId, userId),
+                      eq(enumTable.category, 'project_role'),
+                      eq(enumTable.value, 'Owner'),
+                    ),
+                  ),
+              ),
+            ),
             or(
               ilike(modules.shortTitle, pattern),
               ilike(modules.title, pattern),

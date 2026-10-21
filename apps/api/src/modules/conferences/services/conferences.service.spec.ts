@@ -12,6 +12,7 @@ describe('ConferencesService', () => {
     findProjectsByIds: jest.Mock;
     findOwnedProjectIds: jest.Mock;
     findModulesByIds: jest.Mock;
+    findOwnedModuleIds: jest.Mock;
     findLinkedProjects: jest.Mock;
     findLinkedPapers: jest.Mock;
     findVisibleById: jest.Mock;
@@ -31,6 +32,7 @@ describe('ConferencesService', () => {
       findProjectsByIds: jest.fn(),
       findOwnedProjectIds: jest.fn(),
       findModulesByIds: jest.fn(),
+      findOwnedModuleIds: jest.fn().mockResolvedValue([]),
       findLinkedProjects: jest.fn().mockResolvedValue([]),
       findLinkedPapers: jest.fn().mockResolvedValue([]),
       findVisibleById: jest.fn(),
@@ -164,6 +166,51 @@ describe('ConferencesService', () => {
         [],
         ['paper-1'],
       );
+    });
+
+    it('links an independent paper (no project) owned by the caller', async () => {
+      repository.findModulesByIds.mockResolvedValue([
+        { id: 'paper-1', projectId: null },
+      ]);
+      repository.findOwnedModuleIds.mockResolvedValue(['paper-1']);
+      repository.create.mockResolvedValue({
+        id: 'conference-1',
+        submissionDue: null,
+      });
+
+      await service.create(tenantId, callerUserId, {
+        name: 'Paper conference',
+        projectIds: [],
+        moduleIds: ['paper-1'],
+      });
+
+      expect(repository.findOwnedModuleIds).toHaveBeenCalledWith(
+        tenantId,
+        ['paper-1'],
+        callerUserId,
+      );
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Paper conference' }),
+        [],
+        ['paper-1'],
+      );
+    });
+
+    it('does not link an independent paper the caller does not own', async () => {
+      repository.findModulesByIds.mockResolvedValue([
+        { id: 'paper-1', projectId: null },
+      ]);
+      repository.findOwnedModuleIds.mockResolvedValue([]);
+
+      await expect(
+        service.create(tenantId, callerUserId, {
+          name: 'Paper conference',
+          projectIds: [],
+          moduleIds: ['paper-1'],
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(repository.create).not.toHaveBeenCalled();
     });
 
     it('does not link a missing or archived paper', async () => {

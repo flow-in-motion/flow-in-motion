@@ -497,7 +497,7 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
       backupJournal: input.backupJournal || undefined,
       targetConference: input.targetConference || undefined,
       backupConference: input.backupConference || undefined,
-      projectId: input.projectId,
+      projectId: input.projectId ?? undefined,
       status: input.status,
       pipelineStage: input.pipelineStage,
       dueDate: input.dueDate || undefined,

@@ -527,6 +527,35 @@ describe('ProjectModulesService', () => {
   });
 
   describe('create', () => {
+    it('creates an independent paper with no project', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        pipelineStageId: null,
+      });
+
+      await service.create('tenant-1', 'user-1', {
+        shortTitle: 'Independent paper',
+      });
+
+      expect(projectsRepository.findById).not.toHaveBeenCalled();
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: undefined,
+          createdBy: 'user-1',
+          shortTitle: 'Independent paper',
+        }),
+      );
+      expect(collaboratorsRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ moduleId: 'module-1', userId: 'user-1' }),
+      );
+    });
+
     it('defaults a new paper to Currently With Me', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
@@ -694,10 +723,15 @@ describe('ProjectModulesService', () => {
       expect(repository.create).not.toHaveBeenCalled();
     });
 
-    it('rejects removing the project from a paper', async () => {
+    it('lets a collaborator on the paper make it independent', async () => {
       repository.findById.mockResolvedValue({
         id: 'module-1',
         projectId: 'project-1',
+        statusId: null,
+      });
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
         statusId: null,
       });
 
@@ -705,11 +739,35 @@ describe('ProjectModulesService', () => {
         roleId: 'role-owner',
       });
 
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        projectId: null,
+      });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({ projectId: null }),
+      );
+    });
+
+    it('stops someone with only project access from making a paper independent', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: 'project-1',
+        statusId: null,
+      });
+      // Access comes through owning the project, not through the paper.
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue(undefined);
+      projectsRepository.findById.mockResolvedValue({
+        id: 'project-1',
+        userId: 'user-1',
+      });
+
       await expect(
         service.update('tenant-1', 'module-1', 'user-1', {
-          projectId: null as unknown as string,
+          projectId: null,
         }),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ForbiddenException);
 
       expect(repository.update).not.toHaveBeenCalled();
     });
