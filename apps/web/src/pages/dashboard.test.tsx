@@ -277,6 +277,8 @@ describe("DashboardPage", () => {
             workspaceId: "workspace-1",
             workspacePreferences: {
               dashboardLayout: {
+                // "project-progress" was removed; a stale saved layout that
+                // still lists it should simply ignore it.
                 order: [
                   "task-health",
                   "priority-workload",
@@ -286,7 +288,7 @@ describe("DashboardPage", () => {
                   "pipeline",
                   "conferences",
                 ],
-                hidden: ["stalled-papers"],
+                hidden: [],
               },
             },
             updateDashboardLayout: vi.fn(),
@@ -300,12 +302,15 @@ describe("DashboardPage", () => {
     );
 
     // Task health (2) + Priority workload (2) would leave a 1-column gap
-    // before Tasks (5), so Priority workload widens to 3; Project progress
-    // (3) sits alone and widens to the full row.
+    // before Tasks (5), so Priority workload widens to 3; Longest in current
+    // stage (3) sits alone and widens to the full row.
     expect(screen.getByTestId("dashboard-widget-task-health")).toHaveClass("xl:col-span-2");
     expect(screen.getByTestId("dashboard-widget-priority-workload")).toHaveClass("xl:col-span-3");
     expect(screen.getByTestId("dashboard-widget-tasks")).toHaveClass("xl:col-span-5");
-    expect(screen.getByTestId("dashboard-widget-project-progress")).toHaveClass("xl:col-span-5");
+    expect(screen.getByTestId("dashboard-widget-stalled-papers")).toHaveClass("xl:col-span-5");
+    expect(
+      screen.queryByTestId("dashboard-widget-project-progress"),
+    ).not.toBeInTheDocument();
   });
 
   it("saves the first dashboard change after hydrating a default server layout", async () => {
@@ -359,7 +364,6 @@ describe("DashboardPage", () => {
                   "stalled-papers",
                   "task-health",
                   "priority-workload",
-                  "project-progress",
                   "tasks",
                   "pipeline",
                   "conferences",
@@ -379,6 +383,14 @@ describe("DashboardPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Customise dashboard" }));
 
+    // Projects have no stages, so "Project progress" is no longer offered.
+    expect(
+      screen.queryByRole("checkbox", { name: /Project progress/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /Task health/ }),
+    ).toBeInTheDocument();
+
     // Move "Longest in current stage" (first row) down three times in quick succession —
     // this used to fire one save request per click; each carried its own
     // snapshot of the order, and an earlier request settling after a later
@@ -392,9 +404,8 @@ describe("DashboardPage", () => {
     expect(updateDashboardLayout.mock.calls[0]?.[0].order).toEqual([
       "task-health",
       "priority-workload",
-      "project-progress",
-      "stalled-papers",
       "tasks",
+      "stalled-papers",
       "pipeline",
       "conferences",
     ]);

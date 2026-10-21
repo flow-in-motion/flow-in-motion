@@ -1,10 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   PriorityWorkloadCard,
-  ProjectProgressCard,
   StalledPapersCard,
   TaskHealthCard,
 } from "@/components/dashboard/dashboard-insights";
@@ -125,18 +124,6 @@ describe("dashboard insight cards", () => {
     expect(
       screen.getByRole("img", { name: "Open task count by priority" }),
     ).toBeInTheDocument();
-  });
-
-  it("shows per-project task completion on the project progress card", () => {
-    render(
-      <MemoryRouter>
-        <ProjectProgressCard />
-      </MemoryRouter>,
-    );
-
-    const evidenceRow = screen.getByRole("row", { name: /Evidence review/ });
-    expect(within(evidenceRow).getByText("1/2")).toBeInTheDocument();
-    expect(within(evidenceRow).getByText("50%")).toBeInTheDocument();
   });
 
   it("ranks papers by time spent in their current stage on the stalled papers card", () => {
