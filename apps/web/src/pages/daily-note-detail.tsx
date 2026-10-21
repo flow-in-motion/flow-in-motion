@@ -15,12 +15,11 @@ import {
   useMembers,
   useModules,
   useMyNote,
-  useProject,
+  useMyProject,
+  useMyModule,
   useProjects,
   useUpdateMyNote,
-  type ApiModule,
   type ApiNote,
-  type ApiProject,
   useAddMyNoteEntry,
   useUpdateMyNoteEntry,
   type ApiNoteEntry,
@@ -209,24 +208,27 @@ function linkTargetPillClass(selected: boolean) {
 }
 function LinkedWorkCard({
   note,
-  projects,
-  modules,
-  linkedProjectTitle,
-  linkedProjectError,
-  linkedModuleTitle,
+  tenantId,
   isSaving,
   onChangeLink,
 }: {
   note: ApiNote;
-  projects: ApiProject[];
-  modules: ApiModule[];
-  linkedProjectTitle?: string;
-  linkedProjectError: boolean;
-  linkedModuleTitle?: string;
+  tenantId: string;
   isSaving: boolean;
   onChangeLink: (linkTarget: LinkTargetType, projectId: string, moduleId: string) => Promise<void>;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const projectsQuery = useProjects(tenantId, 1, isEditing);
+  const projects = projectsQuery.data?.data ?? [];
+  const modulesQuery = useModules(tenantId, undefined, 1, isEditing);
+  const modules = modulesQuery.data?.data ?? [];
+  const linkedProjectQuery = useMyProject(note.projectId ?? "");
+  const linkedModuleQuery = useMyModule(note.moduleId ?? "");
+  const linkedProjectTitle = linkedProjectQuery.data?.title;
+  const linkedProjectError = linkedProjectQuery.isError;
+  const linkedModuleTitle = linkedModuleQuery.data
+    ? paperDisplayTitle(linkedModuleQuery.data)
+    : undefined;
   const [linkTarget, setLinkTarget] = useState<LinkTargetType>(resolveLinkTargetType(note));
   const [projectId, setProjectId] = useState(note.projectId ?? "");
   const [moduleId, setModuleId] = useState(note.moduleId ?? "");
@@ -321,7 +323,7 @@ function LinkedWorkCard({
         <div className="flex flex-col gap-2">
           <Link to={`/modules/${note.moduleId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Paper</span>
-            <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? "Loading…"}</span>
+            <span className="mt-1 block font-semibold text-primary">{linkedModuleTitle ?? (linkedModuleQuery.isError ? "Unknown paper" : "Loading…")}</span>
           </Link>
           {note.projectId ? (
             <Link to={`/projects/${note.projectId}`} className="block rounded-md border border-border p-4 transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -395,14 +397,9 @@ export default function DailyNoteDetailPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
   const noteQuery = useMyNote(noteId);
-  const projectsQuery = useProjects(tenantId);
-  const projects = projectsQuery.data?.data ?? [];
-  const modulesQuery = useModules(tenantId);
-  const modules = modulesQuery.data?.data ?? [];
   const updateNote = useUpdateMyNote();
   const deleteNote = useDeleteMyNote();
   const note = noteQuery.data;
-  const linkedProjectQuery = useProject(tenantId, note?.projectId ?? "", Boolean(note?.projectId));
   const sameTenant = Boolean(note && tenantId && note.tenantId === tenantId);
   const membersQuery = useMembers(tenantId, 1, sameTenant);
   const members = membersQuery.data?.data ?? [];
@@ -621,9 +618,6 @@ export default function DailyNoteDetailPage() {
       }
     }
   }
-  const linkedModule = note.moduleId
-    ? modules.find((module) => module.id === note.moduleId)
-    : undefined;
   const entryGroups = groupNoteEntries(note.entries ?? []);
   const modifiedAt = (note.entries ?? []).reduce(
     (latest: string | null, entry) => {
@@ -1022,11 +1016,7 @@ const hasTodayEntry = Boolean(
             <div id="note-linked-work-content">
               <LinkedWorkCard
                 note={note}
-                projects={projects}
-                modules={modules}
-                linkedProjectTitle={linkedProjectQuery.data?.title}
-                linkedProjectError={linkedProjectQuery.isError}
-                linkedModuleTitle={linkedModule ? paperDisplayTitle(linkedModule) : undefined}
+                tenantId={tenantId}
                 isSaving={isNoteSaving}
                 onChangeLink={handleChangeLink}
               />

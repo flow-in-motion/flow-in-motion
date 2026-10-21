@@ -1058,6 +1058,7 @@ export function useUpdateProject(tenantId: string) {
       ),
     async onSuccess(project) {
       queryClient.setQueryData(apiKeys.project(tenantId, project.id), project);
+      queryClient.setQueryData(myProjectKey(project.id), project);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: apiKeys.projects(tenantId),
@@ -1180,9 +1181,20 @@ export function useMyProjects(page = 1, enabled = true) {
   });
 }
 
+function retryRecordLookup(failureCount: number, error: Error) {
+  const permanentClientError =
+    error instanceof ApiError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 408 &&
+    error.status !== 429;
+  return !permanentClientError && failureCount < 3;
+}
+
 export function useMyProject(projectId: string, enabled = true) {
   return useQuery({
     queryKey: myProjectKey(projectId),
+    retry: retryRecordLookup,
     enabled: Boolean(projectId) && enabled,
     queryFn: async () =>
       responseData<ApiProject>(
@@ -1846,6 +1858,7 @@ export function useMyModules(page = 1, enabled = true) {
 export function useMyModule(moduleId: string, enabled = true) {
   return useQuery({
     queryKey: myModuleKey(moduleId),
+    retry: retryRecordLookup,
     enabled: Boolean(moduleId) && enabled,
     queryFn: async () =>
       responseData<ApiModule>(
@@ -2144,6 +2157,7 @@ export function useTasks(
     pageSize?: number | "all";
     search?: string;
     projectOnly?: boolean;
+    moduleId?: string;
     statuses?: readonly string[];
     priorities?: readonly string[];
   },
@@ -2151,6 +2165,7 @@ export function useTasks(
   const pageSize = options?.pageSize ?? 20;
   const search = options?.search?.trim() ?? "";
   const projectOnly = options?.projectOnly ?? false;
+  const moduleId = options?.moduleId;
 
   const statuses = [
     ...new Set(
@@ -2174,10 +2189,11 @@ export function useTasks(
       projectOnly,
       statuses,
       priorities,
+      moduleId ?? null,
     ],
     enabled: Boolean(tenantId) && enabled,
     // Keep previous results during page/search changes, but never
-    // carry them across workspaces, projects, or filter selections.
+    // carry them across workspaces, projects, papers, or filter selections.
     placeholderData: (previousData, previousQuery) => {
       const previousKey = previousQuery?.queryKey;
 
@@ -2185,8 +2201,9 @@ export function useTasks(
         previousKey?.[2] !== tenantId ||
         previousKey?.[4] !== (projectId || "all") ||
         previousKey?.[8] !== projectOnly ||
-        previousKey?.at(-2) !== statuses ||
-        previousKey?.at(-1) !== priorities
+        previousKey?.[9] !== statuses ||
+        previousKey?.[10] !== priorities ||
+        previousKey?.[11] !== (moduleId ?? null)
       ) {
         return undefined;
       }
@@ -2201,6 +2218,7 @@ export function useTasks(
             path: { tenantId },
             query: {
               ...(projectId ? { projectId } : {}),
+              ...(moduleId ? { moduleId } : {}),
               page,
               pageSize,
               ...(search ? { search } : {}),
@@ -2209,6 +2227,7 @@ export function useTasks(
               ...(priorities ? { priorities } : {}),
             } as {
               projectId: string;
+              moduleId?: string;
               page: number;
               pageSize: number | "all";
               search?: string;
@@ -2558,22 +2577,26 @@ export function useNotes(
     pageSize?: number | "all";
     search?: string;
     projectOnly?: boolean;
+    moduleId?: string;
   },
 ) {
   const pageSize = options?.pageSize ?? 20;
   const search = options?.search?.trim() ?? "";
+  const moduleId = options?.moduleId;
   return useQuery({
     queryKey: [
       ...apiKeys.notes(tenantId, projectId, page, pageSize, search),
       options?.projectOnly ?? false,
+      moduleId ?? null,
     ],
     enabled: Boolean(tenantId) && enabled,
     // Keep the search field mounted while a new result page is loading.
-    // Never carry data across workspace boundaries.
+    // Never carry data across workspace or linked-paper boundaries.
     placeholderData: (previous, query) =>
       query?.queryKey[2] === tenantId &&
       query.queryKey[4] === (projectId ?? "all") &&
-      query.queryKey[8] === (options?.projectOnly ?? false)
+      query.queryKey[8] === (options?.projectOnly ?? false) &&
+      query.queryKey[9] === (moduleId ?? null)
         ? keepPreviousData(previous)
         : undefined,
     retry: false,
@@ -2586,12 +2609,14 @@ export function useNotes(
             // it is optional at runtime.
             query: {
               ...(projectId ? { projectId } : {}),
+              ...(moduleId ? { moduleId } : {}),
               page,
               pageSize,
               ...(search ? { search } : {}),
               ...(options?.projectOnly ? { projectOnly: true } : {}),
             } as {
               projectId: string;
+              moduleId?: string;
               page: number;
               pageSize: number | "all";
               search?: string;

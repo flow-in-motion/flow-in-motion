@@ -26,6 +26,7 @@ import {
   useUpdateModule,
   useUpdateMyModule,
   useUpdateMyProject,
+  useUpdateProject,
   useUpdateMyTask,
   useUpdateNote,
   useUpdateTask,
@@ -46,6 +47,17 @@ function wrapperFor(queryClient: QueryClient) {
 }
 
 describe("'My*' mutations invalidate the matching tenant-scoped list", () => {
+  it("updates the linked-project cache after a rename through the project list", async () => {
+    const queryClient = makeQueryClient();
+    const key = ["api", "me", "projects", "resource-1"];
+    queryClient.setQueryData(key, { id: "resource-1", title: "Original" });
+    const { result } = renderHook(() => useUpdateProject(tenantId), {
+      wrapper: wrapperFor(queryClient),
+    });
+    await result.current.mutateAsync({ projectId: "resource-1", input: { title: "Updated" } });
+    expect(queryClient.getQueryData(key)).toEqual(expect.objectContaining({ title: "Updated" }));
+  });
+
   it("useUpdateMyProject invalidates apiKeys.projects(tenantId)", async () => {
     const queryClient = makeQueryClient();
     queryClient.setQueryData(apiKeys.projects(tenantId), { data: [], meta: {} });

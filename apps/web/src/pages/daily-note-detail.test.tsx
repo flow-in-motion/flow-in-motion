@@ -11,6 +11,11 @@ import {
 } from "@testing-library/react";
 
 const fixtures = vi.hoisted(() => ({
+  projectLists: vi.fn(),
+  paperLists: vi.fn(),
+  projectLookups: vi.fn(),
+  paperLookups: vi.fn(),
+  linkedPaperError: false,
   updateNote: vi.fn(),
   addEntry: vi.fn(),
   updateEntry: vi.fn(),
@@ -80,14 +85,36 @@ vi.mock("@/api/hooks", () => ({
     error: undefined,
     refetch: vi.fn(),
   }),
-  useProjects: () => ({
+  useProjects: (...args: unknown[]) => {
+    fixtures.projectLists(...args);
+    return ({
     data: { data: fixtures.projects, meta: { page: 1, pageSize: 20, totalItems: fixtures.projects.length, totalPages: 1 } },
-  }),
-  useModules: () => ({
+  }); },
+  useModules: (...args: unknown[]) => {
+    fixtures.paperLists(...args);
+    return ({
     data: { data: fixtures.modules, meta: { page: 1, pageSize: 20, totalItems: fixtures.modules.length, totalPages: 1 } },
-  }),
+  }); },
 
   useDeleteMyNote: () => ({ mutateAsync: fixtures.deleteNote, isPending: false }),
+  useMyProject: (projectId: string) => {
+    fixtures.projectLookups(projectId);
+    return {
+      data: projectId === "project-outside-page"
+        ? { title: "Older project" }
+        : projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
+      isError: false,
+    };
+  },
+  useMyModule: (moduleId: string) => {
+    fixtures.paperLookups(moduleId);
+    return {
+      data: fixtures.linkedPaperError ? undefined : moduleId === "module-outside-page"
+        ? { title: "Older paper" }
+        : fixtures.modules.find((module) => module.id === moduleId),
+      isError: fixtures.linkedPaperError,
+    };
+  },
   useProject: (_tenantId: string, projectId?: string) => ({
     data: projectId === "project-1" ? { title: "Genome Sequencing Study" } : undefined,
     isError: false,
@@ -122,6 +149,12 @@ vi.mock("@/lib/feature-flags", () => ({
 
 describe("DailyNoteDetailPage", () => {
   beforeEach(() => {
+    fixtures.note.tenantId = "workspace-1";
+    fixtures.projectLists.mockClear();
+    fixtures.paperLists.mockClear();
+    fixtures.projectLookups.mockClear();
+    fixtures.paperLookups.mockClear();
+    fixtures.linkedPaperError = false;
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -174,6 +207,37 @@ describe("DailyNoteDetailPage", () => {
       </MemoryRouter>,
     );
   }
+
+  it("resolves linked names outside the first page, including a shared record", () => {
+    fixtures.note.tenantId = "other-workspace";
+    fixtures.note.moduleId = "module-outside-page";
+    fixtures.note.projectId = "project-outside-page";
+    renderNote();
+
+    expect(screen.getByRole("link", { name: "Paper Older paper" })).toHaveAttribute("href", "/modules/module-outside-page");
+    expect(screen.getByRole("link", { name: "Parent project Older project" })).toHaveAttribute("href", "/projects/project-outside-page");
+    expect(fixtures.projectLookups).toHaveBeenCalledWith("project-outside-page");
+    expect(fixtures.paperLookups).toHaveBeenCalledWith("module-outside-page");
+    expect(fixtures.projectLists.mock.calls.every((args) => args[2] === false)).toBe(true);
+    expect(fixtures.paperLists.mock.calls.every((args) => args[3] === false)).toBe(true);
+  });
+
+  it("loads link choices when Change link is opened", () => {
+    renderNote();
+    expect(fixtures.projectLists.mock.calls.every((args) => args[2] === false)).toBe(true);
+    expect(fixtures.paperLists.mock.calls.every((args) => args[3] === false)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Change link" }));
+    expect(fixtures.projectLists).toHaveBeenCalledWith("workspace-1", 1, true);
+    expect(fixtures.paperLists).toHaveBeenCalledWith("workspace-1", undefined, 1, true);
+  });
+
+  it("ends the linked paper loading state when access fails", () => {
+    fixtures.note.moduleId = "module-outside-page";
+    fixtures.linkedPaperError = true;
+    renderNote();
+    expect(screen.getByRole("link", { name: "Paper Unknown paper" })).toBeInTheDocument();
+    expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+  });
 
   it("groups entries by local date and displays newest content first", () => {
     // In Sydney, 14:00 UTC on October 12 is October 13.

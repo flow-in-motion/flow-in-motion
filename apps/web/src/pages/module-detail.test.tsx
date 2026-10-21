@@ -15,6 +15,8 @@ interface FixtureTask {
 }
 
 const fixtures = vi.hoisted(() => ({
+  taskRequests: vi.fn(),
+  noteRequests: vi.fn(),
   updateModule: vi.fn(),
   archiveModule: vi.fn(),
   createTask: vi.fn(),
@@ -258,7 +260,9 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useTrackEvent: () => vi.fn(),
-  useTasks: () => ({
+  useTasks: (...args: unknown[]) => {
+    fixtures.taskRequests(...args);
+    return ({
     data: {
       data: fixtures.tasks,
       meta: {
@@ -268,8 +272,10 @@ vi.mock("@/api/hooks", () => ({
         totalPages: 1,
       },
     },
-  }),
-  useNotes: () => ({
+  }); },
+  useNotes: (...args: unknown[]) => {
+    fixtures.noteRequests(...args);
+    return ({
     data: {
       data: fixtures.notes,
       meta: {
@@ -279,7 +285,7 @@ vi.mock("@/api/hooks", () => ({
         totalPages: 1,
       },
     },
-  }),
+  }); },
   useMembers: () => ({
     data: {
       data: [],
@@ -293,7 +299,7 @@ vi.mock("@/api/hooks", () => ({
     isPending: false,
   }),
   useEnumValues: () => ({ data: [] }),
-  useProject: (_tenantId: string, projectId: string) => ({
+  useMyProject: (projectId: string) => ({
     data: fixtures.projects.find((project) => project.id === projectId),
     isError: false,
   }),
@@ -364,6 +370,8 @@ vi.mock("@/api/hooks", () => ({
 
 describe("ModuleDetailPage", () => {
   beforeEach(() => {
+    fixtures.taskRequests.mockClear();
+    fixtures.noteRequests.mockClear();
     fixtures.notes.forEach((note) => {
       note.modulePinned = false;
     });
@@ -419,6 +427,18 @@ describe("ModuleDetailPage", () => {
       </MemoryRouter>,
     );
   }
+
+  it("requests only this paper's linked work without restricting it to the first 20 rows", () => {
+    renderPage();
+    expect(fixtures.taskRequests).toHaveBeenCalledWith(
+      "workspace-1", undefined, 1, true, { moduleId: "module-1", pageSize: "all" },
+    );
+    expect(fixtures.noteRequests).toHaveBeenCalledWith(
+      "workspace-1", undefined, 1, true, { moduleId: "module-1", pageSize: "all" },
+    );
+    expect(screen.queryByText("Independent task")).not.toBeInTheDocument();
+    expect(screen.queryByText("Independent note")).not.toBeInTheDocument();
+  });
 
   it("returns to Papers after deleting through the linked-work dialog", async () => {
     render(
