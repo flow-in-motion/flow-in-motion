@@ -716,6 +716,9 @@ describe('NotesService', () => {
         2,
         20,
         'project-1',
+        undefined,
+        false,
+        'paper-24',
       );
 
       expect(repository.findVisibleByTenant).toHaveBeenCalledWith(
@@ -726,6 +729,7 @@ describe('NotesService', () => {
         'project-1',
         undefined,
         false,
+        'paper-24',
       );
 
       expect(noteMembers.findByNoteIdsAndUser).not.toHaveBeenCalled();

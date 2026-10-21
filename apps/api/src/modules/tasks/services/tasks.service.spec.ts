@@ -506,6 +506,7 @@ describe('TasksService', () => {
         false,
         undefined,
         undefined,
+        undefined,
       );
       expect(result.data.map((task) => task.id)).toEqual(['task-21']);
       expect(result.meta).toEqual({
@@ -532,6 +533,7 @@ describe('TasksService', () => {
         undefined,
         undefined,
         false,
+        undefined,
         undefined,
         undefined,
       );
@@ -572,6 +574,7 @@ describe('TasksService', () => {
         false,
         statuses,
         priorities,
+        'paper-24',
       );
 
       expect(repository.findVisibleByTenant).toHaveBeenCalledWith(
@@ -584,6 +587,7 @@ describe('TasksService', () => {
         false,
         statuses,
         priorities,
+        'paper-24',
       );
       expect(result.meta).toEqual({
         page: 2,

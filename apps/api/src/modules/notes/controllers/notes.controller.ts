@@ -26,7 +26,7 @@ import { UpdateNoteDto } from '../dto/update-note.dto';
 import { NotesService } from '../services/notes.service';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { ConfigService } from '@nestjs/config';
-import { ProjectScopedPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { LinkedWorkPaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { CreateNoteEntryDto } from '../dto/create-note-entry.dto';
 import { UpdateNoteEntryDto } from '../dto/update-note-entry.dto';
 interface AuthenticatedRequest extends Request {
@@ -52,7 +52,7 @@ export class NotesController {
   async list(
     @Param('tenantId') tenantId: string,
     @Req() req: AuthenticatedRequest,
-    @Query() query: ProjectScopedPaginationQueryDto,
+    @Query() query: LinkedWorkPaginationQueryDto,
   ) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
 
@@ -67,6 +67,7 @@ export class NotesController {
       query.projectId,
       query.search?.trim() || undefined,
       query.projectOnly ?? false,
+      query.moduleId,
     );
   }
 

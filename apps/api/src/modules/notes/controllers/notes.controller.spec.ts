@@ -162,6 +162,7 @@ describe('NotesController', () => {
       const result = await controller.list('tenant-1', req, {
         page: 2,
         projectId: 'project-1',
+        moduleId: 'paper-24',
       });
 
       expect(usersService.findByExternalAuthId).toHaveBeenCalledWith(
@@ -178,6 +179,7 @@ describe('NotesController', () => {
         'project-1',
         undefined,
         false,
+        'paper-24',
       );
 
       expect(result).toBe(response);
