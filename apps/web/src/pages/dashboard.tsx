@@ -43,6 +43,7 @@ import { PriorityTasksTable } from "@/components/dashboard/priority-tasks-table"
 import { ModuleDialog, type ModuleFormInput } from "@/components/modules/module-dialog";
 import { NoteDialog, type NoteFormInput } from "@/components/notes/note-dialog";
 import { NewProjectDialog, type NewProjectInput } from "@/components/projects/new-project-dialog";
+import { GlobalSearch } from "@/components/search/global-search";
 // import { WorkOnThisNextBanner } from "@/components/dashboard/work-on-this-next-banner";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -552,6 +553,8 @@ export default function DashboardPage() {
           </div>
         }
       />
+
+      <GlobalSearch tenantId={tenantId} />
 
       <NewProjectDialog
         open={isNewProjectOpen}

@@ -24,6 +24,7 @@ export class ConferencesService {
     callerUserId: string,
     page: number,
     pageSize: number,
+    search?: string,
   ) {
     const offset = paginationOffset(page, pageSize);
 
@@ -32,6 +33,7 @@ export class ConferencesService {
       callerUserId,
       offset,
       pageSize,
+      search,
     );
 
     const conferenceIds = data.map((conference) => conference.id);

@@ -6,6 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardPage from "@/pages/dashboard";
 import { PreferencesContext } from "@/preferences/preferences-context";
 
+// The global search has its own tests; keep it out of the dashboard tests.
+vi.mock("@/components/search/global-search", () => ({
+  GlobalSearch: () => <div data-testid="global-search" />,
+}));
+
 vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: ReactNode }) => <>{children}</>,
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,

@@ -38,4 +38,39 @@ describe('ConferencesRepository', () => {
     expect(paperQuery!.sql).not.toContain(' limit ');
     expect(paperQuery!.params).toContain('%Genome%');
   });
+
+  it('filters visible conferences by name, acronym, location and type when searching', async () => {
+    const { queries, repository } = setup();
+
+    await repository.findVisiblePageByUser(
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000002',
+      0,
+      20,
+      'robotics',
+    );
+
+    expect(queries).toHaveLength(2);
+    for (const query of queries) {
+      expect(query.sql).toContain('"conferences"."name" ilike');
+      expect(query.sql).toContain('"conferences"."acronym" ilike');
+      expect(query.sql).toContain('"conferences"."location" ilike');
+      expect(query.params).toContain('%robotics%');
+    }
+  });
+
+  it('does not filter by text when there is no search term', async () => {
+    const { queries, repository } = setup();
+
+    await repository.findVisiblePageByUser(
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000002',
+      0,
+      20,
+    );
+
+    for (const query of queries) {
+      expect(query.sql).not.toContain('ilike');
+    }
+  });
 });

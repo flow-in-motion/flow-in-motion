@@ -65,6 +65,7 @@ export class ConferencesController {
       user.id,
       query.page ?? 1,
       pageSize,
+      query.search?.trim() || undefined,
     );
   }
 
