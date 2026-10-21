@@ -248,7 +248,7 @@ export function PriorityWorkloadCard() {
           <div className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed bg-muted/40 text-center">
             <CheckCircle2 className="mb-3 h-7 w-7 text-emerald-500" />
             <p className="font-medium">No open workload</p>
-            <p className="mt-1 text-sm text-muted-foreground">All visible tasks are complete.</p>
+            <p className="mt-1 text-sm text-muted-foreground">All tasks are complete.</p>
           </div>
         ) : (
           <div className="space-y-4" role="img" aria-label="Open task count by priority">

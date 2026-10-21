@@ -78,7 +78,7 @@ function buildSummary(counts: {
   return [
     {
       label: "Active Projects",
-      description: "Active of all visible projects",
+      description: "Active of all projects",
       value: `${counts.activeProjects} of ${counts.totalProjects}`,
       icon: FolderKanban,
       tone: "blue",
@@ -86,7 +86,7 @@ function buildSummary(counts: {
     },
     {
       label: "Active Papers",
-      description: "Active of all visible papers",
+      description: "Active of all papers",
       value: `${counts.activeModules} of ${counts.totalModules}`,
       icon: FileStack,
       tone: "emerald",
@@ -94,7 +94,7 @@ function buildSummary(counts: {
     },
     {
       label: "Open Tasks",
-      description: "Open of all visible tasks",
+      description: "Open of all tasks",
       value: `${counts.openTasks} of ${counts.totalTasks}`,
       icon: ListTodo,
       tone: "amber",
