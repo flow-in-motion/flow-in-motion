@@ -149,7 +149,8 @@ describe("DashboardPage", () => {
   it("uses server totals even when the loaded page is empty", () => {
     render(<MemoryRouter><DashboardPage /></MemoryRouter>);
     expect(screen.getByText("34 of 47")).toBeInTheDocument();
-    expect(screen.getByText("61 of 85")).toBeInTheDocument();
+    expect(screen.getByText("61", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("61 of 85")).not.toBeInTheDocument();
     expect(screen.getByText("25")).toBeInTheDocument();
   });
 

@@ -70,7 +70,6 @@ function buildSummary(counts: {
   activeProjects: number;
   totalProjects: number;
   openTasks: number;
-  totalTasks: number;
   reviewStage: number;
   activeModules: number;
   totalModules: number;
@@ -94,8 +93,8 @@ function buildSummary(counts: {
     },
     {
       label: "Open Tasks",
-      description: "Open of all tasks",
-      value: `${counts.openTasks} of ${counts.totalTasks}`,
+      description: "Tasks still to complete",
+      value: String(counts.openTasks),
       icon: ListTodo,
       tone: "amber",
       to: "/tasks",
@@ -291,7 +290,6 @@ export default function DashboardPage() {
           .length,
         totalProjects: projects.length,
         openTasks: tasksQuery.data?.summary?.open ?? 0,
-        totalTasks: tasksQuery.data?.meta.totalItems ?? 0,
         reviewStage: modulesQuery.data?.summary?.review ?? 0,
         activeModules: modulesQuery.data?.summary?.active ?? 0,
         totalModules: modulesQuery.data?.meta.totalItems ?? 0,
