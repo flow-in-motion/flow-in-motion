@@ -299,17 +299,13 @@ export class ConferencesRepository {
       );
   }
 
-  /**
-   * Searches every active project and paper owned by the caller. The picker
-   * calls this only after the user types, so no full paper list is loaded when
-   * the conference dialog opens.
-   */
+  /** Lists owned active projects and papers, optionally filtered by search. */
   async searchOwnedLinkOptions(
     tenantId: string,
     userId: string,
     search: string,
   ) {
-    const pattern = searchPattern(search);
+    const pattern = search.trim() ? searchPattern(search) : undefined;
     const ownedByCaller = or(
       eq(projects.userId, userId),
       and(
@@ -341,10 +337,12 @@ export class ConferencesRepository {
             eq(projects.tenantId, tenantId),
             isNull(projects.archivedAt),
             ownedByCaller,
-            or(
-              ilike(projects.title, pattern),
-              ilike(projects.displayId, pattern),
-            ),
+            pattern
+              ? or(
+                  ilike(projects.title, pattern),
+                  ilike(projects.displayId, pattern),
+                )
+              : undefined,
           ),
         )
         .orderBy(asc(projects.title), asc(projects.id)),
@@ -395,13 +393,15 @@ export class ConferencesRepository {
                   ),
               ),
             ),
-            or(
-              ilike(modules.shortTitle, pattern),
-              ilike(modules.title, pattern),
-              ilike(modules.displayId, pattern),
-              ilike(projects.title, pattern),
-              ilike(projects.displayId, pattern),
-            ),
+            pattern
+              ? or(
+                  ilike(modules.shortTitle, pattern),
+                  ilike(modules.title, pattern),
+                  ilike(modules.displayId, pattern),
+                  ilike(projects.title, pattern),
+                  ilike(projects.displayId, pattern),
+                )
+              : undefined,
           ),
         )
         .orderBy(asc(modules.shortTitle), asc(modules.title), asc(modules.id)),

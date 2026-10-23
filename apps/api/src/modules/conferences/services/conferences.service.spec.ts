@@ -379,6 +379,30 @@ describe('ConferencesService', () => {
   });
 
   describe('searchLinkOptions', () => {
+    it.each(['', '   '])(
+      'returns owned link options for an empty search: %j',
+      async (search) => {
+        const options = [
+          { kind: 'project', id: 'project-1', label: 'Genome Project' },
+          { kind: 'paper', id: 'paper-1', label: 'Draft manuscript' },
+        ];
+        repository.searchOwnedLinkOptions.mockResolvedValue(options);
+
+        const result = await service.searchLinkOptions(
+          tenantId,
+          callerUserId,
+          search,
+        );
+
+        expect(repository.searchOwnedLinkOptions).toHaveBeenCalledWith(
+          tenantId,
+          callerUserId,
+          '',
+        );
+        expect(result).toEqual(options);
+      },
+    );
+
     it('searches all owned project and paper link options', async () => {
       repository.searchOwnedLinkOptions.mockResolvedValue([
         { kind: 'paper', id: 'paper-42', label: 'Remote paper' },
