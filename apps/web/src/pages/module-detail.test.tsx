@@ -1189,31 +1189,31 @@ describe("ModuleDetailPage", () => {
     }
   });
 
-  it("shows submission history expanded by default, with an option to hide it", () => {
+  it("shows journal submission history expanded by default, with an option to hide it", () => {
     renderPage();
 
     expect(
-      screen.getAllByRole("heading", { name: /^Submission history/ }),
+      screen.getAllByRole("heading", { name: /^Journal submission history/}),
     ).toHaveLength(1);
     expect(
-      screen.getByRole("button", { name: "Hide submission history" }),
+      screen.getByRole("button", { name: "Hide journal submission history" }),
     ).toHaveAttribute("aria-expanded", "true");
     expect(
       screen.getByText("No submissions logged yet for this paper."),
     ).toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Hide submission history" }),
+      screen.getByRole("button", { name: "Hide journal submission history" }),
     );
 
     expect(
       screen.queryByText("No submissions logged yet for this paper."),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Submission history (0)" }),
+      screen.getByRole("heading", { name: "Journal submission history (0)" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Show submission history" }),
+      screen.getByRole("button", { name: "Show journal submission history"}),
     ).toHaveAttribute("aria-expanded", "false");
   });
 
