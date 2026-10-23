@@ -27,6 +27,13 @@ const ARCHIVE_RETENTION_DAYS = 14;
 // stage, not a status). Older clients may still send it, so treat it as Active.
 const RETIRED_PAPER_STATUS = 'Review';
 const DEFAULT_PAPER_STATUS = 'Active';
+const SUBMITTED_UNDER_REVIEW_STAGE = 'Submitted, Under Review';
+const ACTIVE_SUBMISSION_STATUSES = new Set([
+  'Submitted',
+  'Under review',
+  'Revision requested',
+  'Resubmitted',
+]);
 
 function paperStatus(status: string | undefined) {
   return status === RETIRED_PAPER_STATUS ? DEFAULT_PAPER_STATUS : status;
@@ -825,14 +832,45 @@ export class ProjectModulesService {
       .filter((id): id is string => id !== null);
     const valuesById = await this.enumRepository.findValuesByIds(enumIds);
 
-    return rows.map(({ statusId, priorityId, pipelineStageId, ...rest }) => ({
-      ...rest,
-      status: statusId ? (valuesById.get(statusId) ?? null) : null,
-      priority: priorityId ? (valuesById.get(priorityId) ?? null) : null,
-      pipelineStage: pipelineStageId
-        ? (valuesById.get(pipelineStageId) ?? null)
-        : null,
-    }));
+    const shapedRows = rows.map(
+      ({ statusId, priorityId, pipelineStageId, ...rest }) => ({
+        ...rest,
+        status: statusId ? (valuesById.get(statusId) ?? null) : null,
+        priority: priorityId ? (valuesById.get(priorityId) ?? null) : null,
+        pipelineStage: pipelineStageId
+          ? (valuesById.get(pipelineStageId) ?? null)
+          : null,
+      }),
+    );
+
+    const submittedModuleIds = shapedRows
+      .filter((row) => row.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE)
+      .map((row) => row.id);
+
+    const latestSubmissions = submittedModuleIds.length
+      ? await this.repository.findLatestSubmissionsForModules(
+          submittedModuleIds,
+        )
+      : [];
+
+    const submissionByModuleId = new Map(
+      latestSubmissions.map((submission) => [submission.moduleId, submission]),
+    );
+
+    return shapedRows.map((row) => {
+      const submission = submissionByModuleId.get(row.id);
+      const submittedToJournal =
+        row.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE &&
+        submission &&
+        ACTIVE_SUBMISSION_STATUSES.has(submission.status)
+          ? submission.journalName.trim() || null
+          : null;
+
+      return {
+        ...row,
+        submittedToJournal,
+      };
+    });
   }
 
   private resolveCreateCurrentlyWith(

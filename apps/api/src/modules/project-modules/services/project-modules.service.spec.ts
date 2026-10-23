@@ -28,6 +28,7 @@ describe('ProjectModulesService', () => {
     findCurrentlyWithCollaborators: jest.Mock;
     findInvitationById: jest.Mock;
     archiveImpact: jest.Mock;
+    findLatestSubmissionsForModules: jest.Mock;
   };
   let enumRepository: {
     findByCategoryAndValue: jest.Mock;
@@ -56,6 +57,7 @@ describe('ProjectModulesService', () => {
       findCurrentlyWithCollaborators: jest.fn(),
       findInvitationById: jest.fn(),
       archiveImpact: jest.fn(),
+      findLatestSubmissionsForModules: jest.fn().mockResolvedValue([]),
     };
     projectsRepository = {
       findById: jest.fn().mockResolvedValue({
@@ -90,6 +92,86 @@ describe('ProjectModulesService', () => {
     );
   });
 
+  describe('submitted journal', () => {
+    beforeEach(() => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        tenantId: 'tenant-1',
+        projectId: null,
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: 'submitted-stage',
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'owner-role',
+      });
+      enumRepository.findValuesByIds.mockResolvedValue(
+        new Map([
+          ['submitted-stage', 'Submitted, Under Review'],
+          ['draft-stage', 'Drafting'],
+        ]),
+      );
+    });
+
+    it.each(['Submitted', 'Under review', 'Revision requested', 'Resubmitted'])(
+      'returns the latest journal for status %s',
+      async (status) => {
+        repository.findLatestSubmissionsForModules.mockResolvedValue([
+          {
+            moduleId: 'module-1',
+            journalName: ' Nature Communications ',
+            status,
+          },
+        ]);
+
+        const result = await service.findOne('tenant-1', 'module-1', 'user-1');
+
+        expect(result?.submittedToJournal).toBe('Nature Communications');
+        expect(repository.findLatestSubmissionsForModules).toHaveBeenCalledWith(
+          ['module-1'],
+        );
+      },
+    );
+
+    it.each(['Accepted', 'Rejected', 'Withdrawn'])(
+      'does not show the latest journal for status %s',
+      async (status) => {
+        repository.findLatestSubmissionsForModules.mockResolvedValue([
+          {
+            moduleId: 'module-1',
+            journalName: 'Previous Journal',
+            status,
+          },
+        ]);
+
+        const result = await service.findOne('tenant-1', 'module-1', 'user-1');
+
+        expect(result?.submittedToJournal).toBeNull();
+      },
+    );
+
+    it('returns null when no submission has been logged', async () => {
+      const result = await service.findOne('tenant-1', 'module-1', 'user-1');
+
+      expect(result?.submittedToJournal).toBeNull();
+    });
+
+    it('skips the submission lookup outside the submitted stage', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        tenantId: 'tenant-1',
+        projectId: null,
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: 'draft-stage',
+      });
+
+      const result = await service.findOne('tenant-1', 'module-1', 'user-1');
+
+      expect(result?.submittedToJournal).toBeNull();
+      expect(repository.findLatestSubmissionsForModules).not.toHaveBeenCalled();
+    });
+  });
   describe('listVenueSuggestions', () => {
     it('deduplicates and sorts remembered paper, project and conference names', async () => {
       repository.findRememberedVenueValues.mockResolvedValue({

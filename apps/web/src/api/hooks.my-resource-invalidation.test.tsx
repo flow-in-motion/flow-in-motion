@@ -2,12 +2,18 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import{   useCreateModuleSubmission,
+  useUpdateModuleSubmission,
+  useDeleteModuleSubmission, } from "@/api/hooks";
 
 vi.mock("@/api/client", async () => {
   const actual = await vi.importActual<typeof import("@/api/client")>("@/api/client");
   return {
     ...actual,
     apiClient: {
+      POST: vi.fn().mockResolvedValue({
+        data: { id: "submission-1" },
+      }),
       PATCH: vi.fn().mockResolvedValue({ data: { id: "resource-1", title: "Updated" } }),
       DELETE: vi.fn().mockResolvedValue({ data: { id: "resource-1", warning: "" } }),
     },
@@ -195,5 +201,68 @@ describe("Tenant-scoped mutations also invalidate the matching 'My*' cache", () 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(queryClient.getQueryState(["api", "me", "notes"])?.isInvalidated).toBe(true);
+  });
+  describe("Submission mutations refresh the submitted journal", () => {
+    it.each(["create", "update", "delete"] as const)(
+      "%s invalidates submission history and paper caches",
+      async (action) => {
+        const queryClient = makeQueryClient();
+        const moduleId = "resource-1";
+        const historyKey = [
+          "api",
+          "tenant",
+          tenantId,
+          "modules",
+          moduleId,
+          "submissions",
+        ];
+        const paperKeys = [
+          apiKeys.modules(tenantId),
+          ["api", "me", "modules"],
+          ["api", "me", "modules", moduleId],
+        ];
+
+        queryClient.setQueryData(historyKey, []);
+        for (const key of paperKeys) {
+          queryClient.setQueryData(key, []);
+        }
+
+        const { result } = renderHook(
+          () => ({
+            create: useCreateModuleSubmission(tenantId, moduleId),
+            update: useUpdateModuleSubmission(tenantId, moduleId),
+            delete: useDeleteModuleSubmission(tenantId, moduleId),
+          }),
+          { wrapper: wrapperFor(queryClient) },
+        );
+
+        const input = {
+          submittedDate: "2026-10-23",
+          journalName: "Nature Communications",
+          status: "Submitted",
+        };
+
+        if (action === "create") {
+          await result.current.create.mutateAsync(input);
+        } else if (action === "update") {
+          await result.current.update.mutateAsync({
+            submissionId: "submission-1",
+            input,
+          });
+        } else {
+          await result.current.delete.mutateAsync("submission-1");
+        }
+
+        expect(
+          queryClient.getQueryState(historyKey)?.isInvalidated,
+        ).toBe(true);
+
+        for (const key of paperKeys) {
+          expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+        }
+
+        queryClient.clear();
+      },
+    );
   });
 });

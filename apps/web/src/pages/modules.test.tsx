@@ -30,6 +30,7 @@ type ModuleFixture = {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  submittedToJournal?: string | null;
 };
 
 // A minimal reactive store standing in for react-query's cache subscription:
@@ -483,6 +484,70 @@ describe("ModulesPage", () => {
       }
     },
   );
+
+  it("shows the submitted journal for a paper under review", () => {
+    store.setModules(
+      store.getModules().map((paper) => ({
+        ...paper,
+        pipelineStage: "Submitted, Under Review",
+        submittedToJournal: "Nature Communications",
+      })),
+    );
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Sort by Submitted to" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Nature Communications")).toBeInTheDocument();
+  });
+
+  it("shows when an under-review paper has no active submission logged", () => {
+    store.setModules(
+      store.getModules().map((paper) => ({
+        ...paper,
+        pipelineStage: "Submitted, Under Review",
+        submittedToJournal: null,
+      })),
+    );
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText("No active submission logged"),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the submitted journal outside the submitted stage", () => {
+    store.setModules(
+      store.getModules().map((paper) => ({
+        ...paper,
+        pipelineStage: "Literature Review",
+        submittedToJournal: "Nature Communications",
+      })),
+    );
+
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByText("Nature Communications"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No active submission logged"),
+    ).not.toBeInTheDocument();
+  });
 
   it("deletes a paper from the list through the linked-work dialog", async () => {
     const paper = store.getModules()[0]!;
