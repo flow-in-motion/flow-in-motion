@@ -312,7 +312,7 @@ function SubmissionHistoryCard({
   return (
     <Card>
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-        <CardTitle>Submission history ({submissions.length})</CardTitle>
+        <CardTitle>Journal submission history ({submissions.length})</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
           {canManage ? (
             <Button variant="outline" size="sm" onClick={onAdd}>
@@ -323,7 +323,7 @@ function SubmissionHistoryCard({
           <PanelToggleButton
             visible={visible}
             onToggle={onToggleVisible}
-            label="submission history"
+            label="journal submission history"
             controls="module-submission-history-content"
           />
         </div>
