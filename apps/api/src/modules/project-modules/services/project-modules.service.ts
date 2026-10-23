@@ -81,9 +81,10 @@ export class ProjectModulesService {
         paper.targetConference,
         paper.backupConference,
       ]),
-      ...conferenceValues.map(
-        (conference) => conference.acronym?.trim() || conference.name,
-      ),
+      ...conferenceValues.flatMap((conference) => [
+        conference.acronym,
+        conference.name,
+      ]),
     ]);
 
     return { journals, conferences };
