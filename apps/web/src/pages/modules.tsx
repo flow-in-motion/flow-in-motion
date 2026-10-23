@@ -70,6 +70,7 @@ const MODULE_COLUMNS = [
   { id: "priority", label: "Priority", width: "110px" },
   { id: "progress", label: "Progress", width: "130px" },
   { id: "stage", label: "Stage", width: "170px" },
+  { id: "submittedTo", label: "Submitted to", width: "200px" },
   { id: "due", label: "Next Action Date", width: "170px" },
   { id: "assignee", label: "Currently With", width: "150px" },
 ] as const;
@@ -246,6 +247,12 @@ function InlinePaperCurrentlyWith({
       onChange={onChange}
     />
   );
+}
+
+function submittedJournal(module: ApiModule) {
+  return module.pipelineStage === "Submitted, Under Review"
+    ? module.submittedToJournal?.trim() ?? ""
+    : "";
 }
 
 export default function ModulesPage() {
@@ -455,6 +462,8 @@ export default function ModulesPage() {
       }
       case "stage":
         return (a.pipelineStage ?? "").localeCompare(b.pipelineStage ?? "");
+      case "submittedTo":
+        return submittedJournal(a).localeCompare(submittedJournal(b));
       case "due":
         return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
       case "assignee":
@@ -881,6 +890,17 @@ export default function ModulesPage() {
                     />
                   ) : null}
 
+                  {columns.isColumnVisible("submittedTo") ? (
+                    <span
+                      className="line-clamp-2 break-words text-sm text-muted-foreground"
+                      title={submittedJournal(module) || undefined}
+                    >
+                      {submittedJournal(module) ||
+                        (module.pipelineStage === "Submitted, Under Review"
+                          ? "No active submission logged"
+                          : "—")}
+                    </span>
+                  ) : null}
                   {columns.isColumnVisible("due") ? (
                     <span
                       className={cn(

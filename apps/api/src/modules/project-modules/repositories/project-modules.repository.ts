@@ -5,6 +5,7 @@ import {
   enumTable,
   moduleCollaborators,
   moduleInvitations,
+  moduleSubmissions,
   modules,
   projects,
   users,
@@ -52,6 +53,36 @@ export class ProjectModulesRepository {
       .limit(1);
 
     return Boolean(project);
+  }
+
+  /**
+   * Fetches the latest submission for each already-authorized paper.
+   * Match both paper and tenant to keep submission linkage consistent.
+   */
+  async findLatestSubmissionsForModules(moduleIds: string[]) {
+    if (moduleIds.length === 0) return [];
+
+    return this.drizzle.db
+      .selectDistinctOn([moduleSubmissions.moduleId], {
+        moduleId: moduleSubmissions.moduleId,
+        journalName: moduleSubmissions.journalName,
+        status: moduleSubmissions.status,
+      })
+      .from(moduleSubmissions)
+      .innerJoin(
+        modules,
+        and(
+          eq(modules.id, moduleSubmissions.moduleId),
+          eq(modules.tenantId, moduleSubmissions.tenantId),
+        ),
+      )
+      .where(inArray(modules.id, moduleIds))
+      .orderBy(
+        asc(moduleSubmissions.moduleId),
+        desc(moduleSubmissions.submittedDate),
+        desc(moduleSubmissions.createdAt),
+        desc(moduleSubmissions.id),
+      );
   }
 
   async findRememberedVenueValues(tenantId: string, callerUserId: string) {

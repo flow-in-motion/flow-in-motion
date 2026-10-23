@@ -164,6 +164,8 @@ export interface ApiModule {
   backupConference: string | null;
   status: string | null;
   priority: string | null;
+    /** Current journal derived from the latest active submission. */
+  submittedToJournal?: string | null;
   pipelineStage: string | null;
   pipelineStageChangedAt: string | null;
   dueDate: string | null;
@@ -2072,11 +2074,14 @@ export function useCreateModuleSubmission(tenantId: string, moduleId: string) {
           { params: { path: { tenantId, moduleId } }, body: input },
         ),
       ),
-    async onSuccess() {
-      await queryClient.invalidateQueries({
-        queryKey: moduleSubmissionsKey(tenantId, moduleId),
-      });
-    },
+      async onSuccess() {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: moduleSubmissionsKey(tenantId, moduleId),
+          }),
+          invalidateResourceEverywhere(queryClient, "modules"),
+        ]);
+      },
   });
 }
 
@@ -2099,11 +2104,14 @@ export function useUpdateModuleSubmission(tenantId: string, moduleId: string) {
           },
         ),
       ),
-    async onSuccess() {
-      await queryClient.invalidateQueries({
-        queryKey: moduleSubmissionsKey(tenantId, moduleId),
-      });
-    },
+      async onSuccess() {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: moduleSubmissionsKey(tenantId, moduleId),
+          }),
+          invalidateResourceEverywhere(queryClient, "modules"),
+        ]);
+      },
   });
 }
 
@@ -2117,11 +2125,14 @@ export function useDeleteModuleSubmission(tenantId: string, moduleId: string) {
           { params: { path: { tenantId, moduleId, submissionId } } },
         ),
       ),
-    async onSuccess() {
-      await queryClient.invalidateQueries({
-        queryKey: moduleSubmissionsKey(tenantId, moduleId),
-      });
-    },
+      async onSuccess() {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: moduleSubmissionsKey(tenantId, moduleId),
+          }),
+          invalidateResourceEverywhere(queryClient, "modules"),
+        ]);
+      },
   });
 }
 
