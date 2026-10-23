@@ -93,17 +93,32 @@ describe("'My*' mutations invalidate the matching tenant-scoped list", () => {
     expect(queryClient.getQueryState(apiKeys.projects(tenantId))?.isInvalidated).toBe(true);
   });
 
-  it("useUpdateMyModule invalidates apiKeys.modules(tenantId)", async () => {
+  it("saving a paper invalidates its list and remembered venues", async () => {
     const queryClient = makeQueryClient();
+    const venueKey = apiKeys.paperVenueSuggestions(tenantId);
+
     queryClient.setQueryData(apiKeys.modules(tenantId), []);
+    queryClient.setQueryData(venueKey, {
+      journals: ["Nature"],
+      conferences: ["ICML"],
+    });
 
     const { result } = renderHook(() => useUpdateMyModule(), {
       wrapper: wrapperFor(queryClient),
     });
-    await result.current.mutateAsync({ moduleId: "resource-1", input: { title: "Updated" } });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(queryClient.getQueryState(apiKeys.modules(tenantId))?.isInvalidated).toBe(true);
+    await result.current.mutateAsync({
+      moduleId: "resource-1",
+      input: {
+        targetJournal: "New Journal",
+        targetConference: "New Conference",
+      },
+    });
+
+    expect(
+      queryClient.getQueryState(apiKeys.modules(tenantId))?.isInvalidated,
+    ).toBe(true);
+    expect(queryClient.getQueryState(venueKey)?.isInvalidated).toBe(true);
   });
 
   it("useArchiveMyModule invalidates apiKeys.modules(tenantId)", async () => {

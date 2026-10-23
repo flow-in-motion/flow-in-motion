@@ -197,7 +197,13 @@ describe('ProjectModulesService', () => {
         service.listVenueSuggestions('tenant-1', 'user-1'),
       ).resolves.toEqual({
         journals: ['Cell', 'Lancet', 'Nature', 'PLOS ONE'],
-        conferences: ['ICLR', 'ICML', 'NeurIPS', 'Research Conference'],
+        conferences: [
+          'ICLR',
+          'ICML',
+          'International Conference on Learning Representations',
+          'NeurIPS',
+          'Research Conference',
+        ],
       });
     });
   });

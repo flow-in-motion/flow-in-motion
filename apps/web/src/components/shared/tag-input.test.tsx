@@ -72,4 +72,24 @@ describe("TagInput", () => {
 
     expect(onChange).toHaveBeenCalledWith("Nature, Cell");
   });
+  it("shows remembered names on focus without typing", () => {
+    render(
+      <TagInput
+        id="target-venues"
+        value=""
+        onChange={vi.fn()}
+        suggestions={["Nature Communications", "Cell"]}
+      />,
+    );
+
+    fireEvent.focus(screen.getByRole("combobox"));
+
+    expect(
+      screen.getByRole("option", { name: "Nature Communications" }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("option", { name: "Cell" }),
+    ).toBeInTheDocument();
+  });
 });
