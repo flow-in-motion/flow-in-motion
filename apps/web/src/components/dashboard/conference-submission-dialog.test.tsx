@@ -188,12 +188,14 @@ describe("ConferenceSubmissionDialog", () => {
     );
 
     fireEvent.focus(projectCombobox());
-    fireEvent.change(projectCombobox(), { target: { value: "Genome" } });
-    fireEvent.click(await screen.findByRole("option", { name: /Genome Project/ }));
+    fireEvent.click(
+      await screen.findByRole("option", { name: /Genome Project/ }),
+    );
 
-    const paperSearch = openPaperSearch();
-    fireEvent.change(paperSearch, { target: { value: "Draft" } });
-    fireEvent.click(await screen.findByRole("option", { name: /Draft manuscript/ }));
+    openPaperSearch();
+    fireEvent.click(
+      await screen.findByRole("option", { name: /Draft manuscript/ }),
+    );
 
     expect(projectCombobox()).toHaveValue("Genome Project");
     expect(paperCombobox()).toHaveValue("Draft manuscript");
@@ -208,15 +210,77 @@ describe("ConferenceSubmissionDialog", () => {
     ));
   });
 
-  it("does not load papers until the linked-paper field is focused and text is entered", () => {
-    render(
-      <ConferenceSubmissionDialog open onOpenChange={vi.fn()} tenantId="tenant-1" onSave={vi.fn()} />,
-    );
+  it.each(["focus", "click"] as const)(
+    "shows project options on %s without typing",
+    (interaction) => {
+      fixtures.linkOptions = [projectOption, paperOption];
 
-    openPaperSearch();
-    expect(screen.getByText("Type to search all papers.")).toBeInTheDocument();
-    expect(fixtures.searches.every((request) => !request.enabled)).toBe(true);
-  });
+      render(
+        <ConferenceSubmissionDialog
+          open
+          onOpenChange={vi.fn()}
+          tenantId="tenant-1"
+          onSave={vi.fn()}
+        />,
+      );
+
+      expect(fixtures.searches.every((request) => !request.enabled)).toBe(true);
+
+      if (interaction === "focus") {
+        fireEvent.focus(projectCombobox());
+      } else {
+        fireEvent.click(projectCombobox());
+      }
+
+      expect(projectCombobox()).toHaveValue("");
+      expect(
+        screen.getByRole("option", { name: /Genome Project/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("option", { name: /Draft manuscript/ }),
+      ).not.toBeInTheDocument();
+      expect(fixtures.searches).toContainEqual({
+        search: "",
+        enabled: true,
+      });
+    },
+  );
+
+  it.each(["focus", "click"] as const)(
+    "shows paper options on %s without typing",
+    (interaction) => {
+      fixtures.linkOptions = [projectOption, paperOption];
+
+      render(
+        <ConferenceSubmissionDialog
+          open
+          onOpenChange={vi.fn()}
+          tenantId="tenant-1"
+          onSave={vi.fn()}
+        />,
+      );
+
+      expect(fixtures.searches.every((request) => !request.enabled)).toBe(true);
+
+      if (interaction === "focus") {
+        fireEvent.focus(paperCombobox());
+      } else {
+        fireEvent.click(paperCombobox());
+      }
+
+      expect(paperCombobox()).toHaveValue("");
+      expect(
+        screen.getByRole("option", { name: /Draft manuscript/ }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("option", { name: "Genome Project Project · PRJ-001" }),
+      ).not.toBeInTheDocument();
+      expect(fixtures.searches).toContainEqual({
+        search: "",
+        enabled: true,
+      });
+    },
+  );
 
   it("finds and attaches a paper beyond the first page", async () => {
     fixtures.linkOptions = [{ ...paperOption, id: "module-42", label: "Beyond page one" }];

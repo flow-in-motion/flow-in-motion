@@ -17,6 +17,23 @@ describe('ConferencesRepository', () => {
     };
   }
 
+  it('lists owned active link options without a text filter for an empty search', async () => {
+    const { queries, repository } = setup();
+    const tenantId = '00000000-0000-4000-8000-000000000001';
+    const userId = '00000000-0000-4000-8000-000000000002';
+
+    await repository.searchOwnedLinkOptions(tenantId, userId, '');
+
+    expect(queries).toHaveLength(2);
+    for (const query of queries) {
+      expect(query.sql).not.toContain('ilike');
+      expect(query.sql).toContain('"archived_at" is null');
+      expect(query.sql).toContain('order by');
+      expect(query.params).toContain(tenantId);
+      expect(query.params).toContain(userId);
+      expect(query.params).toContain('Owner');
+    }
+  });
   it('searches papers before pagination and also matches their parent project', async () => {
     const { queries, repository } = setup();
 

@@ -2980,7 +2980,7 @@ export function useConferenceLinkOptions(
   const normalizedSearch = search.trim();
   return useQuery({
     queryKey: apiKeys.conferenceLinkOptions(tenantId, normalizedSearch),
-    enabled: Boolean(tenantId) && Boolean(normalizedSearch) && enabled,
+    enabled: Boolean(tenantId) && enabled,
     queryFn: () =>
       authenticatedJson<ApiConferenceLinkOption[]>(
         `/api/v1/tenant/${encodeURIComponent(tenantId)}/conferences/link-options?search=${encodeURIComponent(normalizedSearch)}`,

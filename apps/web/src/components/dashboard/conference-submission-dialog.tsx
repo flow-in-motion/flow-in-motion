@@ -94,7 +94,7 @@ export function ConferenceSubmissionDialog({
   const projectOptionsQuery = useConferenceLinkOptions(
     tenantId,
     projectRequestSearch,
-    open && projectPickerOpen && projectRequestSearch.length > 0,
+    open && projectPickerOpen,
   );
   const projectOptions = (projectOptionsQuery.data ?? []).filter(
     (option) => option.kind === "project",
@@ -103,11 +103,11 @@ export function ConferenceSubmissionDialog({
   const isWaitingForProjectSearch =
     normalizedProjectSearch !== projectRequestSearch || projectOptionsQuery.isFetching;
 
-  const paperOptionsQuery = useConferenceLinkOptions(
-    tenantId,
-    paperRequestSearch,
-    open && paperPickerOpen && paperRequestSearch.length > 0,
-  );
+    const paperOptionsQuery = useConferenceLinkOptions(
+      tenantId,
+      paperRequestSearch,
+      open && paperPickerOpen,
+    );
   const paperOptions = (paperOptionsQuery.data ?? []).filter(
     (option) => option.kind === "paper",
   );
@@ -340,6 +340,11 @@ export function ConferenceSubmissionDialog({
                 value={projectPickerOpen ? projectQuery : linkedProjectLabel}
                 onFocus={() => {
                   setProjectQuery("");
+                  setProjectRequestSearch("");
+                  setPaperPickerOpen(false);
+                  setProjectPickerOpen(true);
+                }}
+                onClick={() => {
                   setPaperPickerOpen(false);
                   setProjectPickerOpen(true);
                 }}
@@ -375,13 +380,9 @@ export function ConferenceSubmissionDialog({
                   >
                     {NO_PROJECT_LABEL}
                   </button>
-                  {!normalizedProjectSearch ? (
+                  {isWaitingForProjectSearch ? (
                     <p className="px-3 py-2 text-sm text-muted-foreground">
-                      Type to search all projects.
-                    </p>
-                  ) : isWaitingForProjectSearch ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">
-                      Searching all projects…
+                      Loading projects…
                     </p>
                   ) : projectOptions.length ? (
                     projectOptions.map((option) => (
@@ -428,6 +429,11 @@ export function ConferenceSubmissionDialog({
                 value={paperPickerOpen ? paperQuery : linkedPaperLabel}
                 onFocus={() => {
                   setPaperQuery("");
+                  setPaperRequestSearch("");
+                  setProjectPickerOpen(false);
+                  setPaperPickerOpen(true);
+                }}
+                onClick={() => {
                   setProjectPickerOpen(false);
                   setPaperPickerOpen(true);
                 }}
@@ -466,13 +472,9 @@ export function ConferenceSubmissionDialog({
                     {NO_PAPER_LABEL}
                   </button>
 
-                  {!normalizedPaperSearch ? (
+                  {isWaitingForPaperSearch ? (
                     <p className="px-3 py-2 text-sm text-muted-foreground">
-                      Type to search all papers.
-                    </p>
-                  ) : isWaitingForPaperSearch ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">
-                      Searching all papers…
+                      Loading papers…
                     </p>
                   ) : paperOptions.length ? (
                     paperOptions.map((option) => (

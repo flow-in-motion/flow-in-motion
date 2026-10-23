@@ -74,18 +74,16 @@ export class ConferencesService {
     return this.withResponseValues(tenantId, conference);
   }
 
-  /** Searches all active projects and papers the caller owns. */
+  /** Lists or searches active projects and papers the caller owns. */
   async searchLinkOptions(
     tenantId: string,
     callerUserId: string,
     search: string,
   ) {
-    const normalizedSearch = search.trim();
-    if (!normalizedSearch) return [];
     return this.repository.searchOwnedLinkOptions(
       tenantId,
       callerUserId,
-      normalizedSearch,
+      search.trim(),
     );
   }
 
