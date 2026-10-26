@@ -230,4 +230,59 @@ describe("research data export", () => {
     );
     expect(document.body.textContent).not.toContain("private-id");
   });
+  it("groups four conference presentations under their paper", () => {
+    const data = makeExport();
+
+    data.collections.papers = [{
+      id: "paper-1",
+      short_title: "Burnout contagion",
+    }];
+
+    data.collections.conferences = Array.from(
+      { length: 5 },
+      (_, index) => ({
+        id: `conference-${index + 1}`,
+        name: `Research conference ${index + 1}`,
+        location: "Melbourne",
+      }),
+    );
+
+    data.collections.conferencePapers = Array.from(
+      { length: 5 },
+      (_, index) => ({
+        id: `link-${index + 1}`,
+        module_id: "paper-1",
+        conference_id: `conference-${index + 1}`,
+        presented_date: index < 4 ? "2026-10-01" : null,
+        presentation_type: "Talk",
+        paper_title: "Presented paper title",
+        abstract: `Presented abstract ${index + 1}`,
+        notes: null,
+      }),
+    );
+
+    data.counts.papers = 1;
+    data.counts.conferences = 5;
+    data.counts.conferencePapers = 5;
+
+    const document = new DOMParser().parseFromString(
+      buildResearchExportHtml(data),
+      "text/html",
+    );
+
+    const paper = document.getElementById("research-papers-paper-1");
+    const history = Array.from(
+      paper?.querySelectorAll(".history") ?? [],
+    ).find(
+      (section) =>
+        section.querySelector("h4")?.textContent ===
+        "Conference presentation history",
+    );
+
+    expect(history).toBeDefined();
+    expect(history?.querySelectorAll(".history-entry")).toHaveLength(4);
+    expect(history?.textContent).toContain("Research conference 4");
+    expect(history?.textContent).toContain("Presented abstract 4");
+    expect(history?.textContent).not.toContain("Presented abstract 5");
+  });
 });

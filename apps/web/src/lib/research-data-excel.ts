@@ -354,6 +354,24 @@ export async function buildResearchExcel(data: ResearchDataExport) {
       ],
     },
     {
+      collection: "conferencePapers",
+      name: "Conference presentations",
+      records: data.collections.conferencePapers.filter(
+        (record) =>
+          typeof record.presented_date === "string" &&
+          record.presented_date.length > 0,
+      ),
+      columns: [
+        parent("Paper", "papers", "module_id"),
+        parent("Conference", "conferences", "conference_id"),
+        date("Presented", "presented_date"),
+        field("Presentation type", "presentation_type"),
+        field("Presented title", "paper_title", 55),
+        field("Presented abstract", "abstract", 75),
+        field("Notes", "notes", 65),
+      ],
+    },
+    {
       collection: "journalSubmissions",
       name: "Journal submissions",
       records: data.collections.journalSubmissions,

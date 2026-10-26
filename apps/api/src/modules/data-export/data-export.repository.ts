@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DrizzleService } from '../../db/drizzle.service';
 import type { ExportCollections } from './data-export.types';
+import { getRequestContext } from '../../db/request-context';
+import type { ExportRecord } from './data-export.types';
 
 @Injectable()
 export class DataExportRepository {
@@ -341,6 +343,88 @@ export class DataExportRepository {
       throw new Error('The data export query returned no result');
     }
 
+    row.collections.conferencePapers = await this.readConferencePaperLinks(
+      userId,
+      row.collections,
+    );
+
     return row.collections;
+  }
+  private async readConferencePaperLinks(
+    userId: string,
+    collections: ExportCollections,
+  ): Promise<ExportRecord[]> {
+    const context = getRequestContext();
+
+    if (!context?.tx || context.userId !== userId) {
+      throw new Error(
+        'Conference presentation export requires an authenticated request transaction',
+      );
+    }
+
+    const db = context.tx;
+    const settings = await db.execute<{ tenant_id: string | null }>(sql`
+      SELECT current_setting('app.current_tenant_id', true) AS tenant_id
+    `);
+    const originalTenantId = settings.rows[0]?.tenant_id ?? '';
+
+    const tenantIds = new Set(
+      collections.papers
+        .map((paper) => paper.tenant_id)
+        .filter((tenantId): tenantId is string => typeof tenantId === 'string'),
+    );
+
+    const links: ExportRecord[] = [];
+
+    // Run sequentially because each query uses this transaction's
+    // current workspace setting.
+    for (const tenantId of tenantIds) {
+      const paperIds = collections.papers
+        .filter((paper) => paper.tenant_id === tenantId)
+        .map((paper) => paper.id)
+        .filter((id): id is string => typeof id === 'string');
+
+      const conferenceIds = collections.conferences
+        .filter((conference) => conference.tenant_id === tenantId)
+        .map((conference) => conference.id)
+        .filter((id): id is string => typeof id === 'string');
+
+      if (paperIds.length === 0 || conferenceIds.length === 0) continue;
+
+      await db.execute(sql`
+        SELECT set_config('app.current_tenant_id', ${tenantId}, true)
+      `);
+
+      const result = await db.execute<{ record: ExportRecord }>(sql`
+        SELECT to_jsonb(link) AS record
+        FROM public.conference_modules AS link
+        WHERE link.tenant_id = ${tenantId}::uuid
+          AND link.module_id IN (
+            ${sql.join(
+              paperIds.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )}
+          )
+          AND link.conference_id IN (
+            ${sql.join(
+              conferenceIds.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )}
+          )
+        ORDER BY link.id
+      `);
+
+      links.push(...result.rows.map((row) => row.record));
+    }
+
+    await db.execute(sql`
+      SELECT set_config(
+        'app.current_tenant_id',
+        ${originalTenantId},
+        true
+      )
+    `);
+
+    return links;
   }
 }

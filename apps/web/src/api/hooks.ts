@@ -2135,6 +2135,161 @@ export function useDeleteModuleSubmission(tenantId: string, moduleId: string) {
       },
   });
 }
+export interface ApiConferencePresentation {
+  id: string;
+  conferenceId: string;
+  conferenceName: string;
+  acronym: string | null;
+  location: string | null;
+  presentedDate: string | null;
+  presentationType: string | null;
+  paperTitle: string | null;
+  abstract: string | null;
+  notes: string | null;
+  canManage: boolean;
+}
+
+export interface ApiConferencePresentationHistory {
+  canLogPresentation: boolean;
+  data: ApiConferencePresentation[];
+}
+
+export interface ApiPresentationConferenceOption {
+  id: string;
+  name: string;
+  acronym: string | null;
+  location: string | null;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface ConferencePresentationInput {
+  presentedDate: string;
+  presentationType?: string | null;
+  paperTitle?: string | null;
+  abstract?: string | null;
+  notes?: string | null;
+}
+
+export function moduleConferencePresentationsKey(
+  tenantId: string,
+  moduleId: string,
+) {
+  return [
+    "api",
+    "tenant",
+    tenantId,
+    "modules",
+    moduleId,
+    "conference-presentations",
+  ] as const;
+}
+
+function conferencePresentationsPath(
+  tenantId: string,
+  moduleId: string,
+) {
+  return (
+    `/api/v1/tenant/${encodeURIComponent(tenantId)}` +
+    `/modules/${encodeURIComponent(moduleId)}/conference-presentations`
+  );
+}
+
+export function useModuleConferencePresentations(
+  tenantId: string,
+  moduleId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: moduleConferencePresentationsKey(tenantId, moduleId),
+    enabled: Boolean(tenantId) && Boolean(moduleId) && enabled,
+    queryFn: ({ signal }) =>
+      authenticatedJson<ApiConferencePresentationHistory>(
+        conferencePresentationsPath(tenantId, moduleId),
+        { signal },
+      ),
+  });
+}
+
+export function usePresentationConferenceOptions(
+  tenantId: string,
+  moduleId: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [
+      ...moduleConferencePresentationsKey(tenantId, moduleId),
+      "conference-options",
+    ],
+    enabled: Boolean(tenantId) && Boolean(moduleId) && enabled,
+    queryFn: ({ signal }) =>
+      authenticatedJson<ApiPresentationConferenceOption[]>(
+        `${conferencePresentationsPath(tenantId, moduleId)}/conference-options`,
+        { signal },
+      ),
+  });
+}
+
+export function useSaveConferencePresentation(
+  tenantId: string,
+  moduleId: string,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      conferenceId,
+      input,
+      mode,
+    }: {
+      conferenceId: string;
+      input: ConferencePresentationInput;
+      mode: "create" | "update";
+    }) =>
+      authenticatedJson<unknown>(
+        `${conferencePresentationsPath(tenantId, moduleId)}/${encodeURIComponent(conferenceId)}`,
+        {
+          method: mode === "create" ? "POST" : "PATCH",
+          body: JSON.stringify(input),
+        },
+      ),
+    async onSuccess() {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: moduleConferencePresentationsKey(tenantId, moduleId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["api", "tenant", tenantId, "conferences"],
+        }),
+      ]);
+    },
+  });
+}
+
+export function useDeleteConferencePresentation(
+  tenantId: string,
+  moduleId: string,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (conferenceId: string) =>
+      authenticatedJson<{ message: string }>(
+        `${conferencePresentationsPath(tenantId, moduleId)}/${encodeURIComponent(conferenceId)}`,
+        { method: "DELETE" },
+      ),
+    async onSuccess() {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: moduleConferencePresentationsKey(tenantId, moduleId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["api", "tenant", tenantId, "conferences"],
+        }),
+      ]);
+    },
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Tasks
