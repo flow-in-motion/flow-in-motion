@@ -52,10 +52,11 @@ import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-w
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
+  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 import {
   SubmissionDialog,
-  type SubmissionFormInput,
+  type SubmissionSaveInput,
 } from "@/components/modules/submission-dialog";
 import { BackButton } from "@/components/shared/back-button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -753,7 +754,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
     setIsSubmissionDialogOpen(true);
   }
 
-  async function handleSaveSubmission(input: SubmissionFormInput) {
+  async function handleSaveSubmission(input: SubmissionSaveInput) {
     const payload = {
       submittedDate: input.submittedDate,
       journalName: input.journalName,
@@ -771,8 +772,33 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         submissionId: editingSubmission.id,
         input: payload,
       });
-    } else {
-      await createSubmission.mutateAsync(payload);
+      return;
+    }
+
+    const previousStage = module?.pipelineStage ?? null;
+    await createSubmission.mutateAsync(payload);
+    if (!input.moveToSubmittedStage) return;
+
+    // The submission is already saved at this point, so a failed stage change
+    // is reported on the page rather than in the dialog: retrying the dialog
+    // would log the submission a second time.
+    setActionError(null);
+    try {
+      await updateModule.mutateAsync({
+        moduleId,
+        input: { pipelineStage: SUBMITTED_UNDER_REVIEW_STAGE },
+      });
+    } catch (error) {
+      setActionError(
+        `The submission was logged, but the pipeline stage couldn't be changed${
+          error instanceof Error ? ` (${error.message})` : ""
+        }. You can change it from the Pipeline stage field.`,
+      );
+      return;
+    }
+
+    if (enteredSubmittedUnderReview(previousStage, SUBMITTED_UNDER_REVIEW_STAGE)) {
+      setIsPaperCelebrationOpen(true);
     }
   }
 
@@ -1701,6 +1727,14 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           onOpenChange={setIsSubmissionDialogOpen}
           submission={editingSubmission}
           defaultPaperTitle={module.title || module.shortTitle || ""}
+          offerSubmittedStage={
+            module.pipelineStage !== SUBMITTED_UNDER_REVIEW_STAGE &&
+            (stagesQuery.data ?? []).some(
+              (stage) =>
+                stage.value === SUBMITTED_UNDER_REVIEW_STAGE && !stage.hidden,
+            )
+          }
+          currentPipelineStage={module.pipelineStage}
           onSave={handleSaveSubmission}
         />
 
