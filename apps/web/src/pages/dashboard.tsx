@@ -68,7 +68,6 @@ import {
 
 function buildSummary(counts: {
   activeProjects: number;
-  totalProjects: number;
   openTasks: number;
   totalTasks: number;
   reviewStage: number;
@@ -78,8 +77,8 @@ function buildSummary(counts: {
   return [
     {
       label: "Active Projects",
-      description: "Active of all projects",
-      value: `${counts.activeProjects} of ${counts.totalProjects}`,
+      description: "Projects currently active",
+      value: String(counts.activeProjects),
       icon: FolderKanban,
       tone: "blue",
       to: "/projects",
@@ -289,7 +288,6 @@ export default function DashboardPage() {
       buildSummary({
         activeProjects: projects.filter((project) => project.status === "Active")
           .length,
-        totalProjects: projects.length,
         openTasks: tasksQuery.data?.summary?.open ?? 0,
         totalTasks: tasksQuery.data?.meta.totalItems ?? 0,
         reviewStage: modulesQuery.data?.summary?.review ?? 0,
