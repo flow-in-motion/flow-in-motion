@@ -49,48 +49,50 @@ export interface PageHeadingProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 /**
- * Branded workspace header shared by every route. Theme colour provides a
- * consistent folio-like surface while feature tones remain API-compatible.
+ * Compact header shared by every route: icon, optional eyebrow (a section
+ * label, or the item's ID on detail pages), title, a one-line description and
+ * the page's actions. It sits directly on the page canvas rather than in its
+ * own card, so each page's content starts near the top of the screen.
+ * `tone` is kept for API compatibility and exposed as data-tone.
  */
 const PageHeading = React.forwardRef<HTMLDivElement, PageHeadingProps>(
   ({ className, title, description, eyebrow, icon: Icon, actions, tone = "blue", children, ...props }, ref) => (
     <div
       ref={ref}
       data-tone={tone}
-      className={cn(
-        "relative isolate overflow-hidden rounded-2xl border border-primary/15 bg-gradient-to-br from-card via-card to-accent/55 px-5 py-5 shadow-[var(--shadow-sm)] before:absolute before:inset-y-0 before:left-0 before:w-1 before:bg-primary sm:px-6 sm:py-6",
-        className,
-      )}
+      className={cn("flex flex-col gap-4", className)}
       {...props}
     >
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-1 items-start gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
           {Icon ? (
-            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
-              <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
+              <Icon className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.8} aria-hidden="true" />
             </span>
           ) : null}
           <div className="min-w-0">
             {eyebrow ? (
-              <div className="mb-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-primary/75">
+              <div className="text-[0.6875rem] font-semibold uppercase leading-4 tracking-[0.12em] text-primary/75">
                 {eyebrow}
               </div>
             ) : null}
-            <Heading level="h1">{title}</Heading>
+            <Heading level="h1" className="break-words text-[1.375rem] leading-tight sm:text-2xl">
+              {title}
+            </Heading>
             {description ? (
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-[0.9375rem]">
+              <p className="mt-0.5 max-w-3xl text-sm leading-5 text-muted-foreground">
                 {description}
               </p>
             ) : null}
           </div>
         </div>
         {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {actions}
           </div>
         ) : null}
       </div>
-      {children ? <div className="mt-5 border-t border-primary/10 pt-4">{children}</div> : null}
+      {children ? <div>{children}</div> : null}
     </div>
   ),
 );
