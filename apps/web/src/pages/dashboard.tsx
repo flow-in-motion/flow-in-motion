@@ -71,7 +71,6 @@ function buildSummary(counts: {
   openTasks: number;
   reviewStage: number;
   activeModules: number;
-  totalModules: number;
 }) {
   return [
     {
@@ -83,8 +82,8 @@ function buildSummary(counts: {
     },
     {
       label: "Active Papers",
-      description: "Active of all papers",
-      value: `${counts.activeModules} of ${counts.totalModules}`,
+      description: "Papers currently active",
+      value: String(counts.activeModules),
       icon: FileStack,
       to: "/modules",
     },
@@ -273,7 +272,6 @@ export default function DashboardPage() {
         openTasks: tasksQuery.data?.summary?.open ?? 0,
         reviewStage: modulesQuery.data?.summary?.review ?? 0,
         activeModules: modulesQuery.data?.summary?.active ?? 0,
-        totalModules: modulesQuery.data?.meta.totalItems ?? 0,
       }),
     [projects, tasksQuery.data, modulesQuery.data],
   );
