@@ -930,6 +930,114 @@ describe("ModuleDetailPage", () => {
     );
   });
 
+  function startNewSubmission(journalName = "Nature Communications") {
+    fireEvent.click(screen.getByRole("button", { name: "Log submission" }));
+    fireEvent.change(nativeDateInputFor("submission-submitted-date"), {
+      target: { value: "2026-03-01" },
+    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: /Journal \/ venue/ }),
+      { target: { value: journalName } },
+    );
+  }
+
+  it("moves the paper to Submitted, Under Review and celebrates when a submission is logged", async () => {
+    renderPage();
+
+    startNewSubmission();
+    const moveStage = screen.getByRole("checkbox", {
+      name: "Move paper to “Submitted, Under Review”",
+    });
+    expect(moveStage).toBeChecked();
+    expect(moveStage).toHaveAccessibleDescription(/Currently in “Concept”/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { pipelineStage: "Submitted, Under Review" },
+      }),
+    );
+    expect(fixtures.createSubmission).toHaveBeenCalledTimes(1);
+    expect(
+      fixtures.createSubmission.mock.invocationCallOrder[0],
+    ).toBeLessThan(fixtures.updateModule.mock.invocationCallOrder[0]);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Paper submitted — congratulations!",
+    );
+    expect(screen.getByTestId("celebration-video")).toBeInTheDocument();
+  });
+
+  it("leaves the pipeline stage alone when the move option is unticked", async () => {
+    renderPage();
+
+    startNewSubmission();
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Move paper to “Submitted, Under Review”",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
+
+    await waitFor(() => expect(fixtures.createSubmission).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(fixtures.updateModule).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("celebration-video")).not.toBeInTheDocument();
+  });
+
+  it("doesn't move the paper by default when recording a decided submission", async () => {
+    renderPage();
+
+    startNewSubmission();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "Status" }));
+    fireEvent.click(screen.getByRole("option", { name: "Rejected" }));
+
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Move paper to “Submitted, Under Review”",
+      }),
+    ).not.toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
+
+    await waitFor(() =>
+      expect(fixtures.createSubmission).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "Rejected" }),
+      ),
+    );
+    expect(fixtures.updateModule).not.toHaveBeenCalled();
+  });
+
+  it("doesn't offer the stage move when the paper is already under review", () => {
+    fixtures.module.pipelineStage = "Submitted, Under Review";
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Log submission" }));
+
+    expect(
+      screen.queryByRole("checkbox", { name: /Move paper to/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the logged submission and explains when the stage change fails", async () => {
+    fixtures.updateModule.mockRejectedValueOnce(new Error("Network error"));
+    renderPage();
+
+    startNewSubmission();
+    fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The submission was logged, but the pipeline stage couldn't be changed (Network error).",
+    );
+    expect(fixtures.createSubmission).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("celebration-video")).not.toBeInTheDocument();
+  });
+
   it("starts a new submission with the paper's current title, which can be changed", async () => {
     renderPage();
 
@@ -1029,6 +1137,9 @@ describe("ModuleDetailPage", () => {
         name: "Edit submission to Nature Communications",
       }),
     );
+    expect(
+      screen.queryByRole("checkbox", { name: /Move paper to/ }),
+    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
     fireEvent.click(screen.getByRole("option", { name: "Accepted" }));
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
@@ -1039,6 +1150,7 @@ describe("ModuleDetailPage", () => {
         input: expect.objectContaining({ status: "Accepted" }),
       }),
     );
+    expect(fixtures.updateModule).not.toHaveBeenCalled();
   });
 
   it("deletes a submission after confirmation", async () => {
