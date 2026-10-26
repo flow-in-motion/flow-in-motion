@@ -387,13 +387,6 @@ export default function ProjectsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
-      <div>
-        <h2 className="text-lg font-semibold">Projects</h2>
-        <p className="text-sm text-muted-foreground">
-          Research projects with their own scope, schedule, and deliverables.
-        </p>
-      </div>
-
       <div className="surface-toolbar flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-1 flex-wrap items-center gap-3">
           <SearchInput
