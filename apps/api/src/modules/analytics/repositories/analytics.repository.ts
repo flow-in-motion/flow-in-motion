@@ -18,11 +18,16 @@ export interface ResearchInsightsSummary {
     revisionRequests: TrendMetric;
     tasksCompleted: TrendMetric;
     activeMembers: TrendMetric;
+    stageChanges: TrendMetric;
   };
   stageMovements: Array<{
     fromStage: string;
     toStage: string;
     papers: number;
+  }>;
+  stageChangesByStage: Array<{
+    stage: string;
+    changes: number;
   }>;
   pipelineNow: Array<{
     stage: string;
@@ -149,6 +154,43 @@ export class AnalyticsRepository {
           SELECT 'previous', previous_since, current_since FROM params
         ) ranges
       ),
+            stage_change_events AS (
+        SELECT
+          event.entity_id,
+          event.changed_at,
+          event.from_value,
+          event.to_value,
+          COALESCE(
+            NULLIF(
+              CASE jsonb_typeof(event.from_value)
+                WHEN 'object' THEN event.from_value ->> 'value'
+                WHEN 'string' THEN event.from_value #>> '{}'
+              END,
+              ''
+            ),
+            'Not set'
+          ) AS from_stage,
+          COALESCE(
+            NULLIF(
+              CASE jsonb_typeof(event.to_value)
+                WHEN 'object' THEN event.to_value ->> 'value'
+                WHEN 'string' THEN event.to_value #>> '{}'
+              END,
+              ''
+            ),
+            'Not set'
+          ) AS to_stage
+        FROM research_change_events event
+        CROSS JOIN params
+        WHERE event.tenant_id = params.tenant_id
+          AND event.entity_type = 'paper'
+          AND event.field_name = 'pipeline_stage'
+          AND event.action = 'updated'
+          AND NULLIF(event.from_value, 'null'::jsonb)
+            IS DISTINCT FROM NULLIF(event.to_value, 'null'::jsonb)
+          AND event.changed_at >= params.previous_since
+          AND event.changed_at < params.period_end
+      ),
       headline_values AS (
         SELECT
           period.period,
@@ -164,6 +206,12 @@ export class AnalyticsRepository {
               AND event.changed_at >= period.start_at
               AND event.changed_at < period.end_at
           ) AS papers_moved,
+          (
+            SELECT count(*)::int
+            FROM stage_change_events event
+            WHERE event.changed_at >= period.start_at
+              AND event.changed_at < period.end_at
+          ) AS stage_changes,
           (
             SELECT count(*)::int
             FROM module_submissions submission, params
@@ -219,6 +267,10 @@ export class AnalyticsRepository {
       ),
       headline AS (
         SELECT jsonb_build_object(
+          'stageChanges', jsonb_build_object(
+            'current', max(stage_changes) FILTER (WHERE period = 'current'),
+            'previous', max(stage_changes) FILTER (WHERE period = 'previous')
+          ),
           'papersMoved', jsonb_build_object(
             'current', max(papers_moved) FILTER (WHERE period = 'current'),
             'previous', max(papers_moved) FILTER (WHERE period = 'previous')
@@ -252,21 +304,17 @@ export class AnalyticsRepository {
       ),
       stage_movement_rows AS (
         SELECT
-          event.from_value #>> '{}' AS from_stage,
-          event.to_value #>> '{}' AS to_stage,
+          event.from_stage,
+          event.to_stage,
           count(DISTINCT event.entity_id)::int AS papers
-        FROM research_change_events event, params
-        WHERE event.tenant_id = params.tenant_id
-          AND event.entity_type = 'paper'
-          AND event.field_name = 'pipeline_stage'
-          AND event.action = 'updated'
-          AND event.from_value IS NOT NULL
+        FROM stage_change_events event
+        CROSS JOIN params
+        WHERE event.from_value IS NOT NULL
           AND event.to_value IS NOT NULL
-          AND event.from_value IS DISTINCT FROM event.to_value
           AND event.changed_at >= params.current_since
           AND event.changed_at < params.period_end
-        GROUP BY event.from_value, event.to_value
-        ORDER BY papers DESC, from_stage, to_stage
+        GROUP BY event.from_stage, event.to_stage
+        ORDER BY papers DESC, event.from_stage, event.to_stage
       ),
       effective_stages AS (
         SELECT stage.value, stage.sort_order
@@ -286,6 +334,38 @@ export class AnalyticsRepository {
               )
             )
           )
+      ),
+            stage_change_counts AS (
+        SELECT event.to_stage AS stage, count(*)::int AS changes
+        FROM stage_change_events event
+        CROSS JOIN params
+        WHERE event.changed_at >= params.current_since
+          AND event.changed_at < params.period_end
+        GROUP BY event.to_stage
+      ),
+      stage_change_catalog AS (
+        SELECT stage.value AS stage, min(stage.sort_order) AS sort_order
+        FROM effective_stages stage
+        GROUP BY stage.value
+
+        UNION ALL
+
+        SELECT counted.stage, 2147483647 AS sort_order
+        FROM stage_change_counts counted
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM effective_stages stage
+          WHERE stage.value = counted.stage
+        )
+      ),
+      stage_change_breakdown AS (
+        SELECT
+          catalog.stage,
+          catalog.sort_order,
+          COALESCE(counted.changes, 0)::int AS changes
+        FROM stage_change_catalog catalog
+        LEFT JOIN stage_change_counts counted
+          ON counted.stage = catalog.stage
       ),
       current_papers AS (
         SELECT stage.value AS stage, paper.pipeline_stage_changed_at
@@ -713,6 +793,13 @@ export class AnalyticsRepository {
       )
       SELECT jsonb_build_object(
         'headlines', (SELECT value FROM headline),
+        'stageChangesByStage', COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'stage', stage,
+            'changes', changes
+          ) ORDER BY sort_order, stage)
+          FROM stage_change_breakdown
+        ), '[]'::jsonb),
         'stageMovements', COALESCE((
           SELECT jsonb_agg(jsonb_build_object(
             'fromStage', from_stage,

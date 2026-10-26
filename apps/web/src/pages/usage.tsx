@@ -260,6 +260,7 @@ export default function UsagePage() {
 
   const headlineCards = [
     ["Papers moved stage", data.headlines.papersMoved, FileText],
+    ["Stage changes", data.headlines.stageChanges, ArrowRight],
     ["Submissions logged", data.headlines.submissionsLogged, FileCheck2],
     ["Accepted", data.headlines.accepted, CheckCircle2],
     ["Rejected", data.headlines.rejected, FileText],
@@ -401,6 +402,44 @@ export default function UsagePage() {
             </CardContent>
           </Card>
         </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Changes into each stage</CardTitle>
+            <CardDescription>
+              Number of stage changes during the selected period. Repeated changes
+              to the same paper count separately. Initial stages chosen when creating
+              papers are excluded. Clearing a stage appears as “Not set”.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table aria-label="Stage changes by destination">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Destination stage</TableHead>
+                  <TableHead className="text-right">Changes</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.stageChangesByStage.length === 0 ? (
+                  <EmptyTableRow columns={2}>
+                    No stage changes have been recorded in this period.
+                  </EmptyTableRow>
+                ) : (
+                  data.stageChangesByStage.map((row) => (
+                    <TableRow key={row.stage}>
+                      <TableCell className="font-medium">
+                        {row.stage}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {row.changes}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </section>
 
       <section aria-labelledby="submissions-heading" className="space-y-4">
