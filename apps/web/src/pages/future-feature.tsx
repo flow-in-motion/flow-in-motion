@@ -10,6 +10,7 @@ const featureNames: Record<string, string> = {
   "cv-builder": "CV Builder",
   dissemination: "Dissemination",
   documents: "Documents",
+  export: "Export",
   funding: "Funding",
   "hdr-students": "HDR students",
   "journal-rankings-research-lists": "Journal rankings & research lists",

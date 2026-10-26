@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon} from "lucide-react";
 import {
   Activity,
   BarChart3,
@@ -22,6 +22,7 @@ import {
   Trash2,
   Users,
   Workflow,
+  Download,
 } from "lucide-react";
 
 export interface NavLeaf {
@@ -85,6 +86,7 @@ export const navGroups: NavGroup[] = [
       { label: "CV Builder", to: "/future/cv-builder", icon: FileText },
       { label: "Dissemination", to: "/future/dissemination", icon: Megaphone },
       { label: "Documents", to: "/future/documents", icon: Files },
+      { label: "Export", to: "/future/export", icon: Download },
       {
         label: "HDR students",
         to: "/future/hdr-students",
