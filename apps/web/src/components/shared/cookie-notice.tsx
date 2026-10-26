@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Cookie } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,25 @@ function readDismissed() {
 
 export function CookieNotice() {
   const [dismissed, setDismissed] = useState(readDismissed);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // Publish the bar's height so floating buttons (e.g. Share feedback) can
+  // sit above it instead of being half-covered; cleared once dismissed.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (dismissed || !bar) return;
+    const root = document.documentElement;
+    const publish = () =>
+      root.style.setProperty("--cookie-notice-height", `${bar.offsetHeight}px`);
+    publish();
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
+    observer?.observe(bar);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty("--cookie-notice-height");
+    };
+  }, [dismissed]);
 
   if (dismissed) return null;
 
@@ -31,26 +49,20 @@ export function CookieNotice() {
 
   return (
     <div
+      ref={barRef}
       role="region"
       aria-label="Cookie and storage notice"
-      className="fixed inset-x-0 bottom-0 z-50 border-t bg-card/95 p-4 shadow-lg backdrop-blur-sm sm:p-5"
+      className="fixed inset-x-0 bottom-0 z-50 border-t bg-card/95 px-4 py-2.5 shadow-lg backdrop-blur-sm"
     >
-      <div className="mx-auto flex max-w-5xl flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
-            <Cookie className="h-4 w-4" />
-          </span>
-          <p className="text-sm leading-6 text-muted-foreground">
-            We use only strictly-necessary local storage, such as your sign-in session and display
-            preferences. While you&apos;re signed in, we also record how you use the app (sections
-            visited, key actions and errors) to improve it, and your workspace owner can see a usage
-            summary that includes your activity. No third-party trackers, no ads, nothing sold.{" "}
-            <Link to="/privacy" className="font-medium text-foreground underline underline-offset-2">
-              Privacy Policy
-            </Link>
-          </p>
-        </div>
-        <Button size="sm" className="w-full shrink-0 sm:w-auto" onClick={dismiss}>
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <p className="text-[0.8125rem] leading-5 text-muted-foreground">
+          We use only necessary storage and record how you use the app to improve it; your
+          workspace owner can see a usage summary. No trackers or ads, nothing sold.{" "}
+          <Link to="/privacy" className="font-medium text-foreground underline underline-offset-2">
+            Privacy Policy
+          </Link>
+        </p>
+        <Button size="sm" className="h-8 w-full shrink-0 sm:w-auto" onClick={dismiss}>
           Got it
         </Button>
       </div>

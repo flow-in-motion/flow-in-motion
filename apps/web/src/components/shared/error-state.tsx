@@ -7,6 +7,7 @@ interface ErrorStateProps {
   title?: string;
   description?: string;
   onRetry?: () => void;
+  /** Sizes the area the message is centred in; the message itself stays a modest card. */
   className?: string;
 }
 
@@ -17,23 +18,26 @@ export function ErrorState({
   className,
 }: ErrorStateProps) {
   return (
-    <div
-      role="alert"
-      className={cn(
-        "flex min-h-52 flex-col items-center justify-center rounded-lg border border-red-200 bg-red-50/60 p-8 text-center dark:border-red-900 dark:bg-red-950/20",
-        className,
-      )}
-    >
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600 ring-1 ring-red-200 dark:bg-red-900/40 dark:text-red-400 dark:ring-red-800">
-        <AlertTriangle className="h-6 w-6" />
+    <div className={cn("flex w-full items-center justify-center py-10", className)}>
+      <div
+        role="alert"
+        // Sized by its content: compact for a short message, wider (up to a
+        // comfortable reading width) and taller for a longer one.
+        className="flex w-fit min-w-0 max-w-full flex-col items-center rounded-xl border bg-card px-6 py-7 text-center shadow-[var(--shadow-sm)] sm:min-w-[22rem] sm:max-w-2xl sm:px-8"
+      >
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600 ring-1 ring-red-200 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-900">
+          <AlertTriangle className="h-5 w-5" />
+        </div>
+        <p className="mt-3 break-words text-base font-semibold">{title}</p>
+        <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+          {description}
+        </p>
+        {onRetry ? (
+          <Button type="button" variant="outline" size="sm" onClick={onRetry} className="mt-5">
+            Try again
+          </Button>
+        ) : null}
       </div>
-      <p className="mt-4 text-base font-semibold">{title}</p>
-      <p className="mt-1 max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
-      {onRetry ? (
-        <Button type="button" variant="outline" size="sm" onClick={onRetry} className="mt-5">
-          Try again
-        </Button>
-      ) : null}
     </div>
   );
 }

@@ -274,7 +274,7 @@ export default function ProjectsPage() {
   }
 
   if (workspace.isPending || projectsQuery.isPending) {
-    return <LoadingState title="Loading projects" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading projects" layout="list" />;
   }
   if (projectsQuery.isError) {
     return (

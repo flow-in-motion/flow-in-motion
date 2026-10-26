@@ -441,7 +441,7 @@ export default function TaskDetailPage() {
   }, [openedRequestedEdit, searchParams, task]);
 
   if (workspace.isPending || taskQuery.isPending) {
-    return <LoadingState title="Loading task" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading task" layout="detail" />;
   }
 
   if (taskQuery.isError) {

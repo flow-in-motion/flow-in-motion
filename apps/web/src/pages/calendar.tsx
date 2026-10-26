@@ -367,7 +367,7 @@ export default function CalendarPage() {
     calendarEventsQuery.isPending ||
     notesQuery.isPending
   ) {
-    return <LoadingState title="Loading calendar" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading calendar" layout="canvas" />;
   }
 
   if (

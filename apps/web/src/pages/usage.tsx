@@ -198,7 +198,7 @@ export default function UsagePage() {
   const summary = useAnalyticsSummary(tenantId, days, isOwner);
 
   if (workspace.isPending) {
-    return <LoadingState title="Loading workspace" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading workspace" layout="canvas" />;
   }
 
   if (!isOwner) {
@@ -224,7 +224,7 @@ export default function UsagePage() {
   }
 
   if (summary.isPending) {
-    return <LoadingState title="Loading insights" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading insights" layout="canvas" />;
   }
 
   if (summary.isError) {

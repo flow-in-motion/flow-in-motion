@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { useCurrentWorkspace, useMe } from "@/api/hooks";
 import { ErrorState } from "@/components/shared/error-state";
-import { LoadingState } from "@/components/shared/loading-state";
+import { AppShellSkeleton } from "@/components/shared/page-skeleton";
 
 export function RequireApiSession() {
   const location = useLocation();
@@ -13,7 +13,7 @@ export function RequireApiSession() {
   useCurrentWorkspace();
 
   if (me.isPending) {
-    return <LoadingState title="Loading your account" className="m-8 min-h-[calc(100vh-4rem)]" />;
+    return <AppShellSkeleton title="Loading your account" />;
   }
   if (me.isError) {
     return (
@@ -21,7 +21,7 @@ export function RequireApiSession() {
         title="Your account could not be loaded"
         description={me.error.message}
         onRetry={() => void me.refetch()}
-        className="m-8 min-h-[calc(100vh-4rem)]"
+        className="app-canvas min-h-screen p-6"
       />
     );
   }

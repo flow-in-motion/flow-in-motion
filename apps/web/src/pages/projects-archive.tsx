@@ -147,7 +147,7 @@ export default function ProjectsArchivePage() {
   const [emptyError, setEmptyError] = useState<string | null>(null);
 
   if (workspace.isPending || projectsQuery.isPending || papersQuery.isPending) {
-    return <LoadingState title="Loading trash" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading trash" layout="list" />;
   }
 
   if (projectsQuery.isError || papersQuery.isError) {

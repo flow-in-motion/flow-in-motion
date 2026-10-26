@@ -93,3 +93,13 @@ export function useDesignTheme() {
   }
   return context;
 }
+
+/**
+ * The current page frame (sidebar, compact sidebar or top bar), falling back
+ * to the default sidebar outside the provider — for placeholders that may
+ * render before or without it.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useDesignThemeLayout(): DesignThemeLayout {
+  return useContext(DesignThemeContext)?.layout ?? "sidebar";
+}

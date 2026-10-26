@@ -454,7 +454,7 @@ export default function DashboardPage() {
     tasksQuery.isPending ||
     modulesQuery.isPending
   ) {
-    return <LoadingState title="Loading dashboard" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading dashboard" layout="dashboard" />;
   }
 
   if (projectsQuery.isError || tasksQuery.isError || modulesQuery.isError) {

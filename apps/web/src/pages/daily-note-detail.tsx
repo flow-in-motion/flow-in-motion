@@ -430,7 +430,7 @@ export default function DailyNoteDetailPage() {
     }
   }, [openedRequestedEdit, searchParams, note]);
   if (workspace.isPending || noteQuery.isPending) {
-    return <LoadingState title="Loading note" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading note" layout="detail" />;
   }
   if (noteQuery.isError) {
     return (

@@ -517,7 +517,7 @@ export default function PipelinePage() {
     modulesQuery.isPending ||
     stagesQuery.isPending
   ) {
-    return <LoadingState title="Loading pipeline" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading pipeline" layout="list" />;
   }
   if (modulesQuery.isError) {
     return (

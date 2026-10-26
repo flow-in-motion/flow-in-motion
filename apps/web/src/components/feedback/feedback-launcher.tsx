@@ -43,7 +43,8 @@ export function FeedbackLauncher({ tenantId }: FeedbackLauncherProps) {
         size="icon"
         aria-label="Share feedback"
         title="Share feedback"
-        className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full shadow-lg"
+        // Sits above the cookie notice while it's showing (see CookieNotice).
+        className="fixed bottom-[calc(var(--cookie-notice-height,0px)+1.5rem)] right-6 z-40 h-12 w-12 rounded-full shadow-lg"
       >
         <MessageSquarePlus className="h-5 w-5" />
       </Button>

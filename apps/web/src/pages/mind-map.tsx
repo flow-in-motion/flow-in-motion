@@ -958,7 +958,7 @@ export default function MindMapPage() {
     tasksQuery.isPending ||
     notesQuery.isPending
   ) {
-    return <LoadingState title="Building mind map" className="min-h-[50vh]" />;
+    return <LoadingState title="Building mind map" layout="canvas" />;
   }
 
   if (
