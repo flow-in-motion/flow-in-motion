@@ -78,7 +78,6 @@ import {
 } from "@/theme/appearance-theme";
 import { DESIGN_THEMES, useDesignTheme } from "@/theme/design-theme";
 import { TEXT_SIZES, useTextSize } from "@/theme/text-size";
-import { DataExportCard } from "@/components/settings/data-export-card";
 
 const workspaceSchema = z.object({
   name: z.string().trim().min(2, "Use at least 2 characters.").max(100),
@@ -353,10 +352,6 @@ export default function SettingsPage() {
             </Button>
           }
         />
-      </div>
-
-      <div className="mx-auto mt-7 w-full max-w-5xl">
-        <DataExportCard key={me.data.id} />
       </div>
       
       {me.data.profileComplete ? null : (

@@ -23,7 +23,12 @@ describe("NavTree", () => {
     );
 
     expect(screen.queryByRole("link", { name: /Account Audit/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^Export$/ })).toHaveAttribute(
+      "href",
+      "/export",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Future features" }));
+    expect(screen.getAllByRole("link", { name: /^Export$/ })).toHaveLength(1);
     expect(screen.getByRole("link", { name: /Account Audit/ })).toHaveAttribute(
       "href",
       "/settings/account-audit",
