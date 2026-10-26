@@ -32,6 +32,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { FundingsModule } from './modules/fundings/fundings.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RequestContextInterceptor } from './db/request-context.interceptor';
+import { DataExportModule } from './modules/data-export/data-export.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -106,6 +107,7 @@ import { RequestContextInterceptor } from './db/request-context.interceptor';
     PreferencesModule,
     AnalyticsModule,
     FundingsModule,
+    DataExportModule,
   ],
   controllers: [AppController],
   providers: [
