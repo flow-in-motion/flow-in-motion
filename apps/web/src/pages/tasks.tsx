@@ -54,6 +54,7 @@ import { formatListDate, isOverdue } from "@/lib/list-format";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
+import { priorityPillClass, statusPillClass } from "@/lib/tones";
 
 const STATUS_OPTIONS = ["To do", "Underway", "Waiting", "Complete"] as const;
 const ACTIVE_STATUS_OPTIONS = ["To do", "Underway", "Waiting"] as const;
@@ -93,36 +94,6 @@ const PRIORITY_ORDER: Record<string, number> = {
   High: 2,
   Critical: 3,
 };
-
-function statusPillClass(status: string | null) {
-  switch (status) {
-    case "To do":
-      return "border-border text-muted-foreground";
-    case "Underway":
-      return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
-    case "Complete":
-      return "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400";
-    case "Waiting":
-      return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
-    default:
-      return "border-border text-muted-foreground";
-  }
-}
-
-function priorityPillClass(priority: string | null) {
-  switch (priority) {
-    case "Low":
-      return "border-border text-muted-foreground";
-    case "Medium":
-      return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
-    case "High":
-      return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
-    case "Critical":
-      return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-400";
-    default:
-      return "border-border text-muted-foreground";
-  }
-}
 
 function TaskMultiSelectFilter({
   pluralLabel,

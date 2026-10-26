@@ -59,6 +59,7 @@ import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { CurrentlyWithFilter } from "@/components/modules/currently-with-filter";
 import { ArchiveModuleDialog } from "@/components/modules/archive-module-dialog";
+import { priorityPillClass, statusPillClass } from "@/lib/tones";
 
 const STATUS_OPTIONS = ["Active", "Stalled", "Complete"] as const;
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
@@ -164,33 +165,6 @@ const PAPER_PRIORITY_ORDER: Record<string, number> = {
   High: 2,
   Critical: 3,
 };
-
-function statusPillClass(status: string | null) {
-  switch (status) {
-    case "Active":
-    case "Complete":
-      return "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400";
-    case "Review":
-      return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
-    case "Stalled":
-      return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-400";
-    default:
-      return "border-border text-muted-foreground";
-  }
-}
-
-function priorityPillClass(priority: string | null) {
-  switch (priority) {
-    case "Critical":
-      return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-400";
-    case "High":
-      return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
-    case "Medium":
-      return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
-    default:
-      return "border-border text-muted-foreground";
-  }
-}
 
 function ProgressCell({ percent }: { percent: number }) {
   return (

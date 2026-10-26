@@ -251,7 +251,7 @@ export function PriorityTasksTable() {
       <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <ListTodo className="h-4 w-4 text-blue-600" />
+            <ListTodo className="h-4 w-4 text-primary" />
             Tasks to be done
           </CardTitle>
           <CardDescription>

@@ -79,7 +79,6 @@ function buildSummary(counts: {
       description: "Projects currently active",
       value: String(counts.activeProjects),
       icon: FolderKanban,
-      tone: "blue",
       to: "/projects",
     },
     {
@@ -87,7 +86,6 @@ function buildSummary(counts: {
       description: "Active of all papers",
       value: `${counts.activeModules} of ${counts.totalModules}`,
       icon: FileStack,
-      tone: "emerald",
       to: "/modules",
     },
     {
@@ -95,7 +93,6 @@ function buildSummary(counts: {
       description: "Tasks still to complete",
       value: String(counts.openTasks),
       icon: ListTodo,
-      tone: "amber",
       to: "/tasks",
     },
     {
@@ -103,29 +100,15 @@ function buildSummary(counts: {
       description: "Papers in the Submitted, Under Review stage",
       value: String(counts.reviewStage),
       icon: FilePenLine,
-      tone: "violet",
       to: "/pipeline",
     },
   ];
 }
 
-const summaryToneStyles: Record<string, { rail: string; icon: string }> = {
-  blue: {
-    rail: "bg-primary",
-    icon: "border-primary/15 bg-primary/10 text-primary",
-  },
-  amber: {
-    rail: "bg-amber-500",
-    icon: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/35 dark:text-amber-300",
-  },
-  violet: {
-    rail: "bg-violet-500",
-    icon: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/35 dark:text-violet-300",
-  },
-  emerald: {
-    rail: "bg-emerald-500",
-    icon: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-300",
-  },
+/** All summary cards share the workspace accent colour — colour isn't used to tell them apart. */
+const summaryCardStyle = {
+  rail: "bg-primary",
+  icon: "border-primary/15 bg-primary/10 text-primary",
 };
 
 type DashboardWidgetId =
@@ -580,7 +563,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summary.map((item) => {
-          const tone = summaryToneStyles[item.tone] ?? summaryToneStyles.blue;
+          const tone = summaryCardStyle;
           const card = (
             <Card className="group relative h-full overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary/25 hover:shadow-[var(--shadow-md)]">
               <span className={cn("absolute inset-x-0 top-0 h-1", tone.rail)} aria-hidden="true" />

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/card";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
+import { TONE_BADGE_CLASSES, TONE_DOT_CLASSES } from "@/lib/tones";
 
 export type DashboardInsightId =
   | "stalled-papers"
@@ -31,11 +32,12 @@ export type DashboardInsightId =
   | "priority-workload";
 
 const PRIORITY_ROWS = [
-  { label: "Critical", tone: "bg-red-500" },
-  { label: "High", tone: "bg-orange-500" },
-  { label: "Medium", tone: "bg-amber-500" },
-  { label: "Low", tone: "bg-blue-500" },
-  { label: "Unassigned", tone: "bg-slate-400" },
+  // Only the priorities that need attention get colour (see lib/tones).
+  { label: "Critical", tone: TONE_DOT_CLASSES.danger },
+  { label: "High", tone: TONE_DOT_CLASSES.attention },
+  { label: "Medium", tone: "bg-muted-foreground/60" },
+  { label: "Low", tone: "bg-muted-foreground/35" },
+  { label: "Unassigned", tone: "bg-muted-foreground/20" },
 ] as const;
 
 function addDays(date: Date, days: number) {
@@ -76,7 +78,7 @@ export function StalledPapersCard() {
       <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle className="flex items-center gap-2">
-            <Hourglass className="h-4 w-4 text-rose-600" />
+            <Hourglass className="h-4 w-4 text-primary" />
             Longest in current stage
           </CardTitle>
           <CardDescription>Papers that haven&rsquo;t moved stage in the longest time.</CardDescription>
@@ -112,7 +114,7 @@ export function StalledPapersCard() {
                   className={cn(
                     "shrink-0 tabular-nums",
                     paper.days >= STALLED_WARNING_DAYS &&
-                      "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-300",
+                      TONE_BADGE_CLASSES.attention,
                   )}
                 >
                   {paper.days} {paper.days === 1 ? "day" : "days"}
@@ -149,14 +151,14 @@ export function TaskHealthCard() {
   const overdueStop = completedStop + overduePercent;
   const dueSoonStop = overdueStop + dueSoonPercent;
   const chartBackground = totalTasks > 0
-    ? `conic-gradient(#10b981 0% ${completedStop}%, #ef4444 ${completedStop}% ${overdueStop}%, #f59e0b ${overdueStop}% ${dueSoonStop}%, #3b82f6 ${dueSoonStop}% 100%)`
+    ? `conic-gradient(#10b981 0% ${completedStop}%, #ef4444 ${completedStop}% ${overdueStop}%, #f59e0b ${overdueStop}% ${dueSoonStop}%, hsl(var(--muted-foreground) / 0.35) ${dueSoonStop}% 100%)`
     : "conic-gradient(hsl(var(--muted)) 0% 100%)";
 
   const healthItems = [
     { label: "Completed", value: completed, icon: CheckCircle2, tone: "text-emerald-600", dot: "bg-emerald-500" },
     { label: "Overdue", value: overdue, icon: AlertTriangle, tone: "text-red-600", dot: "bg-red-500" },
     { label: "Due next 7 days", value: dueSoon, icon: Clock3, tone: "text-amber-600", dot: "bg-amber-500" },
-    { label: "Open", value: open, icon: CircleDashed, tone: "text-blue-600", dot: "bg-blue-500" },
+    { label: "Open", value: open, icon: CircleDashed, tone: "text-muted-foreground", dot: TONE_DOT_CLASSES.neutral },
   ];
 
   return (
@@ -164,7 +166,7 @@ export function TaskHealthCard() {
       <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 text-primary" />
             Task health
           </CardTitle>
           <CardDescription>A quick view of delivery progress and deadline risk.</CardDescription>
@@ -223,7 +225,7 @@ export function PriorityWorkloadCard() {
       <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1.5">
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-amber-600" />
+            <BarChart3 className="h-4 w-4 text-primary" />
             Priority workload
           </CardTitle>
           <CardDescription>Open tasks grouped by urgency to expose workload risk.</CardDescription>
