@@ -4,21 +4,43 @@ import { describe, expect, it, vi } from "vitest";
 import { TagInput } from "./tag-input";
 
 describe("TagInput", () => {
-  it("commits an entry as a separate tag when a comma is typed", () => {
+  it("keeps a comma as part of the name instead of adding the entry", () => {
     const onChange = vi.fn();
     render(<TagInput id="journals" value="" onChange={onChange} placeholder="Add a journal" />);
 
     const input = screen.getByPlaceholderText("Add a journal");
-    fireEvent.change(input, { target: { value: "Nature," } });
+    fireEvent.change(input, { target: { value: "Accounting, Organizations and Society" } });
 
-    expect(onChange).toHaveBeenCalledWith("Nature");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveValue("Accounting, Organizations and Society");
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith("Accounting, Organizations and Society");
   });
 
-  it("renders each comma-separated entry from the stored value as its own chip", () => {
-    render(<TagInput id="journals" value="Nature, Cell" onChange={vi.fn()} />);
+  it("renders each semicolon-separated entry from the stored value as its own chip", () => {
+    render(
+      <TagInput
+        id="journals"
+        value="Nature; Accounting, Organizations and Society"
+        onChange={vi.fn()}
+      />,
+    );
 
     expect(screen.getByText("Nature")).toBeInTheDocument();
-    expect(screen.getByText("Cell")).toBeInTheDocument();
+    expect(screen.getByText("Accounting, Organizations and Society")).toBeInTheDocument();
+    expect(screen.queryByText("Accounting")).not.toBeInTheDocument();
+  });
+
+  it("adds the in-progress entry when leaving the field", () => {
+    const onChange = vi.fn();
+    render(<TagInput id="journals" value="Nature" onChange={onChange} />);
+
+    const input = document.getElementById("journals") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Journal of Finance, Economics" } });
+    fireEvent.blur(input);
+
+    expect(onChange).toHaveBeenCalledWith("Nature; Journal of Finance, Economics");
   });
 
   it("commits the in-progress entry on Enter", () => {
@@ -29,12 +51,12 @@ describe("TagInput", () => {
     fireEvent.change(input, { target: { value: "Cell" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
-    expect(onChange).toHaveBeenCalledWith("Nature, Cell");
+    expect(onChange).toHaveBeenCalledWith("Nature; Cell");
   });
 
   it("removes a tag via its remove button", () => {
     const onChange = vi.fn();
-    render(<TagInput id="journals" value="Nature, Cell" onChange={onChange} />);
+    render(<TagInput id="journals" value="Nature; Cell" onChange={onChange} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Nature" }));
 
@@ -43,7 +65,7 @@ describe("TagInput", () => {
 
   it("removes the last tag on Backspace when the draft is empty", () => {
     const onChange = vi.fn();
-    render(<TagInput id="journals" value="Nature, Cell" onChange={onChange} />);
+    render(<TagInput id="journals" value="Nature; Cell" onChange={onChange} />);
 
     const input = document.getElementById("journals") as HTMLInputElement;
     fireEvent.keyDown(input, { key: "Backspace" });
@@ -70,7 +92,7 @@ describe("TagInput", () => {
     fireEvent.mouseDown(screen.getByRole("option", { name: "Cell" }));
     fireEvent.click(screen.getByRole("option", { name: "Cell" }));
 
-    expect(onChange).toHaveBeenCalledWith("Nature, Cell");
+    expect(onChange).toHaveBeenCalledWith("Nature; Cell");
   });
   it("shows remembered names on focus without typing", () => {
     render(

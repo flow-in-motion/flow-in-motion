@@ -452,8 +452,8 @@ export function ModuleDialog({
             </FormField>
 
             <p className="text-xs text-muted-foreground">
-              Type a name and press comma or Enter to add it — you can add
-              multiple journals or conferences.
+              Type a name and press Enter to add it — you can add multiple
+              journals or conferences.
             </p>
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
@@ -466,7 +466,7 @@ export function ModuleDialog({
                   onChange={(value) =>
                     setForm((current) => ({ ...current, targetJournal: value }))
                   }
-                  placeholder="e.g. Nature Communications, Cell"
+                  placeholder="e.g. Nature Communications"
                   suggestions={venueSuggestions.data?.journals}
                 />
               </FormField>
@@ -481,7 +481,7 @@ export function ModuleDialog({
                   onChange={(value) =>
                     setForm((current) => ({ ...current, backupJournal: value }))
                   }
-                  placeholder="e.g. Scientific Reports, PLOS ONE"
+                  placeholder="e.g. Scientific Reports"
                   suggestions={venueSuggestions.data?.journals}
                 />
               </FormField>
@@ -499,7 +499,7 @@ export function ModuleDialog({
                       targetConference: value,
                     }))
                   }
-                  placeholder="e.g. ICML, NeurIPS"
+                  placeholder="e.g. NeurIPS"
                   suggestions={venueSuggestions.data?.conferences}
                 />
               </FormField>
@@ -517,7 +517,7 @@ export function ModuleDialog({
                       backupConference: value,
                     }))
                   }
-                  placeholder="e.g. NeurIPS Workshop, ICLR Workshop"
+                  placeholder="e.g. ICLR Workshop"
                   suggestions={venueSuggestions.data?.conferences}
                 />
               </FormField>
