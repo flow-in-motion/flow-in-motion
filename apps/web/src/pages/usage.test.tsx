@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -46,6 +46,7 @@ describe("UsagePage", () => {
         windowDays: 30,
         headlines: {
           papersMoved: { current: 3, previous: 1 },
+          stageChanges: { current: 8, previous: 2 },
           submissionsLogged: { current: 2, previous: 0 },
           accepted: { current: 1, previous: 0 },
           rejected: { current: 0, previous: 1 },
@@ -53,6 +54,11 @@ describe("UsagePage", () => {
           tasksCompleted: { current: 4, previous: 2 },
           activeMembers: { current: 2, previous: 1 },
         },
+        stageChangesByStage: [
+          { stage: "Concept, Ideation", changes: 3 },
+          { stage: "Drafting & Writing", changes: 5 },
+          { stage: "Published", changes: 0 },
+        ],
         stageMovements: [
           {
             fromStage: "Concept, Ideation",
@@ -122,6 +128,7 @@ describe("UsagePage", () => {
           ],
         },
       },
+
     });
 
     render(
@@ -139,6 +146,30 @@ describe("UsagePage", () => {
     expect(screen.getByText("Research Owner")).toBeInTheDocument();
     expect(screen.queryByText("Events by type")).not.toBeInTheDocument();
     expect(screen.queryByText("page_view")).not.toBeInTheDocument();
+    expect(screen.getByText("Stage changes")).toBeInTheDocument();
+    expect(screen.getByText("8", { exact: true })).toBeInTheDocument();
+
+    const stageTable = screen.getByRole("table", {
+      name: "Stage changes by destination",
+    });
+
+    expect(
+      within(stageTable).getByRole("row", {
+        name: "Concept, Ideation 3",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      within(stageTable).getByRole("row", {
+        name: "Drafting & Writing 5",
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      within(stageTable).getByRole("row", {
+        name: "Published 0",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("explains when progress history has not accumulated yet", () => {
@@ -153,6 +184,7 @@ describe("UsagePage", () => {
         windowDays: 7,
         headlines: {
           papersMoved: { current: 0, previous: 0 },
+          stageChanges: { current: 0, previous: 0 },
           submissionsLogged: { current: 0, previous: 0 },
           accepted: { current: 0, previous: 0 },
           rejected: { current: 0, previous: 0 },
@@ -160,6 +192,7 @@ describe("UsagePage", () => {
           tasksCompleted: { current: 0, previous: 0 },
           activeMembers: { current: 0, previous: 0 },
         },
+        stageChangesByStage: [],
         stageMovements: [],
         pipelineNow: [],
         paperStatuses: [],
@@ -208,6 +241,9 @@ describe("UsagePage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Progress history begins when this release is deployed/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No stage changes have been recorded in this period."),
     ).toBeInTheDocument();
   });
 });

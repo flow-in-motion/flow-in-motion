@@ -3658,15 +3658,20 @@ export interface ApiAnalyticsEventInput {
 export interface ApiAnalyticsSummary {
   windowDays: number;
   headlines: Record<
-    | "papersMoved"
-    | "submissionsLogged"
-    | "accepted"
-    | "rejected"
-    | "revisionRequests"
-    | "tasksCompleted"
-    | "activeMembers",
-    { current: number; previous: number }
+  | "papersMoved"
+  | "stageChanges"
+  | "submissionsLogged"
+  | "accepted"
+  | "rejected"
+  | "revisionRequests"
+  | "tasksCompleted"
+  | "activeMembers",
+  { current: number; previous: number }
   >;
+  stageChangesByStage: Array<{
+    stage: string;
+    changes: number;
+  }>;
   stageMovements: Array<{
     fromStage: string;
     toStage: string;

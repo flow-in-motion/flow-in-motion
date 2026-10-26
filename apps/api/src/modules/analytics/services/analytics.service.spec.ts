@@ -28,6 +28,33 @@ describe('AnalyticsService', () => {
   });
 
   describe('recordEvent', () => {
+    it('returns transition counts separately from distinct papers moved', async () => {
+      repository.researchInsights.mockResolvedValue({
+        headlines: {
+          papersMoved: { current: 1, previous: 1 },
+          stageChanges: { current: 3, previous: 2 },
+        },
+        stageChangesByStage: [
+          { stage: 'Literature Review', changes: 1 },
+          { stage: 'Drafting', changes: 2 },
+          { stage: 'Published', changes: 0 },
+        ],
+      });
+
+      const result = await service.summary('tenant-1', 30);
+
+      expect(result.headlines.papersMoved.current).toBe(1);
+      expect(result.headlines.stageChanges).toEqual({
+        current: 3,
+        previous: 2,
+      });
+      expect(result.stageChangesByStage).toEqual([
+        { stage: 'Literature Review', changes: 1 },
+        { stage: 'Drafting', changes: 2 },
+        { stage: 'Published', changes: 0 },
+      ]);
+    });
+
     it('stores the event under the caller and tenant', async () => {
       await service.recordEvent('tenant-1', 'user-1', {
         name: 'project_created',
