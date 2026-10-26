@@ -544,7 +544,7 @@ export default function ModulesPage() {
   }
 
   if (workspace.isPending || modulesQuery.isPending) {
-    return <LoadingState title="Loading papers" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading papers" layout="list" />;
   }
   if (modulesQuery.isError) {
     return (

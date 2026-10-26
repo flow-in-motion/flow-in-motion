@@ -62,7 +62,7 @@ export default function ConferenceDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   if (workspace.isPending || conferenceQuery.isPending || meQuery.isPending) {
-    return <LoadingState title="Loading conference" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading conference" layout="detail" />;
   }
 
   if (conferenceQuery.isError) {

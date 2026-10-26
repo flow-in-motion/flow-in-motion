@@ -323,7 +323,7 @@ export default function SettingsPage() {
 
   if (me.isPending || workspace.isPending) {
     return (
-      <LoadingState title="Loading your settings" className="min-h-[50vh]" />
+      <LoadingState title="Loading your settings" layout="canvas" />
     );
   }
   if (me.isError) {

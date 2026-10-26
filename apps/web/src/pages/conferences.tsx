@@ -304,7 +304,7 @@ export default function ConferencesPage() {
 
   if (isLoading) {
     return (
-      <LoadingState title="Loading conferences" className="min-h-[50vh]" />
+      <LoadingState title="Loading conferences" layout="list" />
     );
   }
   if (conferencesQuery.isError) {

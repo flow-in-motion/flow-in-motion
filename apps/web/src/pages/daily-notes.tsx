@@ -333,7 +333,7 @@ export default function DailyNotesPage() {
   }
 
   if (workspace.isPending || notesQuery.isPending) {
-    return <LoadingState title="Loading notes" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading notes" layout="list" />;
   }
   if (notesQuery.isError) {
     return (

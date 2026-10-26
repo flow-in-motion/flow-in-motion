@@ -433,7 +433,7 @@ const [selectedPriorities, setSelectedPriorities] =
   }
 
   if (workspace.isPending || tasksQuery.isPending) {
-    return <LoadingState title="Loading tasks" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading tasks" layout="list" />;
   }
   if (tasksQuery.isError) {
     return (

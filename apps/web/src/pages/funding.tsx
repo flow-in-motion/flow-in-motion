@@ -189,7 +189,7 @@ export default function FundingPage() {
   }
 
   if (workspace.isPending || fundingsQuery.isPending || meQuery.isPending) {
-    return <LoadingState title="Loading funding" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading funding" layout="list" />;
   }
 
   if (fundingsQuery.isError) {

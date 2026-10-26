@@ -1,18 +1,30 @@
 import { LoaderCircle } from "lucide-react";
 
+import { PageSkeleton, type PageSkeletonLayout } from "@/components/shared/page-skeleton";
 import { cn } from "@/lib/utils";
 
 interface LoadingStateProps {
   title?: string;
   description?: string;
   className?: string;
+  /**
+   * "panel" (default) is a small spinner card for a section of a page. For a
+   * whole page, pass the page's shape so placeholders appear where the real
+   * content will — see PageSkeleton.
+   */
+  layout?: "panel" | PageSkeletonLayout;
 }
 
 export function LoadingState({
   title = "Loading",
   description = "Please wait while this information is prepared.",
   className,
+  layout = "panel",
 }: LoadingStateProps) {
+  if (layout !== "panel") {
+    return <PageSkeleton title={title} layout={layout} className={className} />;
+  }
+
   return (
     <div
       role="status"

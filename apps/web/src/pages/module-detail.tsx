@@ -564,7 +564,7 @@ export default function ModuleDetailPage() {
   }, [moduleId]);
 
   if (workspace.isPending || moduleQuery.isPending) {
-    return <LoadingState title="Loading module" className="min-h-[50vh]" />;
+    return <LoadingState title="Loading module" layout="detail" />;
   }
 
   if (moduleQuery.isError) {

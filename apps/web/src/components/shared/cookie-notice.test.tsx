@@ -16,9 +16,9 @@ describe("CookieNotice", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/strictly-necessary local storage/)).toBeInTheDocument();
+    expect(screen.getByText(/only necessary storage/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Got it" }));
-    expect(screen.queryByText(/strictly-necessary local storage/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/only necessary storage/)).not.toBeInTheDocument();
 
     unmount();
     render(
@@ -26,6 +26,6 @@ describe("CookieNotice", () => {
         <CookieNotice />
       </MemoryRouter>,
     );
-    expect(screen.queryByText(/strictly-necessary local storage/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/only necessary storage/)).not.toBeInTheDocument();
   });
 });

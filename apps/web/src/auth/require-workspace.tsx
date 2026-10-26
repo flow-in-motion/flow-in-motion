@@ -2,13 +2,13 @@ import { Navigate, Outlet } from "react-router-dom";
 
 import { useCurrentWorkspace } from "@/api/hooks";
 import { ErrorState } from "@/components/shared/error-state";
-import { LoadingState } from "@/components/shared/loading-state";
+import { AppShellSkeleton } from "@/components/shared/page-skeleton";
 
 export function RequireWorkspace({ shouldExist }: { shouldExist: boolean }) {
   const workspace = useCurrentWorkspace();
 
   if (workspace.isPending) {
-    return <LoadingState title="Loading your workspace" className="m-8 min-h-[calc(100vh-4rem)]" />;
+    return <AppShellSkeleton title="Loading your workspace" />;
   }
   if (workspace.isError) {
     return (
@@ -16,7 +16,7 @@ export function RequireWorkspace({ shouldExist }: { shouldExist: boolean }) {
         title="Your workspace could not be loaded"
         description={workspace.error.message}
         onRetry={() => void workspace.refetch()}
-        className="m-8 min-h-[calc(100vh-4rem)]"
+        className="app-canvas min-h-screen p-6"
       />
     );
   }
