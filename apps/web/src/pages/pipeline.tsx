@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { statusBadgeClass } from "@/lib/tones";
 
 const VIEW_OPTIONS = ["List", "Columns"] as const;
 type ViewOption = (typeof VIEW_OPTIONS)[number];
@@ -71,20 +72,6 @@ interface PipelineRow {
   completion: number;
   outstanding: number;
   stageIndex: number | undefined;
-}
-
-function statusPillClass(status: string | null) {
-  switch (status) {
-    case "Active":
-    case "Complete":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400";
-    case "Review":
-      return "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-400";
-    case "Stalled":
-      return "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400";
-    default:
-      return "border-border bg-muted/50 text-muted-foreground";
-  }
 }
 
 /** Selected = solid blue. Inactive = white pill, light-grey border. */
@@ -171,7 +158,7 @@ function PipelineItemRow({
   const outstandingClass =
     row.outstanding === 0
       ? "text-muted-foreground"
-      : "text-orange-600 dark:text-orange-400";
+      : "text-amber-700 dark:text-amber-400";
   const cardTone = "border-border bg-card";
   const cardToneRow = "border-border bg-card";
 
@@ -206,7 +193,7 @@ function PipelineItemRow({
           {row.assignee ? (
             <Badge variant="outline">{row.assignee}</Badge>
           ) : null}
-          <Badge variant="outline" className={statusPillClass(row.status)}>
+          <Badge variant="outline" className={statusBadgeClass(row.status)}>
             {row.status ?? "—"}
           </Badge>
         </div>
@@ -243,7 +230,7 @@ function PipelineItemRow({
       <ItemEditLink row={row} />
       <div className="ml-auto flex flex-wrap items-center gap-3">
         {row.assignee ? <Badge variant="outline">{row.assignee}</Badge> : null}
-        <Badge variant="outline" className={statusPillClass(row.status)}>
+        <Badge variant="outline" className={statusBadgeClass(row.status)}>
           {row.status ?? "—"}
         </Badge>
         <span className={COMPLETION_CLASS}>{row.completion}%</span>

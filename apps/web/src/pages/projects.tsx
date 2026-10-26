@@ -50,6 +50,7 @@ import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useSessionListState } from "@/hooks/use-session-list-state";
+import { rolePillClass, statusPillClass } from "@/lib/tones";
 
 const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
 const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
@@ -78,33 +79,6 @@ const PROJECT_STATUS_ORDER: Record<string, number> = {
   Stalled: 2,
   Complete: 3,
 };
-function statusPillClass(status: string | null) {
-  switch (status) {
-    case "Active":
-    case "Complete":
-      return "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400";
-    case "Review":
-      return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
-    case "Stalled":
-      return "border-red-300 text-red-700 dark:border-red-800 dark:text-red-400";
-    default:
-      return "border-border text-muted-foreground";
-  }
-}
-
-function rolePillClass(role: string | null) {
-  switch (role?.toLowerCase()) {
-    case "owner":
-      return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
-    case "lead":
-      return "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-400";
-    case "collaborator":
-      return "border-orange-300 text-orange-700 dark:border-orange-800 dark:text-orange-400";
-    default:
-      return "border-border text-muted-foreground";
-  }
-}
-
 export default function ProjectsPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
