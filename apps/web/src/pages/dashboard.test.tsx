@@ -148,7 +148,8 @@ vi.mock("@/components/dashboard/conference-submissions-table", () => ({
 describe("DashboardPage", () => {
   it("uses server totals even when the loaded page is empty", () => {
     render(<MemoryRouter><DashboardPage /></MemoryRouter>);
-    expect(screen.getByText("34 of 47")).toBeInTheDocument();
+    expect(screen.getByText("34", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("34 of 47")).not.toBeInTheDocument();
     expect(screen.getByText("61", { exact: true })).toBeInTheDocument();
     expect(screen.queryByText("61 of 85")).not.toBeInTheDocument();
     expect(screen.getByText("25")).toBeInTheDocument();
