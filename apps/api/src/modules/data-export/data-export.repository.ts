@@ -213,12 +213,60 @@ export class DataExportRepository {
       )
       SELECT jsonb_build_object(
         'projects', COALESCE(
-          (SELECT jsonb_agg(to_jsonb(row) ORDER BY row.id)
-           FROM export_projects AS row), '[]'::jsonb
+          (
+  SELECT jsonb_agg(
+    to_jsonb(row) || jsonb_build_object(
+      'collaborators',
+      COALESCE(
+        (
+          SELECT jsonb_agg(
+            jsonb_build_object(
+              'display_name', collaborator_user.display_name,
+              'role', collaborator_role.value
+            )
+            ORDER BY collaborator_user.display_name, collaborator.user_id
+          )
+          FROM public.project_collaborators AS collaborator
+          INNER JOIN public.users AS collaborator_user
+            ON collaborator_user.id = collaborator.user_id
+          INNER JOIN public."enum" AS collaborator_role
+            ON collaborator_role.id = collaborator.role_id
+          WHERE collaborator.project_id = row.id
+            AND collaborator.tenant_id = row.tenant_id
+            AND collaborator_role.category = 'project_role'
+            AND collaborator_role.value <> 'Owner'
+        ),
+        '[]'::jsonb
+      )
+    )
+    ORDER BY row.id
+  )
+  FROM export_projects AS row
+), '[]'::jsonb
         ),
         'papers', COALESCE(
-          (SELECT jsonb_agg(to_jsonb(row) ORDER BY row.id)
-           FROM export_papers AS row), '[]'::jsonb
+          (
+  SELECT jsonb_agg(
+    to_jsonb(row) || jsonb_build_object(
+      'assigned_to_display_name',
+      COALESCE(
+        (
+          SELECT assigned_user.display_name
+          FROM public.users AS assigned_user
+          WHERE assigned_user.id = row.assigned_to_user_id
+        ),
+        (
+          SELECT assigned_invitation.name
+          FROM public.module_invitations AS assigned_invitation
+          WHERE assigned_invitation.id = row.assigned_to_invitation_id
+            AND assigned_invitation.module_id = row.id
+        )
+      )
+    )
+    ORDER BY row.id
+  )
+  FROM export_papers AS row
+), '[]'::jsonb
         ),
         'tasks', COALESCE(
           (SELECT jsonb_agg(to_jsonb(row) ORDER BY row.id)

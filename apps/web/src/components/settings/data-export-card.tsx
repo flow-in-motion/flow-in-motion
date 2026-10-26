@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Download, Loader2, Printer } from "lucide-react";
+import {
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  Printer,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +20,7 @@ import {
   printResearchData,
 } from "@/lib/research-data-export";
 
-type ExportFormat = "json" | "pdf";
+type ExportFormat = "json" | "pdf" | "excel";
 
 export function DataExportCard() {
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
@@ -68,7 +73,19 @@ export function DataExportCard() {
       if (format === "json") {
         downloadResearchDataJson(data);
         setMessage("Your JSON download has started.");
-      } else if (preview) {
+      } else if (format === "excel") {
+        const { downloadResearchDataExcel } = await import(
+          "@/lib/research-data-excel"
+        );
+
+        if (request.signal.aborted) return;
+
+        await downloadResearchDataExcel(data, request.signal);
+        if (request.signal.aborted) return;
+
+        setMessage("Your Excel download has started.");
+      }
+      else if (preview) {
         await printResearchData(data, preview);
         if (request.signal.aborted) return;
 
@@ -77,14 +94,22 @@ export function DataExportCard() {
         );
       }
     } catch (cause) {
-      preview?.close();
+      const message =
+        cause instanceof Error
+          ? cause.message
+          : "Your data could not be exported. Please try again.";
 
       if (!request.signal.aborted) {
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "Your data could not be exported. Please try again.",
-        );
+        setError(message);
+
+        if (preview && !preview.closed) {
+          preview.document.title = "Export failed";
+          preview.document.body.textContent =
+            `The PDF report could not be prepared.\n\n${message}`;
+          preview.document.body.style.whiteSpace = "pre-wrap";
+          preview.document.body.style.padding = "24px";
+          preview.document.body.style.fontFamily = "Arial, sans-serif";
+        }
       }
     } finally {
       if (requestRef.current === request) {
@@ -144,11 +169,25 @@ export function DataExportCard() {
             )}
             {exporting === "json" ? "Preparing JSON…" : "Download JSON"}
           </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            disabled={exporting !== null}
+            onClick={() => void handleExport("excel")}
+          >
+            {exporting === "excel" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4" />
+            )}
+            {exporting === "excel" ? "Preparing Excel…" : "Download Excel"}
+          </Button>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          PDF provides a readable report. JSON preserves structured records
-          and their links.
+          PDF provides a readable report. Excel provides connected worksheets.
+          JSON preserves structured records and their links.
         </p>
 
         {error ? (

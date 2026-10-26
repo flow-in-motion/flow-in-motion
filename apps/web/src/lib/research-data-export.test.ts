@@ -122,6 +122,11 @@ describe("research data export", () => {
       id: `task-${index}`,
       title: `Export task ${index}`,
     }));
+    data.collections.notes = [{
+      id: "note-1",
+      title: "Research notes",
+    }];
+    data.counts.notes = 1;
     data.collections.noteEntries = [
       {
         id: "entry-new",
@@ -142,13 +147,12 @@ describe("research data export", () => {
     const html = buildResearchExportHtml(data);
     const document = new DOMParser().parseFromString(html, "text/html");
 
-    expect(document.querySelectorAll("article")).toHaveLength(27);
+    expect(document.querySelectorAll("article")).toHaveLength(26);
     expect(document.body.textContent).toContain("Export task 24");
     expect(document.body.textContent).toContain(longContent);
     expect(document.body.textContent).toContain("Original dated entry");
-    expect(document.body.textContent).toContain(
-      "2026-10-22T01:00:00.000Z",
-    );
+    expect(document.body.textContent).toContain("22 Oct 2026");
+
   });
 
   it("resolves reference IDs to readable labels in the report", () => {
@@ -169,6 +173,61 @@ describe("research data export", () => {
 
     const html = buildResearchExportHtml(data);
 
-    expect(html).toContain("Waiting (status-waiting)");
+    const document = new DOMParser().parseFromString(html, "text/html");
+
+    expect(document.body.textContent).toContain("Waiting");
+    expect(document.body.textContent).not.toContain("status-waiting");
+    expect(document.body.textContent).not.toContain("task-1");
+    expect(document.body.textContent).not.toContain("Reference values");
+  });
+
+  it("shows paper assignments and project collaborators without technical IDs", () => {
+    const data = makeExport();
+
+    data.collections.projects = [{
+      id: "project-private-id",
+      title: "Genome project",
+      collaborators: [
+        { display_name: "Sam Coauthor", role: "Editor" },
+        { display_name: "Dana Researcher", role: "Viewer" },
+      ],
+    }];
+
+    data.collections.papers = [{
+      id: "paper-private-id",
+      short_title: "Genome manuscript",
+      project_id: "project-private-id",
+      currently_with_type: "collaborator",
+      assigned_to_user_id: "user-private-id",
+      assigned_to_display_name: "Sam Coauthor",
+    }];
+
+    data.counts.projects = 1;
+    data.counts.papers = 1;
+
+    const document = new DOMParser().parseFromString(
+      buildResearchExportHtml(data),
+      "text/html",
+    );
+
+    const project = document.getElementById(
+      "research-projects-project-private-id",
+    );
+    const paper = document.getElementById(
+      "research-papers-paper-private-id",
+    );
+
+    expect(project?.textContent).toContain("Collaborators");
+    expect(project?.textContent).toContain("Sam Coauthor · Editor");
+    expect(project?.textContent).toContain("Dana Researcher · Viewer");
+
+    const assignmentRow = Array.from(
+      paper?.querySelectorAll("tr") ?? [],
+    ).find((row) => row.querySelector("th")?.textContent === "Currently with");
+
+    expect(assignmentRow?.querySelector("td")?.textContent).toBe(
+      "Sam Coauthor",
+    );
+    expect(document.body.textContent).not.toContain("private-id");
   });
 });
