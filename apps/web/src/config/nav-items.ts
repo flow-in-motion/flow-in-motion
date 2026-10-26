@@ -71,6 +71,7 @@ export const navGroups: NavGroup[] = [
     label: "Account",
     items: [
       { label: "Usage", to: "/usage", icon: BarChart3 },
+      { label: "Export", to: "/export", icon: Download}
     ],
   },
   {
@@ -86,7 +87,6 @@ export const navGroups: NavGroup[] = [
       { label: "CV Builder", to: "/future/cv-builder", icon: FileText },
       { label: "Dissemination", to: "/future/dissemination", icon: Megaphone },
       { label: "Documents", to: "/future/documents", icon: Files },
-      { label: "Export", to: "/future/export", icon: Download },
       {
         label: "HDR students",
         to: "/future/hdr-students",

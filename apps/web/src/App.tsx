@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 
 import { RequireAuth } from "@/auth/require-auth";
 import { RequireApiSession } from "@/auth/require-api-session";
@@ -42,6 +42,7 @@ const InvitationPage = lazy(() => import("@/pages/invitation"));
 const TermsPage = lazy(() => import("@/pages/terms"));
 const PrivacyPage = lazy(() => import("@/pages/privacy"));
 const UsagePage = lazy(() => import("@/pages/usage"));
+const ExportPage = lazy(() => import("@/pages/export"));
 
 function routePage(page: ReactNode) {
   return (
@@ -106,6 +107,11 @@ export default function App() {
               <Route path="daily-notes/:noteId" element={routePage(<DailyNoteDetailPage />)} />
               <Route path="pipeline" element={routePage(<PipelinePage />)} />
               <Route path="settings" element={routePage(<SettingsPage />)} />
+              <Route path="export" element={routePage(<ExportPage />)} />
+              <Route
+                path="future/export"
+                element={<Navigate to="/export" replace />}
+              />
               <Route
                 path="settings/account-audit"
                 element={routePage(<AccountAuditPage />)}
