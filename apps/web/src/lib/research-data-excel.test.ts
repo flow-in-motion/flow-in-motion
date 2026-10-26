@@ -185,4 +185,69 @@ describe("research Excel export", () => {
       "Original findings",
     );
   });
+  it("exports linked conference presentations and preserves long abstracts", async () => {
+    const data = makeExport();
+    const abstract = "Burnout contagion findings α 研究\n".repeat(500);
+
+    data.collections.conferences.push({
+      id: "conference-planned",
+      name: "Future research conference",
+    });
+
+    data.collections.conferencePapers = [
+      {
+        id: "presentation-link",
+        conference_id: "conference-1",
+        module_id: "paper-1",
+        presented_date: "2026-10-01",
+        presentation_type: "Poster",
+        paper_title: "Presented manuscript",
+        abstract,
+        notes: "Presented by the research team.",
+      },
+      {
+        id: "planned-link",
+        conference_id: "conference-planned",
+        module_id: "paper-1",
+        presented_date: null,
+      },
+    ];
+
+    data.counts.conferences = data.collections.conferences.length;
+    data.counts.conferencePapers = 2;
+
+    const workbook = await buildResearchExcel(data);
+    const sheet = workbook.getWorksheet("Conference presentations");
+
+    expect(sheet).toBeDefined();
+
+    expect(sheet?.getCell("B4").value).toEqual(
+      expect.objectContaining({
+        text: "Genome manuscript",
+        hyperlink: "#'Papers'!B4",
+      }),
+    );
+
+    expect(sheet?.getCell("C4").value).toEqual(
+      expect.objectContaining({
+        text: "Research conference",
+        hyperlink: "#'Conferences'!B4",
+      }),
+    );
+
+    expect(sheet?.getCell("D4").value).toBeInstanceOf(Date);
+
+    const abstractParts: string[] = [];
+    const conferenceNames: string[] = [];
+
+    sheet?.eachRow((row, number) => {
+      if (number >= 4) {
+        abstractParts.push(row.getCell("G").text);
+        conferenceNames.push(row.getCell("C").text);
+      }
+    });
+
+    expect(abstractParts.join("")).toBe(abstract);
+    expect(conferenceNames).not.toContain("Future research conference");
+  });
 });

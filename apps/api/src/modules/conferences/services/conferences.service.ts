@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -11,6 +12,7 @@ import {
   buildPaginationMeta,
   paginationOffset,
 } from '../../../common/pagination';
+import { SaveConferencePresentationDto } from '../dto/save-conference-presentation.dto';
 
 @Injectable()
 export class ConferencesService {
@@ -244,6 +246,163 @@ export class ConferencesService {
       message: 'Conference deleted successfully',
       conference,
     };
+  }
+
+  async listPaperPresentations(
+    tenantId: string,
+    moduleId: string,
+    callerUserId: string,
+  ) {
+    const papers = await this.repository.findModulesByIds(tenantId, [moduleId]);
+
+    if (papers.length === 0) {
+      throw new NotFoundException('Paper not found');
+    }
+
+    let canManagePaper = true;
+
+    try {
+      await this.validateModuleOwnership(tenantId, [moduleId], callerUserId);
+    } catch (error) {
+      if (!(error instanceof ForbiddenException)) throw error;
+      canManagePaper = false;
+    }
+
+    const presentations = await this.repository.findPresentationsByModule(
+      tenantId,
+      moduleId,
+    );
+
+    return {
+      canLogPresentation: canManagePaper,
+      data: presentations.map(({ ownerUserId, ...presentation }) => ({
+        ...presentation,
+        canManage: canManagePaper && ownerUserId === callerUserId,
+      })),
+    };
+  }
+
+  async presentationConferenceOptions(
+    tenantId: string,
+    moduleId: string,
+    callerUserId: string,
+  ) {
+    await this.validateModuleOwnership(tenantId, [moduleId], callerUserId);
+
+    return this.repository.findOwnedConferenceOptions(tenantId, callerUserId);
+  }
+
+  async savePaperPresentation(
+    tenantId: string,
+    moduleId: string,
+    conferenceId: string,
+    callerUserId: string,
+    input: SaveConferencePresentationDto,
+    mode: 'create' | 'update',
+  ) {
+    await this.lockPresentationConference(tenantId, conferenceId, callerUserId);
+
+    await this.validateModuleOwnership(tenantId, [moduleId], callerUserId);
+
+    const existing = await this.repository.findConferencePaperLink(
+      tenantId,
+      conferenceId,
+      moduleId,
+    );
+
+    if (mode === 'create' && existing?.presentedDate) {
+      throw new ConflictException(
+        'This paper already has a presentation recorded for this conference. Edit the existing entry.',
+      );
+    }
+
+    if (mode === 'update' && !existing?.presentedDate) {
+      throw new NotFoundException('Conference presentation not found');
+    }
+
+    const presentation = await this.repository.saveConferencePresentation(
+      tenantId,
+      conferenceId,
+      moduleId,
+      {
+        presentedDate: input.presentedDate,
+        presentationType: input.presentationType?.trim() || null,
+        paperTitle: input.paperTitle?.trim() || null,
+        abstract: input.abstract?.trim() || null,
+        notes: input.notes?.trim() || null,
+      },
+    );
+
+    if (!presentation) {
+      throw new NotFoundException('Conference presentation could not be saved');
+    }
+
+    return presentation;
+  }
+
+  async removePaperPresentation(
+    tenantId: string,
+    moduleId: string,
+    conferenceId: string,
+    callerUserId: string,
+  ) {
+    await this.lockPresentationConference(tenantId, conferenceId, callerUserId);
+
+    await this.validateModuleOwnership(tenantId, [moduleId], callerUserId);
+
+    const existing = await this.repository.findConferencePaperLink(
+      tenantId,
+      conferenceId,
+      moduleId,
+    );
+
+    if (!existing?.presentedDate) {
+      throw new NotFoundException('Conference presentation not found');
+    }
+
+    const presentation = await this.repository.clearConferencePresentation(
+      tenantId,
+      conferenceId,
+      moduleId,
+    );
+
+    if (!presentation) {
+      throw new NotFoundException('Conference presentation not found');
+    }
+
+    return { message: 'Conference presentation removed successfully' };
+  }
+
+  private async lockPresentationConference(
+    tenantId: string,
+    conferenceId: string,
+    callerUserId: string,
+  ) {
+    const conference = await this.repository.findVisibleById(
+      tenantId,
+      conferenceId,
+      callerUserId,
+    );
+
+    if (!conference) {
+      throw new NotFoundException('Conference not found');
+    }
+
+    if (conference.ownerUserId !== callerUserId) {
+      throw new ForbiddenException(
+        'Only the conference owner can manage its presentation history',
+      );
+    }
+
+    const locked = await this.repository.lockOwnedConference(
+      tenantId,
+      conferenceId,
+      callerUserId,
+    );
+
+    if (!locked) {
+      throw new NotFoundException('Conference not found');
+    }
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import {
   conferenceModules,
   conferenceProjects,
@@ -20,6 +20,7 @@ import {
   isNull,
   or,
   sql,
+  desc,
 } from 'drizzle-orm';
 import { searchPattern } from '../../../common/pagination';
 import { DrizzleService } from '../../../db/drizzle.service';
@@ -48,7 +49,13 @@ interface UpdateConferenceValues {
   submissionType?: string | null;
   intents?: ConferenceIntent[];
 }
-
+export interface ConferencePresentationValues {
+  presentedDate: string;
+  presentationType: string | null;
+  paperTitle: string | null;
+  abstract: string | null;
+  notes: string | null;
+}
 @Injectable()
 export class ConferencesRepository {
   constructor(private readonly drizzle: DrizzleService) {}
@@ -655,23 +662,83 @@ export class ConferencesRepository {
     }
 
     if (moduleIds !== undefined) {
-      await this.drizzle.db
-        .delete(conferenceModules)
+      const requestedModuleIds = [...new Set(moduleIds)];
+      const requestedIds = new Set(requestedModuleIds);
+
+      const existingLinks = await this.drizzle.db
+        .select({
+          moduleId: conferenceModules.moduleId,
+          presentedDate: conferenceModules.presentedDate,
+          presentationType: conferenceModules.presentationType,
+          paperTitle: conferenceModules.paperTitle,
+          abstract: conferenceModules.abstract,
+          notes: conferenceModules.notes,
+        })
+        .from(conferenceModules)
         .where(
           and(
             eq(conferenceModules.tenantId, tenantId),
             eq(conferenceModules.conferenceId, conferenceId),
           ),
-        );
+        )
+        .for('update');
 
-      if (moduleIds.length > 0) {
-        await this.drizzle.db.insert(conferenceModules).values(
-          moduleIds.map((moduleId) => ({
-            tenantId,
-            conferenceId,
-            moduleId,
-          })),
+      const removedLinks = existingLinks.filter(
+        (link) => !requestedIds.has(link.moduleId),
+      );
+
+      const removesPresentationDetails = removedLinks.some((link) =>
+        [
+          link.presentedDate,
+          link.presentationType,
+          link.paperTitle,
+          link.abstract,
+          link.notes,
+        ].some((value) => value !== null),
+      );
+
+      if (removesPresentationDetails) {
+        throw new ConflictException(
+          'This paper has conference presentation details. Clear its presentation details before unlinking it.',
         );
+      }
+
+      const removedModuleIds = removedLinks.map((link) => link.moduleId);
+
+      if (removedModuleIds.length > 0) {
+        await this.drizzle.db
+          .delete(conferenceModules)
+          .where(
+            and(
+              eq(conferenceModules.tenantId, tenantId),
+              eq(conferenceModules.conferenceId, conferenceId),
+              inArray(conferenceModules.moduleId, removedModuleIds),
+            ),
+          );
+      }
+
+      const existingIds = new Set(existingLinks.map((link) => link.moduleId));
+
+      const addedModuleIds = requestedModuleIds.filter(
+        (moduleId) => !existingIds.has(moduleId),
+      );
+
+      if (addedModuleIds.length > 0) {
+        await this.drizzle.db
+          .insert(conferenceModules)
+          .values(
+            addedModuleIds.map((moduleId) => ({
+              tenantId,
+              conferenceId,
+              moduleId,
+            })),
+          )
+          .onConflictDoNothing({
+            target: [
+              conferenceModules.conferenceId,
+              conferenceModules.moduleId,
+            ],
+          });
       }
     }
 
@@ -696,5 +763,162 @@ export class ConferencesRepository {
       .returning();
 
     return conference;
+  }
+  /** Presentation history for an accessible paper, newest first. */
+  async findPresentationsByModule(tenantId: string, moduleId: string) {
+    return this.drizzle.db
+      .select({
+        id: conferenceModules.id,
+        conferenceId: conferences.id,
+        conferenceName: conferences.name,
+        acronym: conferences.acronym,
+        location: conferences.location,
+        ownerUserId: conferences.ownerUserId,
+        presentedDate: conferenceModules.presentedDate,
+        presentationType: conferenceModules.presentationType,
+        paperTitle: conferenceModules.paperTitle,
+        abstract: conferenceModules.abstract,
+        notes: conferenceModules.notes,
+      })
+      .from(conferenceModules)
+      .innerJoin(
+        conferences,
+        and(
+          eq(conferences.id, conferenceModules.conferenceId),
+          eq(conferences.tenantId, conferenceModules.tenantId),
+        ),
+      )
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          eq(conferenceModules.moduleId, moduleId),
+          isNotNull(conferenceModules.presentedDate),
+        ),
+      )
+      .orderBy(
+        desc(conferenceModules.presentedDate),
+        asc(conferences.name),
+        asc(conferenceModules.id),
+      );
+  }
+
+  /** All conferences owned by the caller, without first-page restrictions. */
+  async findOwnedConferenceOptions(tenantId: string, callerUserId: string) {
+    return this.drizzle.db
+      .select({
+        id: conferences.id,
+        name: conferences.name,
+        acronym: conferences.acronym,
+        location: conferences.location,
+        startDate: conferences.startDate,
+        endDate: conferences.endDate,
+      })
+      .from(conferences)
+      .where(
+        and(
+          eq(conferences.tenantId, tenantId),
+          eq(conferences.ownerUserId, callerUserId),
+        ),
+      )
+      .orderBy(asc(conferences.name), asc(conferences.id));
+  }
+
+  /**
+   * Serialize presentation edits with normal conference edits.
+   * Call this before checking or changing its paper links.
+   */
+  async lockOwnedConference(
+    tenantId: string,
+    conferenceId: string,
+    callerUserId: string,
+  ) {
+    const [conference] = await this.drizzle.db
+      .select({ id: conferences.id })
+      .from(conferences)
+      .where(
+        and(
+          eq(conferences.tenantId, tenantId),
+          eq(conferences.id, conferenceId),
+          eq(conferences.ownerUserId, callerUserId),
+        ),
+      )
+      .for('update');
+
+    return conference;
+  }
+
+  async findConferencePaperLink(
+    tenantId: string,
+    conferenceId: string,
+    moduleId: string,
+  ) {
+    const [link] = await this.drizzle.db
+      .select()
+      .from(conferenceModules)
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          eq(conferenceModules.conferenceId, conferenceId),
+          eq(conferenceModules.moduleId, moduleId),
+        ),
+      )
+      .for('update');
+
+    return link;
+  }
+
+  /**
+   * Reuse an existing planned link, or create the paper/conference link.
+   * The service must validate ownership and lock the conference first.
+   */
+  async saveConferencePresentation(
+    tenantId: string,
+    conferenceId: string,
+    moduleId: string,
+    values: ConferencePresentationValues,
+  ) {
+    const [link] = await this.drizzle.db
+      .insert(conferenceModules)
+      .values({
+        tenantId,
+        conferenceId,
+        moduleId,
+        ...values,
+      })
+      .onConflictDoUpdate({
+        target: [conferenceModules.conferenceId, conferenceModules.moduleId],
+        set: values,
+        setWhere: eq(conferenceModules.tenantId, tenantId),
+      })
+      .returning();
+
+    return link;
+  }
+
+  /** Remove presentation details while preserving the conference/paper link. */
+  async clearConferencePresentation(
+    tenantId: string,
+    conferenceId: string,
+    moduleId: string,
+  ) {
+    const [link] = await this.drizzle.db
+      .update(conferenceModules)
+      .set({
+        presentedDate: null,
+        presentationType: null,
+        paperTitle: null,
+        abstract: null,
+        notes: null,
+      })
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          eq(conferenceModules.conferenceId, conferenceId),
+          eq(conferenceModules.moduleId, moduleId),
+        ),
+      )
+      .returning();
+
+    return link;
   }
 }

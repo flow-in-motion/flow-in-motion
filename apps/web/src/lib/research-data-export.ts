@@ -295,6 +295,54 @@ function escapeHtml(value: string) {
         </div>`;
     }
 
+    function conferencePresentationHistory(paper: ExportRecord): string {
+      const presentations = collections.conferencePapers
+        .filter(
+          (link) =>
+            link.module_id === paper.id &&
+            typeof link.presented_date === "string" &&
+            link.presented_date.length > 0,
+        )
+        .slice()
+        .sort((left, right) =>
+          textValue(right.presented_date).localeCompare(
+            textValue(left.presented_date),
+          ),
+        );
+
+      if (presentations.length === 0) return "";
+
+      return `
+        <div class="history">
+          <h4>Conference presentation history</h4>
+          ${presentations
+            .map((presentation) => {
+              const conference = collections.conferences.find(
+                (record) => record.id === presentation.conference_id,
+              );
+
+              return `
+                <div class="history-entry">
+                  <h5>${escapeHtml(
+                    linkedName(
+                      presentation.conference_id,
+                      "Conference unavailable",
+                    ),
+                  )}</h5>
+                  ${renderFields([
+                    ["Presented", reportDate(presentation.presented_date)],
+                    ["Presentation type", presentation.presentation_type],
+                    ["Location", conference?.location],
+                    ["Presented title", presentation.paper_title],
+                  ])}
+                  ${renderText("Presented abstract", presentation.abstract)}
+                  ${renderText("Notes", presentation.notes)}
+                </div>`;
+            })
+            .join("")}
+        </div>`;
+    }
+
     function submissionHistory(paper: ExportRecord): string {
       const submissions = collections.journalSubmissions
         .filter((submission) => submission.module_id === paper.id)
@@ -390,7 +438,8 @@ function escapeHtml(value: string) {
           content =
             renderText("Description", record.description) +
             renderText("Abstract", record.abstract) +
-            submissionHistory(record);
+            submissionHistory(record) +
+            conferencePresentationHistory(record);
           break;
 
         case "tasks":

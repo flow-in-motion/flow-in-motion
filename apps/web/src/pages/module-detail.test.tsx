@@ -172,6 +172,31 @@ const fixtures = vi.hoisted(() => ({
   ],
 }));
 vi.mock("@/api/hooks", () => ({
+  useModuleConferencePresentations: () => ({
+    data: {
+      canLogPresentation: false,
+      data: [],
+    },
+    isPending: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  usePresentationConferenceOptions: () => ({
+    data: [],
+    isPending: false,
+    isError: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useSaveConferencePresentation: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+  useDeleteConferencePresentation: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
   useMyModuleArchiveImpact: () => ({
     data: { tasks: 3, notes: 2 },
     isPending: false,
