@@ -10,7 +10,7 @@ import {
   NotebookPen,
   SlidersHorizontal,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -50,7 +50,6 @@ import { PageHeading } from "@/components/typography/heading";
 import { Button } from "@/components/ui/button";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { usePreferences } from "@/preferences/preferences-context";
-import { fillRowGaps } from "@/lib/dashboard-layout";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -65,6 +64,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  fillRowGaps,
+  getDashboardWidgetWidths,
+  normalizeDashboardWidths,
+} from "@/lib/dashboard-layout";
+import { DashboardResizeHandle } from "@/components/dashboard/dashboard-resize-handle";
 
 function buildSummary(counts: {
   activeProjects: number;
@@ -198,40 +203,66 @@ const DASHBOARD_LAYOUT_KEY = "research-in-motion.dashboard-layout.v1";
 interface StoredDashboardLayout {
   order: DashboardWidgetId[];
   hidden: DashboardWidgetId[];
+  widths?: Record<string, number>;
 }
 
 function isDashboardWidgetId(value: unknown): value is DashboardWidgetId {
   return DEFAULT_WIDGET_ORDER.includes(value as DashboardWidgetId);
 }
 
-function loadDashboardLayout(storageKey = DASHBOARD_LAYOUT_KEY): StoredDashboardLayout {
+function loadDashboardLayout(
+  storageKey = DASHBOARD_LAYOUT_KEY,
+): StoredDashboardLayout {
   if (typeof window === "undefined") {
-    return { order: [...DEFAULT_WIDGET_ORDER], hidden: [...DEFAULT_HIDDEN_WIDGETS] };
+    return {
+      order: [...DEFAULT_WIDGET_ORDER],
+      hidden: [...DEFAULT_HIDDEN_WIDGETS],
+    };
   }
 
   try {
-    const serialized = window.localStorage.getItem(storageKey)
-      ?? (storageKey === DASHBOARD_LAYOUT_KEY
+    const serialized =
+      window.localStorage.getItem(storageKey) ??
+      (storageKey === DASHBOARD_LAYOUT_KEY
         ? null
         : window.localStorage.getItem(DASHBOARD_LAYOUT_KEY));
+
     const stored = JSON.parse(serialized ?? "null") as {
       order?: unknown;
       hidden?: unknown;
+      widths?: unknown;
     } | null;
+
     const savedOrder = Array.isArray(stored?.order)
       ? stored.order.filter(isDashboardWidgetId)
       : [];
+
     const order = [
       ...new Set(savedOrder),
       ...DEFAULT_WIDGET_ORDER.filter((id) => !savedOrder.includes(id)),
     ];
+
     const hidden = Array.isArray(stored?.hidden)
       ? [...new Set(stored.hidden.filter(isDashboardWidgetId))]
       : [...DEFAULT_HIDDEN_WIDGETS];
 
-    return { order, hidden };
+    return {
+      order,
+      hidden,
+      ...(stored?.widths !== undefined
+        ? {
+            widths: normalizeDashboardWidths(
+              stored.widths,
+              DEFAULT_WIDGET_ORDER,
+            ),
+          }
+        : {}),
+    };
   } catch {
-    return { order: [...DEFAULT_WIDGET_ORDER], hidden: [...DEFAULT_HIDDEN_WIDGETS] };
+    return {
+      order: [...DEFAULT_WIDGET_ORDER],
+      hidden: [...DEFAULT_HIDDEN_WIDGETS],
+    };
   }
 }
 
@@ -263,6 +294,11 @@ export default function DashboardPage() {
   const lastSavedLayout = useRef("");
   const isHydratingLayout = useRef(false);
   const saveLayoutTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const [isResizingWidgets, setIsResizingWidgets] = useState(false);
+  const [widthPreview, setWidthPreview] = useState<{
+    id: DashboardWidgetId;
+    width: number;
+  } | null>(null);
 
   const summary = useMemo(
     () =>
@@ -285,6 +321,23 @@ export default function DashboardPage() {
     visibleOrderedWidgets.map((widget) => widget.span),
     DASHBOARD_GRID_COLUMNS,
   );
+  const savedWidths = normalizeDashboardWidths(
+    layout.widths,
+    DEFAULT_WIDGET_ORDER,
+  );
+
+  const dynamicLayout =
+    isResizingWidgets || Object.keys(savedWidths).length > 0;
+
+  const widgetWidths = getDashboardWidgetWidths(
+    visibleOrderedWidgets,
+    {
+      ...savedWidths,
+      ...(widthPreview
+        ? { [widthPreview.id]: widthPreview.width }
+        : {}),
+    },
+  );
 
   useEffect(() => {
     if (
@@ -304,6 +357,14 @@ export default function DashboardPage() {
           ...DEFAULT_WIDGET_ORDER.filter((id) => !savedOrder.includes(id)),
         ],
         hidden: [...new Set(remote.hidden.filter(isDashboardWidgetId))],
+        ...(remote.widths !== undefined
+          ? {
+              widths: normalizeDashboardWidths(
+                remote.widths,
+                DEFAULT_WIDGET_ORDER,
+              ),
+            }
+          : {}),
       };
       lastSavedLayout.current = JSON.stringify(next);
       setLayout(next);
@@ -314,6 +375,10 @@ export default function DashboardPage() {
       setLayout(local);
     }
   }, [preferences]);
+  useEffect(() => {
+    setWidthPreview(null);
+    setIsResizingWidgets(false);
+  }, [tenantId]);
 
   useEffect(() => {
     const storageKey = preferences?.workspaceId
@@ -349,6 +414,16 @@ export default function DashboardPage() {
         : [...current.hidden, widgetId],
     }));
   }
+  function resizeWidget(widgetId: DashboardWidgetId, width: number) {
+    setLayout((current) => ({
+      ...current,
+      widths: {
+        ...current.widths,
+        [widgetId]: width,
+      },
+    }));
+    setWidthPreview(null);
+  }
 
   function moveWidget(widgetId: DashboardWidgetId, direction: "up" | "down") {
     setLayout((current) => {
@@ -374,7 +449,13 @@ export default function DashboardPage() {
   }
 
   function resetLayout() {
-    setLayout({ order: [...DEFAULT_WIDGET_ORDER], hidden: [...DEFAULT_HIDDEN_WIDGETS] });
+    setWidthPreview(null);
+    setIsResizingWidgets(false);
+    setLayout({
+      order: [...DEFAULT_WIDGET_ORDER],
+      hidden: [...DEFAULT_HIDDEN_WIDGETS],
+      widths: {},
+    });
   }
 
   async function handleCreateProject(input: NewProjectInput) {
@@ -603,26 +684,81 @@ export default function DashboardPage() {
         })}
       </div>
       {/* <WorkOnThisNextBanner /> */}
+      {isResizingWidgets ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
+          <p className="text-sm">
+            Drag a card’s right-edge handle to resize it. Changes save
+            automatically when you release. Resizing is available on wide
+            screens.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setWidthPreview(null);
+              setIsResizingWidgets(false);
+            }}
+          >
+            Finish resizing
+          </Button>
+        </div>
+      ) : null}
+
       {visibleOrderedWidgets.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <div
+          className={
+            dynamicLayout
+              ? "flex flex-col gap-4 xl:flex-row xl:flex-wrap"
+              : "grid grid-cols-1 gap-4 xl:grid-cols-5"
+          }
+        >
           {visibleOrderedWidgets.map((widget, index) => (
             <div
               key={widget.id}
               data-testid={`dashboard-widget-${widget.id}`}
               className={cn(
-                XL_COLUMN_SPAN_CLASS[widgetSpans[index]],
-                "[&>*]:h-full",
+                "relative min-w-0 [&>div]:h-full",
+                dynamicLayout
+                  ? "w-full xl:w-[var(--dashboard-widget-width)]"
+                  : XL_COLUMN_SPAN_CLASS[widgetSpans[index]],
               )}
+              style={
+                dynamicLayout
+                  ? ({
+                      "--dashboard-widget-width": `calc(${widgetWidths[index]}% - ${(100 - widgetWidths[index]) / 100}rem)`,
+                    } as CSSProperties)
+                  : undefined
+              }
             >
-              <widget.component />
+              <div className="min-w-0 overflow-x-auto [&>*]:h-full">
+                <widget.component />
+              </div>
+
+              {isResizingWidgets ? (
+                <DashboardResizeHandle
+                  label={widget.label}
+                  width={widgetWidths[index]}
+                  onPreview={(width) =>
+                    setWidthPreview(
+                      width === null ? null : { id: widget.id, width },
+                    )
+                  }
+                  onCommit={(width) => resizeWidget(widget.id, width)}
+                />
+              ) : null}
             </div>
           ))}
         </div>
       ) : (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-            <p className="text-sm text-muted-foreground">All dashboard widgets are hidden.</p>
-            <Button variant="outline" onClick={() => setIsCustomizeOpen(true)}>
+            <p className="text-sm text-muted-foreground">
+              All dashboard widgets are hidden.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => setIsCustomizeOpen(true)}
+            >
               Customise dashboard
             </Button>
           </CardContent>
@@ -638,6 +774,10 @@ export default function DashboardPage() {
         onMove={moveWidget}
         onReorder={reorderWidgets}
         onReset={resetLayout}
+        onResize={() => {
+          setWidthPreview(null);
+          setIsResizingWidgets(true);
+        }}
       />
     </div>
   );

@@ -65,4 +65,64 @@ describe('PreferencesService', () => {
       },
     });
   });
+  it('saves dynamic widget widths and discards invalid values', async () => {
+    repository.updateWorkspace.mockImplementation(
+      (_userId: string, _tenantId: string, preferences: unknown) => ({
+        preferences,
+      }),
+    );
+
+    const result = await service.updateWorkspace('user-1', 'tenant-1', {
+      dashboardLayout: {
+        order: ['stalled-papers', 'task-health'],
+        hidden: [],
+        widths: {
+          'stalled-papers': 35,
+          'task-health': 65,
+          pipeline: 50.5,
+          conferences: 100,
+          tasks: 24,
+          'priority-workload': '50',
+          unknownWidget: 50,
+        },
+      },
+    });
+
+    expect(result).toEqual({
+      dashboardLayout: {
+        order: ['stalled-papers', 'task-health'],
+        hidden: [],
+        widths: {
+          'stalled-papers': 35,
+          'task-health': 65,
+          pipeline: 51,
+          conferences: 100,
+        },
+      },
+    });
+  });
+
+  it('allows resetting custom widths without changing visibility or order', async () => {
+    repository.updateWorkspace.mockImplementation(
+      (_userId: string, _tenantId: string, preferences: unknown) => ({
+        preferences,
+      }),
+    );
+
+    const result = await service.updateWorkspace('user-1', 'tenant-1', {
+      dashboardLayout: {
+        order: ['pipeline', 'conferences'],
+        hidden: ['conferences'],
+        widths: {},
+      },
+    });
+
+    expect(result).toEqual({
+      dashboardLayout: {
+        order: ['pipeline', 'conferences'],
+        hidden: ['conferences'],
+        widths: {},
+      },
+    });
+  });
 });

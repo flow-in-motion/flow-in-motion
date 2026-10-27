@@ -29,6 +29,7 @@ interface CustomizeDashboardDialogProps<T extends string> {
   onMove: (widget: T, direction: "up" | "down") => void;
   onReorder: (draggedWidget: T, targetWidget: T) => void;
   onReset: () => void;
+  onResize?: () => void;
 }
 
 export function CustomizeDashboardDialog<T extends string>({
@@ -40,6 +41,7 @@ export function CustomizeDashboardDialog<T extends string>({
   onMove,
   onReorder,
   onReset,
+  onResize,
 }: CustomizeDashboardDialogProps<T>) {
   const [draggedId, setDraggedId] = useState<T | null>(null);
   const [dragOverId, setDragOverId] = useState<T | null>(null);
@@ -161,6 +163,18 @@ export function CustomizeDashboardDialog<T extends string>({
             <RotateCcw />
             Reset layout
           </Button>
+          {onResize ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                onResize();
+                onOpenChange(false);
+              }}
+            >
+              Resize widgets
+            </Button>
+          ) : null}
           <DialogClose asChild>
             <Button type="button">Done</Button>
           </DialogClose>

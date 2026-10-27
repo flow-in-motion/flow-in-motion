@@ -4,7 +4,14 @@ import { IsObject, IsOptional } from 'class-validator';
 export class UpdateWorkspacePreferencesDto {
   @ApiProperty({
     required: false,
-    example: { order: ['summary', 'tasks'], hidden: ['conferences'] },
+    example: {
+      order: ['pipeline', 'conferences'],
+      hidden: [],
+      widths: {
+        pipeline: 60,
+        conferences: 40,
+      },
+    },
   })
   @IsOptional()
   @IsObject()
