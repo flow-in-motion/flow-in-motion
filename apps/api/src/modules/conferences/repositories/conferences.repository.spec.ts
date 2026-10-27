@@ -56,6 +56,47 @@ describe('ConferencesRepository', () => {
     expect(paperQuery!.params).toContain('%Genome%');
   });
 
+  it('uses the same ownership rule for the link picker and the save check', async () => {
+    const tenantId = '00000000-0000-4000-8000-000000000001';
+    const userId = '00000000-0000-4000-8000-000000000002';
+    const picker = setup();
+    await picker.repository.searchOwnedLinkOptions(tenantId, userId, '');
+    const projectCheck = setup();
+    await projectCheck.repository.findLinkableProjectIds(
+      tenantId,
+      ['00000000-0000-4000-8000-000000000003'],
+      userId,
+    );
+    const paperCheck = setup();
+    await paperCheck.repository.findLinkableModuleIds(
+      tenantId,
+      ['00000000-0000-4000-8000-000000000004'],
+      userId,
+    );
+
+    // The ownership part of each query, ignoring parameter numbers and the
+    // picker's sort order.
+    const ownershipRule = (sql: string) => {
+      const sortStart = sql.indexOf(' order by ');
+      return sql
+        .slice(
+          sql.indexOf('"projects"."user_id" ='),
+          sortStart === -1 ? undefined : sortStart,
+        )
+        .replace(/\$\d+/g, '$');
+    };
+    const [pickerProjects, pickerPapers] = picker.queries.map((query) =>
+      ownershipRule(query.sql),
+    );
+
+    // Created the project, or holds its Owner role.
+    expect(pickerProjects).toContain('exists (select');
+    expect(ownershipRule(projectCheck.queries[0]!.sql)).toBe(pickerProjects);
+    // Owns the paper's project, or holds the paper's Owner role.
+    expect(pickerPapers).toContain('"module_collaborators"');
+    expect(ownershipRule(paperCheck.queries[0]!.sql)).toBe(pickerPapers);
+  });
+
   it('filters visible conferences by name, acronym, location and type when searching', async () => {
     const { queries, repository } = setup();
 

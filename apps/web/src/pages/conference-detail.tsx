@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { CalendarDays, MapPin, Pencil, Presentation, Trash2 } from "lucide-react";
+import { CalendarDays, Link2, MapPin, Pencil, Presentation, Trash2, Unlink } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import {
@@ -8,9 +8,11 @@ import {
   useDeleteConference,
   useMe,
   useUpdateConference,
+  type ApiConference,
 } from "@/api/hooks";
 import { ConferenceSubmissionDialog, type ConferenceSubmissionInput } from "@/components/dashboard/conference-submission-dialog";
 import { BackButton } from "@/components/shared/back-button";
+import { PanelToggleButton } from "@/components/shared/linked-items-panels";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -42,6 +44,118 @@ function DetailItem({ label, children }: { label: string; children: ReactNode })
   );
 }
 
+interface LinkedRecord {
+  id: string;
+  displayId: string | null;
+  title: string;
+  href: string;
+}
+
+/**
+ * One kind of linked record (projects or papers) in its own panel, laid out
+ * like the Papers, Tasks and Notes panels on a project page.
+ */
+function ConferenceLinksPanel({
+  title,
+  noun,
+  contentId,
+  items,
+  visible,
+  onToggleVisible,
+  onEditLinks,
+  onUnlink,
+}: {
+  title: string;
+  /** Plural, lower case: "projects" or "papers". */
+  noun: string;
+  contentId: string;
+  items: LinkedRecord[];
+  visible: boolean;
+  onToggleVisible: () => void;
+  /** Shown to the conference owner only. */
+  onEditLinks?: () => void;
+  onUnlink?: (item: LinkedRecord) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
+        <CardTitle>{title} ({items.length})</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          {onEditLinks ? (
+            <Button variant="outline" size="sm" onClick={onEditLinks}>
+              <Link2 />
+              Link {noun}
+            </Button>
+          ) : null}
+          <PanelToggleButton
+            visible={visible}
+            onToggle={onToggleVisible}
+            label={noun}
+            controls={contentId}
+          />
+        </div>
+      </CardHeader>
+      {visible ? (
+        <CardContent id={contentId}>
+          {items.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No {noun} are linked to this conference.
+            </p>
+          ) : (
+            <div className="grid gap-2">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
+                >
+                  <Link
+                    to={item.href}
+                    className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {item.displayId ? (
+                      <span className="block font-mono text-[10px] text-muted-foreground">
+                        {item.displayId}
+                      </span>
+                    ) : null}
+                    <span className="block text-sm font-semibold">{item.title}</span>
+                  </Link>
+                  {onUnlink ? (
+                    <button
+                      type="button"
+                      onClick={() => onUnlink(item)}
+                      aria-label={`Unlink ${item.title} from this conference`}
+                      title="Unlink"
+                      className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Unlink className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      ) : null}
+    </Card>
+  );
+}
+
+/** The conference as saved, ready to send back with changed links. */
+function conferenceInput(conference: ApiConference): ConferenceSubmissionInput {
+  return {
+    name: conference.name,
+    acronym: conference.acronym,
+    location: conference.location,
+    submissionDue: conference.submissionDue,
+    startDate: conference.startDate,
+    endDate: conference.endDate,
+    submissionType: conference.submissionType,
+    intents: conference.intents,
+    projectIds: conference.projects.map((project) => project.id),
+    moduleIds: (conference.papers ?? []).map((paper) => paper.id),
+  };
+}
+
 function deadlineLabel(daysRemaining: number | null) {
   if (daysRemaining === null) return "No deadline added.";
   if (daysRemaining < 0) return `${Math.abs(daysRemaining)} day${daysRemaining === -1 ? "" : "s"} overdue`;
@@ -60,6 +174,8 @@ export default function ConferenceDetailPage() {
   const deleteConference = useDeleteConference(tenantId);
   const [isEditing, setIsEditing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isProjectsVisible, setIsProjectsVisible] = useState(true);
+  const [isPapersVisible, setIsPapersVisible] = useState(true);
 
   if (workspace.isPending || conferenceQuery.isPending || meQuery.isPending) {
     return <LoadingState title="Loading conference" layout="detail" />;
@@ -87,6 +203,35 @@ export default function ConferenceDetailPage() {
     await updateConference.mutateAsync({ conferenceId, input });
     setIsEditing(false);
   }
+
+  async function unlink(kind: "project" | "paper", item: LinkedRecord) {
+    if (!window.confirm(`Unlink "${item.title}" from this conference? The ${kind} itself won't be deleted.`)) return;
+    setActionError(null);
+    const input = conferenceInput(conference);
+    try {
+      await updateConference.mutateAsync({
+        conferenceId,
+        input: kind === "project"
+          ? { ...input, projectIds: input.projectIds.filter((id) => id !== item.id) }
+          : { ...input, moduleIds: input.moduleIds.filter((id) => id !== item.id) },
+      });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : `The ${kind} could not be unlinked.`);
+    }
+  }
+
+  const linkedProjects: LinkedRecord[] = conference.projects.map((project) => ({
+    id: project.id,
+    displayId: project.displayId,
+    title: project.title,
+    href: `/projects/${project.id}`,
+  }));
+  const linkedPapers: LinkedRecord[] = (conference.papers ?? []).map((paper) => ({
+    id: paper.id,
+    displayId: paper.displayId,
+    title: paperDisplayTitle(paper),
+    href: `/modules/${paper.id}`,
+  }));
 
   async function remove() {
     if (!window.confirm(`Delete "${conference.name}"? This action cannot be undone.`)) return;
@@ -160,35 +305,29 @@ export default function ConferenceDetailPage() {
             </p>
           </CardContent>
         </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Linked projects or papers</CardTitle></CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {conference.projects.length === 0 && (conference.papers ?? []).length === 0 ? (
-                <span className="text-sm text-muted-foreground">—</span>
-              ) : (
-                <>
-                  {conference.projects.map((project) => (
-                    <Link key={`project:${project.id}`} to={`/projects/${project.id}`}
-                      className="rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:border-primary/40 hover:bg-accent">
-                      {project.displayId ? <span className="font-mono text-xs text-muted-foreground">{project.displayId}</span> : null}
-                      <span className="mt-1 block font-semibold">{project.title}</span>
-                    </Link>
-                  ))}
-                  {(conference.papers ?? []).map((paper) => (
-                    <Link key={`paper:${paper.id}`} to={`/modules/${paper.id}`}
-                      className="rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:border-primary/40 hover:bg-accent">
-                      {paper.displayId ? <span className="font-mono text-xs text-muted-foreground">{paper.displayId}</span> : null}
-                      <span className="mt-1 block font-semibold">{paperDisplayTitle(paper)}</span>
-                    </Link>
-                  ))}
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      <ConferenceLinksPanel
+        title="Projects"
+        noun="projects"
+        contentId="conference-projects-content"
+        items={linkedProjects}
+        visible={isProjectsVisible}
+        onToggleVisible={() => setIsProjectsVisible((visible) => !visible)}
+        onEditLinks={canManage ? () => setIsEditing(true) : undefined}
+        onUnlink={canManage ? (item) => void unlink("project", item) : undefined}
+      />
+
+      <ConferenceLinksPanel
+        title="Papers"
+        noun="papers"
+        contentId="conference-papers-content"
+        items={linkedPapers}
+        visible={isPapersVisible}
+        onToggleVisible={() => setIsPapersVisible((visible) => !visible)}
+        onEditLinks={canManage ? () => setIsEditing(true) : undefined}
+        onUnlink={canManage ? (item) => void unlink("paper", item) : undefined}
+      />
     </div>
   );
 }

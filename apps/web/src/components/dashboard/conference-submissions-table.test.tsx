@@ -257,8 +257,8 @@ describe("ConferenceSubmissionsTable", () => {
     fireEvent.change(dateInputs[0], { target: { value: "2026-12-01" } });
     fireEvent.change(dateInputs[1], { target: { value: "2027-03-04" } });
     fireEvent.change(dateInputs[2], { target: { value: "2027-03-06" } });
-    fireEvent.focus(screen.getByRole("combobox", { name: "Linked project" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Linked project" }), {
+    fireEvent.focus(screen.getByRole("combobox", { name: "Linked projects" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Linked projects" }), {
       target: { value: "Genome" },
     });
     fireEvent.click(
