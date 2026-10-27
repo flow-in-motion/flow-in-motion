@@ -39,6 +39,7 @@ const conference: ApiConference = {
   acronym: "ASM",
   name: "Conference 2027",
   location: "Sydney",
+  notes: "Abstract due with the poster.",
   submissionDue: null,
   startDate: null,
   endDate: null,
@@ -144,6 +145,7 @@ describe("ConferenceDetailPage", () => {
         conferenceId: "conference-1",
         input: expect.objectContaining({
           name: "Conference 2027",
+          notes: "Abstract due with the poster.",
           submissionType: "Poster",
           intents: ["Submitting"],
           projectIds: ["project-1", "project-2"],

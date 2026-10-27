@@ -146,6 +146,7 @@ function conferenceInput(conference: ApiConference): ConferenceSubmissionInput {
     name: conference.name,
     acronym: conference.acronym,
     location: conference.location,
+    notes: conference.notes,
     submissionDue: conference.submissionDue,
     startDate: conference.startDate,
     endDate: conference.endDate,
@@ -303,6 +304,23 @@ export default function ConferenceDetailPage() {
             <p className={conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "mt-2 text-sm font-medium text-destructive" : "mt-2 text-sm text-muted-foreground"}>
               {deadlineLabel(conference.daysRemaining)}
             </p>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Notes / abstract</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {conference.notes ? (
+              <p className="whitespace-pre-wrap break-words text-sm leading-7">
+                {conference.notes}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No notes or abstract added.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

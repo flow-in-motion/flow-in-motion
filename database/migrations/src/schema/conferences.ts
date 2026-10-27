@@ -27,6 +27,7 @@ import {
       acronym: text('acronym'),
       name: text('name').notNull(),
       location: text('location'),
+      notes: text('notes'),
   
       submissionDue: date('submission_due'),
       startDate: date('start_date'),

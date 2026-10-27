@@ -156,6 +156,7 @@ describe("ConferenceSubmissionDialog", () => {
       acronym: null,
       name: "XYZ, London, 2027",
       location: null,
+      notes: null,
       submissionDue: null,
       startDate: null,
       endDate: null,

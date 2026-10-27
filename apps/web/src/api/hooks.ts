@@ -283,6 +283,7 @@ export interface ApiConference {
   acronym: string | null;
   name: string;
   location: string | null;
+  notes?: string | null;
   submissionDue: string | null;
   startDate: string | null;
   endDate: string | null;
@@ -299,6 +300,7 @@ export interface ConferenceInput {
   name: string;
   acronym?: string | null;
   location?: string | null;
+  notes?: string | null;
   submissionDue?: string | null;
   startDate?: string | null;
   endDate?: string | null;

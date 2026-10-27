@@ -25,6 +25,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 export type ConferenceSubmissionInput = ConferenceInput;
 
@@ -32,6 +33,7 @@ interface ConferenceFormState {
   acronym: string;
   name: string;
   location: string;
+  notes: string;
   submissionDue: string;
   startDate: string;
   endDate: string;
@@ -54,7 +56,7 @@ interface ConferenceSubmissionDialogProps {
 }
 
 const INITIAL_FORM: ConferenceFormState = {
-  acronym: "", name: "", location: "", submissionDue: "", startDate: "",
+  acronym: "", name: "", location: "", notes: "", submissionDue: "", startDate: "",
   endDate: "", submissionType: "", intents: [],
 };
 
@@ -276,6 +278,7 @@ export function ConferenceSubmissionDialog({
       acronym: conference.acronym ?? "",
       name: conference.name,
       location: conference.location ?? "",
+      notes: conference.notes ?? "",
       submissionDue: conference.submissionDue ?? "",
       startDate: conference.startDate ?? "",
       endDate: conference.endDate ?? "",
@@ -317,6 +320,7 @@ export function ConferenceSubmissionDialog({
         acronym: form.acronym.trim().toUpperCase() || null,
         name: form.name.trim(),
         location: form.location.trim() || null,
+        notes: form.notes.trim() || null,
         submissionDue: form.submissionDue || null,
         startDate: form.startDate || null,
         endDate: form.endDate || null,
@@ -332,7 +336,7 @@ export function ConferenceSubmissionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit conference" : "Add a conference"}</DialogTitle>
           <DialogDescription>
@@ -358,6 +362,22 @@ export function ConferenceSubmissionDialog({
             <Input id="conference-location" value={form.location}
               onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
               placeholder="City, country" />
+          </FormField>
+
+          <FormField label="Notes / abstract" htmlFor="conference-notes">
+            <Textarea
+              id="conference-notes"
+              value={form.notes}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  notes: event.target.value,
+                }))
+              }
+              rows={7}
+              maxLength={50000}
+              placeholder="Add an abstract, submission details, or other conference notes."
+            />
           </FormField>
 
           <div className="grid gap-4 sm:grid-cols-3">
