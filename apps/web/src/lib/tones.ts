@@ -66,6 +66,14 @@ export const TONE_DOT_CLASSES: Record<Tone, string> = {
   danger: "bg-red-500",
 };
 
+/** Text colour inside SVG drawings (e.g. mind map bubbles). */
+export const TONE_FILL_CLASSES: Record<Tone, string> = {
+  neutral: "fill-muted-foreground",
+  success: "fill-emerald-700 dark:fill-emerald-400",
+  attention: "fill-amber-700 dark:fill-amber-300",
+  danger: "fill-red-700 dark:fill-red-400",
+};
+
 /** Inline-dropdown classes for a status or priority value. */
 export function statusPillClass(value: string | null) {
   return TONE_PILL_CLASSES[toneFor(value)];

@@ -1,4 +1,11 @@
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import {
   Boxes,
   CheckSquare2,
@@ -28,7 +35,6 @@ import {
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { PageHeading } from "@/components/typography/heading";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { statusBadgeClass, TONE_FILL_CLASSES, toneFor } from "@/lib/tones";
 import { cn } from "@/lib/utils";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
@@ -51,9 +58,68 @@ type BubbleNode = {
   kind: "project" | "module" | "task" | "note";
   title: string;
   href: string;
+  status?: string | null;
 };
 
 type BubblePosition = BubbleNode & { x: number; y: number };
+
+type Point = { x: number; y: number };
+/** Where the viewer has dragged each bubble, keyed by bubble key. */
+type BubbleLayout = Record<string, Point>;
+
+/** The map is never narrower than this; narrower screens scroll sideways. */
+const BUBBLE_MAP_MIN_WIDTH = 1100;
+/** The map is never shorter than this. */
+const BUBBLE_MAP_MIN_HEIGHT = 520;
+/** Vertical room each bubble in a column gets, name included. */
+const BUBBLE_ROW_SPACING = 105;
+/** Room a bubble needs between its centre and the map's edge, name included. */
+const BUBBLE_EDGE_ROOM = 90;
+/** How far out a bubble can be dragged, so the map can't grow without limit. */
+const BUBBLE_MAP_MAX_SIZE = 6000;
+/** Column centres as a share of the map width: projects, papers, then tasks and notes. */
+const BUBBLE_COLUMN_SHARES = [340 / 1100, 650 / 1100, 970 / 1100] as const;
+const BUBBLE_ROOT_KEY = "root";
+/** How far (in map units) the pointer must move before a press becomes a drag. */
+const DRAG_THRESHOLD = 4;
+
+/** Reads a saved layout, ignoring anything malformed. */
+function parseBubbleLayout(saved: string): BubbleLayout {
+  if (!saved) return {};
+  try {
+    const parsed: unknown = JSON.parse(saved);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    const layout: BubbleLayout = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      const point = value as Partial<Point> | null;
+      if (
+        point &&
+        typeof point.x === "number" &&
+        typeof point.y === "number" &&
+        Number.isFinite(point.x) &&
+        Number.isFinite(point.y)
+      ) {
+        layout[key] = { x: point.x, y: point.y };
+      }
+    }
+    return layout;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Keeps a bubble off the map's top and left edges. Bubbles can go as far
+ * right or down as needed (within reason): the map grows to fit them.
+ */
+function keepOnMap(point: Point): Point {
+  return {
+    x: Math.min(Math.max(point.x, 50), BUBBLE_MAP_MAX_SIZE),
+    y: Math.min(Math.max(point.y, 50), BUBBLE_MAP_MAX_SIZE),
+  };
+}
 
 function matchesSearch(value: string | null | undefined, search: string) {
   return !search || value?.toLowerCase().includes(search);
@@ -69,7 +135,130 @@ function controlPillClass(selected: boolean) {
   );
 }
 
-function ItemNode({ item, kind }: { item: LinkedItem; kind: "task" | "note" }) {
+/** A small status label, coloured by what the status means (see lib/tones). */
+function StatusBadge({
+  status,
+  className,
+}: {
+  status: string | null | undefined;
+  className?: string;
+}) {
+  if (!status) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center whitespace-nowrap rounded-md border px-1.5 py-px text-[0.6875rem] font-medium leading-4",
+        statusBadgeClass(status),
+        className,
+      )}
+    >
+      <span className="sr-only">Status: </span>
+      {status}
+    </span>
+  );
+}
+
+function bubbleAccessibleName(label: string, title: string, status?: string | null) {
+  return status ? `${label}: ${title}, ${status}` : `${label}: ${title}`;
+}
+
+function bubbleStatusLabel(status: string) {
+  return status.length > 13 ? `${status.slice(0, 12)}…` : status;
+}
+
+/**
+ * The +/− button on a bubble that can hold others (the workspace, projects
+ * and papers). When nothing is linked under it yet, it stays visible but
+ * greyed out, so every bubble of that kind looks the same.
+ */
+function BubbleCollapseToggle({
+  kind,
+  title,
+  isCollapsed,
+  hasChildren,
+  radius,
+  onToggle,
+}: {
+  kind: "workspace" | "project" | "paper";
+  title: string;
+  isCollapsed: boolean;
+  hasChildren: boolean;
+  radius: number;
+  onToggle: () => void;
+}) {
+  const offset = Math.round(radius * 0.74);
+  const label = `${isCollapsed ? "Expand" : "Collapse"} ${kind} ${title}`;
+  if (!hasChildren) {
+    return (
+      <g
+        role="button"
+        aria-label={label}
+        aria-disabled="true"
+        className="cursor-default"
+        transform={`translate(${offset} ${-offset})`}
+      >
+        <title>Nothing is linked to this {kind} yet</title>
+        <circle
+          r="11"
+          className="fill-muted stroke-border/70"
+          strokeWidth="1.5"
+        />
+        <text
+          textAnchor="middle"
+          y="4"
+          className="select-none fill-muted-foreground/50 text-xs font-bold"
+        >
+          −
+        </text>
+      </g>
+    );
+  }
+  return (
+    <g
+      role="button"
+      tabIndex={0}
+      aria-label={label}
+      aria-expanded={!isCollapsed}
+      className="cursor-pointer outline-none"
+      transform={`translate(${offset} ${-offset})`}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onToggle();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onToggle();
+        }
+      }}
+    >
+      <title>{isCollapsed ? "Show" : "Hide"} what's linked to this {kind}</title>
+      <circle
+        r="11"
+        className="fill-card stroke-border transition hover:stroke-primary focus-visible:stroke-ring"
+        strokeWidth="1.5"
+      />
+      <text
+        textAnchor="middle"
+        y="4"
+        className="select-none fill-foreground text-xs font-bold"
+      >
+        {isCollapsed ? "+" : "−"}
+      </text>
+    </g>
+  );
+}
+
+function ItemNode({
+  item,
+  kind,
+  status,
+}: {
+  item: LinkedItem;
+  kind: "task" | "note";
+  status?: string | null;
+}) {
   const Icon = kind === "task" ? CheckSquare2 : NotebookPen;
   const href =
     kind === "task" ? `/tasks/${item.id}` : `/daily-notes/${item.id}`;
@@ -93,8 +282,9 @@ function ItemNode({ item, kind }: { item: LinkedItem; kind: "task" | "note" }) {
         <span className="block truncate text-sm font-medium group-hover:text-primary">
           {item.title}
         </span>
-        <span className="block text-xs capitalize text-muted-foreground">
-          {kind}
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="capitalize">{kind}</span>
+          <StatusBadge status={status} />
         </span>
       </span>
     </Link>
@@ -119,7 +309,7 @@ function LeafCollection({
   return (
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
       {tasks.map((task) => (
-        <ItemNode key={task.id} item={task} kind="task" />
+        <ItemNode key={task.id} item={task} kind="task" status={task.status} />
       ))}
       {notes.map((note) => (
         <ItemNode key={note.id} item={note} kind="note" />
@@ -182,6 +372,9 @@ function BubbleRelationshipMap({
   notes,
   projectFilter,
   search,
+  layout,
+  onMoveBubble,
+  onResetLayout,
 }: {
   workspaceName: string;
   projects: ApiProject[];
@@ -190,8 +383,41 @@ function BubbleRelationshipMap({
   notes: ApiNote[];
   projectFilter: string;
   search: string;
+  layout: BubbleLayout;
+  onMoveBubble: (key: string, point: Point) => void;
+  onResetLayout: () => void;
 }) {
   const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+  const svgRef = useRef<SVGSVGElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  // The width available on screen, so the map can use all of it.
+  const [availableWidth, setAvailableWidth] = useState(BUBBLE_MAP_MIN_WIDTH);
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    if (frame.clientWidth > 0) setAvailableWidth(frame.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      const width = Math.floor(entry?.contentRect.width ?? 0);
+      if (width > 0) setAvailableWidth(width);
+    });
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
+  const dragRef = useRef<{
+    key: string;
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    origin: Point;
+    current: Point | null;
+  } | null>(null);
+  // A drag ends with the browser's click on the same bubble; this stops that
+  // click from opening the record.
+  const suppressClickRef = useRef(false);
+  const [dragPreview, setDragPreview] = useState<
+    ({ key: string } & Point) | null
+  >(null);
 
   function toggleCollapse(key: string) {
     setCollapsedKeys((current) => {
@@ -339,10 +565,18 @@ function BubbleRelationshipMap({
     setCollapsedKeys(keys);
   }
 
+  const isWorkspaceCollapsed = collapsedKeys.has(BUBBLE_ROOT_KEY);
+  const workspaceHasChildren =
+    visibleProjects.length > 0 ||
+    visibleModules.length > 0 ||
+    visibleTasks.length > 0 ||
+    visibleNotes.length > 0;
+
   function isCollapsedDescendant(
     moduleId?: string | null,
     projectId?: string | null,
   ) {
+    if (isWorkspaceCollapsed) return true;
     if (moduleId) {
       if (collapsedKeys.has(`module-${moduleId}`)) return true;
       const parentProjectId = visibleModuleById.get(moduleId)?.projectId;
@@ -356,6 +590,7 @@ function BubbleRelationshipMap({
 
   const displayedModules = visibleModules.filter(
     (module) =>
+      !isWorkspaceCollapsed &&
       !(module.projectId && collapsedKeys.has(`project-${module.projectId}`)),
   );
   const displayedTasks = visibleTasks.filter(
@@ -365,12 +600,14 @@ function BubbleRelationshipMap({
     (note) => !isCollapsedDescendant(note.moduleId, note.projectId),
   );
 
-  const projectNodes: BubbleNode[] = visibleProjects.map((project) => ({
+  const displayedProjects = isWorkspaceCollapsed ? [] : visibleProjects;
+  const projectNodes: BubbleNode[] = displayedProjects.map((project) => ({
     key: `project-${project.id}`,
     sourceId: project.id,
     kind: "project",
     title: project.title,
     href: `/projects/${project.id}`,
+    status: project.status,
   }));
   const moduleNodes: BubbleNode[] = displayedModules.map((module) => ({
     key: `module-${module.id}`,
@@ -378,6 +615,7 @@ function BubbleRelationshipMap({
     kind: "module",
     title: paperDisplayTitle(module),
     href: `/modules/${module.id}`,
+    status: module.status,
   }));
   const leafNodes: BubbleNode[] = [
     ...displayedTasks.map((task) => ({
@@ -386,6 +624,7 @@ function BubbleRelationshipMap({
       kind: "task" as const,
       title: task.title,
       href: `/tasks/${task.id}`,
+      status: task.status,
     })),
     ...displayedNotes.map((note) => ({
       key: `note-${note.id}`,
@@ -395,27 +634,128 @@ function BubbleRelationshipMap({
       href: `/daily-notes/${note.id}`,
     })),
   ];
+  // Size the map by everything that matches, collapsed or not, so hiding a
+  // branch doesn't shrink the map and move the bubble you just clicked.
   const rowCount = Math.max(
-    projectNodes.length,
-    moduleNodes.length,
-    leafNodes.length,
+    visibleProjects.length,
+    visibleModules.length,
+    visibleTasks.length + visibleNotes.length,
     4,
   );
-  const height = Math.max(520, rowCount * 105 + 80);
+  // The columns fill the width on screen and get taller as they fill up.
+  const baseWidth = Math.max(BUBBLE_MAP_MIN_WIDTH, availableWidth);
+  const baseHeight = Math.max(
+    BUBBLE_MAP_MIN_HEIGHT,
+    rowCount * BUBBLE_ROW_SPACING + 80,
+  );
+  const [projectColumnX, paperColumnX, leafColumnX] = BUBBLE_COLUMN_SHARES.map(
+    (share) => Math.round(baseWidth * share),
+  );
 
   function positionColumn(nodes: BubbleNode[], x: number): BubblePosition[] {
-    const step = height / (nodes.length + 1);
+    const step = baseHeight / (nodes.length + 1);
     return nodes.map((node, index) => ({ ...node, x, y: step * (index + 1) }));
   }
 
+  // A bubble the viewer has moved stays where they put it; the rest keep
+  // their column layout.
+  function placeFor(key: string, fallback: Point): Point {
+    const point =
+      dragPreview?.key === key ? dragPreview : (layout[key] ?? fallback);
+    return keepOnMap(point);
+  }
+
   const positioned = [
-    ...positionColumn(projectNodes, 340),
-    ...positionColumn(moduleNodes, 650),
-    ...positionColumn(leafNodes, 970),
-  ];
+    ...positionColumn(projectNodes, projectColumnX),
+    ...positionColumn(moduleNodes, paperColumnX),
+    ...positionColumn(leafNodes, leafColumnX),
+  ].map((node) => ({ ...node, ...placeFor(node.key, node) }));
   const positionByKey = new Map(positioned.map((node) => [node.key, node]));
-  const root = { x: 90, y: height / 2 };
-  const rootKey = "root";
+  const rootKey = BUBBLE_ROOT_KEY;
+  const root = placeFor(rootKey, { x: 90, y: baseHeight / 2 });
+  // Grow the map to take in any bubble dragged past its edge.
+  const mapWidth = Math.ceil(
+    positioned.reduce(
+      (widest, node) => Math.max(widest, node.x + BUBBLE_EDGE_ROOM),
+      Math.max(baseWidth, root.x + BUBBLE_EDGE_ROOM),
+    ),
+  );
+  const mapHeight = Math.ceil(
+    positioned.reduce(
+      (tallest, node) => Math.max(tallest, node.y + BUBBLE_EDGE_ROOM),
+      Math.max(baseHeight, root.y + BUBBLE_EDGE_ROOM),
+    ),
+  );
+  // Draw the bubble being dragged last so it sits on top of the others.
+  const drawOrder = dragPreview
+    ? [
+        ...positioned.filter((node) => node.key !== dragPreview.key),
+        ...positioned.filter((node) => node.key === dragPreview.key),
+      ]
+    : positioned;
+  const hasMovedBubbles = Object.keys(layout).length > 0;
+
+  /** Map units per screen pixel (the page may be zoomed). */
+  function mapScale() {
+    const matrix = svgRef.current?.getScreenCTM?.();
+    return matrix && matrix.a > 0 ? 1 / matrix.a : 1;
+  }
+
+  function startDrag(
+    event: ReactPointerEvent<SVGGElement>,
+    key: string,
+    origin: Point,
+  ) {
+    if (event.button !== 0) return;
+    // The +/− button collapses a branch; pressing it shouldn't move the bubble.
+    if ((event.target as Element).closest?.('[role="button"]')) return;
+    // Stops the browser starting its own link drag or selecting text.
+    event.preventDefault();
+    suppressClickRef.current = false;
+    dragRef.current = {
+      key,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      origin,
+      current: null,
+    };
+  }
+
+  function moveDrag(event: ReactPointerEvent<SVGSVGElement>) {
+    const drag = dragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const scale = mapScale();
+    const dx = (event.clientX - drag.startClientX) * scale;
+    const dy = (event.clientY - drag.startClientY) * scale;
+    if (!drag.current && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    if (!drag.current) {
+      // Capture only once it's really a drag. Capturing on press would send
+      // the click of a plain press to the map rather than the bubble's link,
+      // so the bubble would no longer open.
+      try {
+        svgRef.current?.setPointerCapture?.(event.pointerId);
+      } catch {
+        // The pointer may already be gone; the drag still works without it.
+      }
+    }
+    drag.current = keepOnMap({
+      x: drag.origin.x + dx,
+      y: drag.origin.y + dy,
+    });
+    setDragPreview({ key: drag.key, ...drag.current });
+  }
+
+  function endDrag(event: ReactPointerEvent<SVGSVGElement>, keep: boolean) {
+    const drag = dragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    dragRef.current = null;
+    if (drag.current) {
+      suppressClickRef.current = true;
+      if (keep) onMoveBubble(drag.key, drag.current);
+    }
+    setDragPreview(null);
+  }
   const rootLabel = `Workspace: ${workspaceName}`;
   const labelByKey = new Map<string, string>([[rootKey, rootLabel]]);
   for (const node of positioned) {
@@ -450,7 +790,7 @@ function BubbleRelationshipMap({
     }
   }
 
-  for (const project of visibleProjects) {
+  for (const project of displayedProjects) {
     addEdge(`root-project-${project.id}`, rootKey, `project-${project.id}`);
   }
   for (const module of displayedModules) {
@@ -477,7 +817,19 @@ function BubbleRelationshipMap({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <p className="mr-auto text-xs text-muted-foreground">
+          Drag a bubble to move it. Click it to open.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onResetLayout}
+          disabled={!hasMovedBubbles}
+        >
+          Reset layout
+        </Button>
         <Button type="button" variant="outline" size="sm" onClick={expandAll}>
           Expand all
         </Button>
@@ -485,17 +837,27 @@ function BubbleRelationshipMap({
           Collapse all
         </Button>
       </div>
-      <div className="overflow-x-auto rounded-lg border bg-muted/10">
+      <div
+        ref={frameRef}
+        className="overflow-x-auto rounded-lg border bg-muted/10"
+      >
+        {/* Drawn at 1 map unit per pixel: the map grows with its content and
+            scrolls sideways when it's wider than the screen. */}
         <svg
+          ref={svgRef}
           role="group"
           aria-label="Bubble relationship map"
-          viewBox={`0 0 1100 ${height}`}
-          className="min-w-[1100px]"
-          style={{ height }}
+          viewBox={`0 0 ${mapWidth} ${mapHeight}`}
+          className="block"
+          style={{ width: mapWidth, height: mapHeight }}
+          onPointerMove={moveDrag}
+          onPointerUp={(event) => endDrag(event, true)}
+          onPointerCancel={(event) => endDrag(event, false)}
         >
           <title>Bubble relationship map for {workspaceName}</title>
           {edges.map((edge) => {
-            const path = `M ${edge.from.x + 40} ${edge.from.y} C ${edge.from.x + 120} ${edge.from.y}, ${edge.to.x - 120} ${edge.to.y}, ${edge.to.x - 40} ${edge.to.y}`;
+            const dir = edge.to.x >= edge.from.x ? 1 : -1;
+            const path = `M ${edge.from.x + 40 * dir} ${edge.from.y} C ${edge.from.x + 120 * dir} ${edge.from.y}, ${edge.to.x - 120 * dir} ${edge.to.y}, ${edge.to.x - 40 * dir} ${edge.to.y}`;
             return (
               <g key={edge.key} className="group/edge" aria-hidden="true">
                 <path
@@ -516,7 +878,14 @@ function BubbleRelationshipMap({
             );
           })}
 
-          <g transform={`translate(${root.x} ${root.y})`}>
+          <g
+            transform={`translate(${root.x} ${root.y})`}
+            className={cn(
+              "touch-none",
+              dragPreview?.key === rootKey ? "cursor-grabbing" : "cursor-grab",
+            )}
+            onPointerDown={(event) => startDrag(event, rootKey, root)}
+          >
             <circle
               r="44"
               className="fill-violet-600 stroke-violet-700"
@@ -536,24 +905,59 @@ function BubbleRelationshipMap({
             >
               {bubbleLabel(workspaceName)}
             </text>
+            <BubbleCollapseToggle
+              kind="workspace"
+              title={workspaceName}
+              isCollapsed={isWorkspaceCollapsed}
+              hasChildren={workspaceHasChildren}
+              radius={44}
+              onToggle={() => toggleCollapse(BUBBLE_ROOT_KEY)}
+            />
           </g>
 
-          {positioned.map((node) => {
+          {drawOrder.map((node) => {
             const style = bubbleStyles[node.kind];
             const isCollapsed = collapsedKeys.has(node.key);
-            const canToggle =
-              (node.kind === "project" &&
-                projectHasChildren.has(node.sourceId)) ||
-              (node.kind === "module" && moduleHasChildren.has(node.sourceId));
+            const holdsOthers =
+              node.kind === "project" || node.kind === "module";
+            const hasChildren =
+              node.kind === "project"
+                ? projectHasChildren.has(node.sourceId)
+                : moduleHasChildren.has(node.sourceId);
             return (
-              <g key={node.key} transform={`translate(${node.x} ${node.y})`}>
+              <g
+                key={node.key}
+                transform={`translate(${node.x} ${node.y})`}
+                className={cn(
+                  "touch-none",
+                  dragPreview?.key === node.key
+                    ? "cursor-grabbing"
+                    : "cursor-grab",
+                )}
+                onPointerDown={(event) => startDrag(event, node.key, node)}
+              >
                 <Link
                   to={node.href}
-                  aria-label={`${style.label}: ${node.title}`}
+                  onClick={(event) => {
+                    if (suppressClickRef.current) {
+                      event.preventDefault();
+                      suppressClickRef.current = false;
+                    }
+                  }}
+                  onDragStart={(event) => event.preventDefault()}
+                  aria-label={bubbleAccessibleName(
+                    style.label,
+                    node.title,
+                    node.status,
+                  )}
                 >
-                  <g className="group cursor-pointer focus:outline-none">
+                  <g className="group focus:outline-none">
                     <title>
-                      {style.label}: {node.title}
+                      {bubbleAccessibleName(
+                        style.label,
+                        node.title,
+                        node.status,
+                      )}
                     </title>
                     <circle
                       r="38"
@@ -565,7 +969,7 @@ function BubbleRelationshipMap({
                     />
                     <text
                       textAnchor="middle"
-                      y="4"
+                      y={node.status ? "-3" : "4"}
                       className={cn(
                         "text-[10px] font-semibold uppercase",
                         style.text,
@@ -573,6 +977,18 @@ function BubbleRelationshipMap({
                     >
                       {style.label}
                     </text>
+                    {node.status ? (
+                      <text
+                        textAnchor="middle"
+                        y="12"
+                        className={cn(
+                          "text-[9px] font-medium",
+                          TONE_FILL_CLASSES[toneFor(node.status)],
+                        )}
+                      >
+                        {bubbleStatusLabel(node.status)}
+                      </text>
+                    ) : null}
                     <text
                       textAnchor="middle"
                       y="58"
@@ -582,39 +998,15 @@ function BubbleRelationshipMap({
                     </text>
                   </g>
                 </Link>
-                {canToggle ? (
-                  <g
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${style.label.toLowerCase()} ${node.title}`}
-                    aria-expanded={!isCollapsed}
-                    className="cursor-pointer outline-none"
-                    transform="translate(28 -28)"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      toggleCollapse(node.key);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        toggleCollapse(node.key);
-                      }
-                    }}
-                  >
-                    <circle
-                      r="11"
-                      className="fill-card stroke-border transition hover:stroke-primary focus-visible:stroke-ring"
-                      strokeWidth="1.5"
-                    />
-                    <text
-                      textAnchor="middle"
-                      y="4"
-                      className="select-none fill-foreground text-xs font-bold"
-                    >
-                      {isCollapsed ? "+" : "−"}
-                    </text>
-                  </g>
+                {holdsOthers ? (
+                  <BubbleCollapseToggle
+                    kind={node.kind === "project" ? "project" : "paper"}
+                    title={node.title}
+                    isCollapsed={isCollapsed}
+                    hasChildren={hasChildren}
+                    radius={38}
+                    onToggle={() => toggleCollapse(node.key)}
+                  />
                 ) : null}
               </g>
             );
@@ -672,6 +1064,7 @@ function ModuleBranch({
                 Paper · {tasks.length} tasks · {notes.length} notes
               </span>
             </span>
+            <StatusBadge status={module.status} className="ml-auto" />
           </Link>
         </div>
         {isExpanded ? (
@@ -767,11 +1160,7 @@ function ProjectTree({
               Project · {visibleModules.length} papers
             </span>
           </span>
-          {project.status ? (
-            <Badge variant="outline" className="ml-auto hidden sm:inline-flex">
-              {project.status}
-            </Badge>
-          ) : null}
+          <StatusBadge status={project.status} className="ml-auto" />
         </Link>
       </div>
 
@@ -826,14 +1215,34 @@ export default function MindMapPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
   const me = useMe();
-  const projectsQuery = useProjects(tenantId);
-  const allProjects = projectsQuery.data?.data ?? [];
-  const modulesQuery = useModules(tenantId);
-  const modules = modulesQuery.data?.data ?? [];
-  const tasksQuery = useTasks(tenantId);
-  const tasks = tasksQuery.data?.data ?? [];
-  const notesQuery = useNotes(tenantId);
-  const notes = notesQuery.data?.data ?? [];
+  // The map shows the whole workspace, so load every item rather than the
+  // first page of each list.
+  const projectsQuery = useProjects(tenantId, 1, true, { pageSize: "all" });
+  const modulesQuery = useModules(tenantId, undefined, 1, true, {
+    pageSize: "all",
+  });
+  const tasksQuery = useTasks(tenantId, undefined, 1, true, {
+    pageSize: "all",
+  });
+  const notesQuery = useNotes(tenantId, undefined, 1, true, {
+    pageSize: "all",
+  });
+  // The API returns the workspace's General project separately from the
+  // research projects. List it last so papers, tasks and notes filed under
+  // General still appear on the map.
+  const allProjects = useMemo(() => {
+    const researchProjects = projectsQuery.data?.data ?? [];
+    const generalProject = projectsQuery.data?.generalProject;
+    return generalProject
+      ? [...researchProjects, generalProject]
+      : researchProjects;
+  }, [projectsQuery.data]);
+  const modules = useMemo(
+    () => modulesQuery.data?.data ?? [],
+    [modulesQuery.data],
+  );
+  const tasks = useMemo(() => tasksQuery.data?.data ?? [], [tasksQuery.data]);
+  const notes = useMemo(() => notesQuery.data?.data ?? [], [notesQuery.data]);
   const [search, setSearch] = useSessionListState<string>(
     me.data?.id,
     tenantId,
@@ -853,6 +1262,18 @@ export default function MindMapPage() {
     tenantId,
     "mind-map:view",
     "tree",
+  );
+  // Saved as text because session preferences hold simple values only.
+  const [savedBubbleLayout, setSavedBubbleLayout] =
+    useSessionListState<string>(
+      me.data?.id,
+      tenantId,
+      "mind-map:bubble-layout",
+      "",
+    );
+  const bubbleLayout = useMemo(
+    () => parseBubbleLayout(savedBubbleLayout),
+    [savedBubbleLayout],
   );
   const [collapsedTreeKeys, setCollapsedTreeKeys] = useState<Set<string>>(
     new Set(),
@@ -1083,6 +1504,13 @@ export default function MindMapPage() {
           notes={notes}
           projectFilter={projectFilter}
           search={normalizedSearch}
+          layout={bubbleLayout}
+          onMoveBubble={(key, point) =>
+            setSavedBubbleLayout(
+              JSON.stringify({ ...bubbleLayout, [key]: point }),
+            )
+          }
+          onResetLayout={() => setSavedBubbleLayout("")}
         />
       ) : (
         <div className="relative space-y-4 rounded-lg border bg-muted/10 p-4 sm:p-6">
