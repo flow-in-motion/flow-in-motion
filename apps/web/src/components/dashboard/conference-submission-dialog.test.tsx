@@ -158,7 +158,7 @@ describe("ConferenceSubmissionDialog", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Add Conference" }),
+      screen.getByRole("button", { name: "Add Event" }),
     );
 
     await waitFor(() => {
@@ -186,7 +186,7 @@ describe("ConferenceSubmissionDialog", () => {
     expect(endDateInput()).not.toBeRequired();
 
     fireEvent.change(nameInput, { target: { value: "XYZ, London, 2027" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Event" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({
       eventType: "Conference",
@@ -213,12 +213,13 @@ describe("ConferenceSubmissionDialog", () => {
     render(
       <ConferenceSubmissionDialog open onOpenChange={vi.fn()} tenantId="tenant-1" onSave={onSave} />,
     );
-    expect(screen.getByRole("heading", { name: "Add a conference" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Add an event" })).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Event type" }), { key: "Enter" });
     fireEvent.click(screen.getByRole("option", { name: "Journal special issue" }));
 
-    expect(screen.getByRole("heading", { name: "Add a journal special issue" })).toBeInTheDocument();
+    // The title stays general while the fields adapt to the chosen type.
+    expect(screen.getByRole("heading", { name: "Add an event" })).toBeInTheDocument();
     // A special issue has a journal and a deadline, but no event dates.
     expect(document.getElementById("conference-start-date")).toBeNull();
     expect(document.getElementById("conference-end-date")).toBeNull();
@@ -228,7 +229,7 @@ describe("ConferenceSubmissionDialog", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /Journal/ }), {
       target: { value: "Accounting, Organizations and Society" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Event" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -272,7 +273,7 @@ describe("ConferenceSubmissionDialog", () => {
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Attending" }));
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Event" }));
 
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith(
@@ -339,7 +340,7 @@ describe("ConferenceSubmissionDialog", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /Conference name/ }), {
       target: { value: "Conference 2027" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Event" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({

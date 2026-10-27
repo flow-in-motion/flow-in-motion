@@ -62,11 +62,6 @@ export function eventWording(eventType: ConferenceEventType | null | undefined):
   return EVENT_WORDING[eventType ?? "Conference"] ?? EVENT_WORDING.Conference;
 }
 
-/** "a conference", "an event". */
-export function withArticle(noun: string) {
-  return `${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
-}
-
 export const CONFERENCE_TYPE_FILTERS = ["All", "Abstract", "Full paper", "Poster"] as const;
 export const CONFERENCE_DEADLINE_FILTERS = ["All", "This week", "This month", "Later", "Past"] as const;
 

@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { eventWording, withArticle } from "@/lib/conference-format";
+import { eventWording } from "@/lib/conference-format";
 import {
   CONFERENCE_EVENT_TYPES,
   type ConferenceEventType,
@@ -363,7 +363,7 @@ export function ConferenceSubmissionDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? `Edit ${wording.noun}` : `Add ${withArticle(wording.noun)}`}
+            {isEditing ? `Edit ${wording.noun}` : "Add an event"}
           </DialogTitle>
           <DialogDescription>
             Track a conference, workshop, seminar, special issue call or any other deadline, and optionally link it to any projects or papers you own.
@@ -546,7 +546,7 @@ export function ConferenceSubmissionDialog({
           <DialogFooter className="border-t pt-4">
             <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Add Conference"}
+              {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Add Event"}
             </Button>
           </DialogFooter>
         </form>

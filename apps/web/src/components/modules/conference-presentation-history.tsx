@@ -173,8 +173,8 @@ function PresentationForm({
             !options.isError &&
             options.data?.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No owned conferences are available. Add a conference on the
-                Conferences page first, then return to this paper.
+                No owned conferences are available. Add an event on the
+                Conferences/Events page first, then return to this paper.
               </p>
             ) : null}
           </div>

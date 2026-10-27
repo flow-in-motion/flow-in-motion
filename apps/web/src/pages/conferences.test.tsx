@@ -272,11 +272,11 @@ describe("ConferencesPage", () => {
     expect(
       screen.getByRole("link", { name: "XYZ, London, 2027" }),
     ).toBeInTheDocument();
-    const createButton = screen.getByRole("button", { name: "New Conference" });
+    const createButton = screen.getByRole("button", { name: "Add Event" });
     expect(createButton).toBeEnabled();
     fireEvent.click(createButton);
     expect(
-      screen.getByRole("heading", { name: "Add a conference" }),
+      screen.getByRole("heading", { name: "Add an event" }),
     ).toBeInTheDocument();
   });
 
