@@ -16,6 +16,7 @@ const featureNames: Record<string, string> = {
   "log-real-time-activity": "Log real time activity",
   "reviews-hdr-examinations": "Reviews, HDR examinations",
   teaching: "Teaching",
+  impact: "Impact",
 };
 
 interface FutureFeaturePageProps {
