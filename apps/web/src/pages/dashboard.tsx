@@ -589,7 +589,7 @@ export default function DashboardPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setIsNewConferenceOpen(true)}>
                   <FilePenLine />
-                  Conference
+                  Event
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -347,7 +347,7 @@ export default function ConferencesPage() {
         title="Conferences/Events"
         description="Manage conference deadlines, event dates, submission types, and linked research projects."
         actions={
-          <Button onClick={() => setIsCreateOpen(true)}>New Conference</Button>
+          <Button onClick={() => setIsCreateOpen(true)}>Add Event</Button>
         }
       />
 

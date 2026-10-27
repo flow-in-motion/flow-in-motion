@@ -277,7 +277,7 @@ export function ConferenceSubmissionsTable({
           </div>
           {dashboardView || hideCreateButton ? null : (
             <Button onClick={() => setIsCreateOpen(true)} disabled={isLoading}>
-              <Plus /> New Conference
+              <Plus /> Add Event
             </Button>
           )}
         </div>

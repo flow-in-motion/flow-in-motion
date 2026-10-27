@@ -364,7 +364,7 @@ describe("ConferenceSubmissionsTable", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "New Conference" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Event" }));
     fireEvent.change(screen.getByRole("textbox", { name: /Acronym/ }), {
       target: { value: "Test" },
     });
@@ -387,7 +387,7 @@ describe("ConferenceSubmissionsTable", () => {
     fireEvent.click(
       await screen.findByRole("option", { name: /Genome Project/ }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Event" }));
 
     await waitFor(() =>
       expect(
