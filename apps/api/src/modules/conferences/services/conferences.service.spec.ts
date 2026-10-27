@@ -81,6 +81,7 @@ describe('ConferencesService', () => {
           acronym: null,
           name: 'XYZ, London, 2027',
           location: null,
+          websiteUrl: null,
           notes: null,
           submissionDue: null,
           startDate: null,

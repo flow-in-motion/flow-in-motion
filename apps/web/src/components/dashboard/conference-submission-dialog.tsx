@@ -33,6 +33,7 @@ interface ConferenceFormState {
   acronym: string;
   name: string;
   location: string;
+  websiteUrl: string;
   notes: string;
   submissionDue: string;
   startDate: string;
@@ -56,7 +57,7 @@ interface ConferenceSubmissionDialogProps {
 }
 
 const INITIAL_FORM: ConferenceFormState = {
-  acronym: "", name: "", location: "", notes: "", submissionDue: "", startDate: "",
+  acronym: "", name: "", location: "",websiteUrl: "", notes: "", submissionDue: "", startDate: "",
   endDate: "", submissionType: "", intents: [],
 };
 
@@ -278,6 +279,7 @@ export function ConferenceSubmissionDialog({
       acronym: conference.acronym ?? "",
       name: conference.name,
       location: conference.location ?? "",
+      websiteUrl: conference.websiteUrl ?? "",
       notes: conference.notes ?? "",
       submissionDue: conference.submissionDue ?? "",
       startDate: conference.startDate ?? "",
@@ -320,6 +322,7 @@ export function ConferenceSubmissionDialog({
         acronym: form.acronym.trim().toUpperCase() || null,
         name: form.name.trim(),
         location: form.location.trim() || null,
+        websiteUrl: form.websiteUrl.trim() || null,
         notes: form.notes.trim() || null,
         submissionDue: form.submissionDue || null,
         startDate: form.startDate || null,
@@ -363,7 +366,28 @@ export function ConferenceSubmissionDialog({
               onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
               placeholder="City, country" />
           </FormField>
-
+          <FormField
+            label="Conference website"
+            htmlFor="conference-website"
+          >
+            <Input
+              id="conference-website"
+              type="url"
+              inputMode="url"
+              autoComplete="url"
+              value={form.websiteUrl}
+              maxLength={2048}
+              pattern="https?://.+"
+              title="Enter a website address starting with https:// or http://"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  websiteUrl: event.target.value,
+                }))
+              }
+              placeholder="https://conference.example.org"
+            />
+          </FormField>
           <FormField label="Notes / abstract" htmlFor="conference-notes">
             <Textarea
               id="conference-notes"

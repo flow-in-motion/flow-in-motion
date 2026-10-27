@@ -135,6 +135,42 @@ describe("ConferenceSubmissionDialog", () => {
     fixtures.searches = [];
   });
 
+  it("includes the conference website when creating a conference", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ConferenceSubmissionDialog
+        open
+        onOpenChange={vi.fn()}
+        tenantId="tenant-1"
+        onSave={onSave}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: /^Conference name/ }),
+      { target: { value: "Research Conference 2027" } },
+    );
+
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Conference website" }),
+      { target: { value: "https://conference.example.org/2027" } },
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add Conference" }),
+    );
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Research Conference 2027",
+          websiteUrl: "https://conference.example.org/2027",
+        }),
+      );
+    });
+  });
+
   it("requires only the conference name and submits blank details as null", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
@@ -156,6 +192,7 @@ describe("ConferenceSubmissionDialog", () => {
       acronym: null,
       name: "XYZ, London, 2027",
       location: null,
+      websiteUrl: null,
       notes: null,
       submissionDue: null,
       startDate: null,

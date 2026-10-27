@@ -52,6 +52,7 @@ interface CreateConferenceValues {
   acronym: string | null;
   name: string;
   location: string | null;
+  websiteUrl?: string | null;
   notes?: string | null;
   submissionDue: string | null;
   startDate: string | null;
@@ -64,6 +65,7 @@ interface UpdateConferenceValues {
   acronym?: string | null;
   name?: string;
   location?: string | null;
+  websiteUrl?: string | null;
   notes?: string | null;
   submissionDue?: string | null;
   startDate?: string | null;

@@ -467,6 +467,7 @@ function escapeHtml(value: string) {
           fields = [
             ["Acronym", record.acronym],
             ["Location", record.location],
+            ["Website", record.website_url],
             ["Submission deadline", reportDate(record.submission_due)],
             ["Start date", reportDate(record.start_date)],
             ["End date", reportDate(record.end_date)],
@@ -485,6 +486,7 @@ function escapeHtml(value: string) {
               ),
             ],
           ];
+
           content = renderText("Notes / abstract", record.notes);
           break;
 
