@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -27,6 +27,8 @@ type ConferenceFixture = {
   }>;
   createdAt: string;
   updatedAt: string;
+  eventType?: string;
+  upcomingSubmissions?: Array<Record<string, unknown>>;
 };
 
 const store = vi.hoisted(() => {
@@ -216,6 +218,127 @@ describe("ConferenceSubmissionsTable", () => {
     );
 
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  });
+
+  it("lists every deadline soonest first, including a submission's own deadline", () => {
+    const base = {
+      tenantId: fixtures.tenantId,
+      ownerUserId: fixtures.userId,
+      startDate: null,
+      endDate: null,
+      intents: [] as ConferenceFixture["intents"],
+      projects: [],
+      papers: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    store.set([
+      {
+        ...base,
+        id: "conf-aom",
+        acronym: "AOM",
+        name: "Academy of Management 2027",
+        location: "Boston",
+        eventType: "Conference",
+        submissionDue: "2027-01-10",
+        daysRemaining: 20,
+        submissionType: "Full paper",
+        upcomingSubmissions: [
+          {
+            id: "submission-pdw",
+            kind: "other",
+            moduleId: null,
+            projectId: null,
+            displayId: null,
+            name: "PDW: Qualitative methods",
+            titleAsSubmitted: "PDW: Qualitative methods",
+            submissionType: "PDW",
+            status: "Planning",
+            submissionDue: "2027-01-25",
+            daysRemaining: 35,
+            presentedDate: null,
+            notes: null,
+          },
+        ],
+      },
+      {
+        ...base,
+        id: "conf-issue",
+        acronym: null,
+        name: "Special issue on AI in accounting",
+        location: "Accounting, Organizations and Society",
+        eventType: "Journal special issue",
+        submissionDue: "2027-01-05",
+        daysRemaining: 15,
+        submissionType: "Full paper",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ConferenceSubmissionsTable dashboardView />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Upcoming Submission Deadlines")).toBeInTheDocument();
+    const [, ...rows] = screen.getAllByRole("row");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent("Special issue on AI in accounting");
+    expect(rows[0]).toHaveTextContent(
+      "Journal special issue · Accounting, Organizations and Society",
+    );
+    expect(rows[1]).toHaveTextContent("Academy of Management 2027");
+    expect(rows[1]).not.toHaveTextContent("PDW");
+    // The PDW is due later than the conference's own deadline.
+    expect(rows[2]).toHaveTextContent("Academy of Management 2027");
+    expect(within(rows[2]!).getByText("PDW: Qualitative methods")).toBeInTheDocument();
+    expect(within(rows[2]!).getByText("PDW")).toBeInTheDocument();
+    expect(rows[2]).toHaveTextContent("35 days left");
+  });
+
+  it("filters deadlines by event type", () => {
+    Element.prototype.scrollIntoView ??= vi.fn();
+    Element.prototype.hasPointerCapture ??= vi.fn(() => false);
+    Element.prototype.releasePointerCapture ??= vi.fn();
+    const base = {
+      tenantId: fixtures.tenantId,
+      ownerUserId: fixtures.userId,
+      acronym: null,
+      location: null,
+      startDate: null,
+      endDate: null,
+      submissionType: null,
+      intents: [] as ConferenceFixture["intents"],
+      projects: [],
+      papers: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    store.set([
+      { ...base, id: "conf-1", name: "Big Conference", submissionDue: "2027-01-10", daysRemaining: 20 },
+      {
+        ...base,
+        id: "conf-2",
+        name: "Department seminar",
+        eventType: "Research seminar",
+        submissionDue: "2027-01-12",
+        daysRemaining: 22,
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <ConferenceSubmissionsTable dashboardView />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Filter by event type" }), {
+      key: "Enter",
+    });
+    fireEvent.click(screen.getByRole("option", { name: "Research seminar" }));
+
+    expect(screen.getByRole("link", { name: "Department seminar" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Big Conference" })).not.toBeInTheDocument();
   });
 
   it("does not show pagination controls in dashboard view", () => {

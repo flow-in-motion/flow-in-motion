@@ -42,6 +42,7 @@ import {
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import {
   CONFERENCE_DEADLINE_FILTERS,
+  CONFERENCE_EVENT_FILTERS,
   CONFERENCE_TYPE_FILTERS,
   conferenceTypeBadgeClass,
   conferenceUrgencyClass,
@@ -49,7 +50,9 @@ import {
   formatConferenceDate,
   formatConferenceDateRange,
   matchesConferenceDeadline,
+  matchesEventFilter,
   type ConferenceDeadlineFilter,
+  type ConferenceEventFilter,
   type ConferenceTypeFilter,
 } from "@/lib/conference-format";
 import { cn } from "@/lib/utils";
@@ -58,8 +61,9 @@ import { ConferenceNotesPreview } from "@/components/dashboard/conference-notes-
 
 const CONFERENCE_COLUMNS = [
   { id: "conference", label: "Conference", width: "minmax(260px,2fr)" },
+  { id: "eventType", label: "Event", width: "150px" },
   { id: "submissionDue", label: "Submission Due", width: "150px" },
-  { id: "conferenceDates", label: "Conference Dates", width: "180px" },
+  { id: "conferenceDates", label: "Event Dates", width: "180px" },
   { id: "type", label: "Type", width: "120px" },
   { id: "intent", label: "Intent", width: "150px" },
   {
@@ -135,6 +139,13 @@ export default function ConferencesPage() {
     "conferences:type",
     "All",
   );
+  const [eventFilter, setEventFilter] =
+    useSessionListState<ConferenceEventFilter>(
+      meQuery.data?.id,
+      tenantId,
+      "conferences:event-type",
+      "All",
+    );
   const [deadline, setDeadline] = useSessionListState<ConferenceDeadlineFilter>(
     meQuery.data?.id,
     tenantId,
@@ -197,6 +208,10 @@ export default function ConferencesPage() {
     switch (column) {
       case "conference":
         return a.name.localeCompare(b.name);
+      case "eventType":
+        return (a.eventType ?? "Conference").localeCompare(
+          b.eventType ?? "Conference",
+        );
       case "submissionDue":
         return (a.submissionDue ?? "").localeCompare(b.submissionDue ?? "");
       case "conferenceDates":
@@ -220,6 +235,7 @@ export default function ConferencesPage() {
     const query = search.trim().toLowerCase();
     const filtered = conferences.filter((conference) => {
       if (type !== "All" && conference.submissionType !== type) return false;
+      if (!matchesEventFilter(conference.eventType, eventFilter)) return false;
       if (!matchesConferenceDeadline(conference.daysRemaining, deadline))
         return false;
       return (
@@ -256,14 +272,18 @@ export default function ConferencesPage() {
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conferences, search, type, deadline, sortColumn, sortDirection]);
+  }, [conferences, search, type, eventFilter, deadline, sortColumn, sortDirection]);
 
   const hasActiveFilters =
-    search !== "" || type !== "All" || deadline !== "All";
+    search !== "" ||
+    type !== "All" ||
+    eventFilter !== "All" ||
+    deadline !== "All";
 
   function clearFilters() {
     setSearch("");
     setType("All");
+    setEventFilter("All");
     setDeadline("All");
   }
 
@@ -370,6 +390,23 @@ export default function ConferencesPage() {
           placeholder="Search conference, project, or location…"
           className="sm:max-w-xs"
         />
+        <Select
+          value={eventFilter}
+          onValueChange={(value) =>
+            setEventFilter(value as ConferenceEventFilter)
+          }
+        >
+          <SelectTrigger className="sm:w-48" aria-label="Filter by event type">
+            <SelectValue placeholder="Event" />
+          </SelectTrigger>
+          <SelectContent>
+            {CONFERENCE_EVENT_FILTERS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option === "All" ? "All events" : option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select
           value={type}
           onValueChange={(value) => setType(value as ConferenceTypeFilter)}
@@ -501,6 +538,11 @@ export default function ConferencesPage() {
                           <ConferenceNotesPreview notes={conference.notes} />
                         </div>
                       </div>
+                    ) : null}
+                    {columns.isColumnVisible("eventType") ? (
+                      <span className="text-sm text-muted-foreground">
+                        {conference.eventType ?? "Conference"}
+                      </span>
                     ) : null}
                     {columns.isColumnVisible("submissionDue") ? (
                       <div className="flex flex-col">

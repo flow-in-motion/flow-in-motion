@@ -1,0 +1,2 @@
+ALTER TABLE "conferences" ADD COLUMN "event_type" text DEFAULT 'Conference' NOT NULL;--> statement-breakpoint
+ALTER TABLE "conferences" ADD CONSTRAINT "conferences_event_type_check" CHECK ("conferences"."event_type" IN ('Conference', 'Workshop', 'Research seminar', 'Journal special issue', 'Other'));

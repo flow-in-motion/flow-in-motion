@@ -23,6 +23,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { eventWording, withArticle } from "@/lib/conference-format";
+import {
+  CONFERENCE_EVENT_TYPES,
+  type ConferenceEventType,
+} from "@/lib/conference-event-types";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,10 +35,11 @@ import { Textarea } from "@/components/ui/textarea";
 export type ConferenceSubmissionInput = ConferenceInput;
 
 interface ConferenceFormState {
+  eventType: ConferenceEventType;
   acronym: string;
   name: string;
   location: string;
-  websiteUrl: string;
+  websiteUrl: string,
   notes: string;
   submissionDue: string;
   startDate: string;
@@ -57,8 +63,17 @@ interface ConferenceSubmissionDialogProps {
 }
 
 const INITIAL_FORM: ConferenceFormState = {
-  acronym: "", name: "", location: "",websiteUrl: "", notes: "", submissionDue: "", startDate: "",
-  endDate: "", submissionType: "", intents: [],
+  eventType: "Conference",
+  acronym: "",
+  name: "",
+  location: "",
+  websiteUrl: "",
+  notes: "",
+  submissionDue: "",
+  startDate: "",
+  endDate: "",
+  submissionType: "",
+  intents: [],
 };
 
 function nextDate(value: string) {
@@ -271,11 +286,13 @@ export function ConferenceSubmissionDialog({
   const [linkedProjects, setLinkedProjects] = useState<LinkedItem[]>([]);
   const [linkedPapers, setLinkedPapers] = useState<LinkedItem[]>([]);
   const isEditing = Boolean(conference);
+  const wording = eventWording(form.eventType);
 
   useEffect(() => {
     if (!open) return;
     setFormError(null);
     setForm(conference ? {
+      eventType: conference.eventType ?? "Conference",
       acronym: conference.acronym ?? "",
       name: conference.name,
       location: conference.location ?? "",
@@ -304,11 +321,14 @@ export function ConferenceSubmissionDialog({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form.name.trim()) {
-      setFormError("Conference name is required.");
+      setFormError(`${wording.nameLabel} is required.`);
       return;
     }
-    if (form.startDate && form.endDate && form.endDate < form.startDate) {
-      setFormError("The conference end date cannot be before its start date.");
+    if (
+      wording.hasEventDates &&
+      form.startDate && form.endDate && form.endDate < form.startDate
+    ) {
+      setFormError(`The ${wording.noun} end date cannot be before its start date.`);
       return;
     }
 
@@ -325,13 +345,14 @@ export function ConferenceSubmissionDialog({
         websiteUrl: form.websiteUrl.trim() || null,
         notes: form.notes.trim() || null,
         submissionDue: form.submissionDue || null,
-        startDate: form.startDate || null,
-        endDate: form.endDate || null,
+        // A journal special issue has a deadline but no event dates.
+        startDate: (wording.hasEventDates && form.startDate) || null,
+        endDate: (wording.hasEventDates && form.endDate) || null,
         submissionType: form.submissionType.trim() || null,
       });
       onOpenChange(false);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "The conference could not be saved.");
+      setFormError(error instanceof Error ? error.message : `The ${wording.noun} could not be saved.`);
     } finally {
       setIsSaving(false);
     }
@@ -341,31 +362,49 @@ export function ConferenceSubmissionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit conference" : "Add a conference"}</DialogTitle>
+          <DialogTitle>
+            {isEditing ? `Edit ${wording.noun}` : `Add ${withArticle(wording.noun)}`}
+          </DialogTitle>
           <DialogDescription>
-            Track submission and event dates, and optionally link the conference to any projects or papers you own.
+            Track a conference, workshop, seminar, special issue call or any other deadline, and optionally link it to any projects or papers you own.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-5">
+          <FormField label="Event type" htmlFor="conference-event-type">
+            <Select value={form.eventType}
+              onValueChange={(value) => setForm((current) => ({
+                ...current,
+                eventType: value as ConferenceEventType,
+              }))}>
+              <SelectTrigger id="conference-event-type"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CONFERENCE_EVENT_TYPES.map((eventType) => (
+                  <SelectItem key={eventType} value={eventType}>{eventType}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+
           <div className="grid gap-4 sm:grid-cols-[9rem_1fr]">
             <FormField label="Acronym" htmlFor="conference-acronym">
               <Input id="conference-acronym" value={form.acronym} maxLength={20}
                 onChange={(event) => setForm((current) => ({ ...current, acronym: event.target.value }))}
                 placeholder="ASM" />
             </FormField>
-            <FormField label="Conference name" htmlFor="conference-name" required>
+            <FormField label={wording.nameLabel} htmlFor="conference-name" required>
               <Input id="conference-name" value={form.name} autoFocus required
                 onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-                placeholder="Conference name and year" />
+                placeholder={wording.namePlaceholder} />
             </FormField>
           </div>
 
-          <FormField label="Location" htmlFor="conference-location">
+          <FormField label={wording.locationLabel} htmlFor="conference-location">
             <Input id="conference-location" value={form.location}
               onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
-              placeholder="City, country" />
+              placeholder={wording.locationPlaceholder} />
           </FormField>
+
           <FormField
             label="Conference website"
             htmlFor="conference-website"
@@ -388,6 +427,7 @@ export function ConferenceSubmissionDialog({
               placeholder="https://conference.example.org"
             />
           </FormField>
+
           <FormField label="Notes / abstract" htmlFor="conference-notes">
             <Textarea
               id="conference-notes"
@@ -400,7 +440,7 @@ export function ConferenceSubmissionDialog({
               }
               rows={7}
               maxLength={50000}
-              placeholder="Add an abstract, submission details, or other conference notes."
+              placeholder="Add an abstract, submission details, or other notes."
             />
           </FormField>
 
@@ -410,24 +450,28 @@ export function ConferenceSubmissionDialog({
                 value={form.submissionDue}
                 onChange={(value) => setForm((current) => ({ ...current, submissionDue: value }))} />
             </FormField>
-            <FormField label="Starts" htmlFor="conference-start-date">
-              <DatePickerInput id="conference-start-date" label="Conference start date" allowTyped
-                value={form.startDate}
-                onChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    startDate: value,
-                    endDate: value && (!current.endDate || current.endDate <= value)
-                      ? nextDate(value)
-                      : current.endDate,
-                  }))
-                } />
-            </FormField>
-            <FormField label="Ends" htmlFor="conference-end-date">
-              <DatePickerInput id="conference-end-date" label="Conference end date" allowTyped
-                value={form.endDate}
-                onChange={(value) => setForm((current) => ({ ...current, endDate: value }))} />
-            </FormField>
+            {wording.hasEventDates ? (
+              <>
+                <FormField label="Starts" htmlFor="conference-start-date">
+                  <DatePickerInput id="conference-start-date" label={`${wording.noun} start date`} allowTyped
+                    value={form.startDate}
+                    onChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        startDate: value,
+                        endDate: value && (!current.endDate || current.endDate <= value)
+                          ? nextDate(value)
+                          : current.endDate,
+                      }))
+                    } />
+                </FormField>
+                <FormField label="Ends" htmlFor="conference-end-date">
+                  <DatePickerInput id="conference-end-date" label={`${wording.noun} end date`} allowTyped
+                    value={form.endDate}
+                    onChange={(value) => setForm((current) => ({ ...current, endDate: value }))} />
+                </FormField>
+              </>
+            ) : null}
           </div>
 
           <FormField label="Submission type" htmlFor="conference-type">

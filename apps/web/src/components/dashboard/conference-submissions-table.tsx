@@ -46,6 +46,7 @@ import {
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import {
   CONFERENCE_DEADLINE_FILTERS as DEADLINE_FILTERS,
+  CONFERENCE_EVENT_FILTERS as EVENT_FILTERS,
   CONFERENCE_TYPE_FILTERS as TYPE_FILTERS,
   conferenceTypeBadgeClass as typeBadgeClass,
   conferenceUrgencyClass as urgencyClass,
@@ -53,7 +54,9 @@ import {
   formatConferenceDate as formatDate,
   formatConferenceDateRange as formatConferenceDates,
   matchesConferenceDeadline as matchesDeadline,
+  matchesEventFilter,
   type ConferenceDeadlineFilter as DeadlineFilter,
+  type ConferenceEventFilter as EventFilter,
   type ConferenceTypeFilter as TypeFilter,
 } from "@/lib/conference-format";
 import { cn } from "@/lib/utils";
@@ -62,14 +65,63 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 import { ConferenceNotesPreview } from "@/components/dashboard/conference-notes-preview";
 
 const CONFERENCE_COLUMNS = [
-  { id: "conference", label: "Conference" },
+  { id: "conference", label: "Event" },
   { id: "submissionDue", label: "Submission Due" },
-  { id: "conferenceDates", label: "Conference Dates" },
+  { id: "conferenceDates", label: "Event Dates" },
   { id: "type", label: "Type" },
   { id: "intent", label: "Intent" },
   { id: "linkedProjects", label: "Linked Projects or Papers" },
   { id: "actions", label: "Actions" },
 ] as const;
+
+type UpcomingSubmission = NonNullable<ApiConference["upcomingSubmissions"]>[number];
+
+/**
+ * One deadline: an event's own submission deadline, or the deadline of one
+ * submission to it that has its own (such as a PDW due later than papers).
+ */
+interface DeadlineRow {
+  key: string;
+  conference: ApiConference;
+  submission: UpcomingSubmission | null;
+  due: string | null;
+  daysRemaining: number | null;
+  submissionType: string | null;
+}
+
+function deadlineRows(conference: ApiConference): DeadlineRow[] {
+  const submissions = conference.upcomingSubmissions ?? [];
+  const submissionRows = submissions.map((submission) => ({
+    key: `submission:${submission.id}`,
+    conference,
+    submission,
+    due: submission.submissionDue,
+    daysRemaining: submission.daysRemaining,
+    submissionType: submission.submissionType,
+  }));
+  // An event with no deadline of its own is still listed, unless its
+  // submissions already give it deadlines.
+  const eventRow =
+    conference.submissionDue || submissionRows.length === 0
+      ? [
+          {
+            key: `event:${conference.id}`,
+            conference,
+            submission: null,
+            due: conference.submissionDue,
+            daysRemaining: conference.daysRemaining,
+            submissionType: conference.submissionType,
+          },
+        ]
+      : [];
+  return [...eventRow, ...submissionRows];
+}
+
+function submissionHref(submission: UpcomingSubmission) {
+  if (submission.moduleId) return `/modules/${submission.moduleId}`;
+  if (submission.projectId) return `/projects/${submission.projectId}`;
+  return null;
+}
 
 export function ConferenceSubmissionsTable({
   showPast = false,
@@ -108,6 +160,13 @@ export function ConferenceSubmissionsTable({
     "All",
   );
 
+  const [eventFilter, setEventFilter] = useSessionListState<EventFilter>(
+    meQuery.data?.id,
+    tenantId,
+    `${preferenceKey}:event-type`,
+    "All",
+  );
+
   const [deadline, setDeadline] = useSessionListState<DeadlineFilter>(
     meQuery.data?.id,
     tenantId,
@@ -116,7 +175,7 @@ export function ConferenceSubmissionsTable({
   );
   useEffect(() => {
     setPage(1);
-  }, [meQuery.data?.id, tenantId, preferenceKey, search, type, deadline]);
+  }, [meQuery.data?.id, tenantId, preferenceKey, search, type, eventFilter, deadline]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingConference, setEditingConference] =
     useState<ApiConference | null>(null);
@@ -131,34 +190,38 @@ export function ConferenceSubmissionsTable({
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return [...conferences]
+    return conferences
+      .flatMap(deadlineRows)
       .filter((row) => {
+        const conference = row.conference;
         if (!showPast && row.daysRemaining !== null && row.daysRemaining < 0)
           return false;
         if (type !== "All" && row.submissionType !== type) return false;
+        if (!matchesEventFilter(conference.eventType, eventFilter)) return false;
         if (!matchesDeadline(row.daysRemaining, deadline)) return false;
         return (
           !query ||
-          row.name.toLowerCase().includes(query) ||
-          row.acronym?.toLowerCase().includes(query) ||
-          row.location?.toLowerCase().includes(query) ||
-          row.projects.some((project) =>
+          conference.name.toLowerCase().includes(query) ||
+          conference.acronym?.toLowerCase().includes(query) ||
+          conference.location?.toLowerCase().includes(query) ||
+          row.submission?.name.toLowerCase().includes(query) ||
+          conference.projects.some((project) =>
             project.title.toLowerCase().includes(query),
           ) ||
-          (row.papers ?? []).some((paper) =>
+          (conference.papers ?? []).some((paper) =>
             paperDisplayTitle(paper).toLowerCase().includes(query),
           )
         );
       })
       .sort((a, b) => {
-        if (a.submissionDue === null && b.submissionDue !== null) return 1;
-        if (a.submissionDue !== null && b.submissionDue === null) return -1;
-        return (a.submissionDue ?? "").localeCompare(b.submissionDue ?? "");
+        if (a.due === null && b.due !== null) return 1;
+        if (a.due !== null && b.due === null) return -1;
+        return (a.due ?? "").localeCompare(b.due ?? "");
       });
-  }, [conferences, deadline, search, showPast, type]);
+  }, [conferences, deadline, eventFilter, search, showPast, type]);
 
   const hasActiveFilters =
-    search !== "" || type !== "All" || deadline !== "All";
+    search !== "" || type !== "All" || eventFilter !== "All" || deadline !== "All";
 
   async function create(input: ConferenceSubmissionInput) {
     await createConference.mutateAsync(input);
@@ -204,12 +267,12 @@ export function ConferenceSubmissionsTable({
             <CardTitle className="flex items-center gap-2">
               <Presentation className="h-4 w-4 text-cyan-600" />
               {showPast
-                ? "Conference Submissions"
-                : "Upcoming Conference Submissions"}
+                ? "Submission Deadlines"
+                : "Upcoming Submission Deadlines"}
             </CardTitle>
             <CardDescription>
-              Submission deadlines, event dates, and linked projects or
-              papers.
+              Deadlines for conferences, workshops, seminars, special issue
+              calls and more, including each submission&apos;s own deadline.
             </CardDescription>
           </div>
           {dashboardView || hideCreateButton ? null : (
@@ -225,6 +288,21 @@ export function ConferenceSubmissionsTable({
             placeholder="Search conference, project, or location…"
             className="sm:max-w-xs"
           />
+          <Select
+            value={eventFilter}
+            onValueChange={(value) => setEventFilter(value as EventFilter)}
+          >
+            <SelectTrigger className="sm:w-48" aria-label="Filter by event type">
+              <SelectValue placeholder="Event" />
+            </SelectTrigger>
+            <SelectContent>
+              {EVENT_FILTERS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option === "All" ? "All events" : option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select
             value={type}
             onValueChange={(value) => setType(value as TypeFilter)}
@@ -268,6 +346,7 @@ export function ConferenceSubmissionsTable({
               onClick={() => {
                 setSearch("");
                 setType("All");
+                setEventFilter("All");
                 setDeadline("All");
               }}
               className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
@@ -287,13 +366,13 @@ export function ConferenceSubmissionsTable({
           <TableHeader>
             <TableRow>
               {columns.isColumnVisible("conference") ? (
-                <TableHead>Conference</TableHead>
+                <TableHead>Event</TableHead>
               ) : null}
               {columns.isColumnVisible("submissionDue") ? (
                 <TableHead>Submission Due</TableHead>
               ) : null}
               {columns.isColumnVisible("conferenceDates") ? (
-                <TableHead>Conference Dates</TableHead>
+                <TableHead>Event Dates</TableHead>
               ) : null}
               {columns.isColumnVisible("type") ? (
                 <TableHead>Type</TableHead>
@@ -316,7 +395,7 @@ export function ConferenceSubmissionsTable({
                   colSpan={columns.visibleColumns.size}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  Loading conferences…
+                  Loading deadlines…
                 </TableCell>
               </TableRow>
             ) : conferencesQuery.isError ? (
@@ -334,14 +413,18 @@ export function ConferenceSubmissionsTable({
                   colSpan={columns.visibleColumns.size}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  No conferences match the current filters.
+                  No deadlines match the current filters.
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((row) => {
+              filtered.map((deadlineRow) => {
+                const row = deadlineRow.conference;
+                const submission = deadlineRow.submission;
                 const canManage = row.ownerUserId === meQuery.data?.id;
+                const eventType = row.eventType ?? "Conference";
+                const href = submission ? submissionHref(submission) : null;
                 return (
-                  <TableRow key={row.id}>
+                  <TableRow key={deadlineRow.key}>
                     {columns.isColumnVisible("conference") ? (
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -357,8 +440,20 @@ export function ConferenceSubmissionsTable({
                             >
                               {row.name}
                             </Link>
+                            {submission ? (
+                              <span className="text-xs font-medium text-foreground">
+                                <span aria-hidden="true">↳ </span>
+                                <span className="sr-only">Submission: </span>
+                                {submission.name}
+                              </span>
+                            ) : null}
                             <span className="text-xs text-muted-foreground">
-                              {row.location ?? "—"}
+                              {[
+                                eventType === "Conference" ? null : eventType,
+                                row.location,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ") || "—"}
                             </span>
                             <ConferenceNotesPreview notes={row.notes} />
                           </div>
@@ -369,15 +464,15 @@ export function ConferenceSubmissionsTable({
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {formatDate(row.submissionDue)}
+                            {formatDate(deadlineRow.due)}
                           </span>
                           <span
                             className={cn(
                               "text-xs",
-                              urgencyClass(row.daysRemaining),
+                              urgencyClass(deadlineRow.daysRemaining),
                             )}
                           >
-                            {urgencyLabel(row.daysRemaining)}
+                            {urgencyLabel(deadlineRow.daysRemaining)}
                           </span>
                         </div>
                       </TableCell>
@@ -391,9 +486,9 @@ export function ConferenceSubmissionsTable({
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={typeBadgeClass(row.submissionType)}
+                          className={typeBadgeClass(deadlineRow.submissionType)}
                         >
-                          {row.submissionType ?? "—"}
+                          {deadlineRow.submissionType ?? "—"}
                         </Badge>
                       </TableCell>
                     ) : null}
@@ -417,7 +512,20 @@ export function ConferenceSubmissionsTable({
                     {columns.isColumnVisible("linkedProjects") ? (
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
-                          {row.projects.length === 0 &&
+                          {submission ? (
+                            href ? (
+                              <Link
+                                to={href}
+                                className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/15 hover:bg-primary/15 hover:underline"
+                              >
+                                {submission.displayId ?? submission.name}
+                              </Link>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                —
+                              </span>
+                            )
+                          ) : row.projects.length === 0 &&
                           (row.papers ?? []).length === 0 ? (
                             <span className="text-xs text-muted-foreground">
                               —
@@ -450,7 +558,7 @@ export function ConferenceSubmissionsTable({
                     {columns.isColumnVisible("actions") ? (
                       <TableCell>
                         <div className="flex justify-end gap-1">
-                          {canManage ? (
+                          {submission ? null : canManage ? (
                             <>
                               <Button
                                 type="button"

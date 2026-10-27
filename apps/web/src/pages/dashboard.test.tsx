@@ -300,7 +300,7 @@ describe("DashboardPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Customise dashboard" }));
     expect(screen.getByRole("heading", { name: "Dashboard widgets" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: /Task health/ }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /Upcoming conference submissions/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Upcoming submission deadlines/ }));
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
     expect(screen.getByRole("heading", { name: "Task health" })).toBeInTheDocument();

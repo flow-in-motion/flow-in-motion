@@ -20,6 +20,7 @@ describe('ConferencesService', () => {
     findVisiblePageByUser: jest.Mock;
     findLinkedProjectsForConferences: jest.Mock;
     findLinkedPapersForConferences: jest.Mock;
+    findPendingDatedSubmissionsForConferences: jest.Mock;
     searchOwnedLinkOptions: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -41,6 +42,9 @@ describe('ConferencesService', () => {
       findVisiblePageByUser: jest.fn(),
       findLinkedProjectsForConferences: jest.fn(),
       findLinkedPapersForConferences: jest.fn(),
+      findPendingDatedSubmissionsForConferences: jest
+        .fn()
+        .mockResolvedValue([]),
       searchOwnedLinkOptions: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -83,6 +87,7 @@ describe('ConferencesService', () => {
           location: null,
           websiteUrl: null,
           notes: null,
+          eventType: 'Conference',
           submissionDue: null,
           startDate: null,
           endDate: null,
@@ -94,6 +99,26 @@ describe('ConferencesService', () => {
       );
       expect(result).toEqual(
         expect.objectContaining({ daysRemaining: null, projects: [] }),
+      );
+    });
+
+    it('stores other kinds of events, such as a journal special issue call', async () => {
+      repository.create.mockResolvedValue({
+        id: 'conference-1',
+        submissionDue: null,
+      });
+
+      await service.create(tenantId, callerUserId, {
+        name: 'Special issue on AI in accounting',
+        eventType: 'Journal special issue',
+        projectIds: [],
+        moduleIds: [],
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: 'Journal special issue' }),
+        [],
+        [],
       );
     });
 
@@ -455,12 +480,62 @@ describe('ConferencesService', () => {
         }),
       ]);
 
+      expect(result.data[0]?.upcomingSubmissions).toEqual([]);
+
       expect(result.meta).toEqual({
         page: 2,
         pageSize: 20,
         totalItems: 45,
         totalPages: 3,
       });
+    });
+
+    it("lists each event's submissions that have their own deadline", async () => {
+      repository.findVisiblePageByUser.mockResolvedValue({
+        data: [
+          { id: 'conference-1', submissionDue: null },
+          { id: 'conference-2', submissionDue: null },
+        ],
+        totalItems: 2,
+      });
+      repository.findLinkedProjectsForConferences.mockResolvedValue(new Map());
+      repository.findLinkedPapersForConferences.mockResolvedValue(new Map());
+      repository.findPendingDatedSubmissionsForConferences.mockResolvedValue([
+        {
+          conferenceId: 'conference-2',
+          id: 'submission-1',
+          moduleId: null,
+          projectId: null,
+          paperDisplayId: null,
+          paperShortTitle: null,
+          paperTitle: null,
+          projectDisplayId: null,
+          projectTitle: null,
+          titleAsSubmitted: 'PDW: Qualitative methods',
+          submissionType: 'PDW',
+          status: 'Planning',
+          submissionDue: '2999-01-15',
+          presentedDate: null,
+          notes: null,
+        },
+      ]);
+
+      const result = await service.list('tenant-1', 'user-1', 1, 20);
+
+      expect(
+        repository.findPendingDatedSubmissionsForConferences,
+      ).toHaveBeenCalledWith('tenant-1', ['conference-1', 'conference-2']);
+      expect(result.data[0]?.upcomingSubmissions).toEqual([]);
+      expect(result.data[1]?.upcomingSubmissions).toEqual([
+        expect.objectContaining({
+          id: 'submission-1',
+          kind: 'other',
+          name: 'PDW: Qualitative methods',
+          submissionType: 'PDW',
+          submissionDue: '2999-01-15',
+          daysRemaining: expect.any(Number),
+        }),
+      ]);
     });
 
     it('returns no deadline countdown when a conference has no deadline', async () => {

@@ -20,12 +20,36 @@ export const CONFERENCE_INTENTS = [
 
 export type ConferenceIntent = (typeof CONFERENCE_INTENTS)[number];
 
+/**
+ * Any time-bounded thing with a submission deadline: a conference, a
+ * workshop, a research seminar talk, a journal special issue's call for
+ * papers, or something else. Matches the database check.
+ */
+export const CONFERENCE_EVENT_TYPES = [
+  'Conference',
+  'Workshop',
+  'Research seminar',
+  'Journal special issue',
+  'Other',
+] as const;
+
+export type ConferenceEventType = (typeof CONFERENCE_EVENT_TYPES)[number];
+
 export class CreateConferenceDto {
   @ApiPropertyOptional({ example: 'ASM', nullable: true })
   @IsOptional()
   @IsString()
   @Length(2, 20)
   acronym?: string | null;
+
+  @ApiPropertyOptional({
+    enum: CONFERENCE_EVENT_TYPES,
+    default: 'Conference',
+    description: 'What kind of event or call this is',
+  })
+  @IsOptional()
+  @IsIn(CONFERENCE_EVENT_TYPES)
+  eventType?: ConferenceEventType;
 
   @ApiProperty({
     example: 'Australasian Society for Microbiology Conference 2027',

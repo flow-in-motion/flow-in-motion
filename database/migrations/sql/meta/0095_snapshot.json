@@ -1,5 +1,5 @@
 {
-  "id": "15e65fda-1d35-4cbd-91bb-c2bb6bd8f2cd",
+  "id": "b8262f4e-9ef3-45c6-a38e-928031883725",
   "prevId": "de9b3190-8426-4e21-808a-ed8eeb32b867",
   "version": "7",
   "dialect": "postgresql",
@@ -2683,12 +2683,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "website_url": {
-          "name": "website_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "notes": {
           "name": "notes",
           "type": "text",
@@ -2712,6 +2706,13 @@
           "type": "date",
           "primaryKey": false,
           "notNull": false
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Conference'"
         },
         "submission_type": {
           "name": "submission_type",
@@ -2805,6 +2806,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "conferences_event_type_check": {
+          "name": "conferences_event_type_check",
+          "value": "\"conferences\".\"event_type\" IN ('Conference', 'Workshop', 'Research seminar', 'Journal special issue', 'Other')"
+        },
         "conferences_intents_check": {
           "name": "conferences_intents_check",
           "value": "\"conferences\".\"intents\" <@ ARRAY['Considering', 'Submitting', 'Attending']::text[] AND array_position(\"conferences\".\"intents\", NULL) IS NULL"
