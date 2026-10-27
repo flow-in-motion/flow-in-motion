@@ -1,0 +1,1 @@
+ALTER TABLE "conferences" ADD COLUMN IF NOT EXISTS "website_url" text;

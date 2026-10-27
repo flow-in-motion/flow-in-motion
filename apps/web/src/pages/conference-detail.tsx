@@ -155,6 +155,8 @@ function conferenceInput(conference: ApiConference): ConferenceSubmissionInput {
     intents: conference.intents,
     projectIds: conference.projects.map((project) => project.id),
     moduleIds: (conference.papers ?? []).map((paper) => paper.id),
+    eventType: conference.eventType ?? "Conference",
+    websiteUrl: conference.websiteUrl ?? null,
   };
 }
 
@@ -290,6 +292,20 @@ export default function ConferenceDetailPage() {
           <CardContent className="grid gap-5 text-sm sm:grid-cols-2">
             <DetailItem label="Event type">{eventType}</DetailItem>
             <DetailItem label={wording.locationLabel}><span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" />{conference.location ?? "—"}</span></DetailItem>
+            <DetailItem label="Conference website">
+              {conference.websiteUrl ? (
+                <a
+                  href={conference.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="break-all text-primary underline underline-offset-4"
+                >
+                  {conference.websiteUrl}
+                </a>
+              ) : (
+                "—"
+              )}
+            </DetailItem>
             <DetailItem label="Submission type"><Badge variant="outline">{conference.submissionType ?? "—"}</Badge></DetailItem>
             <DetailItem label="Intent"><span className="flex flex-wrap gap-1">{conference.intents.length > 0 ? conference.intents.map((intent) => <Badge key={intent} variant="secondary">{intent}</Badge>) : "—"}</span></DetailItem>
             {wording.hasEventDates ? (

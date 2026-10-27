@@ -9,6 +9,7 @@ import {
   IsUUID,
   Length,
   MaxLength,
+  IsUrl,
 } from 'class-validator';
 
 export const CONFERENCE_INTENTS = [
@@ -62,6 +63,23 @@ export class CreateConferenceDto {
   @IsString()
   @Length(2, 200)
   location?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'https://conference.example.org',
+    description: 'Conference website URL, including http:// or https://',
+    maxLength: 2048,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_protocol: true,
+    require_valid_protocol: true,
+    disallow_auth: true,
+  })
+  websiteUrl?: string | null;
 
   @ApiPropertyOptional({
     description: 'Free-text notes or an abstract for the conference',

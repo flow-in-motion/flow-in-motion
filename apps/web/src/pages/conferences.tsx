@@ -57,6 +57,7 @@ import {
 } from "@/lib/conference-format";
 import { cn } from "@/lib/utils";
 import { paperDisplayTitle } from "@/lib/paper-title";
+import { ConferenceNotesPreview } from "@/components/dashboard/conference-notes-preview";
 
 const CONFERENCE_COLUMNS = [
   { id: "conference", label: "Conference", width: "minmax(260px,2fr)" },
@@ -495,7 +496,7 @@ export default function ConferencesPage() {
                             {conference.acronym}
                           </span>
                         ) : null}
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex min-w-0 flex-col gap-0.5">
                           <div className="flex items-start gap-2">
                             <Link
                               to={`/conferences/${conference.id}`}
@@ -534,6 +535,7 @@ export default function ConferencesPage() {
                           <span className="text-xs text-muted-foreground">
                             {conference.location ?? "—"}
                           </span>
+                          <ConferenceNotesPreview notes={conference.notes} />
                         </div>
                       </div>
                     ) : null}

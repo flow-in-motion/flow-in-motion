@@ -62,6 +62,7 @@ import {
 import { cn } from "@/lib/utils";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { PaginationControls } from "@/components/shared/pagination-controls";
+import { ConferenceNotesPreview } from "@/components/dashboard/conference-notes-preview";
 
 const CONFERENCE_COLUMNS = [
   { id: "conference", label: "Event" },
@@ -432,7 +433,7 @@ export function ConferenceSubmissionsTable({
                               {row.acronym}
                             </span>
                           ) : null}
-                          <div className="flex flex-col">
+                          <div className="flex min-w-0 flex-col">
                             <Link
                               to={`/conferences/${row.id}`}
                               className="font-semibold hover:text-primary hover:underline"
@@ -454,6 +455,7 @@ export function ConferenceSubmissionsTable({
                                 .filter(Boolean)
                                 .join(" · ") || "—"}
                             </span>
+                            <ConferenceNotesPreview notes={row.notes} />
                           </div>
                         </div>
                       </TableCell>
