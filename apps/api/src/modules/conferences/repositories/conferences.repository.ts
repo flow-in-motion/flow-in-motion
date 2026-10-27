@@ -221,9 +221,60 @@ export class ConferencesRepository {
   }
 
   /**
-   * Returns the selected projects for which the caller has the Owner role.
+   * The user owns the project in the outer query: they created it, or they
+   * hold its Owner role. The link picker and the save check both use this,
+   * so a project offered in the picker can always be saved.
    */
-  async findOwnedProjectIds(
+  private ownsProject(tenantId: string, userId: string) {
+    return or(
+      eq(projects.userId, userId),
+      exists(
+        this.drizzle.db
+          .select({ id: projectCollaborators.id })
+          .from(projectCollaborators)
+          .innerJoin(enumTable, eq(enumTable.id, projectCollaborators.roleId))
+          .where(
+            and(
+              eq(projectCollaborators.projectId, projects.id),
+              eq(projectCollaborators.tenantId, tenantId),
+              eq(projectCollaborators.userId, userId),
+              eq(enumTable.category, 'project_role'),
+              eq(enumTable.value, 'Owner'),
+            ),
+          ),
+      ),
+    );
+  }
+
+  /** The user holds the Owner role on the paper in the outer query. */
+  private ownsPaper(tenantId: string, userId: string) {
+    return exists(
+      this.drizzle.db
+        .select({ id: moduleCollaborators.id })
+        .from(moduleCollaborators)
+        .innerJoin(enumTable, eq(enumTable.id, moduleCollaborators.roleId))
+        .where(
+          and(
+            eq(moduleCollaborators.moduleId, modules.id),
+            eq(moduleCollaborators.tenantId, tenantId),
+            eq(moduleCollaborators.userId, userId),
+            eq(enumTable.category, 'project_role'),
+            eq(enumTable.value, 'Owner'),
+          ),
+        ),
+    );
+  }
+
+  /** A paper can be linked by its owner or by the owner of its project. */
+  private canLinkPaper(tenantId: string, userId: string) {
+    return or(
+      and(isNotNull(modules.projectId), this.ownsProject(tenantId, userId)),
+      this.ownsPaper(tenantId, userId),
+    );
+  }
+
+  /** Returns the selected active projects the user may link to a conference. */
+  async findLinkableProjectIds(
     tenantId: string,
     projectIds: string[],
     userId: string,
@@ -233,29 +284,22 @@ export class ConferencesRepository {
     }
 
     const rows = await this.drizzle.db
-      .selectDistinct({
-        projectId: projectCollaborators.projectId,
-      })
-      .from(projectCollaborators)
-      .innerJoin(enumTable, eq(projectCollaborators.roleId, enumTable.id))
+      .select({ id: projects.id })
+      .from(projects)
       .where(
         and(
-          eq(projectCollaborators.tenantId, tenantId),
-          eq(projectCollaborators.userId, userId),
-          inArray(projectCollaborators.projectId, projectIds),
-          eq(enumTable.category, 'project_role'),
-          eq(enumTable.value, 'Owner'),
+          eq(projects.tenantId, tenantId),
+          inArray(projects.id, projectIds),
+          isNull(projects.archivedAt),
+          this.ownsProject(tenantId, userId),
         ),
       );
 
-    return rows.map((row) => row.projectId);
+    return rows.map((row) => row.id);
   }
 
-  /**
-   * Returns the papers (from the given ids) the user is an Owner of. Used for
-   * papers without a project, which have no project owner to check.
-   */
-  async findOwnedModuleIds(
+  /** Returns the selected active papers the user may link to a conference. */
+  async findLinkableModuleIds(
     tenantId: string,
     moduleIds: string[],
     userId: string,
@@ -265,20 +309,20 @@ export class ConferencesRepository {
     }
 
     const rows = await this.drizzle.db
-      .selectDistinct({ moduleId: moduleCollaborators.moduleId })
-      .from(moduleCollaborators)
-      .innerJoin(enumTable, eq(moduleCollaborators.roleId, enumTable.id))
+      .select({ id: modules.id })
+      .from(modules)
+      .leftJoin(projects, eq(projects.id, modules.projectId))
       .where(
         and(
-          eq(moduleCollaborators.tenantId, tenantId),
-          eq(moduleCollaborators.userId, userId),
-          inArray(moduleCollaborators.moduleId, moduleIds),
-          eq(enumTable.category, 'project_role'),
-          eq(enumTable.value, 'Owner'),
+          eq(modules.tenantId, tenantId),
+          inArray(modules.id, moduleIds),
+          isNull(modules.archivedAt),
+          or(isNull(modules.projectId), isNull(projects.archivedAt)),
+          this.canLinkPaper(tenantId, userId),
         ),
       );
 
-    return rows.map((row) => row.moduleId);
+    return rows.map((row) => row.id);
   }
 
   /**
@@ -308,44 +352,30 @@ export class ConferencesRepository {
       );
   }
 
-  /** Lists owned active projects and papers, optionally filtered by search. */
+  /**
+   * Lists active projects and papers the user may link to a conference,
+   * optionally filtered by search. Uses the same rules as the save check.
+   */
   async searchOwnedLinkOptions(
     tenantId: string,
     userId: string,
     search: string,
   ) {
     const pattern = search.trim() ? searchPattern(search) : undefined;
-    const ownedByCaller = or(
-      eq(projects.userId, userId),
-      and(
-        eq(projectCollaborators.userId, userId),
-        eq(enumTable.category, 'project_role'),
-        eq(enumTable.value, 'Owner'),
-      ),
-    );
 
     const [projectRows, paperRows] = await Promise.all([
       this.drizzle.db
-        .selectDistinct({
+        .select({
           id: projects.id,
           displayId: projects.displayId,
           title: projects.title,
         })
         .from(projects)
-        .leftJoin(
-          projectCollaborators,
-          and(
-            eq(projectCollaborators.projectId, projects.id),
-            eq(projectCollaborators.tenantId, tenantId),
-            eq(projectCollaborators.userId, userId),
-          ),
-        )
-        .leftJoin(enumTable, eq(enumTable.id, projectCollaborators.roleId))
         .where(
           and(
             eq(projects.tenantId, tenantId),
             isNull(projects.archivedAt),
-            ownedByCaller,
+            this.ownsProject(tenantId, userId),
             pattern
               ? or(
                   ilike(projects.title, pattern),
@@ -356,7 +386,7 @@ export class ConferencesRepository {
         )
         .orderBy(asc(projects.title), asc(projects.id)),
       this.drizzle.db
-        .selectDistinct({
+        .select({
           id: modules.id,
           displayId: modules.displayId,
           shortTitle: modules.shortTitle,
@@ -367,41 +397,12 @@ export class ConferencesRepository {
         .from(modules)
         // Papers without a project are included too.
         .leftJoin(projects, eq(projects.id, modules.projectId))
-        .leftJoin(
-          projectCollaborators,
-          and(
-            eq(projectCollaborators.projectId, projects.id),
-            eq(projectCollaborators.tenantId, tenantId),
-            eq(projectCollaborators.userId, userId),
-          ),
-        )
-        .leftJoin(enumTable, eq(enumTable.id, projectCollaborators.roleId))
         .where(
           and(
             eq(modules.tenantId, tenantId),
             isNull(modules.archivedAt),
             or(isNull(modules.projectId), isNull(projects.archivedAt)),
-            or(
-              ownedByCaller,
-              // The caller is an Owner of the paper itself.
-              exists(
-                this.drizzle.db
-                  .select({ id: moduleCollaborators.id })
-                  .from(moduleCollaborators)
-                  .innerJoin(
-                    enumTable,
-                    eq(enumTable.id, moduleCollaborators.roleId),
-                  )
-                  .where(
-                    and(
-                      eq(moduleCollaborators.moduleId, modules.id),
-                      eq(moduleCollaborators.userId, userId),
-                      eq(enumTable.category, 'project_role'),
-                      eq(enumTable.value, 'Owner'),
-                    ),
-                  ),
-              ),
-            ),
+            this.canLinkPaper(tenantId, userId),
             pattern
               ? or(
                   ilike(modules.shortTitle, pattern),

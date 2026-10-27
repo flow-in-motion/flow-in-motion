@@ -92,7 +92,8 @@ export class ConferencesService {
   /**
    * Creates a conference.
    *
-   * The caller must be the Owner of every project being attached.
+   * Any number of projects and papers can be linked. The caller must own each
+   * project, and each paper (or the project it sits in).
    */
   async create(
     tenantId: string,
@@ -141,7 +142,8 @@ export class ConferencesService {
    * The caller must:
    * - Be able to view the conference through a linked project.
    * - Be the conference owner.
-   * - Own every project in projectIds when projectIds is being changed.
+   * - Own any project or paper being newly linked. Links the conference
+   *   already has are kept as they are, even if someone else now owns them.
    */
   async update(
     tenantId: string,
@@ -177,17 +179,27 @@ export class ConferencesService {
     this.validateDates(startDate, endDate);
 
     if (input.projectIds !== undefined) {
+      const linkedProjects = await this.repository.findLinkedProjects(
+        tenantId,
+        conferenceId,
+      );
       await this.validateProjectOwnership(
         tenantId,
         input.projectIds,
         callerUserId,
+        new Set(linkedProjects.map((project) => project.id)),
       );
     }
     if (input.moduleIds !== undefined) {
+      const linkedPapers = await this.repository.findLinkedPapers(
+        tenantId,
+        conferenceId,
+      );
       await this.validateModuleOwnership(
         tenantId,
         input.moduleIds,
         callerUserId,
+        new Set(linkedPapers.map((paper) => paper.id)),
       );
     }
 
@@ -408,102 +420,82 @@ export class ConferencesService {
   }
 
   /**
-   * When projects are supplied, confirms that:
-   * - Every project exists inside the tenant.
-   * - The caller has the Owner role on every project.
-   *
-   * A conference may also have no linked projects at all.
+   * Confirms every project being linked exists in the workspace and that the
+   * caller owns it (created it or holds its Owner role). Projects in
+   * `alreadyLinked` are skipped. A conference may have no projects at all.
    */
   private async validateProjectOwnership(
     tenantId: string,
     projectIds: string[],
     callerUserId: string,
+    alreadyLinked: ReadonlySet<string> = new Set(),
   ) {
-    const uniqueProjectIds = [...new Set(projectIds)];
-
-    if (uniqueProjectIds.length === 0) {
-      return;
-    }
+    const newProjectIds = [...new Set(projectIds)].filter(
+      (projectId) => !alreadyLinked.has(projectId),
+    );
+    if (newProjectIds.length === 0) return;
 
     const projects = await this.repository.findProjectsByIds(
       tenantId,
-      uniqueProjectIds,
+      newProjectIds,
     );
-
-    if (projects.length !== uniqueProjectIds.length) {
+    if (projects.length !== newProjectIds.length) {
       throw new NotFoundException(
         'One or more selected projects could not be found',
       );
     }
 
-    const ownedProjectIds = await this.repository.findOwnedProjectIds(
-      tenantId,
-      uniqueProjectIds,
-      callerUserId,
+    const linkable = new Set(
+      await this.repository.findLinkableProjectIds(
+        tenantId,
+        newProjectIds,
+        callerUserId,
+      ),
     );
-
-    const ownedProjectIdSet = new Set(ownedProjectIds);
-
-    const unauthorizedProjectIds = uniqueProjectIds.filter(
-      (projectId) => !ownedProjectIdSet.has(projectId),
-    );
-
-    if (unauthorizedProjectIds.length > 0) {
+    if (newProjectIds.some((projectId) => !linkable.has(projectId))) {
       throw new ForbiddenException(
-        'You must be the owner of every project linked to the conference',
+        'You can only link projects you own to a conference',
       );
     }
   }
 
   /**
-   * Every linked paper must exist, remain active, and belong to a project the
-   * caller owns. This preserves the conference linker's existing ownership
-   * rules while storing the paper itself instead of only its parent project.
+   * Confirms every paper being linked exists and is active, and that the
+   * caller owns the paper or the project it sits in. Papers in
+   * `alreadyLinked` are skipped.
    */
   private async validateModuleOwnership(
     tenantId: string,
     moduleIds: string[],
     callerUserId: string,
+    alreadyLinked: ReadonlySet<string> = new Set(),
   ) {
-    const uniqueModuleIds = [...new Set(moduleIds)];
-    if (uniqueModuleIds.length === 0) return;
-
-    const linkedModules = await this.repository.findModulesByIds(
-      tenantId,
-      uniqueModuleIds,
+    const newModuleIds = [...new Set(moduleIds)].filter(
+      (moduleId) => !alreadyLinked.has(moduleId),
     );
-    if (linkedModules.length !== uniqueModuleIds.length) {
+    if (newModuleIds.length === 0) return;
+
+    const papers = await this.repository.findModulesByIds(
+      tenantId,
+      newModuleIds,
+    );
+    if (papers.length !== newModuleIds.length) {
       throw new NotFoundException(
         'One or more selected papers could not be found',
       );
     }
 
-    const projectIds = linkedModules
-      .map((module) => module.projectId)
-      .filter((projectId): projectId is string => Boolean(projectId));
-    await this.validateProjectOwnership(
-      tenantId,
-      [...new Set(projectIds)],
-      callerUserId,
+    const linkable = new Set(
+      await this.repository.findLinkableModuleIds(
+        tenantId,
+        newModuleIds,
+        callerUserId,
+      ),
     );
-
-    // Papers without a project: the caller must be an Owner of the paper.
-    const independentModuleIds = linkedModules
-      .filter((module) => !module.projectId)
-      .map((module) => module.id);
-    if (independentModuleIds.length > 0) {
-      const ownedModuleIds = new Set(
-        await this.repository.findOwnedModuleIds(
-          tenantId,
-          independentModuleIds,
-          callerUserId,
-        ),
+    if (newModuleIds.some((moduleId) => !linkable.has(moduleId))) {
+      throw new ForbiddenException(
+        'You can only link papers you own, or papers in projects you own',
       );
-      if (independentModuleIds.some((id) => !ownedModuleIds.has(id))) {
-        throw new ForbiddenException(
-          'Only the paper owner can link this paper to a conference',
-        );
-      }
     }
   }
 

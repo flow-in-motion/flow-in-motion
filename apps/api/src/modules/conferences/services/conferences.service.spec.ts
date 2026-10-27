@@ -10,9 +10,9 @@ describe('ConferencesService', () => {
   let service: ConferencesService;
   let repository: {
     findProjectsByIds: jest.Mock;
-    findOwnedProjectIds: jest.Mock;
+    findLinkableProjectIds: jest.Mock;
     findModulesByIds: jest.Mock;
-    findOwnedModuleIds: jest.Mock;
+    findLinkableModuleIds: jest.Mock;
     findLinkedProjects: jest.Mock;
     findLinkedPapers: jest.Mock;
     findVisibleById: jest.Mock;
@@ -30,9 +30,9 @@ describe('ConferencesService', () => {
   beforeEach(() => {
     repository = {
       findProjectsByIds: jest.fn(),
-      findOwnedProjectIds: jest.fn(),
+      findLinkableProjectIds: jest.fn(),
       findModulesByIds: jest.fn(),
-      findOwnedModuleIds: jest.fn().mockResolvedValue([]),
+      findLinkableModuleIds: jest.fn().mockResolvedValue([]),
       findLinkedProjects: jest.fn().mockResolvedValue([]),
       findLinkedPapers: jest.fn().mockResolvedValue([]),
       findVisibleById: jest.fn(),
@@ -103,7 +103,7 @@ describe('ConferencesService', () => {
       });
 
       expect(repository.findProjectsByIds).not.toHaveBeenCalled();
-      expect(repository.findOwnedProjectIds).not.toHaveBeenCalled();
+      expect(repository.findLinkableProjectIds).not.toHaveBeenCalled();
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({ tenantId, ownerUserId: callerUserId }),
         [],
@@ -133,7 +133,7 @@ describe('ConferencesService', () => {
 
     it('still requires ownership of every linked project when projects are supplied', async () => {
       repository.findProjectsByIds.mockResolvedValue([{ id: 'project-1' }]);
-      repository.findOwnedProjectIds.mockResolvedValue([]);
+      repository.findLinkableProjectIds.mockResolvedValue([]);
 
       await expect(
         service.create(tenantId, callerUserId, {
@@ -145,12 +145,11 @@ describe('ConferencesService', () => {
       expect(repository.create).not.toHaveBeenCalled();
     });
 
-    it('stores a paper link after validating ownership of its parent project', async () => {
+    it('stores a paper link the caller may link (owns the paper or its project)', async () => {
       repository.findModulesByIds.mockResolvedValue([
         { id: 'paper-1', projectId: 'project-1' },
       ]);
-      repository.findProjectsByIds.mockResolvedValue([{ id: 'project-1' }]);
-      repository.findOwnedProjectIds.mockResolvedValue(['project-1']);
+      repository.findLinkableModuleIds.mockResolvedValue(['paper-1']);
       repository.create.mockResolvedValue({
         id: 'conference-1',
         submissionDue: null,
@@ -173,7 +172,7 @@ describe('ConferencesService', () => {
       repository.findModulesByIds.mockResolvedValue([
         { id: 'paper-1', projectId: null },
       ]);
-      repository.findOwnedModuleIds.mockResolvedValue(['paper-1']);
+      repository.findLinkableModuleIds.mockResolvedValue(['paper-1']);
       repository.create.mockResolvedValue({
         id: 'conference-1',
         submissionDue: null,
@@ -185,7 +184,7 @@ describe('ConferencesService', () => {
         moduleIds: ['paper-1'],
       });
 
-      expect(repository.findOwnedModuleIds).toHaveBeenCalledWith(
+      expect(repository.findLinkableModuleIds).toHaveBeenCalledWith(
         tenantId,
         ['paper-1'],
         callerUserId,
@@ -201,7 +200,7 @@ describe('ConferencesService', () => {
       repository.findModulesByIds.mockResolvedValue([
         { id: 'paper-1', projectId: null },
       ]);
-      repository.findOwnedModuleIds.mockResolvedValue([]);
+      repository.findLinkableModuleIds.mockResolvedValue([]);
 
       await expect(
         service.create(tenantId, callerUserId, {
@@ -225,6 +224,62 @@ describe('ConferencesService', () => {
         }),
       ).rejects.toBeInstanceOf(NotFoundException);
 
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('links several projects and papers at once', async () => {
+      repository.findProjectsByIds.mockResolvedValue([
+        { id: 'project-1' },
+        { id: 'project-2' },
+      ]);
+      repository.findLinkableProjectIds.mockResolvedValue([
+        'project-1',
+        'project-2',
+      ]);
+      repository.findModulesByIds.mockResolvedValue([
+        { id: 'paper-1', projectId: 'project-1' },
+        { id: 'paper-2', projectId: null },
+        { id: 'paper-3', projectId: 'project-9' },
+      ]);
+      repository.findLinkableModuleIds.mockResolvedValue([
+        'paper-1',
+        'paper-2',
+        'paper-3',
+      ]);
+      repository.create.mockResolvedValue({
+        id: 'conference-1',
+        submissionDue: null,
+      });
+
+      await service.create(tenantId, callerUserId, {
+        name: 'Busy conference',
+        projectIds: ['project-1', 'project-2'],
+        moduleIds: ['paper-1', 'paper-2', 'paper-3'],
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Busy conference' }),
+        ['project-1', 'project-2'],
+        ['paper-1', 'paper-2', 'paper-3'],
+      );
+    });
+
+    it('names papers in the error when one of several cannot be linked', async () => {
+      repository.findModulesByIds.mockResolvedValue([
+        { id: 'paper-1', projectId: 'project-1' },
+        { id: 'paper-2', projectId: 'project-2' },
+      ]);
+      repository.findLinkableModuleIds.mockResolvedValue(['paper-1']);
+
+      await expect(
+        service.create(tenantId, callerUserId, {
+          name: 'Paper conference',
+          projectIds: [],
+          moduleIds: ['paper-1', 'paper-2'],
+        }),
+      ).rejects.toThrow(
+        'You can only link papers you own, or papers in projects you own',
+      );
       expect(repository.create).not.toHaveBeenCalled();
     });
 
@@ -261,6 +316,48 @@ describe('ConferencesService', () => {
         expect.any(Object),
         [],
         undefined,
+      );
+    });
+
+    it('only checks ownership of newly linked projects and papers', async () => {
+      repository.findVisibleById.mockResolvedValue({
+        id: 'conference-1',
+        ownerUserId: callerUserId,
+        startDate: baseInput.startDate,
+        endDate: baseInput.endDate,
+      });
+      // Already linked, possibly by a previous owner of those projects.
+      repository.findLinkedProjects.mockResolvedValue([{ id: 'project-old' }]);
+      repository.findLinkedPapers.mockResolvedValue([{ id: 'paper-old' }]);
+      repository.findProjectsByIds.mockResolvedValue([{ id: 'project-new' }]);
+      repository.findLinkableProjectIds.mockResolvedValue(['project-new']);
+      repository.findModulesByIds.mockResolvedValue([
+        { id: 'paper-new', projectId: null },
+      ]);
+      repository.findLinkableModuleIds.mockResolvedValue(['paper-new']);
+      repository.update.mockResolvedValue({ id: 'conference-1' });
+
+      await service.update(tenantId, 'conference-1', callerUserId, {
+        projectIds: ['project-old', 'project-new'],
+        moduleIds: ['paper-old', 'paper-new'],
+      });
+
+      expect(repository.findLinkableProjectIds).toHaveBeenCalledWith(
+        tenantId,
+        ['project-new'],
+        callerUserId,
+      );
+      expect(repository.findLinkableModuleIds).toHaveBeenCalledWith(
+        tenantId,
+        ['paper-new'],
+        callerUserId,
+      );
+      expect(repository.update).toHaveBeenCalledWith(
+        tenantId,
+        'conference-1',
+        expect.any(Object),
+        ['project-old', 'project-new'],
+        ['paper-old', 'paper-new'],
       );
     });
 

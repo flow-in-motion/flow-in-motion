@@ -12,7 +12,7 @@ function setup() {
     findModulesByIds: jest
       .fn()
       .mockResolvedValue([{ id: 'paper-1', projectId: null }]),
-    findOwnedModuleIds: jest.fn().mockResolvedValue(['paper-1']),
+    findLinkableModuleIds: jest.fn().mockResolvedValue(['paper-1']),
     findVisibleById: jest.fn().mockResolvedValue({
       id: 'conference-1',
       ownerUserId: 'user-1',
@@ -126,7 +126,7 @@ describe('conference presentation service', () => {
 
   it('prevents writes when the caller does not own the independent paper', async () => {
     const { service, repository } = setup();
-    repository.findOwnedModuleIds.mockResolvedValue([]);
+    repository.findLinkableModuleIds.mockResolvedValue([]);
 
     await expect(
       service.savePaperPresentation(
@@ -182,7 +182,7 @@ describe('conference presentation service', () => {
 
   it('lets a paper reader view history without management controls', async () => {
     const { service, repository } = setup();
-    repository.findOwnedModuleIds.mockResolvedValue([]);
+    repository.findLinkableModuleIds.mockResolvedValue([]);
 
     const result = await service.listPaperPresentations(
       'tenant-1',
