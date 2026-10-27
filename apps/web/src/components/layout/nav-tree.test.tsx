@@ -33,5 +33,9 @@ describe("NavTree", () => {
       "href",
       "/settings/account-audit",
     );
+    expect(screen.getByRole("link", { name: /^Impact$/ })).toHaveAttribute(
+      "href",
+      "/future/impact",
+    );
   });
 });

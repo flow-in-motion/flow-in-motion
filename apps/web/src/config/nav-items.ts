@@ -107,6 +107,7 @@ export const navGroups: NavGroup[] = [
         to: "/future/reviews-hdr-examinations",
         icon: ClipboardCheck,
       },
+      { label: "Impact", to: "/future/impact", icon: BarChart3 },
       { label: "Teaching", to: "/future/teaching", icon: BookOpen },
     ],
   },
