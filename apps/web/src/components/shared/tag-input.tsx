@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from "react";
 import { X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { joinTagList, splitTagList } from "@/lib/tag-list";
 import { cn } from "@/lib/utils";
 
 interface TagInputProps {
@@ -13,15 +14,8 @@ interface TagInputProps {
   suggestions?: string[];
 }
 
-function parseTags(value: string): string[] {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
-
 export function TagInput({ id, value, onChange, placeholder, className, suggestions = [] }: TagInputProps) {
-  const tags = parseTags(value);
+  const tags = splitTagList(value);
   const [draft, setDraft] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const normalizedTags = new Set(tags.map((tag) => tag.toLocaleLowerCase()));
@@ -30,39 +24,24 @@ export function TagInput({ id, value, onChange, placeholder, className, suggesti
     .filter((suggestion) => suggestion.toLocaleLowerCase().includes(draft.trim().toLocaleLowerCase()))
     .slice(0, 8);
 
-  function commitDraft(nextTags: string[] = tags) {
-    const trimmed = draft.trim();
-    if (trimmed) {
-      onChange([...nextTags, trimmed].join(", "));
-    } else if (nextTags !== tags) {
-      onChange(nextTags.join(", "));
+  // Commas stay part of the name ("Accounting, Organizations and Society");
+  // an entry is added on Enter, on picking a suggestion, or on leaving the field.
+  function commitDraft() {
+    const newTags = splitTagList(draft);
+    if (newTags.length) {
+      onChange(joinTagList([...tags, ...newTags]));
     }
     setDraft("");
   }
 
   function removeTag(index: number) {
-    onChange(tags.filter((_, i) => i !== index).join(", "));
+    onChange(joinTagList(tags.filter((_, i) => i !== index)));
   }
 
   function addSuggestion(suggestion: string) {
-    onChange([...tags, suggestion].join(", "));
+    onChange(joinTagList([...tags, suggestion]));
     setDraft("");
     document.getElementById(id)?.focus();
-  }
-
-  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const raw = event.target.value;
-    if (!raw.includes(",")) {
-      setDraft(raw);
-      return;
-    }
-    const parts = raw.split(",");
-    const last = parts.pop() ?? "";
-    const newTags = parts.map((part) => part.trim()).filter(Boolean);
-    if (newTags.length) {
-      onChange([...tags, ...newTags].join(", "));
-    }
-    setDraft(last);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -104,7 +83,7 @@ export function TagInput({ id, value, onChange, placeholder, className, suggesti
       <input
         id={id}
         value={draft}
-        onChange={handleChange}
+        onChange={(event) => setDraft(event.target.value)}
         onKeyDown={handleKeyDown}
         onFocus={() => setIsFocused(true)}
         onBlur={() => {

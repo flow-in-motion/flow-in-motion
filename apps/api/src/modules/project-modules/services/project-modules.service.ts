@@ -39,16 +39,20 @@ function paperStatus(status: string | undefined) {
   return status === RETIRED_PAPER_STATUS ? DEFAULT_PAPER_STATUS : status;
 }
 
-function rememberedNames(values: Array<string | null | undefined>) {
+// Paper journal and conference lists are saved with "; " between names, so a
+// comma can sit inside a name ("Accounting, Organizations and Society").
+function splitNameList(value: string | null | undefined) {
+  return value?.split(';') ?? [];
+}
+
+function rememberedNames(names: Array<string | null | undefined>) {
   const byNormalizedName = new Map<string, string>();
-  for (const value of values) {
-    for (const name of value?.split(',') ?? []) {
-      const trimmed = name.trim();
-      if (trimmed) {
-        const normalizedName = trimmed.toLocaleLowerCase();
-        if (!byNormalizedName.has(normalizedName)) {
-          byNormalizedName.set(normalizedName, trimmed);
-        }
+  for (const name of names) {
+    const trimmed = name?.trim();
+    if (trimmed) {
+      const normalizedName = trimmed.toLocaleLowerCase();
+      if (!byNormalizedName.has(normalizedName)) {
+        byNormalizedName.set(normalizedName, trimmed);
       }
     }
   }
@@ -71,15 +75,18 @@ export class ProjectModulesService {
       await this.repository.findRememberedVenueValues(tenantId, callerUserId);
     const journals = rememberedNames([
       ...paperValues.flatMap((paper) => [
-        paper.targetJournal,
-        paper.backupJournal,
+        ...splitNameList(paper.targetJournal),
+        ...splitNameList(paper.backupJournal),
       ]),
-      ...projectValues.map((project) => project.targetJournals),
+      ...projectValues.flatMap((project) =>
+        splitNameList(project.targetJournals),
+      ),
     ]);
+    // Conference records hold a single acronym and name, so they're used whole.
     const conferences = rememberedNames([
       ...paperValues.flatMap((paper) => [
-        paper.targetConference,
-        paper.backupConference,
+        ...splitNameList(paper.targetConference),
+        ...splitNameList(paper.backupConference),
       ]),
       ...conferenceValues.flatMap((conference) => [
         conference.acronym,

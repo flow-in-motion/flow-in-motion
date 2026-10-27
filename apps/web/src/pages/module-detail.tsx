@@ -76,6 +76,7 @@ import {
 import { TagInput } from "@/components/shared/tag-input";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
+import { splitTagList } from "@/lib/tag-list";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
@@ -158,13 +159,6 @@ function formatDate(iso: string | null) {
   if (!iso) return "—";
   const [year, month, day] = iso.split("-");
   return `${day}/${month}/${year}`;
-}
-
-function splitEntries(value: string | null) {
-  return (value ?? "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
 }
 
 function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
@@ -1375,7 +1369,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     onChange={(value) =>
                       setForm({ ...form, targetJournal: value })
                     }
-                    placeholder="e.g. Nature Communications, Cell"
+                    placeholder="e.g. Nature Communications"
                     suggestions={venueSuggestions.data?.journals}
                   />
                 </FormField>
@@ -1389,7 +1383,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     onChange={(value) =>
                       setForm({ ...form, backupJournal: value })
                     }
-                    placeholder="e.g. Scientific Reports, PLOS ONE"
+                    placeholder="e.g. Scientific Reports"
                     suggestions={venueSuggestions.data?.journals}
                   />
                 </FormField>
@@ -1403,7 +1397,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     onChange={(value) =>
                       setForm({ ...form, targetConference: value })
                     }
-                    placeholder="e.g. ICML, NeurIPS"
+                    placeholder="e.g. NeurIPS"
                     suggestions={venueSuggestions.data?.conferences}
                   />
                 </FormField>
@@ -1417,13 +1411,13 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     onChange={(value) =>
                       setForm({ ...form, backupConference: value })
                     }
-                    placeholder="e.g. NeurIPS Workshop, ICLR Workshop"
+                    placeholder="e.g. ICLR Workshop"
                     suggestions={venueSuggestions.data?.conferences}
                   />
                 </FormField>
                 <p className="text-xs text-muted-foreground sm:col-span-2">
-                  Type a name and press comma or Enter to add it — you can add
-                  multiple journals or conferences.
+                  Type a name and press Enter to add it — you can add multiple
+                  journals or conferences.
                 </p>
                 <FormField label="Status" htmlFor="edit-module-status">
                   <Select
@@ -1617,7 +1611,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     Target journals
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {splitEntries(module.targetJournal).map((entry) => (
+                    {splitTagList(module.targetJournal).map((entry) => (
                       <Badge key={entry} variant="secondary">
                         {entry}
                       </Badge>
@@ -1631,7 +1625,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     Backup journals
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {splitEntries(module.backupJournal).map((entry) => (
+                    {splitTagList(module.backupJournal).map((entry) => (
                       <Badge key={entry} variant="secondary">
                         {entry}
                       </Badge>
@@ -1645,7 +1639,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     Target conferences
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {splitEntries(module.targetConference).map((entry) => (
+                    {splitTagList(module.targetConference).map((entry) => (
                       <Badge key={entry} variant="secondary">
                         {entry}
                       </Badge>
@@ -1659,7 +1653,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     Backup conferences
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {splitEntries(module.backupConference).map((entry) => (
+                    {splitTagList(module.backupConference).map((entry) => (
                       <Badge key={entry} variant="secondary">
                         {entry}
                       </Badge>

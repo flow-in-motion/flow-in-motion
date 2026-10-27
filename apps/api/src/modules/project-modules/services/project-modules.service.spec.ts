@@ -173,12 +173,12 @@ describe('ProjectModulesService', () => {
     });
   });
   describe('listVenueSuggestions', () => {
-    it('deduplicates and sorts remembered paper, project and conference names', async () => {
+    it('deduplicates and sorts remembered names, keeping commas inside a name', async () => {
       repository.findRememberedVenueValues.mockResolvedValue({
         paperValues: [
           {
-            targetJournal: 'Nature, Cell',
-            backupJournal: 'nature, PLOS ONE',
+            targetJournal: 'Nature; Accounting, Organizations and Society',
+            backupJournal: 'nature; PLOS ONE',
             targetConference: 'ICML',
             backupConference: 'NeurIPS',
           },
@@ -189,20 +189,25 @@ describe('ProjectModulesService', () => {
             acronym: 'ICLR',
             name: 'International Conference on Learning Representations',
           },
-          { acronym: null, name: 'Research Conference' },
+          { acronym: null, name: 'Conference on Vision, Language and Robots' },
         ],
       });
 
       await expect(
         service.listVenueSuggestions('tenant-1', 'user-1'),
       ).resolves.toEqual({
-        journals: ['Cell', 'Lancet', 'Nature', 'PLOS ONE'],
+        journals: [
+          'Accounting, Organizations and Society',
+          'Lancet',
+          'Nature',
+          'PLOS ONE',
+        ],
         conferences: [
+          'Conference on Vision, Language and Robots',
           'ICLR',
           'ICML',
           'International Conference on Learning Representations',
           'NeurIPS',
-          'Research Conference',
         ],
       });
     });
