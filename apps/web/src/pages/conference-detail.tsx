@@ -162,6 +162,23 @@ export default function ConferenceDetailPage() {
         </Card>
 
         <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Notes / abstract</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {conference.notes ? (
+              <p className="whitespace-pre-wrap break-words text-sm leading-7">
+                {conference.notes}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No notes or abstract added.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Linked projects or papers</CardTitle></CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

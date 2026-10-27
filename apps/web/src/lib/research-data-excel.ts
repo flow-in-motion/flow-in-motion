@@ -303,6 +303,7 @@ export async function buildResearchExcel(data: ResearchDataExport) {
         date("End date", "end_date"),
         field("Submission type", "submission_type"),
         field("Intent", "intents"),
+        field("Notes / abstract", "notes", 75),
       ],
     },
     {
