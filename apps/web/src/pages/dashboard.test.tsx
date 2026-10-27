@@ -146,6 +146,58 @@ vi.mock("@/components/dashboard/conference-submissions-table", () => ({
 }));
 
 describe("DashboardPage", () => {
+  it("restores a resized widget after remounting", async () => {
+    const view = render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Customise dashboard" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Resize widgets" }),
+    );
+
+    expect(
+      screen.getAllByRole("button", { name: "Finish resizing" }),
+    ).toHaveLength(1);
+
+    fireEvent.keyDown(
+      screen.getByRole("slider", {
+        name: "Resize Pipeline project overview",
+      }),
+      { key: "Home" },
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Finish resizing" }),
+    );
+
+    await waitFor(() => {
+      const stored = JSON.parse(
+        window.localStorage.getItem(
+          "research-in-motion.dashboard-layout.v1",
+        ) ?? "{}",
+      ) as { widths?: Record<string, number> };
+
+      expect(stored.widths?.pipeline).toBe(25);
+    });
+
+    view.unmount();
+
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByTestId("dashboard-widget-pipeline")
+        .style.getPropertyValue("--dashboard-widget-width"),
+    ).toBe("calc(25% - 0.75rem)");
+  });
   it("uses server totals even when the loaded page is empty", () => {
     render(<MemoryRouter><DashboardPage /></MemoryRouter>);
     expect(screen.getByText("34", { exact: true })).toBeInTheDocument();

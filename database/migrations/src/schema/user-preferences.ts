@@ -12,6 +12,8 @@ export interface AccountPreferenceValues {
 export interface DashboardLayoutPreference {
   order: string[];
   hidden: string[];
+  /** Widget widths as percentages, from 25 to 100. */
+  widths?: Record<string, number>;
 }
 
 export interface WorkspacePreferenceValues {
