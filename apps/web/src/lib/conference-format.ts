@@ -1,7 +1,88 @@
+import {
+  CONFERENCE_EVENT_TYPES,
+  type ConferenceEventType,
+} from "@/lib/conference-event-types";
+
+/** How each kind of event is described in forms and pages. */
+export interface EventWording {
+  /** Lower case, e.g. "research seminar". */
+  noun: string;
+  nameLabel: string;
+  namePlaceholder: string;
+  locationLabel: string;
+  locationPlaceholder: string;
+  /** A journal special issue has a deadline but no event dates. */
+  hasEventDates: boolean;
+}
+
+const EVENT_WORDING: Record<ConferenceEventType, EventWording> = {
+  Conference: {
+    noun: "conference",
+    nameLabel: "Conference name",
+    namePlaceholder: "Conference name and year",
+    locationLabel: "Location",
+    locationPlaceholder: "City, country",
+    hasEventDates: true,
+  },
+  Workshop: {
+    noun: "workshop",
+    nameLabel: "Workshop name",
+    namePlaceholder: "Workshop name and year",
+    locationLabel: "Location",
+    locationPlaceholder: "City, country, or online",
+    hasEventDates: true,
+  },
+  "Research seminar": {
+    noun: "research seminar",
+    nameLabel: "Seminar name",
+    namePlaceholder: "e.g. School of Business research seminar",
+    locationLabel: "Location",
+    locationPlaceholder: "Venue, or online",
+    hasEventDates: true,
+  },
+  "Journal special issue": {
+    noun: "journal special issue",
+    nameLabel: "Special issue title",
+    namePlaceholder: "e.g. Special issue on AI in accounting",
+    locationLabel: "Journal",
+    locationPlaceholder: "Journal name",
+    hasEventDates: false,
+  },
+  Other: {
+    noun: "event",
+    nameLabel: "Event name",
+    namePlaceholder: "Event name",
+    locationLabel: "Location",
+    locationPlaceholder: "Where it happens",
+    hasEventDates: true,
+  },
+};
+
+export function eventWording(eventType: ConferenceEventType | null | undefined): EventWording {
+  return EVENT_WORDING[eventType ?? "Conference"] ?? EVENT_WORDING.Conference;
+}
+
+/** "a conference", "an event". */
+export function withArticle(noun: string) {
+  return `${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
+}
+
 export const CONFERENCE_TYPE_FILTERS = ["All", "Abstract", "Full paper", "Poster"] as const;
 export const CONFERENCE_DEADLINE_FILTERS = ["All", "This week", "This month", "Later", "Past"] as const;
 
 export type ConferenceTypeFilter = (typeof CONFERENCE_TYPE_FILTERS)[number];
+
+/** Filter by kind of event: conference, workshop, seminar, special issue, … */
+export const CONFERENCE_EVENT_FILTERS = ["All", ...CONFERENCE_EVENT_TYPES] as const;
+export type ConferenceEventFilter = (typeof CONFERENCE_EVENT_FILTERS)[number];
+
+/** An event with no type saved yet counts as a conference. */
+export function matchesEventFilter(
+  eventType: ConferenceEventType | null | undefined,
+  filter: ConferenceEventFilter,
+) {
+  return filter === "All" || (eventType ?? "Conference") === filter;
+}
 export type ConferenceDeadlineFilter = (typeof CONFERENCE_DEADLINE_FILTERS)[number];
 
 export function formatConferenceDate(iso: string | null | undefined) {

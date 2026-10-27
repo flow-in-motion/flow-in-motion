@@ -47,16 +47,31 @@ export class ConferencesService {
 
     const conferenceIds = data.map((conference) => conference.id);
 
-    const [projectsByConference, papersByConference] = await Promise.all([
-      this.repository.findLinkedProjectsForConferences(tenantId, conferenceIds),
-      this.repository.findLinkedPapersForConferences(tenantId, conferenceIds),
-    ]);
+    const [projectsByConference, papersByConference, datedSubmissions] =
+      await Promise.all([
+        this.repository.findLinkedProjectsForConferences(
+          tenantId,
+          conferenceIds,
+        ),
+        this.repository.findLinkedPapersForConferences(tenantId, conferenceIds),
+        this.repository.findPendingDatedSubmissionsForConferences(
+          tenantId,
+          conferenceIds,
+        ),
+      ]);
 
     const conferencesWithProjects = data.map((conference) => ({
       ...conference,
       daysRemaining: calculateDaysRemaining(conference.submissionDue),
       projects: projectsByConference.get(conference.id) ?? [],
       papers: papersByConference.get(conference.id) ?? [],
+      // Submissions with their own deadline, still to be sent in.
+      upcomingSubmissions: datedSubmissions
+        .filter((row) => row.conferenceId === conference.id)
+        .map((row) => ({
+          ...submissionResponse(row),
+          daysRemaining: calculateDaysRemaining(row.submissionDue),
+        })),
     }));
 
     return {
@@ -126,6 +141,7 @@ export class ConferencesService {
         name,
         location: trimOptional(input.location) ?? null,
         notes: trimOptional(input.notes) ?? null,
+        eventType: input.eventType ?? 'Conference',
         submissionDue: input.submissionDue ?? null,
         startDate: input.startDate ?? null,
         endDate: input.endDate ?? null,
@@ -218,6 +234,7 @@ export class ConferencesService {
         name: input.name?.trim(),
         location: trimOptional(input.location),
         notes: trimOptional(input.notes),
+        eventType: input.eventType,
         submissionDue: input.submissionDue,
         startDate: input.startDate,
         endDate: input.endDate,

@@ -181,6 +181,33 @@ describe("ConferencesPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows each entry's event type and filters by it", () => {
+    Element.prototype.scrollIntoView ??= vi.fn();
+    Element.prototype.hasPointerCapture ??= vi.fn(() => false);
+    Element.prototype.releasePointerCapture ??= vi.fn();
+    fixtures.conferences = [
+      fixtures.conferences[0]!,
+      { ...fixtures.conferences[1]!, eventType: "Research seminar" },
+    ];
+    renderPage();
+
+    // Entries saved before event types existed count as conferences.
+    expect(screen.getAllByText("Conference").length).toBeGreaterThan(0);
+    expect(screen.getByText("Research seminar")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Filter by event type" }), {
+      key: "Enter",
+    });
+    fireEvent.click(screen.getByRole("option", { name: "Research seminar" }));
+
+    expect(
+      screen.getByRole("link", { name: "Neural Information Processing Systems" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "International Conference on Machine Learning" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("filters the list by search text", () => {
     renderPage();
 

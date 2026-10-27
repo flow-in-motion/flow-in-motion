@@ -17,6 +17,7 @@ import {
   currentUsageSessionId,
   withUsageContext,
 } from "@/lib/usage-analytics";
+import type { ConferenceEventType } from "@/lib/conference-event-types";
 
 /**
  * None of the API's controllers annotate their response bodies with
@@ -278,6 +279,11 @@ export const CONFERENCE_INTENTS = [
 
 export type ConferenceIntent = (typeof CONFERENCE_INTENTS)[number];
 
+export {
+  CONFERENCE_EVENT_TYPES,
+  type ConferenceEventType,
+} from "@/lib/conference-event-types";
+
 /** What kind of thing is being sent to a conference. */
 export const CONFERENCE_SUBMISSION_TYPES = [
   "Full paper",
@@ -353,11 +359,21 @@ export interface ApiConference {
   papers: ApiConferencePaper[];
   /** Included when a single conference is fetched or changed. */
   submissions?: ApiConferenceSubmission[];
+  /** Conference, Workshop, Research seminar, Journal special issue or Other. */
+  eventType?: ConferenceEventType;
+  /**
+   * In lists: submissions with their own deadline that are still to be sent
+   * in (no status yet, or Planning).
+   */
+  upcomingSubmissions?: (ApiConferenceSubmission & {
+    daysRemaining: number | null;
+  })[];
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ConferenceInput {
+  eventType?: ConferenceEventType;
   name: string;
   acronym?: string | null;
   location?: string | null;

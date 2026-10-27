@@ -554,6 +554,13 @@
       "when": 1793065703734,
       "tag": "0094_conference_submissions",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1793078385812,
+      "tag": "0095_conference_event_types",
+      "breakpoints": true
     }
   ]
 }

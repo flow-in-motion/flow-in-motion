@@ -182,8 +182,8 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
   },
   {
     id: "conferences",
-    label: "Upcoming conference submissions",
-    description: "Submission deadlines and linked papers.",
+    label: "Upcoming submission deadlines",
+    description: "Conferences, seminars, special issue calls and more.",
     group: "Tables",
     component: () => <ConferenceSubmissionsTable dashboardView />,
     span: 5,
