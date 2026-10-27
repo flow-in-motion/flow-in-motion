@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Length,
+  MaxLength,
 } from 'class-validator';
 
 export const CONFERENCE_INTENTS = [
@@ -37,6 +38,16 @@ export class CreateConferenceDto {
   @IsString()
   @Length(2, 200)
   location?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Free-text notes or an abstract for the conference',
+    maxLength: 50000,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  notes?: string | null;
 
   @ApiPropertyOptional({ example: '2026-08-01', nullable: true })
   @IsOptional()

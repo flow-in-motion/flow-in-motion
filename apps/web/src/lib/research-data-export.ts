@@ -485,6 +485,7 @@ function escapeHtml(value: string) {
               ),
             ],
           ];
+          content = renderText("Notes / abstract", record.notes);
           break;
 
         case "fundings":
