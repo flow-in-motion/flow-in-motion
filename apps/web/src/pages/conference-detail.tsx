@@ -11,6 +11,7 @@ import {
   type ApiConference,
 } from "@/api/hooks";
 import { ConferenceSubmissionDialog, type ConferenceSubmissionInput } from "@/components/dashboard/conference-submission-dialog";
+import { ConferenceSubmissionsPanel } from "@/components/conferences/conference-submissions-panel";
 import { BackButton } from "@/components/shared/back-button";
 import { PanelToggleButton } from "@/components/shared/linked-items-panels";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -20,7 +21,6 @@ import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { paperDisplayTitle } from "@/lib/paper-title";
 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
@@ -176,7 +176,6 @@ export default function ConferenceDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isProjectsVisible, setIsProjectsVisible] = useState(true);
-  const [isPapersVisible, setIsPapersVisible] = useState(true);
 
   if (workspace.isPending || conferenceQuery.isPending || meQuery.isPending) {
     return <LoadingState title="Loading conference" layout="detail" />;
@@ -205,19 +204,17 @@ export default function ConferenceDetailPage() {
     setIsEditing(false);
   }
 
-  async function unlink(kind: "project" | "paper", item: LinkedRecord) {
-    if (!window.confirm(`Unlink "${item.title}" from this conference? The ${kind} itself won't be deleted.`)) return;
+  async function unlinkProject(item: LinkedRecord) {
+    if (!window.confirm(`Unlink "${item.title}" from this conference? The project itself won't be deleted.`)) return;
     setActionError(null);
     const input = conferenceInput(conference);
     try {
       await updateConference.mutateAsync({
         conferenceId,
-        input: kind === "project"
-          ? { ...input, projectIds: input.projectIds.filter((id) => id !== item.id) }
-          : { ...input, moduleIds: input.moduleIds.filter((id) => id !== item.id) },
+        input: { ...input, projectIds: input.projectIds.filter((id) => id !== item.id) },
       });
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : `The ${kind} could not be unlinked.`);
+      setActionError(error instanceof Error ? error.message : "The project could not be unlinked.");
     }
   }
 
@@ -226,12 +223,6 @@ export default function ConferenceDetailPage() {
     displayId: project.displayId,
     title: project.title,
     href: `/projects/${project.id}`,
-  }));
-  const linkedPapers: LinkedRecord[] = (conference.papers ?? []).map((paper) => ({
-    id: paper.id,
-    displayId: paper.displayId,
-    title: paperDisplayTitle(paper),
-    href: `/modules/${paper.id}`,
   }));
 
   async function remove() {
@@ -333,18 +324,15 @@ export default function ConferenceDetailPage() {
         visible={isProjectsVisible}
         onToggleVisible={() => setIsProjectsVisible((visible) => !visible)}
         onEditLinks={canManage ? () => setIsEditing(true) : undefined}
-        onUnlink={canManage ? (item) => void unlink("project", item) : undefined}
+        onUnlink={canManage ? (item) => void unlinkProject(item) : undefined}
       />
 
-      <ConferenceLinksPanel
-        title="Papers"
-        noun="papers"
-        contentId="conference-papers-content"
-        items={linkedPapers}
-        visible={isPapersVisible}
-        onToggleVisible={() => setIsPapersVisible((visible) => !visible)}
-        onEditLinks={canManage ? () => setIsEditing(true) : undefined}
-        onUnlink={canManage ? (item) => void unlink("paper", item) : undefined}
+      <ConferenceSubmissionsPanel
+        tenantId={tenantId}
+        conferenceId={conference.id}
+        conferenceDue={conference.submissionDue}
+        submissions={conference.submissions ?? []}
+        canManage={canManage}
       />
     </div>
   );

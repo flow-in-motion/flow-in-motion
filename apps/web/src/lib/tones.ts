@@ -19,6 +19,7 @@ const VALUE_TONES: Record<string, Tone> = {
   Completed: "success",
   Accepted: "success",
   Successful: "success",
+  Presented: "success",
   // Needs a look
   High: "attention",
   Review: "attention",

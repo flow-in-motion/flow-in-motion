@@ -102,6 +102,7 @@ import {
 } from "@/components/ui/dialog";
 import { ArchiveModuleDialog } from "@/components/modules/archive-module-dialog";
 import { ConferencePresentationHistory } from "@/components/modules/conference-presentation-history";
+import { PaperConferenceSubmissions } from "@/components/modules/paper-conference-submissions";
 
 const MODULE_STATUSES = ["Active", "Stalled", "Complete"];
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
@@ -1715,6 +1716,9 @@ async function saveHeaderField(input: HeaderUpdateInput) {
             onEdit={openEditSubmission}
             onDelete={(submission) => void handleDeleteSubmission(submission)}
           />
+        ) : null}
+        {sameTenant ? (
+          <PaperConferenceSubmissions tenantId={tenantId} moduleId={module.id} />
         ) : null}
         {sameTenant ? (
           <ConferencePresentationHistory

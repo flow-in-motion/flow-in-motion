@@ -276,6 +276,63 @@ export const CONFERENCE_INTENTS = [
 
 export type ConferenceIntent = (typeof CONFERENCE_INTENTS)[number];
 
+/** What kind of thing is being sent to a conference. */
+export const CONFERENCE_SUBMISSION_TYPES = [
+  "Full paper",
+  "Abstract",
+  "Poster",
+  "PDW",
+  "Symposium / Panel",
+  "Presentation",
+  "Other",
+] as const;
+export type ConferenceSubmissionType =
+  (typeof CONFERENCE_SUBMISSION_TYPES)[number];
+
+/** Where a conference submission is up to. */
+export const CONFERENCE_SUBMISSION_STATUSES = [
+  "Planning",
+  "Submitted",
+  "Accepted",
+  "Rejected",
+  "Withdrawn",
+  "Presented",
+] as const;
+export type ConferenceSubmissionStatus =
+  (typeof CONFERENCE_SUBMISSION_STATUSES)[number];
+
+/**
+ * One thing sent to a conference: a paper, a project, or just a title (for
+ * example a PDW). For a paper this is the same record the paper's conference
+ * presentation history uses.
+ */
+export interface ApiConferenceSubmission {
+  id: string;
+  kind: "paper" | "project" | "other";
+  moduleId: string | null;
+  projectId: string | null;
+  displayId: string | null;
+  /** The paper's or project's name, or the typed title. */
+  name: string;
+  titleAsSubmitted: string | null;
+  submissionType: string | null;
+  status: string | null;
+  /** This submission's own deadline; null means the conference's deadline. */
+  submissionDue: string | null;
+  presentedDate: string | null;
+  notes: string | null;
+}
+
+export interface ConferenceSubmissionInput {
+  moduleId?: string;
+  projectId?: string;
+  title?: string | null;
+  submissionType?: ConferenceSubmissionType | null;
+  status?: ConferenceSubmissionStatus | null;
+  submissionDue?: string | null;
+  notes?: string | null;
+}
+
 export interface ApiConference {
   id: string;
   tenantId: string;
@@ -292,6 +349,8 @@ export interface ApiConference {
   daysRemaining: number | null;
   projects: ApiConferenceProject[];
   papers: ApiConferencePaper[];
+  /** Included when a single conference is fetched or changed. */
+  submissions?: ApiConferenceSubmission[];
   createdAt: string;
   updatedAt: string;
 }
@@ -2151,9 +2210,23 @@ export interface ApiConferencePresentation {
   canManage: boolean;
 }
 
+/** A paper's submission to a conference, as listed on the paper page. */
+export interface ApiPaperConferenceSubmission {
+  id: string;
+  conferenceId: string;
+  conferenceName: string;
+  acronym: string | null;
+  submissionType: string | null;
+  status: string | null;
+  /** The submission's own deadline, or else the conference's. */
+  submissionDue: string | null;
+  presentedDate: string | null;
+}
+
 export interface ApiConferencePresentationHistory {
   canLogPresentation: boolean;
   data: ApiConferencePresentation[];
+  submissions?: ApiPaperConferenceSubmission[];
 }
 
 export interface ApiPresentationConferenceOption {
@@ -3206,6 +3279,102 @@ export function useUpdateConference(tenantId: string) {
       ]);
     },
   });
+}
+
+function conferenceSubmissionsPath(
+  tenantId: string,
+  conferenceId: string,
+  submissionId?: string,
+) {
+  return (
+    `/api/v1/tenant/${encodeURIComponent(tenantId)}` +
+    `/conferences/${encodeURIComponent(conferenceId)}/submissions` +
+    (submissionId ? `/${encodeURIComponent(submissionId)}` : "")
+  );
+}
+
+/**
+ * Shared refresh after a submission changes: the conference itself, the
+ * conference list, and any paper's conference history.
+ */
+function useConferenceSubmissionMutation<TVariables>(
+  tenantId: string,
+  request: (variables: TVariables) => Promise<ApiConference>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: request,
+    async onSuccess(conference) {
+      queryClient.setQueryData(
+        apiKeys.conference(tenantId, conference.id),
+        conference,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: apiKeys.conferences(tenantId),
+        }),
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[2] === tenantId &&
+            query.queryKey[3] === "modules" &&
+            query.queryKey[5] === "conference-presentations",
+        }),
+      ]);
+    },
+  });
+}
+
+export function useAddConferenceSubmission(tenantId: string) {
+  return useConferenceSubmissionMutation(
+    tenantId,
+    ({
+      conferenceId,
+      input,
+    }: {
+      conferenceId: string;
+      input: ConferenceSubmissionInput;
+    }) =>
+      apiJson<ApiConference>(conferenceSubmissionsPath(tenantId, conferenceId), {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+  );
+}
+
+export function useUpdateConferenceSubmission(tenantId: string) {
+  return useConferenceSubmissionMutation(
+    tenantId,
+    ({
+      conferenceId,
+      submissionId,
+      input,
+    }: {
+      conferenceId: string;
+      submissionId: string;
+      input: Omit<ConferenceSubmissionInput, "moduleId" | "projectId">;
+    }) =>
+      apiJson<ApiConference>(
+        conferenceSubmissionsPath(tenantId, conferenceId, submissionId),
+        { method: "PATCH", body: JSON.stringify(input) },
+      ),
+  );
+}
+
+export function useRemoveConferenceSubmission(tenantId: string) {
+  return useConferenceSubmissionMutation(
+    tenantId,
+    ({
+      conferenceId,
+      submissionId,
+    }: {
+      conferenceId: string;
+      submissionId: string;
+    }) =>
+      apiJson<ApiConference>(
+        conferenceSubmissionsPath(tenantId, conferenceId, submissionId),
+        { method: "DELETE" },
+      ),
+  );
 }
 
 export function useDeleteConference(tenantId: string) {

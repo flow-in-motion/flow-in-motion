@@ -97,6 +97,59 @@ describe('ConferencesRepository', () => {
     expect(ownershipRule(paperCheck.queries[0]!.sql)).toBe(pickerPapers);
   });
 
+  it('only treats paper links as removable when the conference form is saved', async () => {
+    const queries: string[] = [];
+    // Answer the conference update with a row so the save carries on to the
+    // paper links; every other statement returns nothing.
+    const db = drizzle((sql) => {
+      queries.push(sql);
+      return Promise.resolve({
+        rows: sql.startsWith('update "conferences"')
+          ? [
+              // id, tenant, owner, acronym, name, location, notes, due,
+              // start, end, type, intents, created, updated
+              [
+                'conference-id',
+                'tenant-id',
+                'owner-id',
+                null,
+                'Conference',
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                [],
+                '2026-01-01 00:00:00+00',
+                '2026-01-01 00:00:00+00',
+              ],
+            ]
+          : [],
+      });
+    });
+    const repository = new ConferencesRepository({
+      db,
+    } as unknown as DrizzleService);
+
+    await repository.update(
+      '00000000-0000-4000-8000-000000000001',
+      '00000000-0000-4000-8000-000000000005',
+      { name: 'Conference' },
+      undefined,
+      [],
+    );
+
+    // The form only manages papers; project and typed submissions have no
+    // paper and must never be picked up as "removed".
+    const linkQuery = queries.find(
+      (sql) =>
+        sql.includes('from "conference_modules"') &&
+        sql.includes(' for update'),
+    );
+    expect(linkQuery).toContain('"conference_modules"."module_id" is not null');
+  });
+
   it('filters visible conferences by name, acronym, location and type when searching', async () => {
     const { queries, repository } = setup();
 

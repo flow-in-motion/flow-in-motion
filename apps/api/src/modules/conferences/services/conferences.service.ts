@@ -7,7 +7,14 @@ import {
 } from '@nestjs/common';
 import { CreateConferenceDto } from '../dto/create-conference.dto';
 import { UpdateConferenceDto } from '../dto/update-conference.dto';
-import { ConferencesRepository } from '../repositories/conferences.repository';
+import {
+  ConferencesRepository,
+  type ConferenceSubmissionValues,
+} from '../repositories/conferences.repository';
+import {
+  CreateConferenceSubmissionDto,
+  UpdateConferenceSubmissionDto,
+} from '../dto/conference-submission.dto';
 import {
   buildPaginationMeta,
   paginationOffset,
@@ -262,6 +269,165 @@ export class ConferencesService {
     };
   }
 
+  /**
+   * Adds a submission to a conference: a paper, a project, or just a title
+   * (for example a PDW). Only the conference owner can do this, and a paper
+   * or project must be one they may link.
+   */
+  async addSubmission(
+    tenantId: string,
+    conferenceId: string,
+    callerUserId: string,
+    input: CreateConferenceSubmissionDto,
+  ) {
+    const conference = await this.lockPresentationConference(
+      tenantId,
+      conferenceId,
+      callerUserId,
+      'submissions',
+    );
+
+    const title = trimOptional(input.title) ?? null;
+    if (input.moduleId && input.projectId) {
+      throw new BadRequestException(
+        'A submission is a paper or a project, not both',
+      );
+    }
+    if (!input.moduleId && !input.projectId && !title) {
+      throw new BadRequestException(
+        'Give the submission a title, or choose a paper or a project',
+      );
+    }
+    if (input.moduleId) {
+      await this.validateModuleOwnership(
+        tenantId,
+        [input.moduleId],
+        callerUserId,
+      );
+    }
+    if (input.projectId) {
+      await this.validateProjectOwnership(
+        tenantId,
+        [input.projectId],
+        callerUserId,
+      );
+    }
+
+    const created = await this.repository.insertSubmission(
+      tenantId,
+      conferenceId,
+      { moduleId: input.moduleId, projectId: input.projectId },
+      {
+        paperTitle: title,
+        submissionType: input.submissionType ?? null,
+        status: input.status ?? null,
+        submissionDue: input.submissionDue ?? null,
+        notes: trimOptional(input.notes) ?? null,
+      },
+    );
+    if (!created) {
+      throw new ConflictException(
+        'This paper is already a submission for this conference. Edit the existing one instead.',
+      );
+    }
+
+    return this.withResponseValues(tenantId, conference);
+  }
+
+  /** Changes a submission's title, type, status, deadline or notes. */
+  async updateSubmission(
+    tenantId: string,
+    conferenceId: string,
+    submissionId: string,
+    callerUserId: string,
+    input: UpdateConferenceSubmissionDto,
+  ) {
+    const conference = await this.lockPresentationConference(
+      tenantId,
+      conferenceId,
+      callerUserId,
+      'submissions',
+    );
+    const existing = await this.repository.findSubmissionForUpdate(
+      tenantId,
+      conferenceId,
+      submissionId,
+    );
+    if (!existing) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    const values: ConferenceSubmissionValues = {};
+    if (input.title !== undefined) {
+      values.paperTitle = trimOptional(input.title) ?? null;
+      if (!values.paperTitle && !existing.moduleId && !existing.projectId) {
+        throw new BadRequestException(
+          'A submission without a paper or project needs a title',
+        );
+      }
+    }
+    if (input.submissionType !== undefined) {
+      values.submissionType = input.submissionType;
+    }
+    if (input.status !== undefined) values.status = input.status;
+    if (input.submissionDue !== undefined) {
+      values.submissionDue = input.submissionDue;
+    }
+    if (input.notes !== undefined) {
+      values.notes = trimOptional(input.notes) ?? null;
+    }
+
+    if (Object.keys(values).length > 0) {
+      await this.repository.updateSubmission(
+        tenantId,
+        conferenceId,
+        submissionId,
+        values,
+      );
+    }
+
+    return this.withResponseValues(tenantId, conference);
+  }
+
+  /**
+   * Removes a submission. A paper with a presentation recorded for this
+   * conference keeps it until the presentation is removed from the paper.
+   */
+  async removeSubmission(
+    tenantId: string,
+    conferenceId: string,
+    submissionId: string,
+    callerUserId: string,
+  ) {
+    const conference = await this.lockPresentationConference(
+      tenantId,
+      conferenceId,
+      callerUserId,
+      'submissions',
+    );
+    const existing = await this.repository.findSubmissionForUpdate(
+      tenantId,
+      conferenceId,
+      submissionId,
+    );
+    if (!existing) {
+      throw new NotFoundException('Submission not found');
+    }
+    if (existing.moduleId && existing.presentedDate) {
+      throw new ConflictException(
+        "This paper has a presentation recorded for this conference. Remove the presentation on the paper's page first.",
+      );
+    }
+
+    await this.repository.deleteSubmission(
+      tenantId,
+      conferenceId,
+      submissionId,
+    );
+
+    return this.withResponseValues(tenantId, conference);
+  }
+
   async listPaperPresentations(
     tenantId: string,
     moduleId: string,
@@ -282,13 +448,15 @@ export class ConferencesService {
       canManagePaper = false;
     }
 
-    const presentations = await this.repository.findPresentationsByModule(
-      tenantId,
-      moduleId,
-    );
+    const [presentations, submissions] = await Promise.all([
+      this.repository.findPresentationsByModule(tenantId, moduleId),
+      this.repository.findSubmissionsByModule(tenantId, moduleId),
+    ]);
 
     return {
       canLogPresentation: canManagePaper,
+      // The same conference records, seen as submissions (type and status).
+      submissions,
       data: presentations.map(({ ownerUserId, ...presentation }) => ({
         ...presentation,
         canManage: canManagePaper && ownerUserId === callerUserId,
@@ -391,6 +559,7 @@ export class ConferencesService {
     tenantId: string,
     conferenceId: string,
     callerUserId: string,
+    managing = 'presentation history',
   ) {
     const conference = await this.repository.findVisibleById(
       tenantId,
@@ -404,7 +573,7 @@ export class ConferencesService {
 
     if (conference.ownerUserId !== callerUserId) {
       throw new ForbiddenException(
-        'Only the conference owner can manage its presentation history',
+        `Only the conference owner can manage its ${managing}`,
       );
     }
 
@@ -417,6 +586,8 @@ export class ConferencesService {
     if (!locked) {
       throw new NotFoundException('Conference not found');
     }
+
+    return conference;
   }
 
   /**
@@ -526,9 +697,10 @@ export class ConferencesService {
       submissionDue: string | null;
     },
   >(tenantId: string, conference: T) {
-    const [projects, papers] = await Promise.all([
+    const [projects, papers, submissions] = await Promise.all([
       this.repository.findLinkedProjects(tenantId, conference.id),
       this.repository.findLinkedPapers(tenantId, conference.id),
+      this.repository.findSubmissions(tenantId, conference.id),
     ]);
 
     return {
@@ -536,8 +708,44 @@ export class ConferencesService {
       daysRemaining: calculateDaysRemaining(conference.submissionDue),
       projects,
       papers,
+      submissions: submissions.map(submissionResponse),
     };
   }
+}
+
+type SubmissionRow = Awaited<
+  ReturnType<ConferencesRepository['findSubmissions']>
+>[number];
+
+/** A submission as the app shows it: what it is, its name, and its details. */
+function submissionResponse(row: SubmissionRow) {
+  const kind = row.moduleId ? 'paper' : row.projectId ? 'project' : 'other';
+  const name =
+    kind === 'paper'
+      ? row.paperShortTitle || row.paperTitle || 'Untitled paper'
+      : kind === 'project'
+        ? row.projectTitle || 'Untitled project'
+        : row.titleAsSubmitted || 'Untitled submission';
+
+  return {
+    id: row.id,
+    kind,
+    moduleId: row.moduleId,
+    projectId: row.projectId,
+    displayId:
+      kind === 'paper'
+        ? row.paperDisplayId
+        : kind === 'project'
+          ? row.projectDisplayId
+          : null,
+    name,
+    titleAsSubmitted: row.titleAsSubmitted,
+    submissionType: row.submissionType,
+    status: row.status,
+    submissionDue: row.submissionDue,
+    presentedDate: row.presentedDate,
+    notes: row.notes,
+  } as const;
 }
 
 function calculateDaysRemaining(submissionDue: string | null) {

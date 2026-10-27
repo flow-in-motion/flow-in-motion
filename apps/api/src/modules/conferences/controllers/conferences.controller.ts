@@ -22,6 +22,10 @@ import type { AuthenticatedPrincipal } from '../../auth/jwt.strategy';
 import { TenantMemberGuard } from '../../memberships/policies/tenant-member.guard';
 import { UsersService } from '../../users/users.service';
 import { CreateConferenceDto } from '../dto/create-conference.dto';
+import {
+  CreateConferenceSubmissionDto,
+  UpdateConferenceSubmissionDto,
+} from '../dto/conference-submission.dto';
 import { ConferenceLinkOptionsQueryDto } from '../dto/conference-link-options-query.dto';
 import { UpdateConferenceDto } from '../dto/update-conference.dto';
 import { ConferencesService } from '../services/conferences.service';
@@ -182,5 +186,81 @@ export class ConferencesController {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
 
     return this.conferencesService.remove(tenantId, conferenceId, user.id);
+  }
+
+  @ApiOperation({
+    summary:
+      'Add a submission to a conference: a paper, a project, or just a title',
+  })
+  @ApiResponse({ status: 201, description: 'The conference, with submissions' })
+  @ApiResponse({
+    status: 403,
+    description: 'Only the conference owner may add',
+  })
+  @ApiResponse({ status: 409, description: 'The paper is already submitted' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Post(':conferenceId/submissions')
+  async addSubmission(
+    @Param('tenantId') tenantId: string,
+    @Param('conferenceId') conferenceId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateConferenceSubmissionDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.conferencesService.addSubmission(
+      tenantId,
+      conferenceId,
+      user.id,
+      dto,
+    );
+  }
+
+  @ApiOperation({
+    summary: "Change a submission's title, type, status, deadline or notes",
+  })
+  @ApiResponse({ status: 200, description: 'The conference, with submissions' })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Patch(':conferenceId/submissions/:submissionId')
+  async updateSubmission(
+    @Param('tenantId') tenantId: string,
+    @Param('conferenceId') conferenceId: string,
+    @Param('submissionId') submissionId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateConferenceSubmissionDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.conferencesService.updateSubmission(
+      tenantId,
+      conferenceId,
+      submissionId,
+      user.id,
+      dto,
+    );
+  }
+
+  @ApiOperation({ summary: 'Remove a submission from a conference' })
+  @ApiResponse({ status: 200, description: 'The conference, with submissions' })
+  @ApiResponse({
+    status: 409,
+    description: 'The paper has a presentation recorded for this conference',
+  })
+  @UseGuards(JwtAuthGuard, TenantMemberGuard)
+  @Delete(':conferenceId/submissions/:submissionId')
+  async removeSubmission(
+    @Param('tenantId') tenantId: string,
+    @Param('conferenceId') conferenceId: string,
+    @Param('submissionId') submissionId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+
+    return this.conferencesService.removeSubmission(
+      tenantId,
+      conferenceId,
+      submissionId,
+      user.id,
+    );
   }
 }
