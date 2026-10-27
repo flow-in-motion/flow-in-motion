@@ -329,6 +329,24 @@ describe("ConferenceDetailPage", () => {
     expect(screen.queryByRole("button", { name: /^Unlink / })).not.toBeInTheDocument();
   });
 
+  it("describes a journal special issue as one", () => {
+    fixtures.conference = {
+      ...conference,
+      eventType: "Journal special issue",
+      acronym: null,
+      name: "Special issue on AI in accounting",
+      location: "Accounting, Organizations and Society",
+      startDate: "2027-05-01",
+      endDate: "2027-05-02",
+    };
+    renderPage();
+
+    expect(screen.getAllByText("Journal special issue").length).toBeGreaterThan(0);
+    expect(screen.getByText("Journal")).toBeInTheDocument();
+    expect(screen.queryByText("Starts")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ends")).not.toBeInTheDocument();
+  });
+
   it("says when there is nothing yet", () => {
     fixtures.conference = { ...conference, projects: [], papers: [], submissions: [] };
     renderPage();

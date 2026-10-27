@@ -25,7 +25,10 @@ import {
 import { alias } from 'drizzle-orm/pg-core';
 import { searchPattern } from '../../../common/pagination';
 import { DrizzleService } from '../../../db/drizzle.service';
-import type { ConferenceIntent } from '../dto/create-conference.dto';
+import type {
+  ConferenceEventType,
+  ConferenceIntent,
+} from '../dto/create-conference.dto';
 import type {
   ConferenceSubmissionStatus,
   ConferenceSubmissionType,
@@ -53,6 +56,7 @@ interface CreateConferenceValues {
   name: string;
   location: string | null;
   notes?: string | null;
+  eventType?: ConferenceEventType;
   submissionDue: string | null;
   startDate: string | null;
   endDate: string | null;
@@ -65,6 +69,7 @@ interface UpdateConferenceValues {
   name?: string;
   location?: string | null;
   notes?: string | null;
+  eventType?: ConferenceEventType;
   submissionDue?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -112,6 +117,7 @@ export class ConferencesRepository {
             ilike(conferences.acronym, pattern),
             ilike(conferences.location, pattern),
             ilike(conferences.submissionType, pattern),
+            ilike(conferences.eventType, pattern),
           )
         : undefined,
     );
@@ -843,6 +849,67 @@ export class ConferencesRepository {
         ),
       )
       .orderBy(asc(conferenceModules.createdAt), asc(conferenceModules.id));
+  }
+
+  /**
+   * Submissions with their own deadline that are still to be sent in
+   * (no status yet, or Planning), for many conferences at once. Used to
+   * show each submission's deadline in the upcoming deadlines list.
+   */
+  async findPendingDatedSubmissionsForConferences(
+    tenantId: string,
+    conferenceIds: string[],
+  ) {
+    if (conferenceIds.length === 0) return [];
+
+    return this.drizzle.db
+      .select({
+        conferenceId: conferenceModules.conferenceId,
+        id: conferenceModules.id,
+        moduleId: conferenceModules.moduleId,
+        projectId: conferenceModules.projectId,
+        paperDisplayId: modules.displayId,
+        paperShortTitle: modules.shortTitle,
+        paperTitle: modules.title,
+        projectDisplayId: submittedProjects.displayId,
+        projectTitle: submittedProjects.title,
+        titleAsSubmitted: conferenceModules.paperTitle,
+        submissionType: conferenceModules.submissionType,
+        status: conferenceModules.status,
+        submissionDue: conferenceModules.submissionDue,
+        presentedDate: conferenceModules.presentedDate,
+        notes: conferenceModules.notes,
+      })
+      .from(conferenceModules)
+      .leftJoin(modules, eq(modules.id, conferenceModules.moduleId))
+      .leftJoin(paperProjects, eq(paperProjects.id, modules.projectId))
+      .leftJoin(
+        submittedProjects,
+        eq(submittedProjects.id, conferenceModules.projectId),
+      )
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          inArray(conferenceModules.conferenceId, conferenceIds),
+          isNotNull(conferenceModules.submissionDue),
+          or(
+            isNull(conferenceModules.status),
+            eq(conferenceModules.status, 'Planning'),
+          ),
+          or(
+            isNull(conferenceModules.moduleId),
+            and(
+              isNull(modules.archivedAt),
+              or(isNull(paperProjects.id), isNull(paperProjects.archivedAt)),
+            ),
+          ),
+          or(
+            isNull(conferenceModules.projectId),
+            isNull(submittedProjects.archivedAt),
+          ),
+        ),
+      )
+      .orderBy(asc(conferenceModules.submissionDue), asc(conferenceModules.id));
   }
 
   /** One submission, locked for a change. */

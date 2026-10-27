@@ -33,6 +33,11 @@ import {
       startDate: date('start_date'),
       endDate: date('end_date'),
   
+      /**
+       * Conference, Workshop, Research seminar, Journal special issue or
+       * Other. Any event with a submission deadline can be tracked here.
+       */
+      eventType: text('event_type').notNull().default('Conference'),
       submissionType: text('submission_type'),
       intents: text('intents')
         .array()
@@ -51,6 +56,10 @@ import {
       tenantIdx: index('conferences_tenant_id_idx').on(table.tenantId),
       submissionDueIdx: index('conferences_submission_due_idx').on(
         table.submissionDue,
+      ),
+      eventTypeCheck: check(
+        'conferences_event_type_check',
+        sql`${table.eventType} IN ('Conference', 'Workshop', 'Research seminar', 'Journal special issue', 'Other')`,
       ),
       intentsCheck: check(
         'conferences_intents_check',

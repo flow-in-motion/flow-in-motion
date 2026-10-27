@@ -21,6 +21,7 @@ import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { eventWording } from "@/lib/conference-format";
 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
@@ -192,6 +193,8 @@ export default function ConferenceDetailPage() {
   }
 
   const canManage = conference.ownerUserId === meQuery.data?.id;
+  const eventType = conference.eventType ?? "Conference";
+  const wording = eventWording(eventType);
   const knownDates = conference.startDate || conference.endDate
     ? formatDateRange(conference.startDate, conference.endDate)
     : null;
@@ -243,7 +246,12 @@ export default function ConferenceDetailPage() {
       <PageHeading
         icon={Presentation}
         tone="rose"
-        eyebrow={conference.acronym ?? undefined}
+        // Name the kind of event unless it's a plain conference.
+        eyebrow={
+          [eventType === "Conference" ? null : eventType, conference.acronym]
+            .filter(Boolean)
+            .join(" · ") || undefined
+        }
         title={conference.name}
         description={headingDescription}
         actions={canManage ? (
@@ -255,10 +263,10 @@ export default function ConferenceDetailPage() {
               disabled={deleteConference.isPending}
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
-              <Trash2 /> Delete Conference
+              <Trash2 /> Delete
             </Button>
             <Button type="button" onClick={() => setIsEditing(true)}>
-              <Pencil /> Edit Conference
+              <Pencil /> Edit
             </Button>
           </div>
         ) : (
@@ -278,13 +286,18 @@ export default function ConferenceDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <Card>
-          <CardHeader><CardTitle>Conference overview</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Overview</CardTitle></CardHeader>
           <CardContent className="grid gap-5 text-sm sm:grid-cols-2">
-            <DetailItem label="Location"><span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" />{conference.location ?? "—"}</span></DetailItem>
+            <DetailItem label="Event type">{eventType}</DetailItem>
+            <DetailItem label={wording.locationLabel}><span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-muted-foreground" />{conference.location ?? "—"}</span></DetailItem>
             <DetailItem label="Submission type"><Badge variant="outline">{conference.submissionType ?? "—"}</Badge></DetailItem>
             <DetailItem label="Intent"><span className="flex flex-wrap gap-1">{conference.intents.length > 0 ? conference.intents.map((intent) => <Badge key={intent} variant="secondary">{intent}</Badge>) : "—"}</span></DetailItem>
-            <DetailItem label="Conference starts"><span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4 text-muted-foreground" />{formatDate(conference.startDate)}</span></DetailItem>
-            <DetailItem label="Conference ends">{formatDate(conference.endDate)}</DetailItem>
+            {wording.hasEventDates ? (
+              <>
+                <DetailItem label="Starts"><span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4 text-muted-foreground" />{formatDate(conference.startDate)}</span></DetailItem>
+                <DetailItem label="Ends">{formatDate(conference.endDate)}</DetailItem>
+              </>
+            ) : null}
           </CardContent>
         </Card>
 

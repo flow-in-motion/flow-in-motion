@@ -153,6 +153,7 @@ describe("ConferenceSubmissionDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({
+      eventType: "Conference",
       acronym: null,
       name: "XYZ, London, 2027",
       location: null,
@@ -165,6 +166,57 @@ describe("ConferenceSubmissionDialog", () => {
       projectIds: [],
       moduleIds: [],
     }));
+  });
+
+  it("adapts to a journal special issue call for papers", async () => {
+    Element.prototype.scrollIntoView ??= vi.fn();
+    Element.prototype.hasPointerCapture ??= vi.fn(() => false);
+    Element.prototype.releasePointerCapture ??= vi.fn();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ConferenceSubmissionDialog open onOpenChange={vi.fn()} tenantId="tenant-1" onSave={onSave} />,
+    );
+    expect(screen.getByRole("heading", { name: "Add a conference" })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Event type" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("option", { name: "Journal special issue" }));
+
+    expect(screen.getByRole("heading", { name: "Add a journal special issue" })).toBeInTheDocument();
+    // A special issue has a journal and a deadline, but no event dates.
+    expect(document.getElementById("conference-start-date")).toBeNull();
+    expect(document.getElementById("conference-end-date")).toBeNull();
+    fireEvent.change(screen.getByRole("textbox", { name: /Special issue title/ }), {
+      target: { value: "AI in accounting" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Journal/ }), {
+      target: { value: "Accounting, Organizations and Society" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Conference" }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "Journal special issue",
+        name: "AI in accounting",
+        location: "Accounting, Organizations and Society",
+        startDate: null,
+        endDate: null,
+      }),
+    ));
+  });
+
+  it("asks for the right name when an event isn't a conference", async () => {
+    Element.prototype.scrollIntoView ??= vi.fn();
+    Element.prototype.hasPointerCapture ??= vi.fn(() => false);
+    Element.prototype.releasePointerCapture ??= vi.fn();
+    render(
+      <ConferenceSubmissionDialog open onOpenChange={vi.fn()} tenantId="tenant-1" onSave={vi.fn()} />,
+    );
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Event type" }), { key: "Enter" });
+    fireEvent.click(screen.getByRole("option", { name: "Research seminar" }));
+    expect(screen.getByRole("textbox", { name: /Seminar name/ })).toBeInTheDocument();
+    // Seminars still have dates.
+    expect(document.getElementById("conference-start-date")).not.toBeNull();
   });
 
   it("allows more than one conference intent to be selected", async () => {
