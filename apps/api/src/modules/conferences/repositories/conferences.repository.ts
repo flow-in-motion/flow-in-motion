@@ -22,9 +22,29 @@ import {
   sql,
   desc,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { searchPattern } from '../../../common/pagination';
 import { DrizzleService } from '../../../db/drizzle.service';
 import type { ConferenceIntent } from '../dto/create-conference.dto';
+import type {
+  ConferenceSubmissionStatus,
+  ConferenceSubmissionType,
+} from '../dto/conference-submission.dto';
+
+/** The details a conference owner records for one submission. */
+export interface ConferenceSubmissionValues {
+  submissionType?: ConferenceSubmissionType | null;
+  status?: ConferenceSubmissionStatus | null;
+  submissionDue?: string | null;
+  /** Title as submitted; the only title for a submission with no paper or project. */
+  paperTitle?: string | null;
+  notes?: string | null;
+}
+
+/** The project a paper belongs to, kept apart from a submitted project. */
+const paperProjects = alias(projects, 'paper_projects');
+/** A project submitted in its own right. */
+const submittedProjects = alias(projects, 'submitted_projects');
 
 interface CreateConferenceValues {
   tenantId: string;
@@ -682,9 +702,17 @@ export class ConferencesRepository {
           and(
             eq(conferenceModules.tenantId, tenantId),
             eq(conferenceModules.conferenceId, conferenceId),
+            // Only paper links are managed here. Project and typed
+            // submissions have no paper and must not be treated as removed.
+            isNotNull(conferenceModules.moduleId),
           ),
         )
-        .for('update');
+        .for('update')
+        .then((links) =>
+          links.flatMap(({ moduleId, ...link }) =>
+            moduleId ? [{ ...link, moduleId }] : [],
+          ),
+        );
 
       const removedLinks = existingLinks.filter(
         (link) => !requestedIds.has(link.moduleId),
@@ -768,6 +796,177 @@ export class ConferencesRepository {
     return conference;
   }
   /** Presentation history for an accessible paper, newest first. */
+  /**
+   * Every submission to a conference: papers, projects and typed entries.
+   * Submissions whose paper or project is in the bin are left out.
+   */
+  async findSubmissions(tenantId: string, conferenceId: string) {
+    return this.drizzle.db
+      .select({
+        id: conferenceModules.id,
+        moduleId: conferenceModules.moduleId,
+        projectId: conferenceModules.projectId,
+        paperDisplayId: modules.displayId,
+        paperShortTitle: modules.shortTitle,
+        paperTitle: modules.title,
+        projectDisplayId: submittedProjects.displayId,
+        projectTitle: submittedProjects.title,
+        titleAsSubmitted: conferenceModules.paperTitle,
+        submissionType: conferenceModules.submissionType,
+        status: conferenceModules.status,
+        submissionDue: conferenceModules.submissionDue,
+        presentedDate: conferenceModules.presentedDate,
+        notes: conferenceModules.notes,
+      })
+      .from(conferenceModules)
+      .leftJoin(modules, eq(modules.id, conferenceModules.moduleId))
+      .leftJoin(paperProjects, eq(paperProjects.id, modules.projectId))
+      .leftJoin(
+        submittedProjects,
+        eq(submittedProjects.id, conferenceModules.projectId),
+      )
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          eq(conferenceModules.conferenceId, conferenceId),
+          or(
+            isNull(conferenceModules.moduleId),
+            and(
+              isNull(modules.archivedAt),
+              or(isNull(paperProjects.id), isNull(paperProjects.archivedAt)),
+            ),
+          ),
+          or(
+            isNull(conferenceModules.projectId),
+            isNull(submittedProjects.archivedAt),
+          ),
+        ),
+      )
+      .orderBy(asc(conferenceModules.createdAt), asc(conferenceModules.id));
+  }
+
+  /** One submission, locked for a change. */
+  async findSubmissionForUpdate(
+    tenantId: string,
+    conferenceId: string,
+    submissionId: string,
+  ) {
+    const [submission] = await this.drizzle.db
+      .select()
+      .from(conferenceModules)
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          eq(conferenceModules.conferenceId, conferenceId),
+          eq(conferenceModules.id, submissionId),
+        ),
+      )
+      .for('update');
+
+    return submission;
+  }
+
+  /**
+   * Adds a submission. Returns undefined when the paper is already a
+   * submission for this conference.
+   */
+  async insertSubmission(
+    tenantId: string,
+    conferenceId: string,
+    subject: { moduleId?: string | null; projectId?: string | null },
+    values: ConferenceSubmissionValues,
+  ) {
+    const [submission] = await this.drizzle.db
+      .insert(conferenceModules)
+      .values({
+        tenantId,
+        conferenceId,
+        moduleId: subject.moduleId ?? null,
+        projectId: subject.projectId ?? null,
+        ...values,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    return submission;
+  }
+
+  async updateSubmission(
+    tenantId: string,
+    conferenceId: string,
+    submissionId: string,
+    values: ConferenceSubmissionValues,
+  ) {
+    const [submission] = await this.drizzle.db
+      .update(conferenceModules)
+      .set(values)
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          eq(conferenceModules.conferenceId, conferenceId),
+          eq(conferenceModules.id, submissionId),
+        ),
+      )
+      .returning();
+
+    return submission;
+  }
+
+  async deleteSubmission(
+    tenantId: string,
+    conferenceId: string,
+    submissionId: string,
+  ) {
+    const [submission] = await this.drizzle.db
+      .delete(conferenceModules)
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          eq(conferenceModules.conferenceId, conferenceId),
+          eq(conferenceModules.id, submissionId),
+        ),
+      )
+      .returning();
+
+    return submission;
+  }
+
+  /** A paper's submissions to conferences, newest first. */
+  async findSubmissionsByModule(tenantId: string, moduleId: string) {
+    return this.drizzle.db
+      .select({
+        id: conferenceModules.id,
+        conferenceId: conferences.id,
+        conferenceName: conferences.name,
+        acronym: conferences.acronym,
+        submissionType: conferenceModules.submissionType,
+        status: conferenceModules.status,
+        submissionDue: sql<
+          string | null
+        >`coalesce(${conferenceModules.submissionDue}, ${conferences.submissionDue})`,
+        presentedDate: conferenceModules.presentedDate,
+      })
+      .from(conferenceModules)
+      .innerJoin(
+        conferences,
+        and(
+          eq(conferences.id, conferenceModules.conferenceId),
+          eq(conferences.tenantId, conferenceModules.tenantId),
+        ),
+      )
+      .where(
+        and(
+          eq(conferenceModules.tenantId, tenantId),
+          eq(conferenceModules.moduleId, moduleId),
+        ),
+      )
+      .orderBy(
+        desc(conferenceModules.createdAt),
+        asc(conferences.name),
+        asc(conferenceModules.id),
+      );
+  }
+
   async findPresentationsByModule(tenantId: string, moduleId: string) {
     return this.drizzle.db
       .select({

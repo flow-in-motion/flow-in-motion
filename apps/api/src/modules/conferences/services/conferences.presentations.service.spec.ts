@@ -38,6 +38,7 @@ function setup() {
       },
     ]),
     findOwnedConferenceOptions: jest.fn().mockResolvedValue([]),
+    findSubmissionsByModule: jest.fn().mockResolvedValue([]),
   };
 
   const service = new ConferencesService(

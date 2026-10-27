@@ -15,6 +15,7 @@ describe('ConferencesService', () => {
     findLinkableModuleIds: jest.Mock;
     findLinkedProjects: jest.Mock;
     findLinkedPapers: jest.Mock;
+    findSubmissions: jest.Mock;
     findVisibleById: jest.Mock;
     findVisiblePageByUser: jest.Mock;
     findLinkedProjectsForConferences: jest.Mock;
@@ -35,6 +36,7 @@ describe('ConferencesService', () => {
       findLinkableModuleIds: jest.fn().mockResolvedValue([]),
       findLinkedProjects: jest.fn().mockResolvedValue([]),
       findLinkedPapers: jest.fn().mockResolvedValue([]),
+      findSubmissions: jest.fn().mockResolvedValue([]),
       findVisibleById: jest.fn(),
       findVisiblePageByUser: jest.fn(),
       findLinkedProjectsForConferences: jest.fn(),
