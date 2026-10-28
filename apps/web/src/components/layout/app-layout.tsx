@@ -8,6 +8,8 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { TopNav } from "@/components/layout/top-nav";
 import { AppErrorBoundary } from "@/components/shared/error-boundary";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
+import { BreakReminder } from "@/components/time-tracking/break-reminder";
+import { RunningTimerBar } from "@/components/time-tracking/running-timer-bar";
 import { registerErrorReporter } from "@/lib/client-error-reporter";
 import { useDesignTheme } from "@/theme/design-theme";
 
@@ -36,6 +38,8 @@ export function AppLayout() {
     return (
       <div className="app-canvas flex min-h-screen flex-col">
         <TopNav />
+        <RunningTimerBar className="top-[4.5rem]" />
+        <BreakReminder />
         <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
           <div key={location.pathname} className="route-stage mx-auto w-full max-w-[1480px]">
             <AppErrorBoundary label="This page">
@@ -55,6 +59,8 @@ export function AppLayout() {
       <SidebarComponent />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <SiteHeader />
+        <RunningTimerBar className="top-16 lg:top-0" />
+        <BreakReminder />
         <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
           <div key={location.pathname} className="route-stage mx-auto w-full max-w-[1480px]">
             <AppErrorBoundary label="This page">

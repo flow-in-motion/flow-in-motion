@@ -65,6 +65,14 @@ export interface AccountPreferences {
   designTheme?: "modern" | "minimal" | "executive";
   colorTheme?: "ocean" | "violet" | "emerald" | "rose";
   textSize?: "small" | "default" | "large";
+  /** Reminders to take a break while a task timer runs. */
+  breakReminders?: {
+    enabled: boolean;
+    workMinutes: number;
+    breakMinutes: number;
+    notifications: boolean;
+    sound?: boolean;
+  };
 }
 export interface DashboardLayoutPreference {
   order: string[];
@@ -201,6 +209,12 @@ export interface ApiTask {
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Time logged on the task by everyone, and by the caller. A timer stretch
+   * that is running right now isn't included (see useLiveTimer).
+   */
+  loggedSeconds?: number;
+  myLoggedSeconds?: number;
 }
 
 export interface ApiTaskDescriptionEntry {

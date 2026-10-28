@@ -11,6 +11,7 @@ import { TenantSequencesRepository } from '../../tenant-sequences/repositories/t
 import { TaskMembersRepository } from '../../task-members/repositories/task-members.repository';
 import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
 import { ProjectsRepository } from '../../projects/repositories/projects.repository';
+import { TaskTimeEntriesRepository } from '../repositories/task-time-entries.repository';
 
 describe('TasksService', () => {
   let service: TasksService;
@@ -40,6 +41,7 @@ describe('TasksService', () => {
   };
   let modulesRepository: { findById: jest.Mock };
   let projectsRepository: { findById: jest.Mock };
+  let timeEntries: { totalsForTasks: jest.Mock };
 
   beforeEach(() => {
     repository = {
@@ -70,6 +72,7 @@ describe('TasksService', () => {
     };
     modulesRepository = { findById: jest.fn() };
     projectsRepository = { findById: jest.fn() };
+    timeEntries = { totalsForTasks: jest.fn().mockResolvedValue(new Map()) };
 
     service = new TasksService(
       repository as unknown as TasksRepository,
@@ -78,6 +81,7 @@ describe('TasksService', () => {
       taskMembers as unknown as TaskMembersRepository,
       modulesRepository as unknown as ProjectModulesRepository,
       projectsRepository as unknown as ProjectsRepository,
+      timeEntries as unknown as TaskTimeEntriesRepository,
     );
   });
 
@@ -630,6 +634,50 @@ describe('TasksService', () => {
       expect(result.map((task) => task.id).sort()).toEqual([
         'task-own',
         'task-shared',
+      ]);
+    });
+
+    it("adds each task's logged time: everyone's and the caller's own", async () => {
+      repository.findByCreator.mockResolvedValue([
+        {
+          id: 'task-own',
+          createdBy: 'user-1',
+          statusId: null,
+          priorityId: null,
+          visibilityId: null,
+        },
+      ]);
+      repository.findByIds.mockResolvedValue([
+        {
+          id: 'task-shared',
+          createdBy: 'owner-2',
+          statusId: null,
+          priorityId: null,
+          visibilityId: null,
+        },
+      ]);
+      taskMembers.findTaskIdsByUser.mockResolvedValue(['task-shared']);
+      timeEntries.totalsForTasks.mockResolvedValue(
+        new Map([['task-shared', { totalSeconds: 5400, mySeconds: 1800 }]]),
+      );
+
+      const result = await service.listForCaller('user-1');
+
+      expect(timeEntries.totalsForTasks).toHaveBeenCalledWith(
+        ['task-own', 'task-shared'],
+        'user-1',
+      );
+      expect(result).toEqual([
+        expect.objectContaining({
+          id: 'task-own',
+          loggedSeconds: 0,
+          myLoggedSeconds: 0,
+        }),
+        expect.objectContaining({
+          id: 'task-shared',
+          loggedSeconds: 5400,
+          myLoggedSeconds: 1800,
+        }),
       ]);
     });
   });

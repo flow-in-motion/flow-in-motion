@@ -96,6 +96,7 @@ vi.mock("@/api/client", () => ({
   },
 }));
 
+vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", async () => {
   const { useSyncExternalStore } = await import("react");
   return {

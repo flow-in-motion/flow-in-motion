@@ -39,6 +39,10 @@ import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoggedTime } from "@/components/time-tracking/logged-time";
+import { formatEstimate } from "@/lib/time-format";
+import { TaskTimeCard } from "@/components/time-tracking/task-time-card";
+import { TaskTimerButton } from "@/components/time-tracking/task-timer-button";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -753,7 +757,7 @@ export default function TaskDetailPage() {
                     id="header-task-hours"
                     type="number"
                     min="0"
-                    step="0.5"
+                    step="0.25"
                     value={hoursDraft}
                     onChange={(event) => setHoursDraft(event.target.value)}
                     autoFocus
@@ -826,6 +830,11 @@ export default function TaskDetailPage() {
             <Badge variant="outline" className={priorityPillClass(task.priority)}>
               {task.priority ?? "—"}
             </Badge>
+            <TaskTimerButton
+              taskId={task.id}
+              taskTitle={task.title}
+              variant="button"
+            />
             <Button
               type="button"
               variant="outline"
@@ -910,11 +919,12 @@ export default function TaskDetailPage() {
                   }}
                   className="inline-flex items-center gap-2 rounded-sm py-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                 >
-                  {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
+                  {formatEstimate(task.estimatedHours)}
                   <Pencil className="h-3 w-3" />
                 </button>
               }
             />
+            <HeaderStat label="Logged" value={<LoggedTime task={task} />} />
             {TASK_NOTE_SHARING_ENABLED ? (
               <HeaderStat label="Visibility" value={task.visibility ?? "Private"} />
             ) : null}
@@ -968,6 +978,8 @@ export default function TaskDetailPage() {
         </Card>
       </section>
       ) : null}
+
+      {!form ? <TaskTimeCard task={task} /> : null}
 
       {form ? (
         <Card>
@@ -1069,7 +1081,7 @@ export default function TaskDetailPage() {
                 <FormField label="Status" htmlFor="edit-task-status"><Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}><SelectTrigger id="edit-task-status"><SelectValue /></SelectTrigger><SelectContent>{TASK_STATUSES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
                 <FormField label="Priority" htmlFor="edit-task-priority"><Select value={form.priority} onValueChange={(value) => setForm({ ...form, priority: value })}><SelectTrigger id="edit-task-priority"><SelectValue /></SelectTrigger><SelectContent>{TASK_PRIORITIES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></FormField>
                 <FormField label="Due date" htmlFor="edit-task-due"><DatePickerInput id="edit-task-due" label="Due date" value={form.dueDate} onChange={(value) => setForm({ ...form, dueDate: value })} /></FormField>
-                <FormField label="Estimated hours" htmlFor="edit-task-hours"><Input id="edit-task-hours" type="number" min="0" step="0.5" value={form.estimatedHours} onChange={(event) => setForm({ ...form, estimatedHours: event.target.value })} /></FormField>
+                <FormField label="Estimated hours" htmlFor="edit-task-hours"><Input id="edit-task-hours" type="number" min="0" step="0.25" value={form.estimatedHours} onChange={(event) => setForm({ ...form, estimatedHours: event.target.value })} /></FormField>
                 {TASK_NOTE_SHARING_ENABLED ? (
                   <FormField label="Visibility" htmlFor="edit-task-visibility">
                     <Select

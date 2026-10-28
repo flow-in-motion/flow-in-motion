@@ -67,6 +67,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { BreakReminderSettingsCard } from "@/components/time-tracking/break-reminder-settings";
 import {
   COLOR_THEMES,
   type ColorTheme,
@@ -1039,6 +1040,8 @@ export default function SettingsPage() {
               </p>
             </CardContent>
           </Card>
+
+          <BreakReminderSettingsCard className="order-3" />
         </div>
       </div>
 

@@ -55,6 +55,9 @@ import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { priorityPillClass, statusPillClass } from "@/lib/tones";
+import { LoggedTime } from "@/components/time-tracking/logged-time";
+import { formatEstimate } from "@/lib/time-format";
+import { TaskTimerButton } from "@/components/time-tracking/task-timer-button";
 
 const STATUS_OPTIONS = ["To do", "Underway", "Waiting", "Complete"] as const;
 const ACTIVE_STATUS_OPTIONS = ["To do", "Underway", "Waiting"] as const;
@@ -68,6 +71,7 @@ type SortColumn =
   | "priority"
   | "due"
   | "est"
+  | "logged"
   | "created";
 type SortDirection = "asc" | "desc";
 
@@ -79,6 +83,7 @@ const TASK_COLUMNS = [
   { id: "priority", label: "Priority", width: "110px" },
   { id: "due", label: "Due", width: "110px" },
   { id: "est", label: "Est.", width: "80px" },
+  { id: "logged", label: "Logged", width: "90px" },
   { id: "created", label: "Created", width: "150px" },
 ] as const;
 
@@ -353,6 +358,8 @@ const [selectedPriorities, setSelectedPriorities] =
         return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
       case "est":
         return Number(a.estimatedHours ?? 0) - Number(b.estimatedHours ?? 0);
+      case "logged":
+        return (a.loggedSeconds ?? 0) - (b.loggedSeconds ?? 0);
       case "created":
         return a.createdAt.localeCompare(b.createdAt);
     }
@@ -611,6 +618,7 @@ const [selectedPriorities, setSelectedPriorities] =
                         >
                           {task.title}
                         </Link>
+                        <TaskTimerButton taskId={task.id} taskTitle={task.title} />
                         {task.visibility === "Shared" &&
                         task.createdBy === me.data?.id ? (
                           <button
@@ -728,7 +736,13 @@ const [selectedPriorities, setSelectedPriorities] =
 
                   {columns.isColumnVisible("est") ? (
                     <span className="text-sm tabular-nums text-muted-foreground">
-                      {task.estimatedHours ? `${task.estimatedHours}h` : "—"}
+                      {formatEstimate(task.estimatedHours)}
+                    </span>
+                  ) : null}
+
+                  {columns.isColumnVisible("logged") ? (
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      <LoggedTime task={task} />
                     </span>
                   ) : null}
 

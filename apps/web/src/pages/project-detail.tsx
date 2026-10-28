@@ -62,6 +62,8 @@ import {
   LinkedTasksPanel,
   PanelToggleButton,
 } from "@/components/shared/linked-items-panels";
+import { TaskTimeSummary } from "@/components/time-tracking/task-time-summary";
+import { TaskTimerButton } from "@/components/time-tracking/task-timer-button";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { PageHeading } from "@/components/typography/heading";
 import { Button } from "@/components/ui/button";
@@ -280,11 +282,13 @@ export default function ProjectDetailPage() {
   const modules = modulesQuery.data?.data ?? [];
   // Load every linked task and note: the panels sort them client-side and
   // preview the first three, so a single server page would miss items.
+  // Includes the tasks on this project's papers, so the time summary covers
+  // the whole project; the Tasks panel lists only the project's own tasks.
   const tasksQuery = useTasks(tenantId, projectId, 1, true, {
-    projectOnly: true,
     pageSize: "all",
   });
-  const tasks = (tasksQuery.data?.data ?? []).filter((task) => !task.moduleId);
+  const allProjectTasks = tasksQuery.data?.data ?? [];
+  const tasks = allProjectTasks.filter((task) => !task.moduleId);
   const notesQuery = useNotes(tenantId, projectId, 1, true, {
     projectOnly: true,
     pageSize: "all",
@@ -1128,6 +1132,15 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
             visible={isTasksVisible}
             onToggleVisible={() => setIsTasksVisible((visible) => !visible)}
             onUnlink={(task) => void handleUnlinkTask(task)}
+            summary={
+              <TaskTimeSummary
+                tasks={allProjectTasks}
+                label="Time logged on this project and its papers against the estimates"
+              />
+            }
+            renderTaskAction={(task) => (
+              <TaskTimerButton taskId={task.id} taskTitle={task.title} />
+            )}
             actions={
               <>
                 <Button

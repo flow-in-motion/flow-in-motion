@@ -157,6 +157,8 @@ export function LinkedTasksPanel<T extends PanelTask>({
   actions,
   onUnlink,
   unlinkLabel = (task) => `Unlink ${task.title} from this ${entityLabel}`,
+  summary,
+  renderTaskAction,
 }: {
   tasks: T[];
   /** e.g. "paper", "project" — used in empty-state text. */
@@ -168,6 +170,10 @@ export function LinkedTasksPanel<T extends PanelTask>({
   actions?: ReactNode;
   onUnlink?: (task: T) => void;
   unlinkLabel?: (task: T) => string;
+  /** Shown above the list, e.g. time logged against the estimates. */
+  summary?: ReactNode;
+  /** An extra button on each task row, e.g. its timer. */
+  renderTaskAction?: (task: T) => ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   const activeTasks = sortActiveTasks(tasks);
@@ -192,6 +198,7 @@ export function LinkedTasksPanel<T extends PanelTask>({
       </CardHeader>
       {visible ? (
         <CardContent id={contentId}>
+          {summary}
           {activeTasks.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {completedCount > 0
@@ -227,6 +234,7 @@ export function LinkedTasksPanel<T extends PanelTask>({
                       <StatusBadge status={task.priority ?? "—"} />
                     </span>
                   </Link>
+                  {renderTaskAction?.(task)}
                   {onUnlink ? (
                     <UnlinkButton
                       label={unlinkLabel(task)}

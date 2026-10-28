@@ -15,6 +15,7 @@ const analytics = vi.hoisted(() => ({
   trackEvent: vi.fn(),
 }));
 
+vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({
     data: analytics.tenantId ? { id: analytics.tenantId } : undefined,
