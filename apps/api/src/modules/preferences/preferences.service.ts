@@ -68,7 +68,7 @@ export class PreferencesService {
   }
 
   async updateAccount(userId: string, input: UpdateAccountPreferencesDto) {
-    const { breakReminders, ...display } = input;
+    const { breakReminders, dueReminders, ...display } = input;
     const patch: AccountPreferenceValues = { ...display };
     if (breakReminders) {
       // Saved as plain fields, whatever else the request carried.
@@ -81,6 +81,13 @@ export class PreferencesService {
       if (breakReminders.sound !== undefined) {
         patch.breakReminders.sound = breakReminders.sound;
       }
+    }
+    if (dueReminders) {
+      patch.dueReminders = {
+        leadDays: [...dueReminders.leadDays].sort((a, b) => b - a),
+        overdue: dueReminders.overdue,
+        types: [...dueReminders.types],
+      };
     }
     const updated = await this.repository.updateAccount(userId, patch);
     if (!updated)

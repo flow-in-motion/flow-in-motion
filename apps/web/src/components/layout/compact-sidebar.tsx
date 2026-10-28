@@ -4,6 +4,7 @@ import { Link, NavLink } from "react-router-dom";
 import { navGroups } from "@/config/nav-items";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/layout/user-menu";
+import { DueRemindersBell } from "@/components/reminders/due-reminders-bell";
 import { Wordmark } from "@/components/layout/wordmark";
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ export function CompactSidebar() {
       <div>
         <Wordmark compact />
       </div>
+      <DueRemindersBell />
 
       <nav className="flex flex-1 flex-col items-center gap-1">
         {primaryGroup.items.map((item) => (

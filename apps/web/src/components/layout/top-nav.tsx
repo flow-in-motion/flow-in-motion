@@ -6,6 +6,7 @@ import { navGroups } from "@/config/nav-items";
 import { cn } from "@/lib/utils";
 import { NavTree } from "@/components/layout/nav-tree";
 import { UserMenu } from "@/components/layout/user-menu";
+import { DueRemindersBell } from "@/components/reminders/due-reminders-bell";
 import { Wordmark } from "@/components/layout/wordmark";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,13 +88,15 @@ export function TopNav() {
           </DropdownMenu>
         </nav>
 
+        <DueRemindersBell className="ml-auto xl:ml-0" />
+
         <div className="hidden w-56 shrink-0 xl:block">
           <UserMenu />
         </div>
 
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Open menu" className="ml-auto xl:hidden">
+            <Button variant="outline" size="icon" aria-label="Open menu" className="xl:hidden">
               <Menu />
             </Button>
           </SheetTrigger>

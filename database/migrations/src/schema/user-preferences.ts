@@ -15,12 +15,23 @@ export interface BreakReminderPreference {
   sound?: boolean;
 }
 
+/** Due-date reminders in the app's bell. */
+export interface DueReminderPreference {
+  /** Remind this many days before (0 = on the day). */
+  leadDays: number[];
+  /** Keep reminding about overdue items. */
+  overdue: boolean;
+  /** tasks, papers, projects, events, funding, notes. */
+  types: string[];
+}
+
 export interface AccountPreferenceValues {
   appearanceTheme?: string;
   designTheme?: string;
   colorTheme?: string;
   textSize?: string;
   breakReminders?: BreakReminderPreference;
+  dueReminders?: DueReminderPreference;
 }
 
 export interface DashboardLayoutPreference {

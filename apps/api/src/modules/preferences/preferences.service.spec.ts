@@ -1,4 +1,7 @@
-import { BreakRemindersDto } from './dto/update-account-preferences.dto';
+import {
+  BreakRemindersDto,
+  DueRemindersDto,
+} from './dto/update-account-preferences.dto';
 import { PreferencesRepository } from './preferences.repository';
 import { PreferencesService } from './preferences.service';
 
@@ -77,6 +80,23 @@ describe('PreferencesService', () => {
 
     expect(repository.updateAccount).toHaveBeenCalledWith('user-1', {
       breakReminders: expect.objectContaining({ sound: false }),
+    });
+  });
+
+  it('saves due reminder settings, latest reminder last', async () => {
+    repository.updateAccount.mockImplementation(
+      (_userId: string, preferences: unknown) => ({ preferences }),
+    );
+    const dueReminders = Object.assign(new DueRemindersDto(), {
+      leadDays: [0, 7, 1],
+      overdue: false,
+      types: ['tasks'],
+    });
+
+    await service.updateAccount('user-1', { dueReminders });
+
+    expect(repository.updateAccount).toHaveBeenCalledWith('user-1', {
+      dueReminders: { leadDays: [7, 1, 0], overdue: false, types: ['tasks'] },
     });
   });
 
