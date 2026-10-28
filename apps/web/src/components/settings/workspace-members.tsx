@@ -11,7 +11,11 @@ import {
 
 /** Workspaces are single-owner — there's no invite/join flow, so this is a
  * read-only confirmation rather than a member list with management actions. */
-export function WorkspaceMembers() {
+export function WorkspaceMembers({
+  className = "mx-auto mt-6 grid w-full max-w-5xl gap-6",
+}: {
+  className?: string;
+}) {
   const me = useMe();
   const workspace = useCurrentWorkspace();
 
@@ -20,7 +24,7 @@ export function WorkspaceMembers() {
   return (
     <section
       aria-labelledby="workspace-members"
-      className="mx-auto mt-6 grid w-full max-w-5xl gap-6"
+      className={className}
     >
       <Card>
         <CardHeader>

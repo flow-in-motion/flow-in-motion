@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Building2,
   CheckCircle2,
+  Coffee,
   Crown,
   KeyRound,
   LayoutTemplate,
@@ -21,6 +22,7 @@ import {
   Type as TextSizeIcon,
   Trash2,
   UserRound,
+  Workflow,
 } from "lucide-react";
 import { z } from "zod";
 
@@ -106,6 +108,23 @@ const passwordSchema = z
 type PasswordForm = z.infer<typeof passwordSchema>;
 type PasswordStep = "current" | "new";
 
+/** Settings shows one section at a time; the address's #hash picks it. */
+const SETTINGS_SECTIONS = [
+  { id: "profile", label: "Profile", icon: UserRound },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "break-reminders", label: "Break reminders", icon: Coffee },
+  { id: "workspaces", label: "Workspaces", icon: Building2 },
+  { id: "paper-pipeline-stages", label: "Paper stages", icon: Workflow },
+  { id: "account", label: "Account & security", icon: ShieldCheck },
+] as const;
+
+type SettingsSection = (typeof SETTINGS_SECTIONS)[number]["id"];
+
+function sectionFromHash(hash: string): SettingsSection {
+  const id = hash.replace(/^#/, "");
+  return SETTINGS_SECTIONS.find((item) => item.id === id)?.id ?? "profile";
+}
+
 export default function SettingsPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -166,12 +185,7 @@ export default function SettingsPage() {
     });
   }, [me.data]);
 
-  useEffect(() => {
-    if (!location.hash || !workspace.data?.id) return;
-    const id = location.hash.slice(1);
-    const target = document.getElementById(id);
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [location.hash, workspace.data?.id]);
+  const section = sectionFromHash(location.hash);
 
   function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -371,883 +385,933 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="mx-auto mt-7 grid w-full max-w-5xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserRound className="h-5 w-5 text-primary" />
-              Profile
-            </CardTitle>
-            <CardDescription>
-              Your name and email are collected during registration. Add your
-              professional details here after signing in.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={saveProfile} className="grid gap-5">
-              <div className="grid gap-2">
-                <label htmlFor="display-name" className="text-sm font-medium">
-                  Name <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  id="display-name"
-                  value={profile.displayName}
-                  onChange={(event) =>
-                    setProfile((current) => ({
-                      ...current,
-                      displayName: event.target.value,
-                    }))
-                  }
-                  minLength={2}
-                  maxLength={100}
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="email" className="text-sm font-medium">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={me.data.email}
-                    readOnly
-                    className="bg-muted/30 pl-9"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <label htmlFor="job-title" className="text-sm font-medium">
-                    Job title <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    id="job-title"
-                    value={profile.jobTitle}
-                    onChange={(event) =>
-                      setProfile((current) => ({
-                        ...current,
-                        jobTitle: event.target.value,
-                      }))
-                    }
-                    placeholder="Research Fellow"
-                    maxLength={120}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label htmlFor="institution" className="text-sm font-medium">
-                    Institution <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    id="institution"
-                    value={profile.institution}
-                    onChange={(event) =>
-                      setProfile((current) => ({
-                        ...current,
-                        institution: event.target.value,
-                      }))
-                    }
-                    placeholder="University or organisation"
-                    maxLength={200}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label htmlFor="department" className="text-sm font-medium">
-                    Department <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    id="department"
-                    value={profile.department}
-                    onChange={(event) =>
-                      setProfile((current) => ({
-                        ...current,
-                        department: event.target.value,
-                      }))
-                    }
-                    placeholder="School or department"
-                    maxLength={200}
-                    required
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label htmlFor="phone" className="text-sm font-medium">
-                    Phone
-                  </label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    value={profile.phone}
-                    onChange={(event) =>
-                      setProfile((current) => ({
-                        ...current,
-                        phone: event.target.value,
-                      }))
-                    }
-                    placeholder="+61 400 000 000"
-                    maxLength={40}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <label
-                  htmlFor="research-interests"
-                  className="text-sm font-medium"
-                >
-                  Research interests
-                </label>
-                <Textarea
-                  id="research-interests"
-                  value={profile.researchInterests}
-                  onChange={(event) =>
-                    setProfile((current) => ({
-                      ...current,
-                      researchInterests: event.target.value,
-                    }))
-                  }
-                  placeholder="Research areas, methods, or topics"
-                  maxLength={1000}
-                  rows={3}
-                />
-              </div>
-              {updateProfile.isError ? (
-                <p role="alert" className="text-sm text-destructive">
-                  {updateProfile.error.message}
-                </p>
-              ) : null}
-              {updateProfile.isSuccess && me.data.profileComplete ? (
-                <p className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="h-4 w-4" /> Profile saved.
-                </p>
-              ) : null}
-              <Button
-                type="submit"
-                className="w-fit"
-                disabled={updateProfile.isPending}
-              >
-                <Save />
-                {updateProfile.isPending ? "Saving…" : "Save Profile"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
 
-        <div className="grid gap-6">
-          <Card className="order-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {appearanceTheme.theme === "dark" ? (
-                  <Moon className="h-5 w-5 text-primary" />
-                ) : (
-                  <Sun className="h-5 w-5 text-primary" />
-                )}
-                Appearance
-              </CardTitle>
-              <CardDescription>
-                Choose a light or dark interface. This does not change your
-                layout or accent color.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3">
-              {APPEARANCE_THEMES.map((option) => {
-                const isSelected = appearanceTheme.theme === option.value;
-                const Icon = option.value === "light" ? Sun : Moon;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => appearanceTheme.setTheme(option.value)}
-                    aria-pressed={isSelected}
+      <div className="mx-auto mt-7 grid w-full max-w-5xl gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
+        <nav aria-label="Settings sections" className="lg:sticky lg:top-16">
+          <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
+            {SETTINGS_SECTIONS.map((item) => {
+              const active = item.id === section;
+              return (
+                <li key={item.id} className="shrink-0">
+                  <Link
+                    to={{ hash: `#${item.id}` }}
+                    replace
+                    aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors hover:bg-accent/50",
-                      isSelected &&
-                        "border-primary bg-primary/5 ring-1 ring-primary",
+                      "flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      active && "bg-card text-foreground shadow-sm ring-1 ring-border",
                     )}
                   >
-                    <Icon className="h-5 w-5" />
-                    {option.label}
-                  </button>
-                );
-              })}
-              <p className="col-span-2 text-xs leading-5 text-muted-foreground">
-                This preference is saved in this browser and applied
-                immediately.
-              </p>
-              <div className="col-span-2 mt-2 border-t border-border pt-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <TextSizeIcon className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium">Text size</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {TEXT_SIZES.map((option) => {
-                    const isSelected = textSize.size === option.value;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => textSize.setSize(option.value)}
-                        aria-pressed={isSelected}
-                        className={cn(
-                          "rounded-lg border px-2 py-2.5 text-center font-medium transition-colors hover:bg-accent/50",
-                          option.value === "small" && "text-xs",
-                          option.value === "default" && "text-sm",
-                          option.value === "large" && "text-base",
-                          isSelected &&
-                            "border-primary bg-primary/5 ring-1 ring-primary",
-                        )}
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="order-5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <KeyRound className="h-5 w-5 text-primary" />
-                Change password
-              </CardTitle>
-              <CardDescription>
-                Confirm your current password, then choose a new password with
-                at least 8 characters.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              {passwordUpdated ? (
-                <p
-                  role="status"
-                  className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400"
-                >
-                  <CheckCircle2 className="h-4 w-4" /> Password changed
-                  successfully.
-                </p>
-              ) : null}
-              <Button
-                type="button"
-                className="w-fit"
-                onClick={openPasswordDialog}
-              >
-                <KeyRound className="h-4 w-4" />
-                Change password
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Dialog
-            open={passwordDialogOpen}
-            onOpenChange={handlePasswordDialogOpenChange}
-          >
-            <DialogContent className="max-w-sm">
-              {passwordStep === "current" ? (
-                <form
-                  className="grid gap-5"
-                  onSubmit={passwordForm.handleSubmit(submitCurrentPassword)}
-                >
-                  <DialogHeader>
-                    <DialogTitle>Confirm current password</DialogTitle>
-                    <DialogDescription>
-                      Enter your current password before choosing a new one.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-2">
-                    <label
-                      htmlFor="current-password"
-                      className="text-sm font-medium"
-                    >
-                      Current password
-                    </label>
-                    <Input
-                      id="current-password"
-                      type="password"
-                      autoComplete="current-password"
-                      required
-                      {...passwordForm.register("currentPassword")}
+                    <item.icon
+                      className={cn("h-4 w-4 shrink-0", active && "text-primary")}
                     />
-                    {passwordForm.formState.errors.currentPassword ? (
-                      <p role="alert" className="text-xs text-destructive">
-                        {passwordForm.formState.errors.currentPassword.message}
-                      </p>
+                    {item.label}
+                    {item.id === "profile" && !me.data.profileComplete ? (
+                      <span
+                        className="ml-auto h-2 w-2 shrink-0 rounded-full bg-amber-500"
+                        aria-label="Needs your details"
+                      />
                     ) : null}
-                  </div>
-                  {passwordSubmitError ? (
-                    <p role="alert" className="text-sm text-destructive">
-                      {passwordSubmitError}
-                    </p>
-                  ) : null}
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isPasswordSubmitting}
-                      onClick={() => handlePasswordDialogOpenChange(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isPasswordSubmitting}>
-                      {isPasswordSubmitting ? "Checking…" : "Continue"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              ) : (
-                <form
-                  className="grid gap-5"
-                  onSubmit={passwordForm.handleSubmit(submitPasswordChange)}
-                >
-                  <DialogHeader>
-                    <DialogTitle>Choose a new password</DialogTitle>
-                    <DialogDescription>
-                      Use at least 8 characters and enter the same password
-                      twice.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-2">
-                    <label
-                      htmlFor="settings-new-password"
-                      className="text-sm font-medium"
-                    >
-                      New password
-                    </label>
-                    <Input
-                      id="settings-new-password"
-                      type="password"
-                      autoComplete="new-password"
-                      minLength={8}
-                      required
-                      {...passwordForm.register("newPassword")}
-                    />
-                    {passwordForm.formState.errors.newPassword ? (
-                      <p role="alert" className="text-xs text-destructive">
-                        {passwordForm.formState.errors.newPassword.message}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="grid gap-2">
-                    <label
-                      htmlFor="settings-confirm-password"
-                      className="text-sm font-medium"
-                    >
-                      Confirm new password
-                    </label>
-                    <Input
-                      id="settings-confirm-password"
-                      type="password"
-                      autoComplete="new-password"
-                      minLength={8}
-                      required
-                      {...passwordForm.register("confirmPassword")}
-                    />
-                    {passwordForm.formState.errors.confirmPassword ? (
-                      <p role="alert" className="text-xs text-destructive">
-                        {passwordForm.formState.errors.confirmPassword.message}
-                      </p>
-                    ) : null}
-                  </div>
-                  {passwordSubmitError ? (
-                    <p role="alert" className="text-sm text-destructive">
-                      {passwordSubmitError}
-                    </p>
-                  ) : null}
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isPasswordSubmitting}
-                      onClick={() => {
-                        passwordForm.clearErrors();
-                        setPasswordSubmitError(null);
-                        setPasswordStep("current");
-                      }}
-                    >
-                      Back
-                    </Button>
-                    <Button type="submit" disabled={isPasswordSubmitting}>
-                      {isPasswordSubmitting ? "Saving…" : "Save new password"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              )}
-            </DialogContent>
-          </Dialog>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-          <Card className="order-4">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                Account status
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Badge variant="outline" className="capitalize">
-                {me.data.status}
-              </Badge>
-              <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
-                User ID: {me.data.id}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="order-6 border-destructive/40">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-destructive">
-                <Trash2 className="h-5 w-5" />
-                Delete account
-              </CardTitle>
-              <CardDescription>
-                Permanently remove your account and all data connected to it.
-                This cannot be undone.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => {
-                  resetDeleteAccountDialog();
-                  setDeleteAccountDialogOpen(true);
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete account
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Dialog
-            open={deleteAccountDialogOpen}
-            onOpenChange={handleDeleteAccountDialogOpenChange}
-          >
-            <DialogContent className="max-w-md">
-              <form className="grid gap-5" onSubmit={submitDeleteAccount}>
-                <DialogHeader>
-                  <DialogTitle className="text-destructive">
-                    Permanently delete your account?
-                  </DialogTitle>
-                  <DialogDescription>
-                    This action is irreversible. Your Supabase login and
-                    application data will be removed.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-                  <p className="font-semibold text-destructive">
-                    This permanently deletes:
-                  </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-                    <li>
-                      Your profile, preferences, memberships, and collaborator
-                      access
-                    </li>
-                    <li>Workspaces you own and everything stored in them</li>
-                    <li>
-                      Projects, papers, tasks, notes, conferences, and
-                      invitations you own
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="delete-account-password"
-                    className="text-sm font-medium"
-                  >
-                    Current password
-                  </label>
-                  <Input
-                    id="delete-account-password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={deleteAccountPassword}
-                    onChange={(event) =>
-                      setDeleteAccountPassword(event.target.value)
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="delete-account-confirmation"
-                    className="text-sm font-medium"
-                  >
-                    Type DELETE to confirm
-                  </label>
-                  <Input
-                    id="delete-account-confirmation"
-                    value={deleteAccountConfirmation}
-                    onChange={(event) =>
-                      setDeleteAccountConfirmation(event.target.value)
-                    }
-                    autoComplete="off"
-                    required
-                  />
-                </div>
-
-                {deleteAccountError ? (
-                  <p role="alert" className="text-sm text-destructive">
-                    {deleteAccountError}
-                  </p>
-                ) : null}
-
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={deleteAccountMutation.isPending}
-                    onClick={() => handleDeleteAccountDialogOpenChange(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="destructive"
-                    disabled={
-                      !deleteAccountPassword || deleteAccountMutation.isPending
-                    }
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {deleteAccountMutation.isPending
-                      ? "Deleting account…"
-                      : "Permanently delete account"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <Card className="order-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <LayoutTemplate className="h-5 w-5 text-primary" />
-                Design theme
-              </CardTitle>
-              <CardDescription>
-                Pick the layout, navigation pattern, spacing, and typographic
-                character. Your selected colour theme is applied across each
-                design.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-2">
-              {DESIGN_THEMES.map((option) => {
-                const isSelected = designTheme.theme === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => designTheme.setTheme(option.value)}
-                    aria-pressed={isSelected}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent/50",
-                      isSelected && "border-primary ring-1 ring-primary",
-                    )}
-                  >
-                    <div
-                      data-design-theme={option.value}
-                      aria-hidden="true"
-                      className="pointer-events-none flex h-14 w-20 shrink-0 overflow-hidden rounded-[var(--radius)] border bg-background"
-                    >
-                      {option.layout === "topnav" ? (
-                        <div className="flex w-full flex-col">
-                          <div className="h-3 w-full bg-primary" />
-                          <div className="flex-1 p-1.5">
-                            <div className="h-full rounded-[var(--radius)] border bg-card shadow-sm" />
-                          </div>
-                        </div>
-                      ) : option.layout === "sidebar-compact" ? (
-                        <div className="flex h-full w-full">
-                          <div className="flex h-full w-3.5 flex-col items-center gap-1 bg-primary py-1.5">
-                            <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80" />
-                            <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground/50" />
-                            <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground/50" />
-                          </div>
-                          <div className="flex-1 p-1.5">
-                            <div className="h-full rounded-[var(--radius)] border bg-card shadow-sm" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex h-full w-full">
-                          <div className="h-full w-4 bg-primary" />
-                          <div className="flex-1 p-1.5">
-                            <div className="h-full rounded-[var(--radius)] border bg-card shadow-sm" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium text-foreground">
-                          {option.label}
-                        </span>
-                        {isSelected ? (
-                          <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                        ) : null}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {option.description}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-              <p className="text-xs leading-5 text-muted-foreground">
-                This preference is saved in this browser and applied
-                immediately.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="order-3">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Palette className="h-5 w-5 text-primary" />
-                Color theme
-              </CardTitle>
-              <CardDescription>
-                Choose the colour wash used across navigation, the workspace
-                canvas, active states, and pipeline accents.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              <label htmlFor="color-theme" className="text-sm font-medium">
-                Theme
-              </label>
-              <Select
-                value={colorTheme.theme}
-                onValueChange={(value) =>
-                  colorTheme.setTheme(value as ColorTheme)
-                }
-              >
-                <SelectTrigger id="color-theme">
-                  <SelectValue placeholder="Select a color theme" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COLOR_THEMES.map((theme) => (
-                    <SelectItem key={theme.value} value={theme.value}>
-                      {theme.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs leading-5 text-muted-foreground">
-                This preference is saved in this browser and applied
-                immediately.
-              </p>
-            </CardContent>
-          </Card>
-
-          <BreakReminderSettingsCard className="order-3" />
-        </div>
-      </div>
-
-      <div className="mx-auto mt-7 w-full max-w-5xl">
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
+        <div className="grid min-w-0 gap-6">
+          {section === "profile" ? (
+            <section aria-label="Profile" className="grid gap-6">
+            <Card>
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  Workspaces
+                  <UserRound className="h-5 w-5 text-primary" />
+                  Profile
                 </CardTitle>
                 <CardDescription>
-                  Every research workspace you can access, and switching between
-                  them.
+                  Your name and email are collected during registration. Add your
+                  professional details here after signing in.
                 </CardDescription>
-              </div>
-              {workspaces.data ? (
-                <Badge variant="outline" className="w-fit px-3 py-1">
-                  {workspaceOptions.length}{" "}
-                  {workspaceOptions.length === 1 ? "workspace" : "workspaces"}
-                </Badge>
-              ) : null}
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-6">
-            {workspaces.isPending ? (
-              <LoadingState
-                title="Loading your workspaces"
-                className="min-h-[30vh]"
-              />
-            ) : workspaces.isError ? (
-              <ErrorState
-                title="Your workspaces could not be loaded"
-                description={workspaces.error.message}
-                onRetry={() => void workspaces.refetch()}
-              />
-            ) : (
-              <>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {workspaceOptions.map((option) => {
-                    const isCurrent = option.id === workspace.data?.id;
-                    const isSwitching =
-                      switchWorkspace.isPending &&
-                      switchWorkspace.variables === option.id;
-                    const isDeleting =
-                      deleteWorkspaceMutation.isPending &&
-                      deleteWorkspaceMutation.variables === option.id;
-
-                    return (
-                      <Card
-                        key={option.id}
-                        className={
-                          isCurrent
-                            ? "border-primary/40 bg-accent/35"
-                            : "transition-colors hover:border-primary/20 hover:bg-muted/35"
-                        }
-                      >
-                        <CardHeader>
-                          <div className="flex items-start justify-between gap-4">
-                            <span className="rounded-xl bg-primary/10 p-3 text-primary">
-                              <Building2 className="h-5 w-5" />
-                            </span>
-                            {isCurrent ? (
-                              <Badge className="gap-1">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Current
-                              </Badge>
-                            ) : null}
-                          </div>
-                          <CardTitle className="pt-2">{option.name}</CardTitle>
-                          <CardDescription className="truncate">
-                            {option.slug}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="mb-5 flex items-center gap-2 text-sm text-muted-foreground">
-                            <Crown className="h-4 w-4 text-amber-500" />
-                            <span>Owner</span>
-                          </div>
-                          <Button
-                            className="w-full"
-                            variant={isCurrent ? "outline" : "default"}
-                            disabled={
-                              isCurrent ||
-                              switchWorkspace.isPending ||
-                              deleteWorkspaceMutation.isPending
-                            }
-                            onClick={() => void switchToWorkspace(option.id)}
-                          >
-                            {isCurrent
-                              ? "Active workspace"
-                              : isSwitching
-                                ? "Switching…"
-                                : "Switch workspace"}
-                            {!isCurrent && !isSwitching ? (
-                              <ArrowRight className="h-4 w-4" />
-                            ) : null}
-                          </Button>
-                          <Button
-                            className="mt-2 w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            variant="ghost"
-                            disabled={
-                              switchWorkspace.isPending ||
-                              deleteWorkspaceMutation.isPending
-                            }
-                            onClick={() =>
-                              void deleteWorkspace(option.id, option.name)
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            {isDeleting ? "Deleting…" : "Delete workspace"}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-                {switchWorkspace.isError ? (
-                  <p role="alert" className="text-sm text-destructive">
-                    {switchWorkspace.error.message}
-                  </p>
-                ) : null}
-                {deleteWorkspaceMutation.isError ? (
-                  <p role="alert" className="text-sm text-destructive">
-                    {deleteWorkspaceMutation.error.message}
-                  </p>
-                ) : null}
-
-                <div className="border-t pt-6">
-                  <p className="flex items-center gap-2 text-sm font-semibold">
-                    <Plus className="h-4 w-4 text-primary" />
-                    Create another workspace
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    You will become the owner and the new workspace will become
-                    active.
-                  </p>
-                  <form
-                    className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start"
-                    onSubmit={workspaceForm.handleSubmit(submitCreateWorkspace)}
-                  >
-                    <div className="flex-1">
-                      <label htmlFor="new-workspace-name" className="sr-only">
-                        Workspace name
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={saveProfile} className="grid gap-5">
+                  <div className="grid gap-2">
+                    <label htmlFor="display-name" className="text-sm font-medium">
+                      Name <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      id="display-name"
+                      value={profile.displayName}
+                      onChange={(event) =>
+                        setProfile((current) => ({
+                          ...current,
+                          displayName: event.target.value,
+                        }))
+                      }
+                      minLength={2}
+                      maxLength={100}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label htmlFor="email" className="text-sm font-medium">
+                      Email
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        value={me.data.email}
+                        readOnly
+                        className="bg-muted/30 pl-9"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-2">
+                      <label htmlFor="job-title" className="text-sm font-medium">
+                        Job title <span className="text-destructive">*</span>
                       </label>
                       <Input
-                        id="new-workspace-name"
-                        placeholder="Workspace name"
-                        {...workspaceForm.register("name")}
+                        id="job-title"
+                        value={profile.jobTitle}
+                        onChange={(event) =>
+                          setProfile((current) => ({
+                            ...current,
+                            jobTitle: event.target.value,
+                          }))
+                        }
+                        placeholder="Research Fellow"
+                        maxLength={120}
+                        required
                       />
-                      {workspaceForm.formState.errors.name ? (
-                        <p
-                          role="alert"
-                          className="mt-1 text-xs text-destructive"
+                    </div>
+                    <div className="grid gap-2">
+                      <label htmlFor="institution" className="text-sm font-medium">
+                        Institution <span className="text-destructive">*</span>
+                      </label>
+                      <Input
+                        id="institution"
+                        value={profile.institution}
+                        onChange={(event) =>
+                          setProfile((current) => ({
+                            ...current,
+                            institution: event.target.value,
+                          }))
+                        }
+                        placeholder="University or organisation"
+                        maxLength={200}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <label htmlFor="department" className="text-sm font-medium">
+                        Department <span className="text-destructive">*</span>
+                      </label>
+                      <Input
+                        id="department"
+                        value={profile.department}
+                        onChange={(event) =>
+                          setProfile((current) => ({
+                            ...current,
+                            department: event.target.value,
+                          }))
+                        }
+                        placeholder="School or department"
+                        maxLength={200}
+                        required
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <label htmlFor="phone" className="text-sm font-medium">
+                        Phone
+                      </label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={profile.phone}
+                        onChange={(event) =>
+                          setProfile((current) => ({
+                            ...current,
+                            phone: event.target.value,
+                          }))
+                        }
+                        placeholder="+61 400 000 000"
+                        maxLength={40}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <label
+                      htmlFor="research-interests"
+                      className="text-sm font-medium"
+                    >
+                      Research interests
+                    </label>
+                    <Textarea
+                      id="research-interests"
+                      value={profile.researchInterests}
+                      onChange={(event) =>
+                        setProfile((current) => ({
+                          ...current,
+                          researchInterests: event.target.value,
+                        }))
+                      }
+                      placeholder="Research areas, methods, or topics"
+                      maxLength={1000}
+                      rows={3}
+                    />
+                  </div>
+                  {updateProfile.isError ? (
+                    <p role="alert" className="text-sm text-destructive">
+                      {updateProfile.error.message}
+                    </p>
+                  ) : null}
+                  {updateProfile.isSuccess && me.data.profileComplete ? (
+                    <p className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4" /> Profile saved.
+                    </p>
+                  ) : null}
+                  <Button
+                    type="submit"
+                    className="w-fit"
+                    disabled={updateProfile.isPending}
+                  >
+                    <Save />
+                    {updateProfile.isPending ? "Saving…" : "Save Profile"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+            </section>
+          ) : null}
+
+          {section === "appearance" ? (
+            <section aria-label="Appearance" className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  {appearanceTheme.theme === "dark" ? (
+                    <Moon className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Sun className="h-5 w-5 text-primary" />
+                  )}
+                  Appearance
+                </CardTitle>
+                <CardDescription>
+                  Choose a light or dark interface. This does not change your
+                  layout or accent color.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-3">
+                {APPEARANCE_THEMES.map((option) => {
+                  const isSelected = appearanceTheme.theme === option.value;
+                  const Icon = option.value === "light" ? Sun : Moon;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => appearanceTheme.setTheme(option.value)}
+                      aria-pressed={isSelected}
+                      className={cn(
+                        "flex flex-col items-center gap-2 rounded-xl border p-4 text-sm font-medium transition-colors hover:bg-accent/50",
+                        isSelected &&
+                          "border-primary bg-primary/5 ring-1 ring-primary",
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {option.label}
+                    </button>
+                  );
+                })}
+                <p className="col-span-2 text-xs leading-5 text-muted-foreground">
+                  This preference is saved in this browser and applied
+                  immediately.
+                </p>
+                <div className="col-span-2 mt-2 border-t border-border pt-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <TextSizeIcon className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Text size</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TEXT_SIZES.map((option) => {
+                      const isSelected = textSize.size === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => textSize.setSize(option.value)}
+                          aria-pressed={isSelected}
+                          className={cn(
+                            "rounded-lg border px-2 py-2.5 text-center font-medium transition-colors hover:bg-accent/50",
+                            option.value === "small" && "text-xs",
+                            option.value === "default" && "text-sm",
+                            option.value === "large" && "text-base",
+                            isSelected &&
+                              "border-primary bg-primary/5 ring-1 ring-primary",
+                          )}
                         >
-                          {workspaceForm.formState.errors.name.message}
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LayoutTemplate className="h-5 w-5 text-primary" />
+                  Design theme
+                </CardTitle>
+                <CardDescription>
+                  Pick the layout, navigation pattern, spacing, and typographic
+                  character. Your selected colour theme is applied across each
+                  design.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-2">
+                {DESIGN_THEMES.map((option) => {
+                  const isSelected = designTheme.theme === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => designTheme.setTheme(option.value)}
+                      aria-pressed={isSelected}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent/50",
+                        isSelected && "border-primary ring-1 ring-primary",
+                      )}
+                    >
+                      <div
+                        data-design-theme={option.value}
+                        aria-hidden="true"
+                        className="pointer-events-none flex h-14 w-20 shrink-0 overflow-hidden rounded-[var(--radius)] border bg-background"
+                      >
+                        {option.layout === "topnav" ? (
+                          <div className="flex w-full flex-col">
+                            <div className="h-3 w-full bg-primary" />
+                            <div className="flex-1 p-1.5">
+                              <div className="h-full rounded-[var(--radius)] border bg-card shadow-sm" />
+                            </div>
+                          </div>
+                        ) : option.layout === "sidebar-compact" ? (
+                          <div className="flex h-full w-full">
+                            <div className="flex h-full w-3.5 flex-col items-center gap-1 bg-primary py-1.5">
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground/80" />
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground/50" />
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground/50" />
+                            </div>
+                            <div className="flex-1 p-1.5">
+                              <div className="h-full rounded-[var(--radius)] border bg-card shadow-sm" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex h-full w-full">
+                            <div className="h-full w-4 bg-primary" />
+                            <div className="flex-1 p-1.5">
+                              <div className="h-full rounded-[var(--radius)] border bg-card shadow-sm" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-sm font-medium text-foreground">
+                            {option.label}
+                          </span>
+                          {isSelected ? (
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                          ) : null}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {option.description}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+                <p className="text-xs leading-5 text-muted-foreground">
+                  This preference is saved in this browser and applied
+                  immediately.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-primary" />
+                  Color theme
+                </CardTitle>
+                <CardDescription>
+                  Choose the colour wash used across navigation, the workspace
+                  canvas, active states, and pipeline accents.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3">
+                <label htmlFor="color-theme" className="text-sm font-medium">
+                  Theme
+                </label>
+                <Select
+                  value={colorTheme.theme}
+                  onValueChange={(value) =>
+                    colorTheme.setTheme(value as ColorTheme)
+                  }
+                >
+                  <SelectTrigger id="color-theme">
+                    <SelectValue placeholder="Select a color theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLOR_THEMES.map((theme) => (
+                      <SelectItem key={theme.value} value={theme.value}>
+                        {theme.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  This preference is saved in this browser and applied
+                  immediately.
+                </p>
+              </CardContent>
+            </Card>
+            </section>
+          ) : null}
+
+          {section === "break-reminders" ? (
+            <section aria-label="Break reminders" className="grid gap-6">
+              <BreakReminderSettingsCard />
+            </section>
+          ) : null}
+
+          {section === "workspaces" ? (
+            <section aria-label="Workspaces" className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-primary" />
+                      Workspaces
+                    </CardTitle>
+                    <CardDescription>
+                      Every research workspace you can access, and switching between
+                      them.
+                    </CardDescription>
+                  </div>
+                  {workspaces.data ? (
+                    <Badge variant="outline" className="w-fit px-3 py-1">
+                      {workspaceOptions.length}{" "}
+                      {workspaceOptions.length === 1 ? "workspace" : "workspaces"}
+                    </Badge>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-6">
+                {workspaces.isPending ? (
+                  <LoadingState
+                    title="Loading your workspaces"
+                    className="min-h-[30vh]"
+                  />
+                ) : workspaces.isError ? (
+                  <ErrorState
+                    title="Your workspaces could not be loaded"
+                    description={workspaces.error.message}
+                    onRetry={() => void workspaces.refetch()}
+                  />
+                ) : (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {workspaceOptions.map((option) => {
+                        const isCurrent = option.id === workspace.data?.id;
+                        const isSwitching =
+                          switchWorkspace.isPending &&
+                          switchWorkspace.variables === option.id;
+                        const isDeleting =
+                          deleteWorkspaceMutation.isPending &&
+                          deleteWorkspaceMutation.variables === option.id;
+
+                        return (
+                          <Card
+                            key={option.id}
+                            className={
+                              isCurrent
+                                ? "border-primary/40 bg-accent/35"
+                                : "transition-colors hover:border-primary/20 hover:bg-muted/35"
+                            }
+                          >
+                            <CardHeader>
+                              <div className="flex items-start justify-between gap-4">
+                                <span className="rounded-xl bg-primary/10 p-3 text-primary">
+                                  <Building2 className="h-5 w-5" />
+                                </span>
+                                {isCurrent ? (
+                                  <Badge className="gap-1">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    Current
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              <CardTitle className="pt-2">{option.name}</CardTitle>
+                              <CardDescription className="truncate">
+                                {option.slug}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="mb-5 flex items-center gap-2 text-sm text-muted-foreground">
+                                <Crown className="h-4 w-4 text-amber-500" />
+                                <span>Owner</span>
+                              </div>
+                              <Button
+                                className="w-full"
+                                variant={isCurrent ? "outline" : "default"}
+                                disabled={
+                                  isCurrent ||
+                                  switchWorkspace.isPending ||
+                                  deleteWorkspaceMutation.isPending
+                                }
+                                onClick={() => void switchToWorkspace(option.id)}
+                              >
+                                {isCurrent
+                                  ? "Active workspace"
+                                  : isSwitching
+                                    ? "Switching…"
+                                    : "Switch workspace"}
+                                {!isCurrent && !isSwitching ? (
+                                  <ArrowRight className="h-4 w-4" />
+                                ) : null}
+                              </Button>
+                              <Button
+                                className="mt-2 w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                variant="ghost"
+                                disabled={
+                                  switchWorkspace.isPending ||
+                                  deleteWorkspaceMutation.isPending
+                                }
+                                onClick={() =>
+                                  void deleteWorkspace(option.id, option.name)
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                {isDeleting ? "Deleting…" : "Delete workspace"}
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                    {switchWorkspace.isError ? (
+                      <p role="alert" className="text-sm text-destructive">
+                        {switchWorkspace.error.message}
+                      </p>
+                    ) : null}
+                    {deleteWorkspaceMutation.isError ? (
+                      <p role="alert" className="text-sm text-destructive">
+                        {deleteWorkspaceMutation.error.message}
+                      </p>
+                    ) : null}
+
+                    <div className="border-t pt-6">
+                      <p className="flex items-center gap-2 text-sm font-semibold">
+                        <Plus className="h-4 w-4 text-primary" />
+                        Create another workspace
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        You will become the owner and the new workspace will become
+                        active.
+                      </p>
+                      <form
+                        className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start"
+                        onSubmit={workspaceForm.handleSubmit(submitCreateWorkspace)}
+                      >
+                        <div className="flex-1">
+                          <label htmlFor="new-workspace-name" className="sr-only">
+                            Workspace name
+                          </label>
+                          <Input
+                            id="new-workspace-name"
+                            placeholder="Workspace name"
+                            {...workspaceForm.register("name")}
+                          />
+                          {workspaceForm.formState.errors.name ? (
+                            <p
+                              role="alert"
+                              className="mt-1 text-xs text-destructive"
+                            >
+                              {workspaceForm.formState.errors.name.message}
+                            </p>
+                          ) : null}
+                        </div>
+                        <Button
+                          type="submit"
+                          disabled={createWorkspaceMutation.isPending}
+                        >
+                          {createWorkspaceMutation.isPending
+                            ? "Creating…"
+                            : "Create workspace"}
+                        </Button>
+                      </form>
+                      {createWorkspaceMutation.isError ? (
+                        <p role="alert" className="mt-3 text-sm text-destructive">
+                          {createWorkspaceMutation.error.message}
                         </p>
                       ) : null}
                     </div>
-                    <Button
-                      type="submit"
-                      disabled={createWorkspaceMutation.isPending}
-                    >
-                      {createWorkspaceMutation.isPending
-                        ? "Creating…"
-                        : "Create workspace"}
-                    </Button>
-                  </form>
-                  {createWorkspaceMutation.isError ? (
-                    <p role="alert" className="mt-3 text-sm text-destructive">
-                      {createWorkspaceMutation.error.message}
-                    </p>
-                  ) : null}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+              <WorkspaceMembers className="grid gap-6" />
+            </section>
+          ) : null}
+
+          {section === "paper-pipeline-stages" ? (
+            <section aria-label="Paper stages" className="grid gap-6">
+              {workspace.data?.id ? (
+                <PaperStageSettings tenantId={workspace.data.id} />
+              ) : null}
+            </section>
+          ) : null}
+
+          {section === "account" ? (
+            <section aria-label="Account and security" className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  Account status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Badge variant="outline" className="capitalize">
+                  {me.data.status}
+                </Badge>
+                <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
+                  User ID: {me.data.id}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-primary" />
+                  Change password
+                </CardTitle>
+                <CardDescription>
+                  Confirm your current password, then choose a new password with
+                  at least 8 characters.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                {passwordUpdated ? (
+                  <p
+                    role="status"
+                    className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400"
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> Password changed
+                    successfully.
+                  </p>
+                ) : null}
+                <Button
+                  type="button"
+                  className="w-fit"
+                  onClick={openPasswordDialog}
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Change password
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-destructive/40">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <Trash2 className="h-5 w-5" />
+                  Delete account
+                </CardTitle>
+                <CardDescription>
+                  Permanently remove your account and all data connected to it.
+                  This cannot be undone.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    resetDeleteAccountDialog();
+                    setDeleteAccountDialogOpen(true);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete account
+                </Button>
+              </CardContent>
+            </Card>
+            </section>
+          ) : null}
+
+          <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <Link
+              to="/terms"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Terms of Service
+            </Link>
+            <Link
+              to="/privacy"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
       </div>
 
-      {workspace.data?.id ? (
-        <div
-          id="paper-pipeline-stages"
-          className="mx-auto mt-7 w-full max-w-5xl scroll-mt-6"
-        >
-          <PaperStageSettings tenantId={workspace.data.id} />
-        </div>
-      ) : null}
+      <Dialog
+        open={passwordDialogOpen}
+        onOpenChange={handlePasswordDialogOpenChange}
+      >
+        <DialogContent className="max-w-sm">
+          {passwordStep === "current" ? (
+            <form
+              className="grid gap-5"
+              onSubmit={passwordForm.handleSubmit(submitCurrentPassword)}
+            >
+              <DialogHeader>
+                <DialogTitle>Confirm current password</DialogTitle>
+                <DialogDescription>
+                  Enter your current password before choosing a new one.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-2">
+                <label
+                  htmlFor="current-password"
+                  className="text-sm font-medium"
+                >
+                  Current password
+                </label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  {...passwordForm.register("currentPassword")}
+                />
+                {passwordForm.formState.errors.currentPassword ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {passwordForm.formState.errors.currentPassword.message}
+                  </p>
+                ) : null}
+              </div>
+              {passwordSubmitError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {passwordSubmitError}
+                </p>
+              ) : null}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isPasswordSubmitting}
+                  onClick={() => handlePasswordDialogOpenChange(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPasswordSubmitting}>
+                  {isPasswordSubmitting ? "Checking…" : "Continue"}
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : (
+            <form
+              className="grid gap-5"
+              onSubmit={passwordForm.handleSubmit(submitPasswordChange)}
+            >
+              <DialogHeader>
+                <DialogTitle>Choose a new password</DialogTitle>
+                <DialogDescription>
+                  Use at least 8 characters and enter the same password
+                  twice.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-2">
+                <label
+                  htmlFor="settings-new-password"
+                  className="text-sm font-medium"
+                >
+                  New password
+                </label>
+                <Input
+                  id="settings-new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  {...passwordForm.register("newPassword")}
+                />
+                {passwordForm.formState.errors.newPassword ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {passwordForm.formState.errors.newPassword.message}
+                  </p>
+                ) : null}
+              </div>
+              <div className="grid gap-2">
+                <label
+                  htmlFor="settings-confirm-password"
+                  className="text-sm font-medium"
+                >
+                  Confirm new password
+                </label>
+                <Input
+                  id="settings-confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                  {...passwordForm.register("confirmPassword")}
+                />
+                {passwordForm.formState.errors.confirmPassword ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    {passwordForm.formState.errors.confirmPassword.message}
+                  </p>
+                ) : null}
+              </div>
+              {passwordSubmitError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {passwordSubmitError}
+                </p>
+              ) : null}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isPasswordSubmitting}
+                  onClick={() => {
+                    passwordForm.clearErrors();
+                    setPasswordSubmitError(null);
+                    setPasswordStep("current");
+                  }}
+                >
+                  Back
+                </Button>
+                <Button type="submit" disabled={isPasswordSubmitting}>
+                  {isPasswordSubmitting ? "Saving…" : "Save new password"}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
-      <WorkspaceMembers />
+      <Dialog
+        open={deleteAccountDialogOpen}
+        onOpenChange={handleDeleteAccountDialogOpenChange}
+      >
+        <DialogContent className="max-w-md">
+          <form className="grid gap-5" onSubmit={submitDeleteAccount}>
+            <DialogHeader>
+              <DialogTitle className="text-destructive">
+                Permanently delete your account?
+              </DialogTitle>
+              <DialogDescription>
+                This action is irreversible. Your Supabase login and
+                application data will be removed.
+              </DialogDescription>
+            </DialogHeader>
 
-      <p className="mx-auto mt-2 flex w-full max-w-5xl flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <Link
-          to="/terms"
-          className="underline underline-offset-2 hover:text-foreground"
-        >
-          Terms of Service
-        </Link>
-        <Link
-          to="/privacy"
-          className="underline underline-offset-2 hover:text-foreground"
-        >
-          Privacy Policy
-        </Link>
-      </p>
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+              <p className="font-semibold text-destructive">
+                This permanently deletes:
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+                <li>
+                  Your profile, preferences, memberships, and collaborator
+                  access
+                </li>
+                <li>Workspaces you own and everything stored in them</li>
+                <li>
+                  Projects, papers, tasks, notes, conferences, and
+                  invitations you own
+                </li>
+              </ul>
+            </div>
+
+            <div className="grid gap-2">
+              <label
+                htmlFor="delete-account-password"
+                className="text-sm font-medium"
+              >
+                Current password
+              </label>
+              <Input
+                id="delete-account-password"
+                type="password"
+                autoComplete="current-password"
+                value={deleteAccountPassword}
+                onChange={(event) =>
+                  setDeleteAccountPassword(event.target.value)
+                }
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label
+                htmlFor="delete-account-confirmation"
+                className="text-sm font-medium"
+              >
+                Type DELETE to confirm
+              </label>
+              <Input
+                id="delete-account-confirmation"
+                value={deleteAccountConfirmation}
+                onChange={(event) =>
+                  setDeleteAccountConfirmation(event.target.value)
+                }
+                autoComplete="off"
+                required
+              />
+            </div>
+
+            {deleteAccountError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {deleteAccountError}
+              </p>
+            ) : null}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={deleteAccountMutation.isPending}
+                onClick={() => handleDeleteAccountDialogOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={
+                  !deleteAccountPassword || deleteAccountMutation.isPending
+                }
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleteAccountMutation.isPending
+                  ? "Deleting account…"
+                  : "Permanently delete account"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
