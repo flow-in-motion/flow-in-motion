@@ -10,6 +10,7 @@ import {
   useTasks,
 } from "@/api/hooks";
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
+import { MultiSelectFilter } from "@/components/dashboard/multi-select-filter";
 import { priorityBadgeClass } from "@/components/dashboard/priority-badge-styles";
 import { SortableHeader } from "@/components/shared/sortable-header";
 import { LoggedTime } from "@/components/time-tracking/logged-time";
@@ -25,13 +26,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -44,7 +38,8 @@ import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
-const PRIORITY_FILTERS = ["All", "Critical", "High", "Medium", "Low"] as const;
+/** Several can be ticked at once; none ticked shows every priority. */
+const PRIORITY_OPTIONS = ["Critical", "High", "Medium", "Low"] as const;
 const TASK_COLUMNS = [
   { id: "task", label: "Task" },
   { id: "project", label: "Project/paper" },
@@ -60,7 +55,6 @@ const PRIORITY_ORDER: Record<string, number> = {
   Low: 3,
 };
 
-type PriorityFilter = (typeof PRIORITY_FILTERS)[number];
 type SortColumn = (typeof TASK_COLUMNS)[number]["id"];
 type SortDirection = "asc" | "desc";
 
@@ -92,11 +86,11 @@ export function PriorityTasksTable() {
     "",
   );
 
-  const [priority, setPriority] = useSessionListState<PriorityFilter>(
+  const [priorities, setPriorities] = useSessionListState<Set<string>>(
     me.data?.id,
     tenantId,
-    "dashboard-tasks:priority",
-    "All",
+    "dashboard-tasks:priorities",
+    () => new Set(),
   );
 
   const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
@@ -168,7 +162,9 @@ export function PriorityTasksTable() {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     const matchingRows = rows.filter((row) => {
-      if (priority !== "All" && row.priority !== priority) return false;
+      if (priorities.size > 0 && !priorities.has(row.priority ?? "")) {
+        return false;
+      }
       if (
         query &&
         !row.project.toLowerCase().includes(query) &&
@@ -236,13 +232,22 @@ export function PriorityTasksTable() {
       const directed = comparison * (sortDirection === "asc" ? 1 : -1);
       return directed || a.task.localeCompare(b.task);
     });
-  }, [rows, search, priority, sortColumn, sortDirection]);
+  }, [rows, search, priorities, sortColumn, sortDirection]);
 
-  const hasActiveFilters = search !== "" || priority !== "All";
+  const hasActiveFilters = search !== "" || priorities.size > 0;
 
   function clearFilters() {
     setSearch("");
-    setPriority("All");
+    setPriorities(new Set());
+  }
+
+  function togglePriority(value: string) {
+    setPriorities((current) => {
+      const next = new Set(current);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
   }
 
   function handleSort(column: SortColumn) {
@@ -273,21 +278,14 @@ export function PriorityTasksTable() {
             placeholder="Search project or task…"
             className="sm:max-w-xs"
           />
-          <Select
-            value={priority}
-            onValueChange={(value) => setPriority(value as PriorityFilter)}
-          >
-            <SelectTrigger className="sm:w-40">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              {PRIORITY_FILTERS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option === "All" ? "All priorities" : option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <MultiSelectFilter
+            options={PRIORITY_OPTIONS}
+            selected={priorities}
+            pluralLabel="priorities"
+            triggerClassName="sm:w-40"
+            onToggle={togglePriority}
+            onClear={() => setPriorities(new Set())}
+          />
           <ColumnVisibilityMenu
             columns={TASK_COLUMNS}
             visibleColumns={columns.visibleColumns}

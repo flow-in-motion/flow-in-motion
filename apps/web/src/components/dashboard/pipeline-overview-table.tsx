@@ -7,12 +7,12 @@ import {
 import {
   ArrowDown,
   ArrowUp,
-  ChevronDown,
   Maximize2,
   Table2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSessionListState } from "@/hooks/use-session-list-state";
+import { MultiSelectFilter } from "@/components/dashboard/multi-select-filter";
 
 import {
   useCurrentWorkspace,
@@ -45,13 +45,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -92,74 +85,6 @@ const PAPER_STATUS_FILTERS = [
   "Stalled",
   "Complete",
 ] as const;
-
-interface MultiSelectFilterProps {
-  options: readonly string[];
-  selected: ReadonlySet<string>;
-  pluralLabel: string;
-  triggerClassName: string;
-  onToggle: (value: string) => void;
-  onClear: () => void;
-}
-
-function MultiSelectFilter({
-  options,
-  selected,
-  pluralLabel,
-  triggerClassName,
-  onToggle,
-  onClear,
-}: MultiSelectFilterProps) {
-  const triggerLabel =
-    selected.size === 0
-      ? `All ${pluralLabel}`
-      : selected.size === 1
-        ? [...selected][0]
-        : `${selected.size} ${pluralLabel}`;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={cn("justify-between gap-2", triggerClassName)}
-          aria-label={`Filter by ${pluralLabel}`}
-        >
-          <span className="truncate">{triggerLabel}</span>
-          <ChevronDown
-            className="h-4 w-4 shrink-0 opacity-50"
-            aria-hidden="true"
-          />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="max-h-72 min-w-64 overflow-y-auto"
-      >
-        <DropdownMenuCheckboxItem
-          checked={selected.size === 0}
-          onSelect={(event) => event.preventDefault()}
-          onCheckedChange={onClear}
-        >
-          All {pluralLabel}
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuSeparator />
-        {options.map((option) => (
-          <DropdownMenuCheckboxItem
-            key={option}
-            checked={selected.has(option)}
-            onSelect={(event) => event.preventDefault()}
-            onCheckedChange={() => onToggle(option)}
-          >
-            {option}
-          </DropdownMenuCheckboxItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 export function PipelineOverviewTable() {
   const workspace = useCurrentWorkspace();

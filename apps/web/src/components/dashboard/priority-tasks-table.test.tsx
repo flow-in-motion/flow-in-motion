@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -187,6 +187,42 @@ describe("PriorityTasksTable", () => {
       "Alpha task",
       "Zulu task",
       "Middle task",
+    ]);
+  });
+
+  it("filters by several priorities at once, like the pipeline filters", async () => {
+    render(
+      <MemoryRouter>
+        <PriorityTasksTable />
+      </MemoryRouter>,
+    );
+    const taskNames = () =>
+      screen
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("href")?.startsWith("/tasks/"))
+        .map((link) => link.textContent)
+        .sort();
+    const filter = screen.getByRole("button", { name: "Filter by priorities" });
+    expect(filter).toHaveTextContent("All priorities");
+
+    fireEvent.keyDown(filter, { key: "Enter" });
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Critical" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "High" }));
+    // The menu stays open while ticking.
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+
+    expect(filter).toHaveTextContent("2 priorities");
+    expect(taskNames()).toEqual(["Middle task", "Zulu task"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(filter).toHaveTextContent("All priorities");
+    expect(taskNames()).toEqual([
+      "Alpha task",
+      "Bravo task",
+      "Middle task",
+      "Zulu task",
     ]);
   });
 
