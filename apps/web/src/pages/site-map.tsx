@@ -2,6 +2,7 @@ import { Map, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { navGroups } from "@/config/nav-items";
+import { BackButton } from "@/components/shared/back-button";
 import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function SiteMapPage() {
   return (
     <div className="min-h-full pb-12">
-      <div className="mx-auto w-full max-w-5xl">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
+        {/* Opened from Settings, so that's where Back goes without history. */}
+        <BackButton fallback="/settings" label="Back" />
         <PageHeading
           tone="violet"
           icon={Map}

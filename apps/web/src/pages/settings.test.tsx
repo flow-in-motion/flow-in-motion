@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -205,20 +205,56 @@ describe("SettingsPage", () => {
     mockDeleteAccount.mockReset().mockResolvedValue(undefined);
   });
 
-  it("scrolls straight to the paper pipeline stages section when linked in with a hash", () => {
-    const scrollIntoView = vi.fn();
-    HTMLElement.prototype.scrollIntoView = scrollIntoView;
-
+  it("opens the paper stages section when linked in with a hash", () => {
     render(
       <MemoryRouter initialEntries={["/settings#paper-pipeline-stages"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
 
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      behavior: "smooth",
-      block: "start",
-    });
+    const menu = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(within(menu).getByRole("link", { name: "Paper stages" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("region", { name: "Paper stages" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Profile" })).toBeNull();
+  });
+
+  it("shows one section at a time, starting with Profile", () => {
+    render(
+      <MemoryRouter initialEntries={["/settings"]}>
+        <SettingsPage />
+      </MemoryRouter>,
+    );
+
+    const menu = screen.getByRole("navigation", { name: "Settings sections" });
+    expect(
+      within(menu)
+        .getAllByRole("link")
+        .map((link) => link.textContent),
+    ).toEqual([
+      "Profile",
+      "Appearance",
+      "Break reminders",
+      "Workspaces",
+      "Paper stages",
+      "Account & security",
+    ]);
+    // This user hasn't finished their profile, so the menu flags it.
+    expect(
+      within(menu).getByRole("link", { name: "Profile Needs your details" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("region", { name: "Profile" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Appearance" })).toBeNull();
+
+    fireEvent.click(within(menu).getByRole("link", { name: "Break reminders" }));
+
+    expect(screen.getByRole("region", { name: "Break reminders" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Profile" })).toBeNull();
+    expect(
+      within(menu).getByRole("link", { name: "Break reminders" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("reminds an incomplete user and saves their professional profile", () => {
@@ -259,7 +295,7 @@ describe("SettingsPage", () => {
 
   it("selects a design theme from the preview picker", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#appearance"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -271,7 +307,7 @@ describe("SettingsPage", () => {
 
   it("selects dark appearance independently of design and color themes", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#appearance"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -282,7 +318,7 @@ describe("SettingsPage", () => {
 
   it("selects a larger text size", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#appearance"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -293,7 +329,7 @@ describe("SettingsPage", () => {
 
   it("selects a color theme independently of the design theme", () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#appearance"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -308,7 +344,7 @@ describe("SettingsPage", () => {
     "changes the password to an eight-character or longer value: %s",
     async (password) => {
       render(
-        <MemoryRouter>
+        <MemoryRouter initialEntries={["/settings#account"]}>
           <SettingsPage />
         </MemoryRouter>,
       );
@@ -342,7 +378,7 @@ describe("SettingsPage", () => {
 
   it("rejects a seven-character new password", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#account"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -374,7 +410,7 @@ describe("SettingsPage", () => {
 
   it("does not change the password when the new passwords do not match", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#account"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -405,7 +441,7 @@ describe("SettingsPage", () => {
       new Error("Invalid login credentials"),
     );
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#account"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -427,7 +463,7 @@ describe("SettingsPage", () => {
 
   it("permanently deletes the account after password and typed confirmation", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#account"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -458,7 +494,7 @@ describe("SettingsPage", () => {
 
   it("requires DELETE to be typed exactly before deleting the account", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#account"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -483,7 +519,7 @@ describe("SettingsPage", () => {
 
   it("shows the workspace list and creates a new workspace, all from Settings", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#workspaces"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -509,7 +545,7 @@ describe("SettingsPage", () => {
   it("deletes a workspace after the user confirms", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#workspaces"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
@@ -527,7 +563,7 @@ describe("SettingsPage", () => {
   it("does not delete a workspace when the user cancels the confirmation", () => {
     vi.spyOn(window, "confirm").mockReturnValue(false);
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/settings#workspaces"]}>
         <SettingsPage />
       </MemoryRouter>,
     );
