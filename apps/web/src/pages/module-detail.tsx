@@ -73,6 +73,8 @@ import {
   LinkedTasksPanel,
   PanelToggleButton,
 } from "@/components/shared/linked-items-panels";
+import { TaskTimeSummary } from "@/components/time-tracking/task-time-summary";
+import { TaskTimerButton } from "@/components/time-tracking/task-timer-button";
 import { TagInput } from "@/components/shared/tag-input";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
@@ -215,6 +217,15 @@ function ModuleTasksDetails({
       visible={visible}
       onToggleVisible={onToggleVisible}
       onUnlink={onUnlinkTask}
+      summary={
+        <TaskTimeSummary
+          tasks={tasks}
+          label="Time logged on this paper against the estimates"
+        />
+      }
+      renderTaskAction={(task) => (
+        <TaskTimerButton taskId={task.id} taskTitle={task.title} />
+      )}
       unlinkLabel={(task) => `Unlink ${task.title} from this module`}
       actions={
         <>

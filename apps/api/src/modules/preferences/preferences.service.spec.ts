@@ -1,3 +1,4 @@
+import { BreakRemindersDto } from './dto/update-account-preferences.dto';
 import { PreferencesRepository } from './preferences.repository';
 import { PreferencesService } from './preferences.service';
 
@@ -35,6 +36,48 @@ describe('PreferencesService', () => {
       'user-1',
       preferences,
     );
+  });
+
+  it('saves break reminder settings alongside display preferences', async () => {
+    repository.updateAccount.mockImplementation(
+      (_userId: string, preferences: unknown) => ({ preferences }),
+    );
+    const breakReminders = Object.assign(new BreakRemindersDto(), {
+      enabled: true,
+      workMinutes: 25,
+      breakMinutes: 5,
+      notifications: false,
+    });
+
+    await service.updateAccount('user-1', { breakReminders });
+
+    expect(repository.updateAccount).toHaveBeenCalledWith('user-1', {
+      breakReminders: {
+        enabled: true,
+        workMinutes: 25,
+        breakMinutes: 5,
+        notifications: false,
+      },
+    });
+  });
+
+  it('keeps the chime setting when it is sent', async () => {
+    repository.updateAccount.mockImplementation(
+      (_userId: string, preferences: unknown) => ({ preferences }),
+    );
+    const breakReminders = Object.assign(new BreakRemindersDto(), {
+      enabled: true,
+      workMinutes: 50,
+      breakMinutes: 10,
+      notifications: true,
+      sound: false,
+    });
+
+    await service.updateAccount('user-1', { breakReminders });
+
+    expect(repository.updateAccount).toHaveBeenCalledWith('user-1', {
+      breakReminders: expect.objectContaining({ sound: false }),
+    });
   });
 
   it('sanitizes workspace layouts and ignores unknown table keys', async () => {

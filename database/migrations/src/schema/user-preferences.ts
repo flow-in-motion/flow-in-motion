@@ -2,11 +2,25 @@ import { jsonb, pgTable, primaryKey, timestamp, uuid } from 'drizzle-orm/pg-core
 import { tenants } from './tenants';
 import { users } from './users';
 
+/** Reminders to take a break while a task timer runs. */
+export interface BreakReminderPreference {
+  enabled: boolean;
+  /** Minutes of continuous work before a reminder. */
+  workMinutes: number;
+  /** How long the suggested break is. */
+  breakMinutes: number;
+  /** Also show a system notification when the app is in the background. */
+  notifications: boolean;
+  /** Play a chime with the reminder (on when not set). */
+  sound?: boolean;
+}
+
 export interface AccountPreferenceValues {
   appearanceTheme?: string;
   designTheme?: string;
   colorTheme?: string;
   textSize?: string;
+  breakReminders?: BreakReminderPreference;
 }
 
 export interface DashboardLayoutPreference {

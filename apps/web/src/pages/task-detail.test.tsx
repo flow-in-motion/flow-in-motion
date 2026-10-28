@@ -57,6 +57,7 @@ const fixtures = vi.hoisted(() => ({
   ],
 }));
 
+vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({ data: { id: "workspace-1" }, isPending: false }),
   useMyTask: () => ({
@@ -203,6 +204,24 @@ describe("TaskDetailPage", () => {
     }];
   }
 
+  it("offers the task timer and shows the time logged against the estimate", () => {
+    fixtures.task.estimatedHours = "2";
+    Object.assign(fixtures.task, { loggedSeconds: 2700 });
+    renderTask();
+
+    expect(
+      screen.getByRole("button", {
+        name: "Start timer for Draft literature review",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Logged").parentElement).toHaveTextContent(
+      "Logged45m",
+    );
+    expect(screen.getByRole("heading", { name: "Time" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add time" })).toBeInTheDocument();
+    Object.assign(fixtures.task, { loggedSeconds: undefined });
+  });
+
   it("resolves linked names outside the first page, including a shared record", () => {
     fixtures.task.tenantId = "other-workspace";
     fixtures.task.moduleId = "module-outside-page";
@@ -344,6 +363,8 @@ describe("TaskDetailPage", () => {
 
   it.each([
     { label: "fractional hours", draft: "3.5", expected: "3.5" },
+    { label: "a quarter hour", draft: "0.25", expected: "0.25" },
+    { label: "three quarters of an hour", draft: "1.75", expected: "1.75" },
     { label: "zero hours", draft: "0", expected: "0" },
     { label: "cleared hours", draft: "", expected: null },
   ])("saves $label from the header", async ({ draft, expected }) => {
@@ -355,13 +376,13 @@ describe("TaskDetailPage", () => {
     );
 
     const dialog = screen.getByRole("dialog");
+    const hours = within(dialog).getByRole("spinbutton", {
+      name: "Estimated hours",
+    });
+    // Quarter hours are allowed (0.25, 0.75, …).
+    expect(hours).toHaveAttribute("step", "0.25");
 
-    fireEvent.change(
-      within(dialog).getByRole("spinbutton", {
-        name: "Estimated hours",
-      }),
-      { target: { value: draft } },
-    );
+    fireEvent.change(hours, { target: { value: draft } });
 
     expect(fixtures.updateTask).not.toHaveBeenCalled();
 
@@ -831,7 +852,9 @@ describe("TaskDetailPage", () => {
     expect(screen.getByText("Due date")).toBeInTheDocument();
     expect(screen.getByText("15/04/2026")).toBeInTheDocument();
     expect(screen.getByText("Estimated hours")).toBeInTheDocument();
-    expect(screen.getByText("3.5h")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Change estimated hours" }),
+    ).toHaveTextContent("3h 30m");
     expect(screen.getByText("Visibility")).toBeInTheDocument();
     expect(screen.getByText("Private")).toBeInTheDocument();
     expect(screen.getByText("Working with")).toBeInTheDocument();

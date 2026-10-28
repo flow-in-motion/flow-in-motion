@@ -35,6 +35,7 @@ vi.mock("@/auth/auth-provider", () => ({
   }),
 }));
 
+vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", () => ({
   useMe: () => ({
     data: mockMe,

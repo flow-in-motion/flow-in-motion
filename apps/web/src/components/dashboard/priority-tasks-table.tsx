@@ -12,6 +12,9 @@ import {
 import { ColumnVisibilityMenu } from "@/components/dashboard/column-visibility-menu";
 import { priorityBadgeClass } from "@/components/dashboard/priority-badge-styles";
 import { SortableHeader } from "@/components/shared/sortable-header";
+import { LoggedTime } from "@/components/time-tracking/logged-time";
+import { formatEstimate } from "@/lib/time-format";
+import { TaskTimerButton } from "@/components/time-tracking/task-timer-button";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -46,6 +49,7 @@ const TASK_COLUMNS = [
   { id: "task", label: "Task" },
   { id: "project", label: "Project/paper" },
   { id: "est", label: "Est. hours" },
+  { id: "logged", label: "Logged" },
   { id: "due", label: "Due" },
   { id: "priority", label: "Priority" },
 ] as const;
@@ -153,6 +157,7 @@ export function PriorityTasksTable() {
         estimatedHours: task.estimatedHours
           ? Number(task.estimatedHours)
           : null,
+        loggedSeconds: task.loggedSeconds ?? 0,
         dueDate: task.dueDate,
         due: formatDueDate(task.dueDate),
         overdue: Boolean(task.dueDate && task.dueDate < today),
@@ -194,6 +199,9 @@ export function PriorityTasksTable() {
           } else {
             comparison = a.estimatedHours - b.estimatedHours;
           }
+          break;
+        case "logged":
+          comparison = a.loggedSeconds - b.loggedSeconds;
           break;
         case "due":
           if (!a.dueDate && !b.dueDate) {
@@ -330,12 +338,15 @@ export function PriorityTasksTable() {
                 <TableRow key={row.id}>
                   {columns.isColumnVisible("task") ? (
                     <TableCell className="font-medium">
-                      <Link
-                        to={`/tasks/${row.id}`}
-                        className="text-foreground hover:text-primary hover:underline"
-                      >
-                        {row.task}
-                      </Link>
+                      <span className="flex items-center gap-1.5">
+                        <TaskTimerButton taskId={row.id} taskTitle={row.task} />
+                        <Link
+                          to={`/tasks/${row.id}`}
+                          className="text-foreground hover:text-primary hover:underline"
+                        >
+                          {row.task}
+                        </Link>
+                      </span>
                     </TableCell>
                   ) : null}
                   {columns.isColumnVisible("project") ? (
@@ -361,9 +372,14 @@ export function PriorityTasksTable() {
                   ) : null}
                   {columns.isColumnVisible("est") ? (
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {row.estimatedHours !== null
-                        ? `${row.estimatedHours}h`
-                        : "—"}
+                      {formatEstimate(row.estimatedHours)}
+                    </TableCell>
+                  ) : null}
+                  {columns.isColumnVisible("logged") ? (
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      <LoggedTime
+                        task={{ id: row.id, loggedSeconds: row.loggedSeconds }}
+                      />
                     </TableCell>
                   ) : null}
                   {columns.isColumnVisible("due") ? (

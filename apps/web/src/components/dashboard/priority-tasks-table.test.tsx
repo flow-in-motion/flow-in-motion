@@ -66,6 +66,7 @@ const fixtures = vi.hoisted(() => ({
   ] as FixtureTask[],
 }));
 
+vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({ data: { id: "workspace-1" } }),
   useMe: () => ({ data: { id: "user-1" } }),
@@ -220,7 +221,7 @@ describe("PriorityTasksTable", () => {
     ]);
   });
 
-  it("shows estimated hours before Due and sorts by them, blanks last", () => {
+  it("shows estimated then logged hours before Due and sorts by them, blanks last", () => {
     render(
       <MemoryRouter>
         <PriorityTasksTable />
@@ -230,8 +231,9 @@ describe("PriorityTasksTable", () => {
     const headers = screen
       .getAllByRole("columnheader")
       .map((header) => header.textContent);
-    expect(headers.indexOf("Est. hours")).toBe(headers.indexOf("Due") - 1);
-    expect(screen.getByText("1.5h")).toBeInTheDocument();
+    expect(headers.indexOf("Est. hours")).toBe(headers.indexOf("Logged") - 1);
+    expect(headers.indexOf("Logged")).toBe(headers.indexOf("Due") - 1);
+    expect(screen.getByText("1h 30m")).toBeInTheDocument();
 
     const taskNames = () =>
       screen

@@ -48,6 +48,7 @@ const fixtures = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", () => ({
   useModule: (_tenantId: string, moduleId: string) => ({
     data: fixtures.modules.find((module) => module.id === moduleId),

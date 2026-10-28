@@ -448,7 +448,7 @@ export function TaskDialog({
                 id="task-hours"
                 type="number"
                 min="0"
-                step="0.5"
+                step="0.25"
                 value={form.estimatedHours}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, estimatedHours: event.target.value }))

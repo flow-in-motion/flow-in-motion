@@ -171,6 +171,7 @@ const fixtures = vi.hoisted(() => ({
     },
   ],
 }));
+vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", () => ({
   useModuleConferencePresentations: () => ({
     data: {

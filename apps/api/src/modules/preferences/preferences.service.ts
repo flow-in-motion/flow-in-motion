@@ -68,7 +68,20 @@ export class PreferencesService {
   }
 
   async updateAccount(userId: string, input: UpdateAccountPreferencesDto) {
-    const patch: AccountPreferenceValues = input;
+    const { breakReminders, ...display } = input;
+    const patch: AccountPreferenceValues = { ...display };
+    if (breakReminders) {
+      // Saved as plain fields, whatever else the request carried.
+      patch.breakReminders = {
+        enabled: breakReminders.enabled,
+        workMinutes: breakReminders.workMinutes,
+        breakMinutes: breakReminders.breakMinutes,
+        notifications: breakReminders.notifications,
+      };
+      if (breakReminders.sound !== undefined) {
+        patch.breakReminders.sound = breakReminders.sound;
+      }
+    }
     const updated = await this.repository.updateAccount(userId, patch);
     if (!updated)
       throw new InternalServerErrorException('Preferences could not be saved');

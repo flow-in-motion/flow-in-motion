@@ -9,6 +9,7 @@ import { ProjectModulesRepository } from '../../project-modules/repositories/pro
 import { ProjectsRepository } from '../../projects/repositories/projects.repository';
 import { TaskMembersRepository } from '../../task-members/repositories/task-members.repository';
 import { TenantSequencesRepository } from '../../tenant-sequences/repositories/tenant-sequences.repository';
+import { TaskTimeEntriesRepository } from '../repositories/task-time-entries.repository';
 import { TasksRepository } from '../repositories/tasks.repository';
 import {
   assertAllFits,
@@ -26,6 +27,7 @@ export class TasksService {
     private readonly taskMembers: TaskMembersRepository,
     private readonly modulesRepository: ProjectModulesRepository,
     private readonly projectsRepository: ProjectsRepository,
+    private readonly timeEntries: TaskTimeEntriesRepository,
   ) {}
 
   /**
@@ -116,7 +118,10 @@ export class TasksService {
 
     assertAllFits(pageSize, totalItems);
 
-    const shaped = await this.withDisplayValues(rows);
+    const shaped = await this.withLoggedTime(
+      await this.withDisplayValues(rows),
+      callerUserId,
+    );
 
     return {
       data: shaped,
@@ -130,7 +135,10 @@ export class TasksService {
     if (!task || !(await this.canAccess(tenantId, task, callerUserId))) {
       throw new NotFoundException('Task not found');
     }
-    const [shaped] = await this.withDisplayValues([task]);
+    const [shaped] = await this.withLoggedTime(
+      await this.withDisplayValues([task]),
+      callerUserId,
+    );
     const descriptionEntries = await this.repository.findDescriptionEntries(
       tenantId,
       taskId,
@@ -154,7 +162,10 @@ export class TasksService {
     const ownIds = new Set(ownTasks.map((task) => task.id));
     const extraIds = memberTaskIds.filter((id) => !ownIds.has(id));
     const memberTasks = await this.repository.findByIds(extraIds);
-    return this.withDisplayValues([...ownTasks, ...memberTasks]);
+    return this.withLoggedTime(
+      await this.withDisplayValues([...ownTasks, ...memberTasks]),
+      callerUserId,
+    );
   }
 
   /** Tenant-agnostic single-task fetch — see listForCaller. */
@@ -163,7 +174,10 @@ export class TasksService {
     if (!task || !(await this.canAccess(task.tenantId, task, callerUserId))) {
       throw new NotFoundException('Task not found');
     }
-    const [shaped] = await this.withDisplayValues([task]);
+    const [shaped] = await this.withLoggedTime(
+      await this.withDisplayValues([task]),
+      callerUserId,
+    );
     const descriptionEntries = await this.repository.findDescriptionEntries(
       task.tenantId,
       task.id,
@@ -242,7 +256,13 @@ export class TasksService {
       task.id,
     );
 
-    return { ...shaped, descriptionEntries };
+    // A new task has no time logged yet.
+    return {
+      ...shaped,
+      loggedSeconds: 0,
+      myLoggedSeconds: 0,
+      descriptionEntries,
+    };
   }
 
   async update(
@@ -314,7 +334,10 @@ export class TasksService {
       await this.taskMembers.deleteAllForTask(tenantId, taskId);
     }
 
-    const [shaped] = await this.withDisplayValues([task]);
+    const [shaped] = await this.withLoggedTime(
+      await this.withDisplayValues([task]),
+      callerUserId,
+    );
     const descriptionEntries = await this.repository.findDescriptionEntries(
       tenantId,
       taskId,
@@ -495,6 +518,26 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
     return this.delete(task.tenantId, taskId, callerUserId);
+  }
+
+  /**
+   * Adds the time logged on each task: loggedSeconds (everyone) and
+   * myLoggedSeconds (the caller). A timer stretch that is running right now
+   * isn't included; the app adds it live.
+   */
+  private async withLoggedTime<T extends { id: string }>(
+    rows: T[],
+    callerUserId: string,
+  ) {
+    const totals = await this.timeEntries.totalsForTasks(
+      rows.map((row) => row.id),
+      callerUserId,
+    );
+    return rows.map((row) => ({
+      ...row,
+      loggedSeconds: totals.get(row.id)?.totalSeconds ?? 0,
+      myLoggedSeconds: totals.get(row.id)?.mySeconds ?? 0,
+    }));
   }
 
   private async withDisplayValues<
