@@ -36,6 +36,9 @@ vi.mock("@/auth/auth-provider", () => ({
 }));
 
 vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
+vi.mock("@/components/reminders/due-reminder-settings", () => ({
+  DueReminderSettingsCard: () => <p>Due-date reminder settings</p>,
+}));
 vi.mock("@/api/hooks", () => ({
   useMe: () => ({
     data: mockMe,
@@ -236,6 +239,7 @@ describe("SettingsPage", () => {
     ).toEqual([
       "Profile",
       "Appearance",
+      "Due-date reminders",
       "Break reminders",
       "Workspaces",
       "Paper stages",

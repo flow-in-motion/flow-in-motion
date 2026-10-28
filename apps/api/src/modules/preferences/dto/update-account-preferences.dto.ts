@@ -1,6 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -53,6 +56,38 @@ export class BreakRemindersDto {
   sound?: boolean;
 }
 
+/** How many days before a due date a reminder can come. */
+export const DUE_REMINDER_LEAD_DAYS = [0, 1, 2, 3, 7, 14] as const;
+/** What due-date reminders can cover. */
+export const DUE_REMINDER_TYPES = [
+  'tasks',
+  'papers',
+  'projects',
+  'events',
+  'funding',
+  'notes',
+] as const;
+
+export class DueRemindersDto {
+  @ApiProperty({ enum: DUE_REMINDER_LEAD_DAYS, isArray: true })
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(DUE_REMINDER_LEAD_DAYS.length)
+  @IsIn(DUE_REMINDER_LEAD_DAYS, { each: true })
+  leadDays!: number[];
+
+  @ApiProperty({ description: 'Keep reminding about overdue items' })
+  @IsBoolean()
+  overdue!: boolean;
+
+  @ApiProperty({ enum: DUE_REMINDER_TYPES, isArray: true })
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(DUE_REMINDER_TYPES.length)
+  @IsIn(DUE_REMINDER_TYPES, { each: true })
+  types!: string[];
+}
+
 export class UpdateAccountPreferencesDto {
   @ApiProperty({ required: false, enum: ['light', 'dark'] })
   @IsOptional()
@@ -82,4 +117,10 @@ export class UpdateAccountPreferencesDto {
   @ValidateNested()
   @Type(() => BreakRemindersDto)
   breakReminders?: BreakRemindersDto;
+
+  @ApiProperty({ required: false, type: DueRemindersDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DueRemindersDto)
+  dueReminders?: DueRemindersDto;
 }

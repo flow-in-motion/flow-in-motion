@@ -73,6 +73,12 @@ export interface AccountPreferences {
     notifications: boolean;
     sound?: boolean;
   };
+  /** Due-date reminders in the bell. */
+  dueReminders?: {
+    leadDays: number[];
+    overdue: boolean;
+    types: string[];
+  };
 }
 export interface DashboardLayoutPreference {
   order: string[];

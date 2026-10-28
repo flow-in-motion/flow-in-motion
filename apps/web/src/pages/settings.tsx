@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
+  Bell,
   Building2,
   CheckCircle2,
   Coffee,
@@ -70,6 +71,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { BreakReminderSettingsCard } from "@/components/time-tracking/break-reminder-settings";
+import { DueReminderSettingsCard } from "@/components/reminders/due-reminder-settings";
 import {
   COLOR_THEMES,
   type ColorTheme,
@@ -112,6 +114,7 @@ type PasswordStep = "current" | "new";
 const SETTINGS_SECTIONS = [
   { id: "profile", label: "Profile", icon: UserRound },
   { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "due-reminders", label: "Due-date reminders", icon: Bell },
   { id: "break-reminders", label: "Break reminders", icon: Coffee },
   { id: "workspaces", label: "Workspaces", icon: Building2 },
   { id: "paper-pipeline-stages", label: "Paper stages", icon: Workflow },
@@ -780,6 +783,12 @@ export default function SettingsPage() {
                 </p>
               </CardContent>
             </Card>
+            </section>
+          ) : null}
+
+          {section === "due-reminders" ? (
+            <section aria-label="Due-date reminders" className="grid gap-6">
+              <DueReminderSettingsCard />
             </section>
           ) : null}
 

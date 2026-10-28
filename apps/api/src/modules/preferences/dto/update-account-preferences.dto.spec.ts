@@ -46,3 +46,29 @@ describe('break reminder preferences', () => {
     ).resolves.toEqual(['breakReminders']);
   });
 });
+
+describe('due reminder preferences', () => {
+  const valid = {
+    leadDays: [7, 1, 0],
+    overdue: true,
+    types: ['tasks', 'papers', 'events'],
+  };
+
+  it('accepts the offered choices', async () => {
+    await expect(errors({ dueReminders: valid })).resolves.toEqual([]);
+    await expect(
+      errors({ dueReminders: { leadDays: [], overdue: false, types: [] } }),
+    ).resolves.toEqual([]);
+  });
+
+  it.each([
+    ['a time that is not offered', { leadDays: [5] }],
+    ['the same time twice', { leadDays: [1, 1] }],
+    ['an unknown kind of item', { types: ['meetings'] }],
+    ['an overdue setting that is not true or false', { overdue: 'yes' }],
+  ])('rejects %s', async (_label, change) => {
+    await expect(
+      errors({ dueReminders: { ...valid, ...change } }),
+    ).resolves.toEqual(['dueReminders']);
+  });
+});

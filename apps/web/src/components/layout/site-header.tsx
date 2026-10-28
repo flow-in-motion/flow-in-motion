@@ -3,6 +3,7 @@ import { Menu } from "lucide-react";
 
 import { NavTree } from "@/components/layout/nav-tree";
 import { UserMenu } from "@/components/layout/user-menu";
+import { DueRemindersBell } from "@/components/reminders/due-reminders-bell";
 import { Wordmark } from "@/components/layout/wordmark";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +23,8 @@ export function SiteHeader() {
       <div>
         <Wordmark />
       </div>
-      <div>
+      <div className="flex items-center gap-1">
+        <DueRemindersBell />
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Open menu">

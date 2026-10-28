@@ -1,4 +1,5 @@
 import { NavTree } from "@/components/layout/nav-tree";
+import { DueRemindersBell } from "@/components/reminders/due-reminders-bell";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Wordmark } from "@/components/layout/wordmark";
 
@@ -6,8 +7,9 @@ import { Wordmark } from "@/components/layout/wordmark";
 export function Sidebar() {
   return (
     <aside className="app-sidebar sticky top-0 hidden h-screen w-[16.5rem] shrink-0 flex-col overflow-hidden border-r lg:flex xl:w-[17rem]">
-      <div className="flex h-[4.875rem] shrink-0 items-center border-b px-5">
+      <div className="flex h-[4.875rem] shrink-0 items-center justify-between gap-2 border-b pl-5 pr-3">
         <Wordmark />
+        <DueRemindersBell />
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-5 [scrollbar-color:hsl(var(--nav-border))_transparent] [scrollbar-width:thin]">
         <NavTree />

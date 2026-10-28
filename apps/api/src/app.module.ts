@@ -28,6 +28,7 @@ import { CalendarEventsModule } from './modules/calendar-events/calendar-events.
 import { ModuleSubmissionsModule } from './modules/module-submissions/module-submissions.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { PreferencesModule } from './modules/preferences/preferences.module';
+import { DueRemindersModule } from './modules/due-reminders/due-reminders.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { FundingsModule } from './modules/fundings/fundings.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
@@ -105,6 +106,7 @@ import { DataExportModule } from './modules/data-export/data-export.module';
     ModuleSubmissionsModule,
     FeedbackModule,
     PreferencesModule,
+    DueRemindersModule,
     AnalyticsModule,
     FundingsModule,
     DataExportModule,
