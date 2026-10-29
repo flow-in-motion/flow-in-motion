@@ -389,9 +389,9 @@ export default function SettingsPage() {
       )}
 
 
-      <div className="mx-auto mt-7 grid w-full max-w-5xl gap-6 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
-        <nav aria-label="Settings sections" className="lg:sticky lg:top-16">
-          <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
+      <div className="mx-auto mt-7 grid w-full max-w-5xl grid-cols-1 gap-6">
+        <nav aria-label="Settings sections" className="min-w-0">
+        <ul className="flex flex-wrap gap-2">
             {SETTINGS_SECTIONS.map((item) => {
               const active = item.id === section;
               return (
