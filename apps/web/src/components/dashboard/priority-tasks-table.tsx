@@ -71,7 +71,9 @@ export function PriorityTasksTable() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
   const me = useMe();
-  const tasksQuery = useTasks(tenantId);
+  const tasksQuery = useTasks(tenantId, undefined, 1, true, {
+    pageSize: "all",
+  });
   const tasks = tasksQuery.data?.data ?? [];
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
