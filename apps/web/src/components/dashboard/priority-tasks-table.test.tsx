@@ -70,7 +70,19 @@ vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({ data: { id: "workspace-1" } }),
   useMe: () => ({ data: { id: "user-1" } }),
-  useTasks: () => ({ data: { data: fixtures.tasks } }),
+  useTasks: (
+    _tenantId?: string,
+    _projectId?: string,
+    _page?: number,
+    _enabled?: boolean,
+    options?: { pageSize?: number | "all" },
+  ) => ({
+    data: {
+      data: options?.pageSize === "all"
+        ? fixtures.tasks
+        : fixtures.tasks.slice(0, options?.pageSize ?? 20),
+    },
+  }),
   useProjects: () => ({ data: { data: fixtures.projects } }),
   useModules: () => ({ data: { data: [] } }),
 }));
@@ -113,6 +125,64 @@ describe("PriorityTasksTable", () => {
       }
     },
   );
+
+  it("finds selected priorities beyond the first task page", async () => {
+    const originalTasks = fixtures.tasks;
+
+    fixtures.tasks = [
+      ...Array.from({ length: 20 }, (_, index) => ({
+        id: `low-task-${index}`,
+        title: `Low priority task ${index}`,
+        status: "To do",
+        priority: "Low",
+        dueDate: null,
+        estimatedHours: null,
+        projectId: "project-zeta",
+        moduleId: null,
+      })),
+      ...originalTasks.filter(
+        (task) => task.priority === "Critical" || task.priority === "High",
+      ),
+    ];
+
+    try {
+      render(
+        <MemoryRouter>
+          <PriorityTasksTable />
+        </MemoryRouter>,
+      );
+
+      fireEvent.keyDown(
+        screen.getByRole("button", { name: "Filter by priorities" }),
+        { key: "Enter" },
+      );
+
+      fireEvent.click(
+        screen.getByRole("menuitemcheckbox", { name: "Critical" }),
+      );
+      fireEvent.click(
+        screen.getByRole("menuitemcheckbox", { name: "High" }),
+      );
+
+      fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+
+      await waitFor(() => {
+        expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      });
+
+      expect(
+        screen.getByRole("link", { name: "Middle task" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: "Zulu task" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("link", { name: /^Low priority task/ }),
+      ).not.toBeInTheDocument();
+    } finally {
+      fixtures.tasks = originalTasks;
+    }
+  });
 
   it("sorts Task, Project, Due, and Priority and reverses the active column", () => {
     render(
