@@ -1,6 +1,5 @@
 import type { LucideIcon} from "lucide-react";
 import {
-  Activity,
   BarChart3,
   BookOpen,
   Calendar,
@@ -96,11 +95,6 @@ export const navGroups: NavGroup[] = [
         label: "Journal rankings & research lists",
         to: "/future/journal-rankings-research-lists",
         icon: List,
-      },
-      {
-        label: "Log real time activity",
-        to: "/future/log-real-time-activity",
-        icon: Activity,
       },
       {
         label: "Reviews, HDR examinations",
