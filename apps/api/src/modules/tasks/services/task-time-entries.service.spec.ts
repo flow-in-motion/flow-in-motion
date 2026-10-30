@@ -10,6 +10,7 @@ import {
 } from '../repositories/task-time-entries.repository';
 import { TasksRepository } from '../repositories/tasks.repository';
 import { TaskTimeEntriesService } from './task-time-entries.service';
+import { ProjectModulesRepository } from '../../project-modules/repositories/project-modules.repository';
 
 const USER = 'user-1';
 
@@ -17,6 +18,7 @@ function entry(overrides: Partial<TimeEntryRow> = {}): TimeEntryRow {
   return {
     id: 'entry-1',
     taskId: 'task-1',
+    moduleId: null,
     tenantId: 'tenant-1',
     userId: USER,
     source: 'timer',
@@ -33,8 +35,10 @@ function entry(overrides: Partial<TimeEntryRow> = {}): TimeEntryRow {
 describe('TaskTimeEntriesService', () => {
   let service: TaskTimeEntriesService;
   let repository: Record<
-    | 'findOpen'
-    | 'lockOpen'
+    | 'findAllOpen'
+    | 'lockOpenEntry'
+    | 'lockOpenForTask'
+    | 'lockOpenForPaper'
     | 'startTimer'
     | 'pause'
     | 'resume'
@@ -44,16 +48,21 @@ describe('TaskTimeEntriesService', () => {
     | 'findOwn'
     | 'updateFinished'
     | 'deleteFinished'
-    | 'totalsForTasks',
+    | 'totalsForTasks'
+    | 'findForPaper'
+    | 'totalsForPapers',
     jest.Mock
   >;
   let tasks: { findByIdGlobal: jest.Mock };
   let taskMembers: { findByTaskAndUser: jest.Mock };
+  let papers: { findByIdGlobal: jest.Mock };
 
   beforeEach(() => {
     repository = {
-      findOpen: jest.fn().mockResolvedValue(undefined),
-      lockOpen: jest.fn().mockResolvedValue(undefined),
+      findAllOpen: jest.fn().mockResolvedValue([]),
+      lockOpenEntry: jest.fn().mockResolvedValue(undefined),
+      lockOpenForTask: jest.fn().mockResolvedValue(undefined),
+      lockOpenForPaper: jest.fn().mockResolvedValue(undefined),
       startTimer: jest.fn().mockResolvedValue({ id: 'entry-new' }),
       pause: jest.fn(),
       resume: jest.fn(),
@@ -64,6 +73,8 @@ describe('TaskTimeEntriesService', () => {
       updateFinished: jest.fn(),
       deleteFinished: jest.fn(),
       totalsForTasks: jest.fn().mockResolvedValue(new Map()),
+      findForPaper: jest.fn().mockResolvedValue([]),
+      totalsForPapers: jest.fn().mockResolvedValue(new Map()),
     };
     tasks = {
       findByIdGlobal: jest.fn().mockResolvedValue({
@@ -74,63 +85,82 @@ describe('TaskTimeEntriesService', () => {
       }),
     };
     taskMembers = { findByTaskAndUser: jest.fn().mockResolvedValue(undefined) };
+    papers = {
+      findByIdGlobal: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new TaskTimeEntriesService(
       repository as unknown as TaskTimeEntriesRepository,
       tasks as unknown as TasksRepository,
       taskMembers as unknown as TaskMembersRepository,
+      papers as unknown as ProjectModulesRepository,
     );
   });
 
   describe('current', () => {
-    it('is null when no timer is open', async () => {
-      await expect(service.current(USER)).resolves.toBeNull();
+    it('returns an empty list when no timers are open', async () => {
+      await expect(service.current(USER)).resolves.toEqual([]);
     });
 
-    it('reports the task and the time so far', async () => {
-      repository.findOpen.mockResolvedValue({
-        ...entry({ durationSeconds: 600, runningSeconds: 120 }),
-        taskTitle: 'Literature review',
-        taskDisplayId: 'TSK-0007',
-      });
-
-      await expect(service.current(USER)).resolves.toEqual(
-        expect.objectContaining({
-          taskId: 'task-1',
+    it('reports multiple task timers independently', async () => {
+      repository.findAllOpen.mockResolvedValue([
+        {
+          ...entry({
+            id: 'entry-1',
+            durationSeconds: 600,
+            runningSeconds: 120,
+          }),
           taskTitle: 'Literature review',
           taskDisplayId: 'TSK-0007',
+        },
+        {
+          ...entry({
+            id: 'entry-2',
+            taskId: 'task-2',
+            durationSeconds: 300,
+            runningSince: null,
+            runningSeconds: 0,
+          }),
+          taskTitle: 'Draft introduction',
+          taskDisplayId: 'TSK-0008',
+        },
+      ]);
+
+      await expect(service.current(USER)).resolves.toEqual([
+        expect.objectContaining({
+          id: 'entry-1',
+          taskId: 'task-1',
           isRunning: true,
-          durationSeconds: 600,
-          runningSeconds: 120,
           elapsedSeconds: 720,
         }),
-      );
-    });
-
-    it("doesn't count a running stretch while paused", async () => {
-      repository.findOpen.mockResolvedValue({
-        ...entry({
-          runningSince: null,
-          durationSeconds: 600,
-          runningSeconds: 0,
+        expect.objectContaining({
+          id: 'entry-2',
+          taskId: 'task-2',
+          isRunning: false,
+          elapsedSeconds: 300,
         }),
-        taskTitle: 'Literature review',
-        taskDisplayId: null,
-      });
-
-      await expect(service.current(USER)).resolves.toEqual(
-        expect.objectContaining({ isRunning: false, elapsedSeconds: 600 }),
-      );
+      ]);
     });
 
-    it('stops a timer on a task the person can no longer see', async () => {
-      repository.findOpen.mockResolvedValue({
-        ...entry(),
-        taskTitle: null,
-        taskDisplayId: null,
-      });
+    it('stops an inaccessible timer while retaining accessible ones', async () => {
+      repository.findAllOpen.mockResolvedValue([
+        {
+          ...entry(),
+          taskTitle: null,
+          taskDisplayId: null,
+        },
+        {
+          ...entry({ id: 'entry-2', taskId: 'task-2' }),
+          taskTitle: 'Accessible task',
+          taskDisplayId: null,
+        },
+      ]);
 
-      await expect(service.current(USER)).resolves.toBeNull();
+      await expect(service.current(USER)).resolves.toEqual([
+        expect.objectContaining({ id: 'entry-2' }),
+      ]);
+
+      expect(repository.stop).toHaveBeenCalledTimes(1);
       expect(repository.stop).toHaveBeenCalledWith('entry-1', USER);
     });
   });
@@ -166,22 +196,30 @@ describe('TaskTimeEntriesService', () => {
       });
     });
 
-    it('stops the timer on another task first', async () => {
-      repository.lockOpen.mockResolvedValue(
-        entry({ id: 'entry-old', taskId: 'task-other' }),
-      );
+    it('starts a task without stopping another task timer', async () => {
+      repository.findAllOpen.mockResolvedValue([
+        {
+          ...entry({ id: 'entry-other', taskId: 'task-other' }),
+          taskTitle: 'Other task',
+          taskDisplayId: null,
+        },
+      ]);
 
       await service.start(USER, 'task-1');
 
-      expect(repository.stop).toHaveBeenCalledWith('entry-old', USER);
-      expect(repository.startTimer).toHaveBeenCalled();
-      const [stoppedAt] = repository.stop.mock.invocationCallOrder;
-      const [startedAt] = repository.startTimer.mock.invocationCallOrder;
-      expect(stoppedAt).toBeLessThan(startedAt ?? 0);
+      expect(repository.lockOpenForTask).toHaveBeenCalledWith('task-1', USER);
+      expect(repository.startTimer).toHaveBeenCalledWith({
+        tenantId: 'tenant-1',
+        taskId: 'task-1',
+        userId: USER,
+      });
+      expect(repository.stop).not.toHaveBeenCalled();
     });
 
     it('resumes a paused timer on the same task instead of starting over', async () => {
-      repository.lockOpen.mockResolvedValue(entry({ runningSince: null }));
+      repository.lockOpenForTask.mockResolvedValue(
+        entry({ runningSince: null }),
+      );
 
       await service.start(USER, 'task-1');
 
@@ -190,7 +228,7 @@ describe('TaskTimeEntriesService', () => {
     });
 
     it('leaves a timer already running on the same task alone', async () => {
-      repository.lockOpen.mockResolvedValue(entry());
+      repository.lockOpenForTask.mockResolvedValue(entry());
 
       await service.start(USER, 'task-1');
 
@@ -212,36 +250,45 @@ describe('TaskTimeEntriesService', () => {
 
   describe('pause and resume', () => {
     it('needs an open timer', async () => {
-      await expect(service.pause(USER)).rejects.toThrow(NotFoundException);
-      await expect(service.resume(USER)).rejects.toThrow(NotFoundException);
+      await expect(service.pause(USER, 'entry-1')).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.resume(USER, 'entry-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('pauses a running timer', async () => {
-      repository.lockOpen.mockResolvedValue(entry());
-      await service.pause(USER);
+      repository.lockOpenEntry.mockResolvedValue(entry());
+      await service.pause(USER, 'entry-1');
       expect(repository.pause).toHaveBeenCalledWith('entry-1', USER);
     });
 
     it("doesn't pause a paused timer again", async () => {
-      repository.lockOpen.mockResolvedValue(entry({ runningSince: null }));
-      await service.pause(USER);
+      repository.lockOpenEntry.mockResolvedValue(entry({ runningSince: null }));
+      await service.pause(USER, 'entry-1');
       expect(repository.pause).not.toHaveBeenCalled();
     });
 
     it('resumes a paused timer', async () => {
-      repository.lockOpen.mockResolvedValue(entry({ runningSince: null }));
-      await service.resume(USER);
+      repository.lockOpenEntry.mockResolvedValue(entry({ runningSince: null }));
+      await service.resume(USER, 'entry-1');
       expect(repository.resume).toHaveBeenCalledWith('entry-1', USER);
     });
   });
 
   describe('stop', () => {
-    it('is null when nothing is open', async () => {
-      await expect(service.stop(USER)).resolves.toBeNull();
+    it('rejects a missing or inaccessible open timer', async () => {
+      await expect(service.stop(USER, 'entry-1')).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(repository.lockOpenEntry).toHaveBeenCalledWith('entry-1', USER);
+      expect(repository.stop).not.toHaveBeenCalled();
     });
 
     it('returns the finished entry', async () => {
-      repository.lockOpen.mockResolvedValue(entry());
+      repository.lockOpenEntry.mockResolvedValue(entry());
       repository.stop.mockResolvedValue(
         entry({
           endedAt: new Date('2026-10-28T01:30:00Z'),
@@ -250,7 +297,7 @@ describe('TaskTimeEntriesService', () => {
         }),
       );
 
-      await expect(service.stop(USER)).resolves.toEqual(
+      await expect(service.stop(USER, 'entry-1')).resolves.toEqual(
         expect.objectContaining({
           id: 'entry-1',
           isOpen: false,
@@ -398,6 +445,253 @@ describe('TaskTimeEntriesService', () => {
       await expect(service.remove('entry-1', USER)).resolves.toEqual({
         id: 'entry-1',
         taskId: 'task-1',
+      });
+    });
+  });
+  describe('paper time tracking', () => {
+    beforeEach(() => {
+      papers.findByIdGlobal.mockResolvedValue({
+        id: 'paper-1',
+        tenantId: 'tenant-1',
+        shortTitle: 'Burnout contagion',
+        title: 'Burnout contagion in research teams',
+        displayId: 'PAP-0001',
+      });
+    });
+
+    it('starts a paper without stopping an existing task timer', async () => {
+      repository.findAllOpen.mockResolvedValue([
+        {
+          ...entry(),
+          taskTitle: 'Existing task',
+          taskDisplayId: null,
+        },
+      ]);
+
+      await service.startPaper(USER, 'paper-1');
+
+      expect(repository.startTimer).toHaveBeenCalledWith({
+        tenantId: 'tenant-1',
+        moduleId: 'paper-1',
+        userId: USER,
+      });
+      expect(repository.stop).not.toHaveBeenCalled();
+    });
+
+    it('starts a task without stopping an existing paper timer', async () => {
+      repository.findAllOpen.mockResolvedValue([
+        {
+          ...entry({
+            id: 'entry-paper',
+            taskId: null,
+            moduleId: 'paper-1',
+          }),
+          taskTitle: null,
+          taskDisplayId: null,
+          paperTitle: 'Burnout contagion',
+          paperDisplayId: 'PAP-0001',
+        },
+      ]);
+
+      await service.start(USER, 'task-1');
+
+      expect(repository.startTimer).toHaveBeenCalledWith({
+        tenantId: 'tenant-1',
+        taskId: 'task-1',
+        userId: USER,
+      });
+      expect(repository.stop).not.toHaveBeenCalled();
+    });
+
+    it('returns two paper timers running simultaneously', async () => {
+      papers.findByIdGlobal.mockImplementation((id: string) =>
+        Promise.resolve({
+          id,
+          tenantId: 'tenant-1',
+          shortTitle: id,
+          title: null,
+          displayId: null,
+        }),
+      );
+
+      repository.findAllOpen.mockResolvedValue([
+        {
+          ...entry({
+            id: 'entry-paper-1',
+            taskId: null,
+            moduleId: 'paper-1',
+          }),
+          taskTitle: null,
+          taskDisplayId: null,
+        },
+        {
+          ...entry({
+            id: 'entry-paper-2',
+            taskId: null,
+            moduleId: 'paper-2',
+          }),
+          taskTitle: null,
+          taskDisplayId: null,
+        },
+      ]);
+
+      await expect(service.current(USER)).resolves.toEqual([
+        expect.objectContaining({
+          moduleId: 'paper-1',
+          isRunning: true,
+        }),
+        expect.objectContaining({
+          moduleId: 'paper-2',
+          isRunning: true,
+        }),
+      ]);
+
+      expect(repository.stop).not.toHaveBeenCalled();
+    });
+
+    it('resumes the same paused paper timer without creating another entry', async () => {
+      repository.lockOpenForPaper.mockResolvedValue(
+        entry({
+          taskId: null,
+          moduleId: 'paper-1',
+          runningSince: null,
+        }),
+      );
+
+      await service.startPaper(USER, 'paper-1');
+
+      expect(repository.resume).toHaveBeenCalledWith('entry-1', USER);
+      expect(repository.startTimer).not.toHaveBeenCalled();
+      expect(repository.stop).not.toHaveBeenCalled();
+    });
+
+    it('rejects an inaccessible paper before stopping the current timer', async () => {
+      papers.findByIdGlobal.mockResolvedValue(undefined);
+      repository.lockOpenEntry.mockResolvedValue(entry());
+
+      await expect(service.startPaper(USER, 'paper-1')).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(repository.stop).not.toHaveBeenCalled();
+      expect(repository.startTimer).not.toHaveBeenCalled();
+    });
+
+    it('returns the paper title and elapsed time for the current timer', async () => {
+      repository.findAllOpen.mockResolvedValue([
+        {
+          ...entry({
+            taskId: null,
+            moduleId: 'paper-1',
+            durationSeconds: 600,
+            runningSeconds: 120,
+          }),
+          taskTitle: null,
+          taskDisplayId: null,
+          paperTitle: 'Burnout contagion',
+          paperDisplayId: 'PAP-0001',
+        },
+      ]);
+
+      await expect(service.current(USER)).resolves.toEqual([
+        expect.objectContaining({
+          taskId: null,
+          moduleId: 'paper-1',
+          paperTitle: 'Burnout contagion',
+          paperDisplayId: 'PAP-0001',
+          elapsedSeconds: 720,
+        }),
+      ]);
+    });
+
+    it('stops a paper timer when the paper is no longer accessible', async () => {
+      papers.findByIdGlobal.mockResolvedValue(undefined);
+      repository.findAllOpen.mockResolvedValue([
+        {
+          ...entry({ taskId: null, moduleId: 'paper-1' }),
+          taskTitle: null,
+          taskDisplayId: null,
+          paperTitle: null,
+          paperDisplayId: null,
+        },
+      ]);
+
+      await expect(service.current(USER)).resolves.toEqual([]);
+
+      expect(repository.stop).toHaveBeenCalledWith('entry-1', USER);
+    });
+
+    it('does not resume a paper timer after access is lost', async () => {
+      papers.findByIdGlobal.mockResolvedValue(undefined);
+      repository.lockOpenEntry.mockResolvedValue(
+        entry({
+          taskId: null,
+          moduleId: 'paper-1',
+          runningSince: null,
+        }),
+      );
+
+      await expect(service.resume(USER, 'entry-1')).rejects.toThrow(
+        NotFoundException,
+      );
+
+      expect(repository.resume).not.toHaveBeenCalled();
+    });
+
+    it('returns direct paper time separately from linked task time', async () => {
+      repository.findForPaper.mockResolvedValue([
+        entry({
+          taskId: null,
+          moduleId: 'paper-1',
+          endedAt: new Date(),
+          runningSince: null,
+          durationSeconds: 900,
+        }),
+      ]);
+      repository.totalsForPapers.mockResolvedValue(
+        new Map([['paper-1', { totalSeconds: 4500, mySeconds: 900 }]]),
+      );
+
+      await expect(service.listForPaper('paper-1', USER)).resolves.toEqual({
+        moduleId: 'paper-1',
+        entries: [
+          expect.objectContaining({
+            taskId: null,
+            moduleId: 'paper-1',
+            durationSeconds: 900,
+          }),
+        ],
+        mySeconds: 900,
+        totalSeconds: 4500,
+      });
+
+      expect(repository.totalsForTasks).not.toHaveBeenCalled();
+    });
+
+    it('adds manual time against the paper', async () => {
+      repository.addManual.mockResolvedValue(
+        entry({
+          taskId: null,
+          moduleId: 'paper-1',
+          source: 'manual',
+          endedAt: new Date(),
+          runningSince: null,
+        }),
+      );
+
+      await service.addManualForPaper('paper-1', USER, {
+        startedAt: '2026-10-27T09:00:00+11:00',
+        minutes: 90,
+        note: '  Revising the discussion  ',
+      });
+
+      expect(repository.addManual).toHaveBeenCalledWith({
+        tenantId: 'tenant-1',
+        moduleId: 'paper-1',
+        userId: USER,
+        startedAt: new Date('2026-10-27T09:00:00+11:00'),
+        durationSeconds: 5400,
+        note: 'Revising the discussion',
       });
     });
   });

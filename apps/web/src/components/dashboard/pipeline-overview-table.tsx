@@ -63,9 +63,9 @@ import {
 } from "@/components/ui/table";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
-import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { CurrentlyWithFilter } from "@/components/modules/currently-with-filter";
+import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
 
 const PIPELINE_COLUMNS = [
   { id: "paper", label: "Paper" },
@@ -475,16 +475,22 @@ const selectedCurrentlyWithInvitationIds = new Set(
               <TableRow key={row.id}>
                 {columns.isColumnVisible("paper") ? (
                   <TableCell
-                    className={cn("max-w-[220px] truncate font-medium")}
-                    title={row.name}
-                  >
-                    <Link
-                      to={`/modules/${row.id}`}
-                      className="text-primary hover:underline"
+                      className="max-w-[220px] font-medium"
+                      title={row.name}
                     >
-                      {row.name}
-                    </Link>
-                  </TableCell>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Link
+                          to={`/modules/${row.id}`}
+                          className="min-w-0 truncate text-primary hover:underline"
+                        >
+                          {row.name}
+                        </Link>
+                        <PaperTimerButton
+                          moduleId={row.id}
+                          paperTitle={row.name}
+                        />
+                      </div>
+                    </TableCell>
                 ) : null}
 
                 {columns.isColumnVisible("pipeline") ? (

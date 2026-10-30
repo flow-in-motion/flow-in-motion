@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { UsersService } from '../../users/users.service';
 import {
   CreateTimeEntryDto,
+  StartPaperTimerDto,
   StartTimerDto,
   UpdateTimeEntryDto,
 } from '../dto/time-entry.dto';
@@ -46,10 +47,12 @@ export class TimeEntriesController {
     return user.id;
   }
 
-  @ApiOperation({ summary: "The caller's running or paused timer, if any" })
+  @ApiOperation({ summary: "All the caller's running or paused timers" })
   @Get('time-entries/current')
   async current(@Req() req: AuthenticatedRequest) {
-    return { timer: await this.timeEntries.current(await this.userId(req)) };
+    return {
+      timers: await this.timeEntries.current(await this.userId(req)),
+    };
   }
 
   @ApiOperation({
@@ -62,22 +65,37 @@ export class TimeEntriesController {
     };
   }
 
-  @ApiOperation({ summary: 'Pause the running timer' })
-  @Post('time-entries/timer/pause')
-  async pause(@Req() req: AuthenticatedRequest) {
-    return { timer: await this.timeEntries.pause(await this.userId(req)) };
+  @ApiOperation({ summary: 'Pause one of your timers' })
+  @Post('time-entries/timer/:entryId/pause')
+  async pause(
+    @Req() req: AuthenticatedRequest,
+    @Param('entryId', ParseUUIDPipe) entryId: string,
+  ) {
+    return {
+      timer: await this.timeEntries.pause(await this.userId(req), entryId),
+    };
   }
 
-  @ApiOperation({ summary: 'Resume the paused timer' })
-  @Post('time-entries/timer/resume')
-  async resume(@Req() req: AuthenticatedRequest) {
-    return { timer: await this.timeEntries.resume(await this.userId(req)) };
+  @ApiOperation({ summary: 'Resume one of your timers' })
+  @Post('time-entries/timer/:entryId/resume')
+  async resume(
+    @Req() req: AuthenticatedRequest,
+    @Param('entryId', ParseUUIDPipe) entryId: string,
+  ) {
+    return {
+      timer: await this.timeEntries.resume(await this.userId(req), entryId),
+    };
   }
 
-  @ApiOperation({ summary: 'Stop the timer and keep the time logged' })
-  @Post('time-entries/timer/stop')
-  async stop(@Req() req: AuthenticatedRequest) {
-    return { stopped: await this.timeEntries.stop(await this.userId(req)) };
+  @ApiOperation({ summary: 'Stop one timer and retain its logged time' })
+  @Post('time-entries/timer/:entryId/stop')
+  async stop(
+    @Req() req: AuthenticatedRequest,
+    @Param('entryId', ParseUUIDPipe) entryId: string,
+  ) {
+    return {
+      stopped: await this.timeEntries.stop(await this.userId(req), entryId),
+    };
   }
 
   @ApiOperation({
@@ -118,5 +136,46 @@ export class TimeEntriesController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.timeEntries.remove(entryId, await this.userId(req));
+  }
+
+  @ApiOperation({
+    summary: 'Start timing a paper (stops any other timer first)',
+  })
+  @Post('time-entries/timer/start-paper')
+  async startPaper(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: StartPaperTimerDto,
+  ) {
+    return {
+      timer: await this.timeEntries.startPaper(
+        await this.userId(req),
+        dto.moduleId,
+      ),
+    };
+  }
+
+  @ApiOperation({
+    summary: "The caller's time entries on a paper, with the paper's totals",
+  })
+  @Get('modules/:moduleId/time-entries')
+  async listForPaper(
+    @Param('moduleId', ParseUUIDPipe) moduleId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.timeEntries.listForPaper(moduleId, await this.userId(req));
+  }
+
+  @ApiOperation({ summary: 'Add time to a paper by hand' })
+  @Post('modules/:moduleId/time-entries')
+  async addManualForPaper(
+    @Param('moduleId', ParseUUIDPipe) moduleId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateTimeEntryDto,
+  ) {
+    return this.timeEntries.addManualForPaper(
+      moduleId,
+      await this.userId(req),
+      dto,
+    );
   }
 }

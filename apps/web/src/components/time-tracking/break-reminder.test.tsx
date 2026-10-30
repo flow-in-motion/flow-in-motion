@@ -35,7 +35,10 @@ function timer(overrides: Partial<ApiTimer> = {}): ApiTimer {
 }
 
 function showTimer(value: ApiTimer | null) {
-  timeTrackingState.current = { timer: value, receivedAt: Date.now() };
+  timeTrackingState.current = {
+    timers: value ? [value] : [],
+    receivedAt: Date.now(),
+  };
 }
 
 beforeEach(() => {
@@ -92,7 +95,7 @@ describe("BreakReminder", () => {
     showTimer(timer({ runningSeconds: 50 * 60 }));
     timeTrackingState.pauseTimer = vi.fn(async () => {
       showTimer(timer({ isRunning: false, durationSeconds: 50 * 60 }));
-      return { timer: timeTrackingState.current.timer };
+      return { timer: timeTrackingState.current.timers[0] ?? null };
     });
     const { rerender } = render(<BreakReminder />);
 
@@ -220,6 +223,63 @@ describe("BreakReminder", () => {
       },
     ]);
   });
+  it("does not add overlapping timer durations together", () => {
+    timeTrackingState.current = {
+      timers: [
+        timer({ id: "entry-1", runningSeconds: 30 * 60 }),
+        timer({
+          id: "entry-2",
+          taskId: null,
+          moduleId: "paper-1",
+          taskTitle: null,
+          paperTitle: "Paper one",
+          runningSeconds: 30 * 60,
+        }),
+      ],
+      receivedAt: NOW,
+    };
+
+    render(<BreakReminder />);
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("pauses every running timer for a break, leaving paused timers alone", async () => {
+    timeTrackingState.current = {
+      timers: [
+        timer({ id: "entry-1", runningSeconds: 50 * 60 }),
+        timer({
+          id: "entry-2",
+          taskId: null,
+          moduleId: "paper-1",
+          taskTitle: null,
+          paperTitle: "Paper one",
+          runningSeconds: 20 * 60,
+        }),
+        timer({
+          id: "entry-3",
+          taskId: "task-3",
+          isRunning: false,
+        }),
+      ],
+      receivedAt: NOW,
+    };
+
+    render(<BreakReminder />);
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: "Take a 10-minute break",
+        }),
+      );
+    });
+
+    expect(timeTrackingState.pauseTimer).toHaveBeenCalledTimes(2);
+    expect(timeTrackingState.pauseTimer).toHaveBeenCalledWith("entry-1");
+    expect(timeTrackingState.pauseTimer).toHaveBeenCalledWith("entry-2");
+    expect(timeTrackingState.pauseTimer).not.toHaveBeenCalledWith("entry-3");
+  });
 });
 
 describe("RunningTimerBar during a break", () => {
@@ -236,12 +296,17 @@ describe("RunningTimerBar during a break", () => {
     setBreakState({ breakEndsAt: NOW + 4 * MINUTE });
     renderBar();
 
-    const bar = screen.getByRole("region", { name: "Task timer" });
+    const bar = screen.getByRole("region", { name: "Open timers" });
+
     expect(bar).toHaveTextContent("On a break");
-    expect(within(bar).getByRole("timer", { name: "Break time left" })).toHaveTextContent(
-      "04:00",
-    );
-    expect(within(bar).getByRole("button", { name: "End break" })).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("timer", { name: "Break time left" }),
+    ).toHaveTextContent("04:00");
+    expect(
+      within(bar).getByRole("button", {
+        name: "Resume timer for Literature review",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("says when the break is over", () => {
@@ -249,9 +314,14 @@ describe("RunningTimerBar during a break", () => {
     setBreakState({ breakEndsAt: NOW - 1 });
     renderBar();
 
-    const bar = screen.getByRole("region", { name: "Task timer" });
+    const bar = screen.getByRole("region", { name: "Open timers" });
+
     expect(bar).toHaveTextContent("Break's over");
-    expect(within(bar).getByRole("button", { name: "Resume" })).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("button", {
+        name: "Resume timer for Literature review",
+      }),
+    ).toBeInTheDocument();
   });
 });
 

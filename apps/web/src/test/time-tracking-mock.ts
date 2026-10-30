@@ -25,7 +25,7 @@ export const timeTrackingState: {
   /** What the Pause button does; replace it to simulate pausing. */
   pauseTimer: ReturnType<typeof vi.fn>;
 } = {
-  current: { timer: null, receivedAt: 0 },
+  current: { timers: [], receivedAt: 0 },
   taskTime: undefined,
   breakReminders: {
     enabled: true,
@@ -49,6 +49,8 @@ export const timeTrackingKeys = {
   current: ["api", "me", "time-entries", "current"] as const,
   task: (taskId: string) =>
     ["api", "me", "tasks", taskId, "time-entries"] as const,
+  paper: (moduleId: string) =>
+    ["api", "me", "modules", moduleId, "time-entries"] as const,
 };
 
 export function useCurrentTimer() {
@@ -56,14 +58,32 @@ export function useCurrentTimer() {
 }
 
 export function useLiveTimer() {
-  const timer = timeTrackingState.current.timer;
+  const current = timeTrackingState.current;
+
+  const timers = current.timers.map((timer) => {
+    const runningSeconds = timer.isRunning
+      ? timer.runningSeconds +
+        Math.max(0, (Date.now() - current.receivedAt) / 1000)
+      : 0;
+
+    return {
+      ...timer,
+      runningSeconds,
+      elapsedSeconds: timer.durationSeconds + runningSeconds,
+    };
+  });
+
   return {
     query: useCurrentTimer(),
-    timer,
-    elapsedSeconds: timer?.elapsedSeconds ?? 0,
-    runningSeconds: timer?.isRunning ? timer.runningSeconds : 0,
+    timers,
+    elapsedSecondsFor: (entryId: string, fallback = 0) =>
+      timers.find((timer) => timer.id === entryId)?.elapsedSeconds ??
+      fallback,
     extraSecondsFor: (taskId: string) =>
-      timer?.isRunning && timer.taskId === taskId ? timer.runningSeconds : 0,
+      timers.find((timer) => timer.taskId === taskId)?.runningSeconds ?? 0,
+    extraSecondsForPaper: (moduleId: string) =>
+      timers.find((timer) => timer.moduleId === moduleId)?.runningSeconds ??
+      0,
   };
 }
 
@@ -80,6 +100,21 @@ export function useTaskTime(taskId: string) {
     isError: false,
   };
 }
+export function usePaperTime(moduleId: string) {
+  return {
+    data: {
+      moduleId,
+      entries: [],
+      mySeconds: 0,
+      totalSeconds: 0,
+    },
+    isPending: false,
+    isError: false,
+  };
+}
+
+export const useStartPaperTimer = mutation;
+export const useAddPaperTimeEntry = mutation;
 
 export const useStartTimer = mutation;
 export function usePauseTimer() {

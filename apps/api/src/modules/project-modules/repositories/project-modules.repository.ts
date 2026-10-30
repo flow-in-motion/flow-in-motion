@@ -9,6 +9,7 @@ import {
   modules,
   projects,
   users,
+  taskTimeEntries,
 } from '@research-tracker/migrations';
 import {
   and,
@@ -53,6 +54,49 @@ export class ProjectModulesRepository {
       .limit(1);
 
     return Boolean(project);
+  }
+
+  /** Saved time logged directly on papers, excluding linked tasks. */
+  async totalsForPapers(
+    moduleIds: string[],
+    userId: string,
+  ): Promise<Map<string, { totalSeconds: number; mySeconds: number }>> {
+    const totals = new Map<
+      string,
+      { totalSeconds: number; mySeconds: number }
+    >();
+    const ids = [...new Set(moduleIds)];
+
+    if (ids.length === 0) return totals;
+
+    const rows = await this.drizzle.db
+      .select({
+        moduleId: taskTimeEntries.moduleId,
+        totalSeconds: sql<number>`
+            COALESCE(sum(${taskTimeEntries.durationSeconds}), 0)::int
+          `,
+        mySeconds: sql<number>`
+            COALESCE(
+              sum(${taskTimeEntries.durationSeconds})
+                FILTER (WHERE ${taskTimeEntries.userId} = ${userId}),
+              0
+            )::int
+          `,
+      })
+      .from(taskTimeEntries)
+      .where(inArray(taskTimeEntries.moduleId, ids))
+      .groupBy(taskTimeEntries.moduleId);
+
+    for (const row of rows) {
+      if (row.moduleId === null) continue;
+
+      totals.set(row.moduleId, {
+        totalSeconds: Number(row.totalSeconds),
+        mySeconds: Number(row.mySeconds),
+      });
+    }
+
+    return totals;
   }
 
   /**

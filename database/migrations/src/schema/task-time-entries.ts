@@ -13,6 +13,7 @@ import {
 import { tasks } from './tasks';
 import { tenants } from './tenants';
 import { users } from './users';
+import { modules } from './modules';
 
 /**
  * Time someone spent on a task: either a timer run (Start → Pause/Resume →
@@ -33,8 +34,9 @@ export const taskTimeEntries = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
     taskId: uuid('task_id')
-      .notNull()
       .references(() => tasks.id, { onDelete: 'cascade' }),
+    moduleId: uuid('module_id')
+      .references(() => modules.id, { onDelete: 'cascade' }),
     /** Whose time this is. Each person logs their own time. */
     userId: uuid('user_id')
       .notNull()
@@ -66,9 +68,23 @@ export const taskTimeEntries = pgTable(
       table.startedAt,
     ),
     /** One open timer per person: starting another stops the first. */
-    oneOpenTimerPerUser: uniqueIndex('task_time_entries_one_open_per_user_key')
-      .on(table.userId)
-      .where(sql`${table.endedAt} IS NULL`),
+        /** Each person can have one open timer on each task. */
+        oneOpenTimerPerTask: uniqueIndex(
+          'task_time_entries_one_open_per_user_task_key',
+        )
+          .on(table.userId, table.taskId)
+          .where(
+            sql`${table.endedAt} IS NULL AND ${table.taskId} IS NOT NULL`,
+          ),
+
+        /** Each person can have one open timer on each paper. */
+        oneOpenTimerPerPaper: uniqueIndex(
+          'task_time_entries_one_open_per_user_module_key',
+        )
+          .on(table.userId, table.moduleId)
+          .where(
+            sql`${table.endedAt} IS NULL AND ${table.moduleId} IS NOT NULL`,
+          ),
     sourceCheck: check(
       'task_time_entries_source_check',
       sql`${table.source} IN ('timer', 'manual')`,
@@ -85,5 +101,12 @@ export const taskTimeEntries = pgTable(
       'task_time_entries_manual_check',
       sql`${table.source} = 'timer' OR (${table.endedAt} IS NOT NULL AND ${table.durationSeconds} > 0)`,
     ),
+    targetCheck: check(
+      'task_time_entries_target_check',
+      sql`num_nonnulls(${table.taskId}, ${table.moduleId}) = 1`,
+    ),
+    moduleStartedIndex: index(
+      'task_time_entries_module_id_started_at_idx',
+    ).on(table.moduleId, table.startedAt),
   }),
 );

@@ -19,9 +19,11 @@ import { RunningTimerBar } from "./running-timer-bar";
 import { TaskTimeCard } from "./task-time-card";
 import { TaskTimeSummary } from "./task-time-summary";
 import { TaskTimerButton } from "./task-timer-button";
+import { PaperTimerButton } from "./paper-timer-button";
 
 const server = vi.hoisted(() => ({
-  timer: null as ApiTimer | null,
+  timers: [] as ApiTimer[],
+  receivedAt: 0,
   taskTime: undefined as ApiTaskTime | undefined,
   calls: [] as Array<{ method: string; path: string; body?: unknown }>,
 }));
@@ -49,29 +51,92 @@ vi.mock("@/api/client", () => ({
     const body = init.body ? JSON.parse(String(init.body)) : undefined;
     server.calls.push({ method, path, body });
 
-    if (path === "/api/v1/me/time-entries/current") return { timer: server.timer };
-    if (path === "/api/v1/me/time-entries/timer/start") {
-      server.timer = timerFor(body.taskId);
-      return { timer: server.timer };
-    }
-    if (path === "/api/v1/me/time-entries/timer/pause" && server.timer) {
-      server.timer = {
-        ...server.timer,
-        isRunning: false,
-        durationSeconds: server.timer.durationSeconds + server.timer.runningSeconds,
-        runningSeconds: 0,
+    // Advance each running timer independently, as the real server does.
+    const now = Date.now();
+    const elapsed = Math.max(0, (now - server.receivedAt) / 1000);
+
+    server.timers = server.timers.map((timer) => {
+      const runningSeconds =
+        timer.runningSeconds + (timer.isRunning ? elapsed : 0);
+
+      return {
+        ...timer,
+        runningSeconds,
+        elapsedSeconds: timer.durationSeconds + runningSeconds,
       };
-      return { timer: server.timer };
+    });
+    server.receivedAt = now;
+
+    if (path === "/api/v1/me/time-entries/current") {
+      return { timers: server.timers };
     }
-    if (path === "/api/v1/me/time-entries/timer/resume" && server.timer) {
-      server.timer = { ...server.timer, isRunning: true };
-      return { timer: server.timer };
+
+    const startsTask = path === "/api/v1/me/time-entries/timer/start";
+    const startsPaper =
+      path === "/api/v1/me/time-entries/timer/start-paper";
+
+    if (startsTask || startsPaper) {
+      const existing = server.timers.find((timer) =>
+        startsTask
+          ? timer.taskId === body.taskId
+          : timer.moduleId === body.moduleId,
+      );
+
+      if (existing) {
+        existing.isRunning = true;
+        return { timer: existing };
+      }
+
+      const created = startsTask
+        ? timerFor(body.taskId, {
+            id: `entry-${body.taskId}`,
+          })
+        : timerFor("", {
+            id: `entry-${body.moduleId}`,
+            taskId: null,
+            moduleId: body.moduleId,
+            taskTitle: null,
+            paperTitle: body.moduleId,
+          });
+
+      server.timers.push(created);
+      return { timer: created };
     }
-    if (path === "/api/v1/me/time-entries/timer/stop") {
-      server.timer = null;
-      return { stopped: null };
+
+    const action = path.match(
+      /^\/api\/v1\/me\/time-entries\/timer\/([^/]+)\/(pause|resume|stop)$/,
+    );
+
+    if (action) {
+      const entryId = decodeURIComponent(action[1]!);
+      const timer = server.timers.find((item) => item.id === entryId);
+
+      if (!timer) throw new Error("Open timer not found");
+
+      if (action[2] === "resume") {
+        timer.isRunning = true;
+        return { timer };
+      }
+
+      timer.durationSeconds += timer.runningSeconds;
+      timer.runningSeconds = 0;
+      timer.elapsedSeconds = timer.durationSeconds;
+      timer.isRunning = false;
+
+      if (action[2] === "stop") {
+        server.timers = server.timers.filter(
+          (item) => item.id !== entryId,
+        );
+        return { stopped: { ...timer, isOpen: false } };
+      }
+
+      return { timer };
     }
-    if (path.endsWith("/time-entries") && method === "GET") return server.taskTime;
+
+    if (path.endsWith("/time-entries") && method === "GET") {
+      return server.taskTime;
+    }
+
     return { id: "entry-new", taskId: "task-1" };
   }),
 }));
@@ -88,7 +153,8 @@ function renderWithClient(ui: ReactNode) {
 }
 
 beforeEach(() => {
-  server.timer = null;
+  server.timers = [];
+  server.receivedAt = Date.now();
   server.taskTime = undefined;
   server.calls = [];
 });
@@ -135,7 +201,7 @@ describe("TaskTimerButton", () => {
   });
 
   it("offers Start on a task when another task is being timed", async () => {
-    server.timer = timerFor("task-2");
+    server.timers = [timerFor("task-2")];
     renderWithClient(
       <TaskTimerButton taskId="task-1" taskTitle="Literature review" />,
     );
@@ -149,47 +215,192 @@ describe("TaskTimerButton", () => {
 });
 
 describe("RunningTimerBar", () => {
-  it("stays hidden without a timer", async () => {
+  it("stays hidden without timers", async () => {
     renderWithClient(<RunningTimerBar />);
+
     await waitFor(() => expect(server.calls.length).toBe(1));
-    expect(screen.queryByRole("region", { name: "Task timer" })).toBeNull();
+
+    expect(
+      screen.queryByRole("region", { name: "Open timers" }),
+    ).toBeNull();
   });
 
-  it("counts up while running, and can pause and stop", async () => {
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
-    server.timer = timerFor("task-1", {
-      durationSeconds: 600,
-      runningSeconds: 125,
-      elapsedSeconds: 725,
+  it("counts up while running and retains elapsed time when paused", async () => {
+    vi.useFakeTimers({
+      toFake: ["setInterval", "clearInterval", "Date"],
     });
+
+    server.receivedAt = Date.now();
+    server.timers = [
+      timerFor("task-1", {
+        durationSeconds: 600,
+        runningSeconds: 125,
+        elapsedSeconds: 725,
+      }),
+    ];
+
     renderWithClient(<RunningTimerBar />);
 
-    const bar = await screen.findByRole("region", { name: "Task timer" });
-    expect(within(bar).getByText("Working on")).toBeInTheDocument();
+    const bar = await screen.findByRole("region", {
+      name: "Task timer: Literature review",
+    });
+
     expect(
       within(bar).getByRole("link", { name: "Literature review" }),
     ).toHaveAttribute("href", "/tasks/task-1");
+
     expect(within(bar).getByRole("timer")).toHaveTextContent("12:05");
 
     act(() => {
       vi.advanceTimersByTime(3000);
     });
+
     expect(within(bar).getByRole("timer")).toHaveTextContent("12:08");
 
-    fireEvent.click(within(bar).getByRole("button", { name: "Pause" }));
+    fireEvent.click(
+      within(bar).getByRole("button", {
+        name: "Pause timer for Literature review",
+      }),
+    );
+
     expect(await within(bar).findByText("Paused")).toBeInTheDocument();
+
     act(() => {
       vi.advanceTimersByTime(5000);
     });
-    expect(within(bar).getByRole("timer")).toHaveTextContent("12:05");
 
-    fireEvent.click(within(bar).getByRole("button", { name: "Stop" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("region", { name: "Task timer" })).toBeNull(),
+    expect(within(bar).getByRole("timer")).toHaveTextContent("12:08");
+
+    fireEvent.click(
+      within(bar).getByRole("button", {
+        name: "Stop timer for Literature review",
+      }),
     );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("region", { name: "Open timers" }),
+      ).toBeNull(),
+    );
+  });
+
+  it("pauses and stops one timer without changing another", async () => {
+    server.timers = [
+      timerFor("task-1", { id: "entry-task" }),
+      timerFor("", {
+        id: "entry-paper",
+        taskId: null,
+        moduleId: "paper-1",
+        taskTitle: null,
+        paperTitle: "Paper one",
+      }),
+    ];
+
+    renderWithClient(<RunningTimerBar />);
+
+    const taskBar = await screen.findByRole("region", {
+      name: "Task timer: Literature review",
+    });
+    const paperBar = await screen.findByRole("region", {
+      name: "Paper timer: Paper one",
+    });
+
+    expect(
+      within(paperBar).getByRole("link", { name: "Paper one" }),
+    ).toHaveAttribute("href", "/modules/paper-1");
+
+    fireEvent.click(
+      within(taskBar).getByRole("button", {
+        name: "Pause timer for Literature review",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        server.timers.find((timer) => timer.id === "entry-task")
+          ?.isRunning,
+      ).toBe(false),
+    );
+
+    expect(
+      server.timers.find((timer) => timer.id === "entry-paper")
+        ?.isRunning,
+    ).toBe(true);
+
+    fireEvent.click(
+      within(taskBar).getByRole("button", {
+        name: "Stop timer for Literature review",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("region", {
+          name: "Task timer: Literature review",
+        }),
+      ).toBeNull(),
+    );
+
+    expect(
+      screen.getByRole("region", {
+        name: "Paper timer: Paper one",
+      }),
+    ).toBeInTheDocument();
+
+    expect(server.timers.map((timer) => timer.id)).toEqual([
+      "entry-paper",
+    ]);
   });
 });
 
+describe("simultaneous paper timers", () => {
+  it("starts two paper timers without stopping either", async () => {
+    renderWithClient(
+      <>
+        <PaperTimerButton
+          moduleId="paper-1"
+          paperTitle="Paper one"
+        />
+        <PaperTimerButton
+          moduleId="paper-2"
+          paperTitle="Paper two"
+        />
+      </>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Start timer for Paper one",
+      }),
+    );
+
+    await screen.findByRole("button", {
+      name: "Pause timer for Paper one",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Start timer for Paper two",
+      }),
+    );
+
+    await screen.findByRole("button", {
+      name: "Pause timer for Paper two",
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: "Pause timer for Paper one",
+      }),
+    ).toBeInTheDocument();
+
+    expect(server.timers).toHaveLength(2);
+    expect(server.timers.every((timer) => timer.isRunning)).toBe(true);
+    expect(
+      server.calls.some((call) => call.path.endsWith("/stop")),
+    ).toBe(false);
+  });
+});
 describe("TaskTimeCard", () => {
   const finished = {
     id: "entry-1",
@@ -340,7 +551,9 @@ describe("TaskTimeCard", () => {
 
 describe("summaries", () => {
   it("adds up a paper's or project's tasks, counting a running timer", async () => {
-    server.timer = timerFor("task-1", { runningSeconds: 1800 });
+    server.timers = [
+      timerFor("task-1", { runningSeconds: 1800 }),
+    ];
     renderWithClient(
       <TaskTimeSummary
         label="Time on this paper"

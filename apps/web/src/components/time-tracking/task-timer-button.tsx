@@ -34,7 +34,9 @@ export function TaskTimerButton({
   const resume = useResumeTimer();
   const [error, setError] = useState<string | null>(null);
 
-  const timer = current.data?.timer;
+  const timer = current.data?.timers.find(
+    (item) => item.taskId === taskId,
+  );
   const state: TimerState =
     timer?.taskId !== taskId ? "idle" : timer.isRunning ? "running" : "paused";
   const isPending = start.isPending || pause.isPending || resume.isPending;
@@ -45,9 +47,13 @@ export function TaskTimerButton({
   async function handleClick() {
     setError(null);
     try {
-      if (state === "running") await pause.mutateAsync();
-      else if (state === "paused") await resume.mutateAsync();
-      else await start.mutateAsync(taskId);
+      if (timer && state === "running") {
+        await pause.mutateAsync(timer.id);
+      } else if (timer && state === "paused") {
+        await resume.mutateAsync(timer.id);
+      } else {
+        await start.mutateAsync(taskId);
+      }
     } catch (err) {
       setError(
         err instanceof Error && err.message

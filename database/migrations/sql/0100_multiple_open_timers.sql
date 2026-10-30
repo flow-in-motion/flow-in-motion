@@ -1,0 +1,3 @@
+DROP INDEX "task_time_entries_one_open_per_user_key";--> statement-breakpoint
+CREATE UNIQUE INDEX "task_time_entries_one_open_per_user_task_key" ON "task_time_entries" USING btree ("user_id","task_id") WHERE "task_time_entries"."ended_at" IS NULL AND "task_time_entries"."task_id" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "task_time_entries_one_open_per_user_module_key" ON "task_time_entries" USING btree ("user_id","module_id") WHERE "task_time_entries"."ended_at" IS NULL AND "task_time_entries"."module_id" IS NOT NULL;

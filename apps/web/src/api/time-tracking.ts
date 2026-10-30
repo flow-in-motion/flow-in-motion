@@ -19,9 +19,12 @@ import {
 /** The caller's open timer: running, or paused part-way through. */
 export interface ApiTimer {
   id: string;
-  taskId: string;
+  taskId: string | null;
+  moduleId?: string | null;
   tenantId: string;
-  taskTitle: string;
+  taskTitle: string | null;
+  paperTitle?: string | null;
+  paperDisplayId?: string | null;
   taskDisplayId: string | null;
   startedAt: string;
   isOpen: true;
@@ -35,7 +38,8 @@ export interface ApiTimer {
 
 export interface ApiTimeEntry {
   id: string;
-  taskId: string;
+  taskId: string | null;
+  moduleId?: string | null;
   source: "timer" | "manual";
   startedAt: string;
   endedAt: string | null;
@@ -54,10 +58,16 @@ export interface ApiTaskTime {
   mySeconds: number;
   totalSeconds: number;
 }
+export interface ApiPaperTime {
+  moduleId: string;
+  entries: ApiTimeEntry[];
+  mySeconds: number;
+  totalSeconds: number;
+}
 
 /** The timer, plus when it was fetched, so the clock can keep counting. */
 export interface CurrentTimer {
-  timer: ApiTimer | null;
+  timers: ApiTimer[];
   receivedAt: number;
 }
 
@@ -72,15 +82,20 @@ export const timeTrackingKeys = {
   current: ["api", "me", "time-entries", "current"] as const,
   task: (taskId: string) =>
     ["api", "me", "tasks", taskId, "time-entries"] as const,
+  paper: (moduleId: string) =>
+    ["api", "me", "modules", moduleId, "time-entries"] as const,
 };
 
 const encode = encodeURIComponent;
 
 /** Task lists and details carry logged totals, so refresh them all. */
+/** Refresh saved totals and entries for tasks and papers. */
 function refreshTaskTime(queryClient: QueryClient) {
   return queryClient.invalidateQueries({
     predicate: (query) =>
-      query.queryKey.includes("tasks") || query.queryKey.includes("time-entries"),
+      query.queryKey.includes("tasks") ||
+      query.queryKey.includes("modules") ||
+      query.queryKey.includes("time-entries"),
   });
 }
 
@@ -88,36 +103,39 @@ export function useCurrentTimer(enabled = true) {
   return useQuery({
     queryKey: timeTrackingKeys.current,
     enabled,
-    // Another tab or computer may have started or stopped the timer.
     refetchOnWindowFocus: true,
-    refetchInterval: (query) => (query.state.data?.timer ? 60_000 : false),
+    refetchInterval: 60_000,
     queryFn: async (): Promise<CurrentTimer> => {
-      const { timer } = await authenticatedJson<{ timer: ApiTimer | null }>(
+      const { timers } = await authenticatedJson<{ timers: ApiTimer[] }>(
         "/api/v1/me/time-entries/current",
       );
-      return { timer, receivedAt: Date.now() };
+
+      return { timers, receivedAt: Date.now() };
     },
   });
 }
 
-function useTimerAction<TVariables = void>(
+function useTimerAction<TVariables>(
   request: (variables: TVariables) => Promise<{ timer: ApiTimer | null }>,
   options: { refreshTotals: boolean },
 ) {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: request,
-    async onSuccess({ timer }) {
-      queryClient.setQueryData<CurrentTimer>(timeTrackingKeys.current, {
-        timer,
-        receivedAt: Date.now(),
-      });
-      if (options.refreshTotals) await refreshTaskTime(queryClient);
+    async onSuccess() {
+      if (options.refreshTotals) {
+        await refreshTaskTime(queryClient);
+      } else {
+        await queryClient.invalidateQueries({
+          queryKey: timeTrackingKeys.current,
+        });
+      }
     },
   });
 }
 
-/** Starts timing a task. Any other timer stops first, keeping its time. */
+/** Starts this task's timer without stopping other timers. */
 export function useStartTimer() {
   return useTimerAction(
     (taskId: string) =>
@@ -131,9 +149,9 @@ export function useStartTimer() {
 
 export function usePauseTimer() {
   return useTimerAction(
-    () =>
+    (entryId: string) =>
       authenticatedJson<{ timer: ApiTimer | null }>(
-        "/api/v1/me/time-entries/timer/pause",
+        `/api/v1/me/time-entries/timer/${encode(entryId)}/pause`,
         { method: "POST" },
       ),
     { refreshTotals: true },
@@ -142,9 +160,9 @@ export function usePauseTimer() {
 
 export function useResumeTimer() {
   return useTimerAction(
-    () =>
+    (entryId: string) =>
       authenticatedJson<{ timer: ApiTimer | null }>(
-        "/api/v1/me/time-entries/timer/resume",
+        `/api/v1/me/time-entries/timer/${encode(entryId)}/resume`,
         { method: "POST" },
       ),
     { refreshTotals: false },
@@ -153,21 +171,18 @@ export function useResumeTimer() {
 
 export function useStopTimer() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: () =>
+    mutationFn: (entryId: string) =>
       authenticatedJson<{ stopped: ApiTimeEntry | null }>(
-        "/api/v1/me/time-entries/timer/stop",
+        `/api/v1/me/time-entries/timer/${encode(entryId)}/stop`,
         { method: "POST" },
       ),
-    async onSuccess() {
-      queryClient.setQueryData<CurrentTimer>(timeTrackingKeys.current, {
-        timer: null,
-        receivedAt: Date.now(),
-      });
-      await refreshTaskTime(queryClient);
-    },
+    onSuccess: () => refreshTaskTime(queryClient),
   });
 }
+
+
 
 /** The caller's time on one task, with the task's totals. */
 export function useTaskTime(taskId: string, enabled = true) {
@@ -187,6 +202,40 @@ export function useAddTimeEntry(taskId: string) {
     mutationFn: (input: TimeEntryInput) =>
       authenticatedJson<ApiTimeEntry>(
         `/api/v1/me/tasks/${encode(taskId)}/time-entries`,
+        { method: "POST", body: JSON.stringify(input) },
+      ),
+    onSuccess: () => refreshTaskTime(queryClient),
+  });
+}
+export function useStartPaperTimer() {
+  return useTimerAction(
+    (moduleId: string) =>
+      authenticatedJson<{ timer: ApiTimer | null }>(
+        "/api/v1/me/time-entries/timer/start-paper",
+        { method: "POST", body: JSON.stringify({ moduleId }) },
+      ),
+    { refreshTotals: true },
+  );
+}
+
+export function usePaperTime(moduleId: string, enabled = true) {
+  return useQuery({
+    queryKey: timeTrackingKeys.paper(moduleId),
+    enabled: Boolean(moduleId) && enabled,
+    queryFn: () =>
+      authenticatedJson<ApiPaperTime>(
+        `/api/v1/me/modules/${encode(moduleId)}/time-entries`,
+      ),
+  });
+}
+
+export function useAddPaperTimeEntry(moduleId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: TimeEntryInput) =>
+      authenticatedJson<ApiTimeEntry>(
+        `/api/v1/me/modules/${encode(moduleId)}/time-entries`,
         { method: "POST", body: JSON.stringify(input) },
       ),
     onSuccess: () => refreshTaskTime(queryClient),
@@ -215,7 +264,11 @@ export function useDeleteTimeEntry() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (entryId: string) =>
-      authenticatedJson<{ id: string; taskId: string }>(
+      authenticatedJson<{
+        id: string;
+        taskId: string | null;
+        moduleId: string | null;
+      }>(
         `/api/v1/me/time-entries/${encode(entryId)}`,
         { method: "DELETE" },
       ),
@@ -235,31 +288,53 @@ export function useTicker(active: boolean) {
   return now;
 }
 
-/** Seconds in the stretch running right now, counted up to `now`. */
-export function liveRunningSeconds(current: CurrentTimer | undefined, now: number) {
-  const timer = current?.timer;
-  if (!timer?.isRunning) return 0;
-  return timer.runningSeconds + Math.max(0, (now - current!.receivedAt) / 1000);
+/** The running stretch for one entry, counted up to `now`. */
+export function liveRunningSeconds(
+  current: CurrentTimer | undefined,
+  now: number,
+  entryId: string,
+) {
+  const timer = current?.timers.find((item) => item.id === entryId);
+
+  if (!current || !timer?.isRunning) return 0;
+
+  return (
+    timer.runningSeconds +
+    Math.max(0, (now - current.receivedAt) / 1000)
+  );
 }
 
-/**
- * The open timer, ticking live. `extraSecondsFor(taskId)` is the running
- * stretch to add to a task's logged total (the server totals leave it out).
- */
+/** All open timers, each with its own live elapsed time. */
 export function useLiveTimer() {
   const query = useCurrentTimer();
-  const timer = query.data?.timer ?? null;
-  const now = useTicker(Boolean(timer?.isRunning));
-  const running = liveRunningSeconds(query.data, now);
+  const storedTimers = query.data?.timers ?? [];
+  const now = useTicker(storedTimers.some((timer) => timer.isRunning));
+
+  const timers = storedTimers.map((timer) => {
+    const runningSeconds = liveRunningSeconds(query.data, now, timer.id);
+
+    return {
+      ...timer,
+      runningSeconds,
+      elapsedSeconds: timer.durationSeconds + runningSeconds,
+    };
+  });
+
   return {
     query,
-    timer,
-    elapsedSeconds: timer ? timer.durationSeconds + running : 0,
-    runningSeconds: running,
+    timers,
+    elapsedSecondsFor: (entryId: string, fallback = 0) =>
+      timers.find((timer) => timer.id === entryId)?.elapsedSeconds ??
+      fallback,
     extraSecondsFor: (taskId: string) =>
-      timer && timer.taskId === taskId ? running : 0,
+      timers.find((timer) => timer.taskId === taskId)?.runningSeconds ?? 0,
+    extraSecondsForPaper: (moduleId: string) =>
+      timers.find((timer) => timer.moduleId === moduleId)?.runningSeconds ??
+      0,
   };
 }
+
+
 
 /** The caller's break reminder settings, with defaults filled in. */
 export function useBreakReminderSettings() {

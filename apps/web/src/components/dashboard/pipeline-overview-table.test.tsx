@@ -51,6 +51,10 @@ const fixtures = vi.hoisted(() => ({
   }>,
 }));
 
+vi.mock("@/api/time-tracking", () =>
+  import("@/test/time-tracking-mock"),
+);
+
 vi.mock("@/api/hooks", () => ({
   useCurrentWorkspace: () => ({ data: { id: "workspace-1" } }),
   useMe: () => ({ data: { id: "user-owner" } }),
