@@ -4,9 +4,7 @@ import {
   ChevronsUpDown,
   CircleAlert,
   LogOut,
-  Moon,
   Settings,
-  Sun,
   MessageSquareText,
 } from "lucide-react";
 import { useAuth } from "@/auth/auth-provider";
@@ -19,7 +17,6 @@ import {
   useWorkspaces,
 } from "@/api/hooks";
 import { useSignOut } from "@/auth/sign-out";
-import { useAppearanceTheme } from "@/theme/appearance-theme";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -46,7 +43,6 @@ export function UserMenu({ compact = false }: UserMenuProps) {
   const workspaceOptions = workspaces.data?.data ?? [];
   const switchWorkspace = useSwitchWorkspace();
   const signOut = useSignOut();
-  const appearance = useAppearanceTheme();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   if (!auth.isAuthenticated) {
@@ -162,20 +158,20 @@ export function UserMenu({ compact = false }: UserMenuProps) {
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault();
-              appearance.toggleTheme();
-            }}
-          >
-            {appearance.theme === "dark" ? (
-              <Sun className="h-4 w-4 shrink-0 text-muted-foreground" />
-            ) : (
-              <Moon className="h-4 w-4 shrink-0 text-muted-foreground" />
-            )}
 
-            {appearance.theme === "dark" ? "Use light theme" : "Use dark theme"}
-          </DropdownMenuItem>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
           <DropdownMenuSeparator />
 
