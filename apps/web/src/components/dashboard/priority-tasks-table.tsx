@@ -267,7 +267,7 @@ export function PriorityTasksTable() {
         <div>
           <CardTitle className="flex items-center gap-2">
             <ListTodo className="h-4 w-4 text-primary" />
-            Tasks to be done
+            Tasks and To Do
           </CardTitle>
           <CardDescription>
             Tasks across all projects that need attention first.
