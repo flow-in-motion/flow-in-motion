@@ -121,6 +121,26 @@ LOCK TABLE public.task_time_entries, public.paper_time_entries
   IN SHARE ROW EXCLUSIVE MODE;
 --> statement-breakpoint
 
+-- Retire application writes to the old storage after the history copy.
+-- Shared task_time_entries permissions remain unchanged.
+REVOKE INSERT, UPDATE, DELETE
+  ON TABLE public.paper_time_entries
+  FROM research_tracker_app;
+--> statement-breakpoint
+
+-- The original migration granted UPDATE at column level separately.
+REVOKE UPDATE (
+  started_at,
+  ended_at,
+  running_since,
+  duration_seconds,
+  note,
+  updated_at
+)
+  ON TABLE public.paper_time_entries
+  FROM research_tracker_app;
+--> statement-breakpoint
+
 -- Refuse ambiguous ID collisions rather than overwrite another record.
 DO $$
 BEGIN
