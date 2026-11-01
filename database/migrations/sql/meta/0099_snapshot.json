@@ -1,5 +1,5 @@
 {
-  "id": "609c6316-7d42-413c-a488-3443d52faafc",
+  "id": "2c7ed88e-acfa-45a7-9619-1b24decf402b",
   "prevId": "4853810b-3932-4618-bff7-5d5df04b0905",
   "version": "7",
   "dialect": "postgresql",
@@ -4788,13 +4788,7 @@
           "name": "task_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
-        },
-        "module_id": {
-          "name": "module_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "user_id": {
           "name": "user_id",
@@ -4913,27 +4907,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "task_time_entries_module_id_started_at_idx": {
-          "name": "task_time_entries_module_id_started_at_idx",
-          "columns": [
-            {
-              "expression": "module_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "started_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -4956,19 +4929,6 @@
           "tableTo": "tasks",
           "columnsFrom": [
             "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "task_time_entries_module_id_modules_id_fk": {
-          "name": "task_time_entries_module_id_modules_id_fk",
-          "tableFrom": "task_time_entries",
-          "tableTo": "modules",
-          "columnsFrom": [
-            "module_id"
           ],
           "columnsTo": [
             "id"
@@ -5009,10 +4969,6 @@
         "task_time_entries_manual_check": {
           "name": "task_time_entries_manual_check",
           "value": "\"task_time_entries\".\"source\" = 'timer' OR (\"task_time_entries\".\"ended_at\" IS NOT NULL AND \"task_time_entries\".\"duration_seconds\" > 0)"
-        },
-        "task_time_entries_target_check": {
-          "name": "task_time_entries_target_check",
-          "value": "num_nonnulls(\"task_time_entries\".\"task_id\", \"task_time_entries\".\"module_id\") = 1"
         }
       },
       "isRLSEnabled": false
@@ -5622,6 +5578,212 @@
         "research_change_events_action_check": {
           "name": "research_change_events_action_check",
           "value": "\"research_change_events\".\"action\" IN ('created', 'updated', 'deleted')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.paper_time_entries": {
+      "name": "paper_time_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paper_id": {
+          "name": "paper_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'timer'"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "running_since": {
+          "name": "running_since",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_seconds": {
+          "name": "duration_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "paper_time_entries_paper_id_started_at_idx": {
+          "name": "paper_time_entries_paper_id_started_at_idx",
+          "columns": [
+            {
+              "expression": "paper_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "paper_time_entries_user_id_started_at_idx": {
+          "name": "paper_time_entries_user_id_started_at_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "paper_time_entries_one_open_per_user_key": {
+          "name": "paper_time_entries_one_open_per_user_key",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"paper_time_entries\".\"ended_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "paper_time_entries_tenant_id_tenants_id_fk": {
+          "name": "paper_time_entries_tenant_id_tenants_id_fk",
+          "tableFrom": "paper_time_entries",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "paper_time_entries_paper_id_modules_id_fk": {
+          "name": "paper_time_entries_paper_id_modules_id_fk",
+          "tableFrom": "paper_time_entries",
+          "tableTo": "modules",
+          "columnsFrom": [
+            "paper_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "paper_time_entries_user_id_users_id_fk": {
+          "name": "paper_time_entries_user_id_users_id_fk",
+          "tableFrom": "paper_time_entries",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "paper_time_entries_source_check": {
+          "name": "paper_time_entries_source_check",
+          "value": "\"paper_time_entries\".\"source\" IN ('timer', 'manual')"
+        },
+        "paper_time_entries_duration_check": {
+          "name": "paper_time_entries_duration_check",
+          "value": "\"paper_time_entries\".\"duration_seconds\" >= 0"
+        },
+        "paper_time_entries_ended_check": {
+          "name": "paper_time_entries_ended_check",
+          "value": "\"paper_time_entries\".\"ended_at\" IS NULL OR (\"paper_time_entries\".\"running_since\" IS NULL AND \"paper_time_entries\".\"ended_at\" >= \"paper_time_entries\".\"started_at\")"
+        },
+        "paper_time_entries_manual_check": {
+          "name": "paper_time_entries_manual_check",
+          "value": "\"paper_time_entries\".\"source\" = 'timer' OR (\"paper_time_entries\".\"ended_at\" IS NOT NULL AND \"paper_time_entries\".\"duration_seconds\" > 0)"
         }
       },
       "isRLSEnabled": false

@@ -586,15 +586,15 @@
     {
       "idx": 99,
       "version": "7",
-      "when": 1793321269394,
-      "tag": "0099_paper_time_tracking",
+      "when": 1793513956985,
+      "tag": "0099_paper_time_entries",
       "breakpoints": true
     },
     {
       "idx": 100,
       "version": "7",
-      "when": 1793325645857,
-      "tag": "0100_multiple_open_timers",
+      "when": 1793573642319,
+      "tag": "0100_merge_paper_timers",
       "breakpoints": true
     }
   ]

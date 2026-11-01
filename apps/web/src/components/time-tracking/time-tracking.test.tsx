@@ -45,6 +45,9 @@ function timerFor(taskId: string, overrides: Partial<ApiTimer> = {}): ApiTimer {
   };
 }
 
+vi.mock("@/auth/auth-provider", () => ({
+  useAuth: () => ({ user: { id: "auth-user-1" } }),
+}));
 vi.mock("@/api/client", () => ({
   authenticatedJson: vi.fn(async (path: string, init: RequestInit = {}) => {
     const method = init.method ?? "GET";

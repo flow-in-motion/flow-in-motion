@@ -15,6 +15,7 @@ import {
   DEFAULT_BREAK_REMINDERS,
   type BreakReminderSettings,
 } from "@/lib/break-reminders";
+import { useAuth } from "@/auth/auth-provider";
 
 /** The caller's open timer: running, or paused part-way through. */
 export interface ApiTimer {
@@ -100,9 +101,10 @@ function refreshTaskTime(queryClient: QueryClient) {
 }
 
 export function useCurrentTimer(enabled = true) {
+  const owner = useAuth().user?.id ?? "";
   return useQuery({
-    queryKey: timeTrackingKeys.current,
-    enabled,
+    queryKey: [...timeTrackingKeys.current, owner],
+    enabled: Boolean(owner) && enabled,
     refetchOnWindowFocus: true,
     refetchInterval: 60_000,
     queryFn: async (): Promise<CurrentTimer> => {
@@ -186,9 +188,11 @@ export function useStopTimer() {
 
 /** The caller's time on one task, with the task's totals. */
 export function useTaskTime(taskId: string, enabled = true) {
+  const owner = useAuth().user?.id ?? "";
+
   return useQuery({
-    queryKey: timeTrackingKeys.task(taskId),
-    enabled: Boolean(taskId) && enabled,
+    queryKey: [...timeTrackingKeys.task(taskId), owner],
+    enabled: Boolean(taskId && owner) && enabled,
     queryFn: () =>
       authenticatedJson<ApiTaskTime>(
         `/api/v1/me/tasks/${encode(taskId)}/time-entries`,
