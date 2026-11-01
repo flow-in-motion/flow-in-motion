@@ -1,3 +1,4 @@
+vi.mock("@/api/paper-time-tracking", () => import("@/test/paper-time-tracking-mock"));
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
