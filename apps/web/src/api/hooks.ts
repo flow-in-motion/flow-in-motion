@@ -193,6 +193,9 @@ export interface ApiModule {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Saved time logged directly on this paper, excluding linked tasks. */
+  loggedSeconds?: number;
+  myLoggedSeconds?: number;
 }
 
 export type PaperCurrentlyWithType =

@@ -3,18 +3,19 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 
 import {
   useAddPaperTimeEntry,
-  useDeletePaperTimeEntry,
-  useLivePaperTimer,
+  useDeleteTimeEntry,
+  useLiveTimer,
   usePaperTime,
-  useUpdatePaperTimeEntry,
-  type ApiPaperTimeEntry,
-} from "@/api/paper-time-tracking";
+  useUpdateTimeEntry,
+  type ApiTimeEntry,
+} from "@/api/time-tracking";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDuration } from "@/lib/time-format";
 
-import { PaperTimeEntryForm } from "./paper-time-entry-form";
+import { TimeEntryForm } from "./time-entry-form";
+import { TimeProgress } from "./time-progress";
 
 const dayFormat = new Intl.DateTimeFormat("en-GB", {
   weekday: "short",
@@ -27,7 +28,7 @@ const clockFormat = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
-function whenLabel(entry: ApiPaperTimeEntry) {
+function whenLabel(entry: ApiTimeEntry) {
   const start = new Date(entry.startedAt);
   const day = dayFormat.format(start);
   if (entry.source === "manual") return `${day} · added by hand`;
@@ -35,29 +36,32 @@ function whenLabel(entry: ApiPaperTimeEntry) {
   return `${day} · ${clockFormat.format(start)}–${clockFormat.format(new Date(entry.endedAt))}`;
 }
 
-type FormState =
-  { mode: "add" } | { mode: "edit"; entry: ApiPaperTimeEntry } | null;
+type FormState = { mode: "add" } | { mode: "edit"; entry: ApiTimeEntry } | null;
 
 /**
- * Time logged directly on a paper, and the caller's own time entries,
+ * Estimated vs logged time on a paper, and the caller's own time entries,
  * which can be added by hand, corrected or deleted. (The paper page header
  * holds the Start timer button.)
  */
-export function PaperTimeCard({ paper }: { paper: { id: string } }) {
+export function PaperTimeCard({
+  paper,
+}: {
+  paper: { id: string };
+}) {
   const time = usePaperTime(paper.id);
-  const live = useLivePaperTimer();
+  const live = useLiveTimer();
   const addEntry = useAddPaperTimeEntry(paper.id);
-  const updateEntry = useUpdatePaperTimeEntry();
-  const deleteEntry = useDeletePaperTimeEntry();
+  const updateEntry = useUpdateTimeEntry();
+  const deleteEntry = useDeleteTimeEntry();
   const [form, setForm] = useState<FormState>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const running = live.extraSecondsFor(paper.id);
+  const running = live.extraSecondsForPaper(paper.id);
   const mine = (time.data?.mySeconds ?? 0) + running;
   const total = (time.data?.totalSeconds ?? 0) + running;
   const entries = time.data?.entries ?? [];
 
-  async function handleDelete(entry: ApiPaperTimeEntry) {
+  async function handleDelete(entry: ApiTimeEntry) {
     if (
       !window.confirm(
         `Delete ${formatDuration(entry.durationSeconds)} logged on ${dayFormat.format(new Date(entry.startedAt))}?`,
@@ -81,7 +85,7 @@ export function PaperTimeCard({ paper }: { paper: { id: string } }) {
     <section aria-labelledby="paper-time-heading">
       <Card>
         <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-          <CardTitle id="paper-time-heading">Paper time</CardTitle>
+          <CardTitle id="paper-time-heading">Time</CardTitle>
           <div className="flex flex-wrap items-start gap-2">
             <Button
               type="button"
@@ -94,18 +98,20 @@ export function PaperTimeCard({ paper }: { paper: { id: string } }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+            Time logged directly on this paper. Time on linked tasks is
+            recorded separately.
+          </p>
           {time.isError ? (
             <p role="alert" className="text-sm text-destructive">
               Couldn&apos;t load the time on this paper.
             </p>
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-semibold tabular-nums text-foreground">
-                  {formatDuration(total)}
-                </span>{" "}
-                logged directly on this paper
-              </p>
+              <TimeProgress
+                loggedSeconds={total}
+                estimateSeconds={null}
+              />
               {total !== mine ? (
                 <p className="text-xs text-muted-foreground">
                   You: {formatDuration(mine)} · Everyone:{" "}
@@ -116,7 +122,7 @@ export function PaperTimeCard({ paper }: { paper: { id: string } }) {
           )}
 
           {form?.mode === "add" ? (
-            <PaperTimeEntryForm
+            <TimeEntryForm
               idPrefix="add-time"
               isSaving={addEntry.isPending}
               onCancel={() => setForm(null)}
@@ -137,8 +143,8 @@ export function PaperTimeCard({ paper }: { paper: { id: string } }) {
             <p className="text-sm text-muted-foreground">Loading time…</p>
           ) : entries.length === 0 && !form ? (
             <p className="text-sm text-muted-foreground">
-              No time logged yet. Start the timer while you work, or add time by
-              hand.
+              No time logged yet. Start the timer while you work, or add time
+              by hand.
             </p>
           ) : entries.length > 0 ? (
             <div className="space-y-2">
@@ -149,7 +155,7 @@ export function PaperTimeCard({ paper }: { paper: { id: string } }) {
                 {entries.map((entry) =>
                   form?.mode === "edit" && form.entry.id === entry.id ? (
                     <li key={entry.id}>
-                      <PaperTimeEntryForm
+                      <TimeEntryForm
                         entry={entry}
                         idPrefix={`edit-time-${entry.id}`}
                         isSaving={updateEntry.isPending}
@@ -172,9 +178,10 @@ export function PaperTimeCard({ paper }: { paper: { id: string } }) {
                         <p className="text-sm">
                           <span className="font-semibold tabular-nums">
                             {formatDuration(
-                              entry.isOpen && live.timer?.id === entry.id
-                                ? live.elapsedSeconds
-                                : entry.durationSeconds,
+                                                            live.elapsedSecondsFor(
+                                                              entry.id,
+                                                              entry.durationSeconds,
+                                                            ),
                             )}
                           </span>{" "}
                           <span className="text-muted-foreground">
@@ -189,7 +196,13 @@ export function PaperTimeCard({ paper }: { paper: { id: string } }) {
                       </div>
                       {entry.isOpen ? (
                         <Badge variant="outline" className="shrink-0">
-                          {entry.isRunning ? "In progress" : "Paused"}
+                                                    {(
+                            live.timers.find(
+                              (timer) => timer.id === entry.id,
+                            )?.isRunning ?? entry.isRunning
+                          )
+                            ? "In progress"
+                            : "Paused"}
                         </Badge>
                       ) : (
                         <span className="flex shrink-0 items-center">

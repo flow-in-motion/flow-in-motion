@@ -75,8 +75,6 @@ import {
 } from "@/components/shared/linked-items-panels";
 import { TaskTimeSummary } from "@/components/time-tracking/task-time-summary";
 import { TaskTimerButton } from "@/components/time-tracking/task-timer-button";
-import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
-import { PaperTimeCard } from "@/components/time-tracking/paper-time-card";
 import { TagInput } from "@/components/shared/tag-input";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
@@ -107,6 +105,8 @@ import {
 import { ArchiveModuleDialog } from "@/components/modules/archive-module-dialog";
 import { ConferencePresentationHistory } from "@/components/modules/conference-presentation-history";
 import { PaperConferenceSubmissions } from "@/components/modules/paper-conference-submissions";
+import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
+import { PaperTimeCard } from "@/components/time-tracking/paper-time-card";
 
 const MODULE_STATUSES = ["Active", "Stalled", "Complete"];
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
@@ -936,19 +936,18 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         }
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            {!form ? (
-              <PaperTimerButton
-                paperId={module.id}
-                paperTitle={paperDisplayTitle(module)}
-                variant="button"
-              />
-            ) : null}
+            <PaperTimerButton
+              moduleId={module.id}
+              paperTitle={paperDisplayTitle(module)}
+              variant="button"
+            />
             <Button
               type="button"
               variant="outline"
               onClick={() => void handleDeleteModule()}
               className="text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
+
               <Trash2 />
               Delete Paper
             </Button>
@@ -964,6 +963,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           </div>
         }
       >
+
         {!form ? (
           <div className="flex flex-wrap gap-2">
             {module.title ? (
@@ -1573,8 +1573,6 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         </Card>
       ) : null}
 
-      {!form ? <PaperTimeCard paper={module} /> : null}
-
       {!form && module.abstract ? (
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
@@ -1725,6 +1723,8 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           }
           pinDisabled={isPinSaving || updateNote.isPending}
         />
+
+        <PaperTimeCard key={module.id} paper={{ id: module.id }} />
 
         {sameTenant ? (
           <SubmissionHistoryCard

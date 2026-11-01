@@ -2,45 +2,43 @@ import { useState } from "react";
 import { Pause, Play } from "lucide-react";
 
 import {
-  useCurrentPaperTimer,
-  usePausePaperTimer,
-  useResumePaperTimer,
+  useCurrentTimer,
+  usePauseTimer,
+  useResumeTimer,
   useStartPaperTimer,
-} from "@/api/paper-time-tracking";
+} from "@/api/time-tracking";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type TimerState = "idle" | "running" | "paused";
 
 /**
- * Start, pause or resume the timer for one paper. Starting a paper stops the
- * timer on any other paper first (its time is kept).
+ * Start, pause or resume the timer for one task. Starting a task stops the
+ * timer on any other task first (its time is kept).
  */
 export function PaperTimerButton({
-  paperId,
+  moduleId,
   paperTitle,
   variant = "icon",
   className,
 }: {
-  paperId: string;
+  moduleId: string;
   paperTitle: string;
-  /** "icon" for lists; "button" for the paper page. */
+  /** "icon" for lists; "button" for the task page. */
   variant?: "icon" | "button";
   className?: string;
 }) {
-  const current = useCurrentPaperTimer();
+  const current = useCurrentTimer();
   const start = useStartPaperTimer();
-  const pause = usePausePaperTimer();
-  const resume = useResumePaperTimer();
+  const pause = usePauseTimer();
+  const resume = useResumeTimer();
   const [error, setError] = useState<string | null>(null);
 
-  const timer = current.data?.timer;
+  const timer = current.data?.timers.find(
+    (item) => item.moduleId === moduleId,
+  );
   const state: TimerState =
-    timer?.paperId !== paperId
-      ? "idle"
-      : timer.isRunning
-        ? "running"
-        : "paused";
+    timer?.moduleId !== moduleId ? "idle" : timer.isRunning ? "running" : "paused";
   const isPending = start.isPending || pause.isPending || resume.isPending;
   const action =
     state === "running" ? "Pause" : state === "paused" ? "Resume" : "Start";
@@ -49,9 +47,13 @@ export function PaperTimerButton({
   async function handleClick() {
     setError(null);
     try {
-      if (state === "running") await pause.mutateAsync();
-      else if (state === "paused") await resume.mutateAsync();
-      else await start.mutateAsync(paperId);
+      if (timer && state === "running") {
+        await pause.mutateAsync(timer.id);
+      } else if (timer && state === "paused") {
+        await resume.mutateAsync(timer.id);
+      } else {
+        await start.mutateAsync(moduleId);
+      }
     } catch (err) {
       setError(
         err instanceof Error && err.message

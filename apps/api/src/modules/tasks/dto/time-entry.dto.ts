@@ -18,6 +18,11 @@ export class StartTimerDto {
   @IsUUID()
   taskId!: string;
 }
+export class StartPaperTimerDto {
+  @ApiProperty({ description: 'The paper to start working on' })
+  @IsUUID()
+  moduleId!: string;
+}
 
 /** Time added by hand, for work that wasn't timed. */
 export class CreateTimeEntryDto {

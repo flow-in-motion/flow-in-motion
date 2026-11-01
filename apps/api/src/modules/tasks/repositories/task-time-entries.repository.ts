@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { taskTimeEntries, tasks } from '@research-tracker/migrations';
+import { taskTimeEntries, tasks, modules } from '@research-tracker/migrations';
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 
@@ -12,6 +12,7 @@ const runningSecondsSql = sql<number>`COALESCE(
 const entryColumns = {
   id: taskTimeEntries.id,
   taskId: taskTimeEntries.taskId,
+  moduleId: taskTimeEntries.moduleId,
   tenantId: taskTimeEntries.tenantId,
   userId: taskTimeEntries.userId,
   source: taskTimeEntries.source,
@@ -25,7 +26,8 @@ const entryColumns = {
 
 export type TimeEntryRow = {
   id: string;
-  taskId: string;
+  taskId: string | null;
+  moduleId: string | null;
   tenantId: string;
   userId: string;
   source: string;
@@ -41,6 +43,8 @@ export type OpenTimerRow = TimeEntryRow & {
   /** Null when the person can no longer see the task. */
   taskTitle: string | null;
   taskDisplayId: string | null;
+  paperTitle: string | null;
+  paperDisplayId: string | null;
 };
 
 export interface LoggedTime {
@@ -66,9 +70,17 @@ export class TaskTimeEntriesRepository {
         ...entryColumns,
         taskTitle: tasks.title,
         taskDisplayId: tasks.displayId,
+        paperTitle: sql<string | null>`COALESCE(
+          ${modules.shortTitle},
+          ${modules.title},
+          ${modules.displayId},
+          'Untitled paper'
+        )`,
+        paperDisplayId: modules.displayId,
       })
       .from(taskTimeEntries)
       .leftJoin(tasks, eq(tasks.id, taskTimeEntries.taskId))
+      .leftJoin(modules, eq(modules.id, taskTimeEntries.moduleId))
       .where(
         and(
           eq(taskTimeEntries.userId, userId),
@@ -93,9 +105,101 @@ export class TaskTimeEntriesRepository {
     return row;
   }
 
+  /** All the caller's open timers, including paused ones. */
+  async findAllOpen(userId: string): Promise<OpenTimerRow[]> {
+    return this.drizzle.db
+      .select({
+        ...entryColumns,
+        taskTitle: tasks.title,
+        taskDisplayId: tasks.displayId,
+        paperTitle: sql<string | null>`
+            CASE
+              WHEN ${modules.id} IS NULL THEN NULL
+              ELSE COALESCE(
+                ${modules.shortTitle},
+                ${modules.title},
+                ${modules.displayId},
+                'Untitled paper'
+              )
+            END
+          `,
+        paperDisplayId: modules.displayId,
+      })
+      .from(taskTimeEntries)
+      .leftJoin(tasks, eq(tasks.id, taskTimeEntries.taskId))
+      .leftJoin(modules, eq(modules.id, taskTimeEntries.moduleId))
+      .where(
+        and(
+          eq(taskTimeEntries.userId, userId),
+          isNull(taskTimeEntries.endedAt),
+        ),
+      )
+      .orderBy(desc(taskTimeEntries.startedAt), desc(taskTimeEntries.id));
+  }
+
+  /** Locks one specific open timer belonging to the caller. */
+  async lockOpenEntry(
+    entryId: string,
+    userId: string,
+  ): Promise<TimeEntryRow | undefined> {
+    const [row] = await this.drizzle.db
+      .select(entryColumns)
+      .from(taskTimeEntries)
+      .where(
+        and(
+          eq(taskTimeEntries.id, entryId),
+          eq(taskTimeEntries.userId, userId),
+          isNull(taskTimeEntries.endedAt),
+        ),
+      )
+      .for('update');
+
+    return row;
+  }
+
+  /** Locks the caller's existing open timer on this task, if any. */
+  async lockOpenForTask(
+    taskId: string,
+    userId: string,
+  ): Promise<TimeEntryRow | undefined> {
+    const [row] = await this.drizzle.db
+      .select(entryColumns)
+      .from(taskTimeEntries)
+      .where(
+        and(
+          eq(taskTimeEntries.taskId, taskId),
+          eq(taskTimeEntries.userId, userId),
+          isNull(taskTimeEntries.endedAt),
+        ),
+      )
+      .for('update');
+
+    return row;
+  }
+
+  /** Locks the caller's existing open timer on this paper, if any. */
+  async lockOpenForPaper(
+    moduleId: string,
+    userId: string,
+  ): Promise<TimeEntryRow | undefined> {
+    const [row] = await this.drizzle.db
+      .select(entryColumns)
+      .from(taskTimeEntries)
+      .where(
+        and(
+          eq(taskTimeEntries.moduleId, moduleId),
+          eq(taskTimeEntries.userId, userId),
+          isNull(taskTimeEntries.endedAt),
+        ),
+      )
+      .for('update');
+
+    return row;
+  }
   async startTimer(values: {
     tenantId: string;
-    taskId: string;
+    taskId?: string;
+    moduleId?: string;
     userId: string;
   }) {
     const [row] = await this.drizzle.db
@@ -170,7 +274,8 @@ export class TaskTimeEntriesRepository {
 
   async addManual(values: {
     tenantId: string;
-    taskId: string;
+    taskId?: string;
+    moduleId?: string;
     userId: string;
     startedAt: Date;
     durationSeconds: number;
@@ -255,7 +360,11 @@ export class TaskTimeEntriesRepository {
           isNotNull(taskTimeEntries.endedAt),
         ),
       )
-      .returning({ id: taskTimeEntries.id, taskId: taskTimeEntries.taskId });
+      .returning({
+        id: taskTimeEntries.id,
+        taskId: taskTimeEntries.taskId,
+        moduleId: taskTimeEntries.moduleId,
+      });
     return row;
   }
 
@@ -282,11 +391,68 @@ export class TaskTimeEntriesRepository {
       .groupBy(taskTimeEntries.taskId);
 
     for (const row of rows) {
+      if (row.taskId === null) continue;
       totals.set(row.taskId, {
         totalSeconds: Number(row.totalSeconds),
         mySeconds: Number(row.mySeconds),
       });
     }
+    return totals;
+  }
+
+  /** The caller's own entries on a paper, newest first. */
+  async findForPaper(
+    moduleId: string,
+    userId: string,
+  ): Promise<TimeEntryRow[]> {
+    return this.drizzle.db
+      .select(entryColumns)
+      .from(taskTimeEntries)
+      .where(
+        and(
+          eq(taskTimeEntries.moduleId, moduleId),
+          eq(taskTimeEntries.userId, userId),
+        ),
+      )
+      .orderBy(desc(taskTimeEntries.startedAt), desc(taskTimeEntries.id));
+  }
+
+  /** Time logged directly on papers, excluding their linked tasks. */
+  async totalsForPapers(
+    moduleIds: string[],
+    userId: string,
+  ): Promise<Map<string, LoggedTime>> {
+    const totals = new Map<string, LoggedTime>();
+    const ids = [...new Set(moduleIds)];
+    if (ids.length === 0) return totals;
+
+    const rows = await this.drizzle.db
+      .select({
+        moduleId: taskTimeEntries.moduleId,
+        totalSeconds: sql<number>`
+            COALESCE(sum(${taskTimeEntries.durationSeconds}), 0)::int
+          `,
+        mySeconds: sql<number>`
+            COALESCE(
+              sum(${taskTimeEntries.durationSeconds})
+                FILTER (WHERE ${taskTimeEntries.userId} = ${userId}),
+              0
+            )::int
+          `,
+      })
+      .from(taskTimeEntries)
+      .where(inArray(taskTimeEntries.moduleId, ids))
+      .groupBy(taskTimeEntries.moduleId);
+
+    for (const row of rows) {
+      if (row.moduleId === null) continue;
+
+      totals.set(row.moduleId, {
+        totalSeconds: Number(row.totalSeconds),
+        mySeconds: Number(row.mySeconds),
+      });
+    }
+
     return totals;
   }
 }

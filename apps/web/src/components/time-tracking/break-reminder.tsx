@@ -34,19 +34,40 @@ export function BreakReminder() {
   const state = useBreakState();
   const [error, setError] = useState<string | null>(null);
 
-  const timer = current.data?.timer ?? null;
-  const active = isLoaded && settings.enabled && timer !== null;
+  const [takingBreak, setTakingBreak] = useState(false);
+
+  const timers = current.data?.timers;
+  const timerCount = timers?.length ?? 0;
+  const onlyTimer = timerCount === 1 ? timers?.[0] : undefined;
+  const itemTitle = onlyTimer?.moduleId
+    ? onlyTimer.paperTitle || "Untitled paper"
+    : onlyTimer?.taskTitle || "Untitled task";
+
+  let longestRunningSeconds: number | null = null;
+  let runningCount = 0;
+
+  for (const timer of timers ?? []) {
+    if (timer.isRunning) {
+      runningCount += 1;
+      longestRunningSeconds = Math.max(
+        longestRunningSeconds ?? 0,
+        timer.runningSeconds,
+      );
+    }
+  }
+
+  const active = isLoaded && settings.enabled && timerCount > 0;
   const now = useTicker(active);
   const stretchStart =
-    timer?.isRunning && current.data
-      ? current.data.receivedAt - timer.runningSeconds * 1000
+    longestRunningSeconds !== null && current.data
+      ? current.data.receivedAt - longestRunningSeconds * 1000
       : null;
 
   const decision = decideBreak({
     now,
     settings,
     state,
-    timerOpen: timer !== null,
+    timerOpen: timerCount > 0,
     stretchStart,
   });
 
@@ -68,7 +89,7 @@ export function BreakReminder() {
       now,
       settings,
       state,
-      timerOpen: timer !== null,
+      timerOpen: timerCount > 0,
       stretchStart,
     });
     const update = { ...(latest.update ?? {}) };
@@ -100,7 +121,9 @@ export function BreakReminder() {
       if (latest.breakOver && state.notifiedBreakEnd !== state.breakEndsAt) {
         showNotification(
           "Break's over",
-          timer ? `Ready to get back to “${timer.taskTitle}”?` : "Ready to get back to work?",
+          timerCount === 1
+  ? `Ready to get back to “${itemTitle}”?`
+  : "Ready to get back to work?",
           "rim-break",
           { silent: settings.sound },
         );
@@ -109,27 +132,55 @@ export function BreakReminder() {
     }
 
     if (Object.keys(update).length > 0) setBreakState(update);
-  }, [active, now, settings, state, stretchStart, timer]);
+  }, [active, now, settings, state, stretchStart, timerCount, itemTitle]);
 
-  const open = active && decision.reminderDue;
+  const open =
+  active && (decision.reminderDue || takingBreak || error !== null);
 
   async function takeBreak() {
+    if (takingBreak) return;
+
     setError(null);
+    setTakingBreak(true);
+
     try {
-      await pause.mutateAsync();
+      const running = (current.data?.timers ?? []).filter(
+        (timer) => timer.isRunning,
+      );
+
+      const results = await Promise.allSettled(
+        running.map((timer) => pause.mutateAsync(timer.id)),
+      );
+
+      const failed = results.filter(
+        (result) => result.status === "rejected",
+      ).length;
+
+      if (failed > 0) {
+        throw new Error(
+          `Couldn't pause ${failed} ${
+            failed === 1 ? "timer" : "timers"
+          }. Other timers were paused. Try again to pause the remaining timers.`,
+        );
+      }
+
       const startedAt = Date.now();
+
       setBreakState({
         breakEndsAt: startedAt + settings.breakMinutes * 60_000,
         streakStart: null,
         snoozeUntil: null,
         notifiedBreakEnd: null,
+        chimedBreakEnd: null,
       });
-    } catch (err) {
+    } catch (cause) {
       setError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Couldn't pause the timer. Please try again.",
+        cause instanceof Error && cause.message
+          ? cause.message
+          : "Couldn't pause the timers. Please try again.",
       );
+    } finally {
+      setTakingBreak(false);
     }
   }
 
@@ -142,7 +193,7 @@ export function BreakReminder() {
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) snooze();
+        if (!next && !takingBreak) snooze();
       }}
     >
       <DialogContent className="sm:max-w-md">
@@ -152,10 +203,15 @@ export function BreakReminder() {
             Time for a break
           </DialogTitle>
           <DialogDescription>
-            You&apos;ve been working for {formatDuration(decision.workedMs / 1000)}
-            {timer ? <> on “{timer.taskTitle}”</> : null}. Step away for{" "}
-            {settings.breakMinutes} minutes: stand up, stretch, get some
-            water or rest your eyes.
+            You&apos;ve been working for{" "}
+            {formatDuration(decision.workedMs / 1000)}
+            {onlyTimer ? (
+              <> on “{itemTitle}”</>
+            ) : (
+              <> across {runningCount} running timers</>
+            )}
+            . Step away for {settings.breakMinutes} minutes: stand up,
+            stretch, get some water or rest your eyes.
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -170,7 +226,7 @@ export function BreakReminder() {
           <Button
             type="button"
             onClick={() => void takeBreak()}
-            disabled={pause.isPending}
+            disabled={takingBreak}
           >
             Take a {settings.breakMinutes}-minute break
           </Button>

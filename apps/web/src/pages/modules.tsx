@@ -36,7 +36,6 @@ import {
   PaperStageCelebration,
 } from "@/components/modules/paper-stage-celebration";
 import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
-import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
@@ -61,6 +60,8 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 import { CurrentlyWithFilter } from "@/components/modules/currently-with-filter";
 import { ArchiveModuleDialog } from "@/components/modules/archive-module-dialog";
 import { priorityPillClass, statusPillClass } from "@/lib/tones";
+import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
+import { PaperLoggedTime } from "@/components/time-tracking/paper-logged-time";
 
 const STATUS_OPTIONS = ["Active", "Stalled", "Complete"] as const;
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
@@ -73,6 +74,7 @@ const MODULE_COLUMNS = [
   { id: "progress", label: "Progress", width: "130px" },
   { id: "stage", label: "Stage", width: "170px" },
   { id: "submittedTo", label: "Submitted to", width: "200px" },
+  { id: "logged", label: "Logged", width: "90px" },
   { id: "due", label: "Next Action Date", width: "170px" },
   { id: "assignee", label: "Currently With", width: "150px" },
 ] as const;
@@ -439,6 +441,8 @@ export default function ModulesPage() {
         return (a.pipelineStage ?? "").localeCompare(b.pipelineStage ?? "");
       case "submittedTo":
         return submittedJournal(a).localeCompare(submittedJournal(b));
+      case "logged":
+        return (a.loggedSeconds ?? 0) - (b.loggedSeconds ?? 0);
       case "due":
         return (a.dueDate ?? "").localeCompare(b.dueDate ?? "");
       case "assignee":
@@ -735,40 +739,45 @@ export default function ModulesPage() {
                 >
                   {columns.isColumnVisible("module") ? (
                     <div className="flex items-start gap-2">
-                      <div className="flex flex-col gap-0.5">
+                      <div className="flex w-full min-w-0 flex-col gap-0.5">
                         {module.displayId ? (
                           <span className="font-mono text-[11px] text-muted-foreground">
                             {module.displayId}
                           </span>
                         ) : null}
-                        <div className="flex items-start gap-2">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
                           <Link
                             to={`/modules/${module.id}`}
-                            className="font-semibold leading-tight text-foreground transition-colors hover:text-primary hover:underline"
+                            className="min-w-0 break-words font-semibold leading-tight text-foreground transition-colors hover:text-primary hover:underline"
                           >
                             {paperDisplayTitle(module)}
                           </Link>
-                          <PaperTimerButton
-                            paperId={module.id}
-                            paperTitle={paperDisplayTitle(module)}
-                          />
-                          <Link
-                            to={`/modules/${module.id}?edit=true`}
-                            aria-label={`Edit ${paperDisplayTitle(module)}`}
-                            title="Edit paper"
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Link>
-                          <button
-                            type="button"
-                            aria-label={`Delete ${paperDisplayTitle(module)}`}
-                            title="Delete paper"
-                            onClick={() => void archive(module)}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+
+                          <div className="flex shrink-0 items-center gap-1">
+                            <PaperTimerButton
+                              moduleId={module.id}
+                              paperTitle={paperDisplayTitle(module)}
+                            />
+
+                            <Link
+                              to={`/modules/${module.id}?edit=true`}
+                              aria-label={`Edit ${paperDisplayTitle(module)}`}
+                              title="Edit paper"
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Link>
+
+                            <button
+                              type="button"
+                              aria-label={`Delete ${paperDisplayTitle(module)}`}
+                              title="Delete paper"
+                              onClick={() => void archive(module)}
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </div>
                         <span className="line-clamp-3 max-w-md break-words text-xs leading-4 text-muted-foreground">
                           {module.description || "No description"}
@@ -878,6 +887,11 @@ export default function ModulesPage() {
                         (module.pipelineStage === "Submitted, Under Review"
                           ? "No active submission logged"
                           : "—")}
+                    </span>
+                  ) : null}
+                  {columns.isColumnVisible("logged") ? (
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      <PaperLoggedTime paper={module} />
                     </span>
                   ) : null}
                   {columns.isColumnVisible("due") ? (

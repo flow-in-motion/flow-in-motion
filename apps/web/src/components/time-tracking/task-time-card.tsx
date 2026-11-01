@@ -174,9 +174,10 @@ export function TaskTimeCard({
                         <p className="text-sm">
                           <span className="font-semibold tabular-nums">
                             {formatDuration(
-                              entry.isOpen && live.timer?.id === entry.id
-                                ? live.elapsedSeconds
-                                : entry.durationSeconds,
+                                                            live.elapsedSecondsFor(
+                                                              entry.id,
+                                                              entry.durationSeconds,
+                                                            ),
                             )}
                           </span>{" "}
                           <span className="text-muted-foreground">
@@ -191,7 +192,13 @@ export function TaskTimeCard({
                       </div>
                       {entry.isOpen ? (
                         <Badge variant="outline" className="shrink-0">
-                          {entry.isRunning ? "In progress" : "Paused"}
+                                                    {(
+                            live.timers.find(
+                              (timer) => timer.id === entry.id,
+                            )?.isRunning ?? entry.isRunning
+                          )
+                            ? "In progress"
+                            : "Paused"}
                         </Badge>
                       ) : (
                         <span className="flex shrink-0 items-center">
