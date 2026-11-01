@@ -75,6 +75,8 @@ import {
 } from "@/components/shared/linked-items-panels";
 import { TaskTimeSummary } from "@/components/time-tracking/task-time-summary";
 import { TaskTimerButton } from "@/components/time-tracking/task-timer-button";
+import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
+import { PaperTimeCard } from "@/components/time-tracking/paper-time-card";
 import { TagInput } from "@/components/shared/tag-input";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
@@ -934,6 +936,13 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         }
         actions={
           <div className="flex flex-wrap items-center gap-3">
+            {!form ? (
+              <PaperTimerButton
+                paperId={module.id}
+                paperTitle={paperDisplayTitle(module)}
+                variant="button"
+              />
+            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -1563,6 +1572,8 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           </CardContent>
         </Card>
       ) : null}
+
+      {!form ? <PaperTimeCard paper={module} /> : null}
 
       {!form && module.abstract ? (
         <Card>
