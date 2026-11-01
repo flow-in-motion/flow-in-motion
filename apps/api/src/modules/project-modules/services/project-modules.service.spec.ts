@@ -29,6 +29,7 @@ describe('ProjectModulesService', () => {
     findInvitationById: jest.Mock;
     archiveImpact: jest.Mock;
     findLatestSubmissionsForModules: jest.Mock;
+    totalsForPapers: jest.Mock;
   };
   let enumRepository: {
     findByCategoryAndValue: jest.Mock;
@@ -58,6 +59,7 @@ describe('ProjectModulesService', () => {
       findInvitationById: jest.fn(),
       archiveImpact: jest.fn(),
       findLatestSubmissionsForModules: jest.fn().mockResolvedValue([]),
+      totalsForPapers: jest.fn().mockResolvedValue(new Map()),
     };
     projectsRepository = {
       findById: jest.fn().mockResolvedValue({

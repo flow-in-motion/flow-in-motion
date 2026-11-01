@@ -834,11 +834,17 @@ export class ProjectModulesService {
       priorityId: string | null;
       pipelineStageId: string | null;
     },
-  >(rows: T[], _callerUserId: string) {
+  >(rows: T[], callerUserId: string) {
     const enumIds = rows
       .flatMap((row) => [row.statusId, row.priorityId, row.pipelineStageId])
       .filter((id): id is string => id !== null);
-    const valuesById = await this.enumRepository.findValuesByIds(enumIds);
+    const [valuesById, totalsById] = await Promise.all([
+      this.enumRepository.findValuesByIds(enumIds),
+      this.repository.totalsForPapers(
+        rows.map((row) => row.id),
+        callerUserId,
+      ),
+    ]);
 
     const shapedRows = rows.map(
       ({ statusId, priorityId, pipelineStageId, ...rest }) => ({
@@ -877,6 +883,8 @@ export class ProjectModulesService {
       return {
         ...row,
         submittedToJournal,
+        loggedSeconds: totalsById.get(row.id)?.totalSeconds ?? 0,
+        myLoggedSeconds: totalsById.get(row.id)?.mySeconds ?? 0,
       };
     });
   }
