@@ -36,7 +36,6 @@ import {
   PaperStageCelebration,
 } from "@/components/modules/paper-stage-celebration";
 import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
-import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
 import { buildPaperProgressByStage } from "@/lib/paper-progress";
@@ -748,10 +747,6 @@ export default function ModulesPage() {
                           >
                             {paperDisplayTitle(module)}
                           </Link>
-                          <PaperTimerButton
-                            paperId={module.id}
-                            paperTitle={paperDisplayTitle(module)}
-                          />
                           <Link
                             to={`/modules/${module.id}?edit=true`}
                             aria-label={`Edit ${paperDisplayTitle(module)}`}

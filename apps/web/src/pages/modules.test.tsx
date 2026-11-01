@@ -1,4 +1,3 @@
-vi.mock("@/api/paper-time-tracking", () => import("@/test/paper-time-tracking-mock"));
 import {
   fireEvent,
   render,
