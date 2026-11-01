@@ -306,7 +306,7 @@ export function BreakReminderSettingsCard({ className }: { className?: string })
             </span>
             <span className="block text-muted-foreground">
               So you see the reminder when you&apos;re in another tab or app.
-              It only works while the app is open somewhere.
+              It only works while the platform is open somewhere.
             </span>
           </span>
         </label>

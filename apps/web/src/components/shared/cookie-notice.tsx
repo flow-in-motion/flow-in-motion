@@ -56,7 +56,7 @@ export function CookieNotice() {
     >
       <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <p className="text-[0.8125rem] leading-5 text-muted-foreground">
-          We use only necessary storage and record how you use the app to improve it; your
+          We use only necessary storage and record how you use the platform to improve it; your
           workspace owner can see a usage summary. No trackers or ads, nothing sold.{" "}
           <Link to="/privacy" className="font-medium text-foreground underline underline-offset-2">
             Privacy Policy

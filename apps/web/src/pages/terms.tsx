@@ -148,7 +148,7 @@ export default function TermsPage() {
         <p>
           We may update these Terms from time to time. When we do, we will
           update the "Last updated" date above and, for significant changes,
-          let you know in the app. If you keep using the Service after an
+          let you know on the platform. If you keep using the Service after an
           update, you accept the revised Terms.
         </p>
       </LegalSection>
