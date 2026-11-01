@@ -37,3 +37,4 @@ export * from './due-reminder-states';
 export * from './usage-weekly-snapshots';
 export * from './usage-daily-snapshots';
 export * from './research-change-events';
+export * from './paper-time-entries';
