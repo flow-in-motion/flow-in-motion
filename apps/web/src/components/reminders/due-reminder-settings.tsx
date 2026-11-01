@@ -64,7 +64,7 @@ export function DueReminderSettingsCard({ className }: { className?: string }) {
           Due-date reminders
         </CardTitle>
         <CardDescription>
-          The bell at the top of the app lists what&apos;s coming up and
+          The bell at the top of the platform lists what&apos;s coming up and
           anything overdue. Choose when it reminds you, and about what.
         </CardDescription>
       </CardHeader>

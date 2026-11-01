@@ -356,7 +356,7 @@ function SubmissionFormDialog({
                 placeholder={
                   form.kind === "other"
                     ? "e.g. PDW: Qualitative methods in practice"
-                    : "Leave empty to use its name in the app"
+                    : "Leave empty to use its name on the platform"
                 }
               />
             </div>

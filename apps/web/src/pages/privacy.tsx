@@ -53,7 +53,7 @@ export default function PrivacyPage() {
             automatically record how you use the Service. This includes:
             <ul className="mt-2 list-[circle] space-y-1 pl-5">
               <li>
-                which sections of the app you visit (for example "Papers" or
+                which sections of the platform you visit (for example "Papers" or
                 "Tasks"; we record the section, not the specific record you
                 opened);
               </li>
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
             </ul>
           </li>
           <li>
-            <strong>Error reports.</strong> If the app runs into an unexpected
+            <strong>Error reports.</strong> If the platform runs into an unexpected
             error while you are signed in, we record the error message, a
             technical stack trace and the page you were on, so we can fix it.
           </li>
@@ -248,7 +248,7 @@ export default function PrivacyPage() {
           We may update this policy from time to time, for example if we change
           what we collect or start using a new service provider. When we do, we
           will update the "Last updated" date above and, for significant
-          changes, let you know in the app.
+          changes, let you know on the platform.
         </p>
       </LegalSection>
 
