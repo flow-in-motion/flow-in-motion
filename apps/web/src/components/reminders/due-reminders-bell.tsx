@@ -109,7 +109,7 @@ export function DueRemindersBell({ className }: { className?: string }) {
           size="icon"
           aria-label={label}
           title="Reminders"
-          className={cn("relative shrink-0", className)}
+          className={cn("relative shrink-0 [&_svg]:size-5", className)}
         >
           <Bell />
           {unreadCount > 0 ? (
