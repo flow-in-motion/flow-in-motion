@@ -5,6 +5,9 @@ import { ModuleCollaboratorsModule } from '../module-collaborators/module-collab
 import { ProjectCollaboratorsModule } from '../project-collaborators/project-collaborators.module';
 import { TenantSequencesModule } from '../tenant-sequences/tenant-sequences.module';
 import { UsersModule } from '../users/users.module';
+import { PaperTimeEntriesController } from './controllers/paper-time-entries.controller';
+import { PaperTimeEntriesRepository } from './repositories/paper-time-entries.repository';
+import { PaperTimeEntriesService } from './services/paper-time-entries.service';
 import { MyModulesController } from './controllers/my-modules.controller';
 import { ProjectModulesController } from './controllers/project-modules.controller';
 import { ModuleAccessGuard } from './policies/module-access.guard';
@@ -23,9 +26,15 @@ import { ProjectsModule } from '../projects/project.module';
     TenantSequencesModule,
     MembershipsModule,
   ],
-  controllers: [ProjectModulesController, MyModulesController],
+  controllers: [
+    ProjectModulesController,
+    MyModulesController,
+    PaperTimeEntriesController,
+  ],
   providers: [
     ProjectModulesService,
+    PaperTimeEntriesService,
+    PaperTimeEntriesRepository,
     ProjectModulesRepository,
     ModuleAccessGuard,
   ],
