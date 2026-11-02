@@ -32,6 +32,7 @@ type ModuleFixture = {
   status: string | null;
   pipelineStage: string | null;
   submittedToJournal?: string | null;
+  currentlyWithType?: string | null;
   assignedToUserId: string | null;
   archivedAt: string | null;
   createdAt: string;
@@ -81,6 +82,7 @@ const fixtures = vi.hoisted(() => ({
   tenantId: "workspace-1",
   projects: [] as ProjectFixture[],
   moduleQueryArgs: [] as unknown[],
+  createPaperSubmission: vi.fn(),
 }));
 
 vi.mock("@/api/hooks", async () => {
@@ -196,6 +198,10 @@ vi.mock("@/api/hooks", async () => {
         },
       ),
     }),
+    useCreatePaperSubmission: () => ({
+      mutateAsync: fixtures.createPaperSubmission,
+      isPending: false,
+    }),
     useCreateModule: () => ({
       mutateAsync: vi.fn(async (input: Record<string, unknown>) => {
         const current = modules.get();
@@ -211,6 +217,8 @@ vi.mock("@/api/hooks", async () => {
           pipelineStage: (input.pipelineStage as string | undefined) ?? null,
           assignedToUserId:
             (input.assignedToUserId as string | undefined) ?? null,
+          currentlyWithType:
+            (input.currentlyWithType as string | undefined) ?? null,
           archivedAt: null,
           createdAt: "2026-01-01T00:00:00.000Z",
           updatedAt: "2026-01-01T00:00:00.000Z",
@@ -298,7 +306,28 @@ describe("PipelinePage", () => {
     modules.set(baseModules());
     fixtures.projects = [];
     fixtures.moduleQueryArgs = [];
+    fixtures.createPaperSubmission.mockReset();
+    fixtures.createPaperSubmission.mockResolvedValue({ id: "submission-1" });
   });
+
+  function dragInto(title: string, stageName: string) {
+    const card = screen.getByText(title).closest('[draggable="true"]');
+    const target = screen.getByRole("group", {
+      name: `${stageName} stage drop zone`,
+    });
+    const data = new Map<string, string>();
+    const dataTransfer = {
+      effectAllowed: "none",
+      dropEffect: "none",
+      setData: (type: string, value: string) => data.set(type, value),
+      getData: (type: string) => data.get(type) ?? "",
+    };
+    expect(card).not.toBeNull();
+    fireEvent.dragStart(card!, { dataTransfer });
+    fireEvent.dragOver(target, { dataTransfer });
+    fireEvent.drop(target, { dataTransfer });
+    return target;
+  }
 
   it("requests all accessible papers for the pipeline", () => {
     render(
@@ -605,7 +634,7 @@ describe("PipelinePage", () => {
       screen.queryByText("Sample Preparation Protocol"),
     ).not.toBeInTheDocument();
   });
-  it("celebrates when a paper is dragged into Submitted, Under Review", async () => {
+  it("asks for the submission when a paper is dragged into Submitted, Under Review", async () => {
     render(
       <MemoryRouter>
         <PipelinePage />
@@ -613,28 +642,31 @@ describe("PipelinePage", () => {
     );
 
     const title = "Sample Preparation Protocol";
-    const card = screen.getByText(title).closest('[draggable="true"]');
-    const targetStage = screen.getByRole("group", {
-      name: "Submitted, Under Review stage drop zone",
+    const targetStage = dragInto(title, "Submitted, Under Review");
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Where was this paper submitted?",
     });
-
-    const data = new Map<string, string>();
-    const dataTransfer = {
-      effectAllowed: "none",
-      dropEffect: "none",
-      setData: (type: string, value: string) => data.set(type, value),
-      getData: (type: string) => data.get(type) ?? "",
-    };
-
-    expect(card).not.toBeNull();
-
-    fireEvent.dragStart(card!, { dataTransfer });
-    fireEvent.dragOver(targetStage, { dataTransfer });
-    fireEvent.drop(targetStage, { dataTransfer });
+    expect(within(targetStage).queryByText(title)).not.toBeInTheDocument();
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: /Journal \/ venue/ }),
+      { target: { value: "Nature Communications" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save and move paper" }),
+    );
 
     await waitFor(() =>
       expect(within(targetStage).getByText(title)).toBeInTheDocument(),
     );
+    expect(fixtures.createPaperSubmission).toHaveBeenCalledWith({
+      moduleId: "MOD-201",
+      input: expect.objectContaining({
+        journalName: "Nature Communications",
+        status: "Submitted",
+      }),
+    });
+    expect(modules.get()[0]!.currentlyWithType).toBe("journal");
 
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Paper submitted — congratulations!",
@@ -642,6 +674,77 @@ describe("PipelinePage", () => {
     expect(screen.getByRole("status")).toHaveTextContent(title);
     expect(screen.getByTestId("celebration-video")).toBeInTheDocument();
   });
+
+  it("leaves a dragged paper where it was when the submission form is cancelled", async () => {
+    render(
+      <MemoryRouter>
+        <PipelinePage />
+      </MemoryRouter>,
+    );
+
+    dragInto("Sample Preparation Protocol", "Submitted, Under Review");
+    const dialog = await screen.findByRole("dialog", {
+      name: "Where was this paper submitted?",
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(modules.get()[0]!.pipelineStage).toBe("Concept, Ideation");
+    expect(fixtures.createPaperSubmission).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("celebration-video")).not.toBeInTheDocument();
+  });
+
+  it("asks for the submission when a new paper starts in Submitted, Under Review", async () => {
+    render(
+      <MemoryRouter>
+        <PipelinePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "Straight to review" },
+    });
+    fireEvent.click(screen.getByRole("combobox", { name: /Pipeline stage/ }));
+    fireEvent.click(
+      screen.getByRole("option", { name: "Submitted, Under Review" }),
+    );
+
+    const submissionDialog = await screen.findByRole("dialog", {
+      name: "Where was this paper submitted?",
+    });
+    fireEvent.change(
+      within(submissionDialog).getByRole("textbox", {
+        name: /Journal \/ venue/,
+      }),
+      { target: { value: "Science" } },
+    );
+    fireEvent.click(
+      within(submissionDialog).getByRole("button", { name: "Continue" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", {
+          name: "Where was this paper submitted?",
+        }),
+      ).not.toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+
+    await waitFor(() =>
+      expect(fixtures.createPaperSubmission).toHaveBeenCalledWith({
+        moduleId: "module-2",
+        input: expect.objectContaining({ journalName: "Science" }),
+      }),
+    );
+    const created = modules.get().find((item) => item.id === "module-2");
+    expect(created?.pipelineStage).toBe("Submitted, Under Review");
+    expect(created?.currentlyWithType).toBe("journal");
+  });
+
   it("hides stages the workspace has marked hidden", () => {
     stages.set([
       ...baseStages().map((stage) =>

@@ -55,7 +55,13 @@ import {
   SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 import {
+  newSubmissionInput,
+  useMoveToSubmitted,
+  WITH_JOURNAL,
+} from "@/components/modules/move-to-submitted";
+import {
   SubmissionDialog,
+  type SubmissionFormInput,
   type SubmissionSaveInput,
 } from "@/components/modules/submission-dialog";
 import { BackButton } from "@/components/shared/back-button";
@@ -451,6 +457,10 @@ export default function ModuleDetailPage() {
   const membersQuery = useMembers(tenantId);
   const members = membersQuery.data?.data ?? [];
   const updateModule = useUpdateMyModule();
+  const { requestMove, moveDialogProps } = useMoveToSubmitted(
+    tenantId,
+    (moduleId, input) => updateModule.mutateAsync({ moduleId, input }),
+  );
   const createTask = useCreateTask(tenantId);
   const updateTask = useUpdateTask(tenantId);
   const updateNote = useUpdateNote(tenantId);
@@ -500,6 +510,11 @@ export default function ModuleDetailPage() {
     module?.id ?? "",
   );
   const [form, setForm] = useState<EditableModule | null>(null);
+  // Submission details given when the edit form's stage is set to
+  // "Submitted, Under Review"; logged once the paper is saved.
+  const [pendingSubmission, setPendingSubmission] =
+    useState<SubmissionFormInput | null>(null);
+  const [isStageSubmissionOpen, setIsStageSubmissionOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isPinSaving, setIsPinSaving] = useState(false);
@@ -603,6 +618,20 @@ export default function ModuleDetailPage() {
   typeof updateModule.mutateAsync
 >[0]["input"];
 
+// Moving into "Submitted, Under Review" asks for the submission first;
+// resolving false (cancelled) puts the old stage back in the header.
+async function moveHeaderIntoSubmitted() {
+  if (!module) return false;
+  setActionError(null);
+  const moved = await requestMove({
+    id: module.id,
+    title: module.title || module.shortTitle || "",
+    pipelineStage: module.pipelineStage,
+  });
+  if (moved) setIsPaperCelebrationOpen(true);
+  return moved;
+}
+
 async function saveHeaderField(input: HeaderUpdateInput) {
   if (!module || isHeaderSaving || updateModule.isPending) return;
 
@@ -672,7 +701,24 @@ async function saveHeaderField(input: HeaderUpdateInput) {
       },
     });
 
+    const submissionToLog =
+      pendingSubmission && form.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
+        ? pendingSubmission
+        : null;
+    setPendingSubmission(null);
     setForm(null);
+
+    if (submissionToLog) {
+      try {
+        await createSubmission.mutateAsync(newSubmissionInput(submissionToLog));
+      } catch (error) {
+        setActionError(
+          `The paper was saved, but its submission couldn't be logged${
+            error instanceof Error ? ` (${error.message})` : ""
+          }. You can log it from Journal submission history.`,
+        );
+      }
+    }
 
     if (shouldCelebrate) {
       setIsPaperCelebrationOpen(true);
@@ -796,7 +842,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
     try {
       await updateModule.mutateAsync({
         moduleId,
-        input: { pipelineStage: SUBMITTED_UNDER_REVIEW_STAGE },
+        input: { pipelineStage: SUBMITTED_UNDER_REVIEW_STAGE, ...WITH_JOURNAL },
       });
     } catch (error) {
       setActionError(
@@ -829,6 +875,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
 
   function cancelEditing() {
     setForm(null);
+    setPendingSubmission(null);
     if (searchParams.get("edit") === "true") {
       if (location.key === "default") {
         navigate(`/modules/${moduleId}`, { replace: true });
@@ -1021,7 +1068,13 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     stagesQuery.isError
                   }
                   onChange={(pipelineStage) =>
-                    saveHeaderField({ pipelineStage })
+                    sameTenant &&
+                    enteredSubmittedUnderReview(
+                      module.pipelineStage,
+                      pipelineStage,
+                    )
+                      ? moveHeaderIntoSubmitted()
+                      : saveHeaderField({ pipelineStage })
                   }
                   onError={setActionError}
                 />
@@ -1482,9 +1535,22 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                 <FormField label="Pipeline stage" htmlFor="edit-module-stage">
                   <Select
                     value={form.pipelineStage}
-                    onValueChange={(value) =>
-                      setForm({ ...form, pipelineStage: value })
-                    }
+                    onValueChange={(value) => {
+                      if (
+                        sameTenant &&
+                        !pendingSubmission &&
+                        enteredSubmittedUnderReview(module.pipelineStage, value)
+                      ) {
+                        // Ask for the submission first; the stage only
+                        // changes once it's filled in.
+                        setIsStageSubmissionOpen(true);
+                        return;
+                      }
+                      if (value !== SUBMITTED_UNDER_REVIEW_STAGE) {
+                        setPendingSubmission(null);
+                      }
+                      setForm({ ...form, pipelineStage: value });
+                    }}
                   >
                     <SelectTrigger id="edit-module-stage">
                       <SelectValue placeholder="Select a stage" />
@@ -1725,6 +1791,29 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         ) : null}
 
         <SubmissionDialog
+          open={isStageSubmissionOpen}
+          onOpenChange={setIsStageSubmissionOpen}
+          defaultPaperTitle={form?.title || form?.shortTitle || ""}
+          currentPipelineStage={form?.pipelineStage || null}
+          forStageChange
+          logWhenPaperSaved
+          onSave={(input) => {
+            setPendingSubmission(input);
+            setForm((current) =>
+              current
+                ? {
+                    ...current,
+                    pipelineStage: SUBMITTED_UNDER_REVIEW_STAGE,
+                    currentlyWithType: "journal",
+                    assignedToUserId: "",
+                    assignedToInvitationId: "",
+                  }
+                : current,
+            );
+          }}
+        />
+
+        <SubmissionDialog
           open={isSubmissionDialogOpen}
           onOpenChange={setIsSubmissionDialogOpen}
           submission={editingSubmission}
@@ -1807,6 +1896,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           onOpenChange={setIsPaperCelebrationOpen}
           paperTitle={paperDisplayTitle(module)}
         />
+        <SubmissionDialog {...moveDialogProps} />
       </div>
     </div>
   );

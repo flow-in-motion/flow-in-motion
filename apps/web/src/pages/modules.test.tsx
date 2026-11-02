@@ -65,6 +65,7 @@ const hookMocks = vi.hoisted(() => ({
   useModules: vi.fn(),
   useModulesOptions: vi.fn(),
   updateModule: vi.fn(),
+  createPaperSubmission: vi.fn(),
   createDraftInvitation: vi.fn(),
   useModuleCollaborators: vi.fn(),
   archiveModule: vi.fn(),
@@ -321,6 +322,10 @@ vi.mock("@/api/hooks", async () => {
     }),
     useUpdateModule: () => ({
       mutateAsync: hookMocks.updateModule,
+      isPending: false,
+    }),
+    useCreatePaperSubmission: () => ({
+      mutateAsync: hookMocks.createPaperSubmission,
       isPending: false,
     }),
     useArchiveModule: () => ({
@@ -812,7 +817,9 @@ describe("ModulesPage", () => {
     );
   });
 
-  it("celebrates when a paper is moved to Submitted, Under Review from the list", async () => {
+  it("asks for the submission when a paper is moved to Submitted, Under Review from the list", async () => {
+    hookMocks.createPaperSubmission.mockReset();
+    hookMocks.createPaperSubmission.mockResolvedValue({ id: "submission-1" });
     const originalStages = fixtures.stageValues;
     fixtures.stageValues = [
       ...originalStages,
@@ -839,15 +846,79 @@ describe("ModulesPage", () => {
         screen.getByRole("option", { name: "Submitted, Under Review" }),
       );
 
+      const dialog = await screen.findByRole("dialog", {
+        name: "Where was this paper submitted?",
+      });
+      expect(hookMocks.updateModule).not.toHaveBeenCalled();
+      fireEvent.change(
+        within(dialog).getByRole("textbox", { name: /Journal \/ venue/ }),
+        { target: { value: "Nature Communications" } },
+      );
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: "Save and move paper" }),
+      );
+
       await waitFor(() =>
         expect(hookMocks.updateModule).toHaveBeenCalledWith({
           moduleId: "module-1",
-          input: { pipelineStage: "Submitted, Under Review" },
+          input: {
+            pipelineStage: "Submitted, Under Review",
+            currentlyWithType: "journal",
+            assignedToUserId: null,
+            assignedToInvitationId: null,
+          },
         }),
       );
+      expect(hookMocks.createPaperSubmission).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: expect.objectContaining({
+          journalName: "Nature Communications",
+          status: "Submitted",
+        }),
+      });
       expect(
         await screen.findByText("Paper submitted — congratulations!"),
       ).toBeInTheDocument();
+    } finally {
+      fixtures.stageValues = originalStages;
+    }
+  });
+
+  it("keeps a paper's stage when the submission form is cancelled from the list", async () => {
+    hookMocks.createPaperSubmission.mockReset();
+    const originalStages = fixtures.stageValues;
+    fixtures.stageValues = [
+      ...originalStages,
+      {
+        ...originalStages[0],
+        id: "stage-submitted",
+        value: "Submitted, Under Review",
+        sortOrder: 3,
+      },
+    ];
+    try {
+      render(
+        <MemoryRouter>
+          <ModulesPage />
+        </MemoryRouter>,
+      );
+
+      const stage = screen.getByRole("combobox", {
+        name: "Change stage for Literature synthesis",
+      });
+      const before = stage.textContent;
+      fireEvent.click(stage);
+      fireEvent.click(
+        screen.getByRole("option", { name: "Submitted, Under Review" }),
+      );
+      const dialog = await screen.findByRole("dialog", {
+        name: "Where was this paper submitted?",
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+      await waitFor(() => expect(stage.textContent).toBe(before));
+      expect(hookMocks.updateModule).not.toHaveBeenCalled();
+      expect(hookMocks.createPaperSubmission).not.toHaveBeenCalled();
     } finally {
       fixtures.stageValues = originalStages;
     }

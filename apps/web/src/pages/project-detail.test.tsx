@@ -126,6 +126,7 @@ vi.mock("@/api/hooks", () => ({
   useCreateTask: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateModule: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateModule: () => ({ mutateAsync: fixtures.updateModule, isPending: false }),
+  useCreatePaperSubmission: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateTask: () => ({ mutateAsync: fixtures.updateTask, isPending: false }),
   useUpdateNote: () => ({ mutateAsync: fixtures.updateNote, isPending: false }),
   useTrackEvent: () => vi.fn(),

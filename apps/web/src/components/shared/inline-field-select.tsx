@@ -14,6 +14,7 @@ type InlineFieldSelectProps = {
   options: readonly string[];
   fieldLabel: string;
   itemLabel: string;
+  /** Resolve to false to call the change off (the old value comes back). */
   onChange: (value: string) => Promise<unknown>;
   onError?: (message: string) => void;
   valueClassName?: (value: string | null) => string;
@@ -49,7 +50,8 @@ export function InlineFieldSelect({
     setIsSaving(true);
 
     try {
-      await onChange(nextValue);
+      const result = await onChange(nextValue);
+      if (result === false) setDisplayedValue(previousValue);
     } catch (error) {
       setDisplayedValue(previousValue);
       onError?.(

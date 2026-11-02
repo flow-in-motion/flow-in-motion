@@ -35,6 +35,8 @@ import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
 } from "@/components/modules/paper-stage-celebration";
+import { useMoveToSubmitted } from "@/components/modules/move-to-submitted";
+import { SubmissionDialog } from "@/components/modules/submission-dialog";
 import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
@@ -333,6 +335,10 @@ export default function ModulesPage() {
   const members = workspaceMembers.data?.data ?? [];
   const createModule = useCreateModule(tenantId);
   const updateModule = useUpdateModule(tenantId);
+  const { requestMove, moveDialogProps } = useMoveToSubmitted(
+    tenantId,
+    (moduleId, input) => updateModule.mutateAsync({ moduleId, input }),
+  );
   const trackEvent = useTrackEvent(tenantId);
   const [archiveTarget, setArchiveTarget] = useState<ApiModule | null>(null);
 
@@ -584,6 +590,7 @@ export default function ModulesPage() {
         onOpenChange={setIsPaperCelebrationOpen}
         paperTitle={celebrationPaperTitle}
       />
+      <SubmissionDialog {...moveDialogProps} />
       <PageHeading
         tone="violet"
         icon={FileStack}
@@ -862,16 +869,26 @@ export default function ModulesPage() {
                       onChange={async (nextStage) => {
                         setActionError(null);
                         const previousStage = module.pipelineStage;
+                        if (
+                          enteredSubmittedUnderReview(previousStage, nextStage)
+                        ) {
+                          // Asks for the submission first; cancelling it
+                          // leaves the stage as it was.
+                          const moved = await requestMove({
+                            id: module.id,
+                            title: module.title || module.shortTitle || "",
+                            pipelineStage: previousStage,
+                          });
+                          if (moved) {
+                            setCelebrationPaperTitle(paperDisplayTitle(module));
+                            setIsPaperCelebrationOpen(true);
+                          }
+                          return moved;
+                        }
                         await updateModule.mutateAsync({
                           moduleId: module.id,
                           input: { pipelineStage: nextStage },
                         });
-                        if (
-                          enteredSubmittedUnderReview(previousStage, nextStage)
-                        ) {
-                          setCelebrationPaperTitle(paperDisplayTitle(module));
-                          setIsPaperCelebrationOpen(true);
-                        }
                       }}
                       onError={(message) =>
                         setActionError(

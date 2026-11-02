@@ -24,6 +24,7 @@ const fixtures = vi.hoisted(() => ({
   updateTask: vi.fn(),
   updateNote: vi.fn(),
   createSubmission: vi.fn(),
+  createPaperSubmission: vi.fn(),
   updateSubmission: vi.fn(),
   deleteSubmission: vi.fn(),
   collaborators: [
@@ -278,6 +279,10 @@ vi.mock("@/api/hooks", () => ({
     mutateAsync: fixtures.createSubmission,
     isPending: false,
   }),
+  useCreatePaperSubmission: () => ({
+    mutateAsync: fixtures.createPaperSubmission,
+    isPending: false,
+  }),
   useUpdateModuleSubmission: () => ({
     mutateAsync: fixtures.updateSubmission,
     isPending: false,
@@ -429,6 +434,7 @@ describe("ModuleDetailPage", () => {
     fixtures.updateNote.mockResolvedValue(fixtures.notes[0]);
     fixtures.submissions = [];
     fixtures.createSubmission.mockReset();
+    fixtures.createPaperSubmission.mockReset();
     fixtures.createSubmission.mockResolvedValue({ id: "submission-1" });
     fixtures.updateSubmission.mockReset();
     fixtures.updateSubmission.mockResolvedValue({ id: "submission-1" });
@@ -703,18 +709,36 @@ describe("ModuleDetailPage", () => {
     );
   });
 
-  it("celebrates after moving the paper into Submitted, Under Review", async () => {
+  it("asks for the submission when the edit form moves the paper into Submitted, Under Review", async () => {
+    fixtures.createSubmission.mockResolvedValue({ id: "submission-1" });
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
-
     fireEvent.click(screen.getByRole("combobox", { name: "Pipeline stage" }));
-
     fireEvent.click(
       screen.getByRole("option", {
         name: "Submitted, Under Review",
       }),
     );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Where was this paper submitted?",
+    });
+    expect(
+      within(dialog).getByText(/When you save the paper, it moves to/),
+    ).toBeInTheDocument();
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: /Journal \/ venue/ }),
+      { target: { value: "Nature Communications" } },
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("combobox", { name: "Pipeline stage" }),
+      ).toHaveTextContent("Submitted, Under Review"),
+    );
+    expect(fixtures.createSubmission).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
@@ -724,7 +748,19 @@ describe("ModuleDetailPage", () => {
           moduleId: "module-1",
           input: expect.objectContaining({
             pipelineStage: "Submitted, Under Review",
+            currentlyWithType: "journal",
+            assignedToUserId: null,
+            assignedToInvitationId: null,
           }),
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(fixtures.createSubmission).toHaveBeenCalledWith(
+        expect.objectContaining({
+          journalName: "Nature Communications",
+          status: "Submitted",
+          submittedDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
         }),
       ),
     );
@@ -737,6 +773,35 @@ describe("ModuleDetailPage", () => {
     );
     expect(screen.getByTestId("celebration-video")).toBeInTheDocument();
   });
+
+  it("keeps the edit form's stage when the submission form is cancelled", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Pipeline stage" }));
+    fireEvent.click(
+      screen.getByRole("option", { name: "Submitted, Under Review" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Where was this paper submitted?",
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByRole("combobox", { name: "Pipeline stage" }),
+    ).toHaveTextContent("Concept");
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => expect(fixtures.updateModule).toHaveBeenCalled());
+    expect(fixtures.updateModule.mock.calls[0][0].input.pipelineStage).toBe(
+      "Concept",
+    );
+    expect(fixtures.createSubmission).not.toHaveBeenCalled();
+  });
+
   it("returns to whatever page linked into edit mode when editing is cancelled", () => {
     render(
       <MemoryRouter
@@ -1010,7 +1075,12 @@ describe("ModuleDetailPage", () => {
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: { pipelineStage: "Submitted, Under Review" },
+        input: {
+          pipelineStage: "Submitted, Under Review",
+          currentlyWithType: "journal",
+          assignedToUserId: null,
+          assignedToInvitationId: null,
+        },
       }),
     );
     expect(fixtures.createSubmission).toHaveBeenCalledTimes(1);
@@ -1444,7 +1514,8 @@ describe("ModuleDetailPage", () => {
     );
   });
 
-  it("celebrates a successful submission-stage change from the header", async () => {
+  it("asks for the submission when the header moves the paper into Submitted, Under Review", async () => {
+    fixtures.createPaperSubmission.mockResolvedValue({ id: "submission-1" });
     renderPage();
 
     fireEvent.click(
@@ -1458,16 +1529,64 @@ describe("ModuleDetailPage", () => {
       }),
     );
 
+    const dialog = await screen.findByRole("dialog", {
+      name: "Where was this paper submitted?",
+    });
+    expect(fixtures.updateModule).not.toHaveBeenCalled();
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: /Journal \/ venue/ }),
+      { target: { value: "Nature Communications" } },
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Save and move paper" }),
+    );
+
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: { pipelineStage: "Submitted, Under Review" },
+        input: {
+          pipelineStage: "Submitted, Under Review",
+          currentlyWithType: "journal",
+          assignedToUserId: null,
+          assignedToInvitationId: null,
+        },
       }),
     );
+    expect(fixtures.createPaperSubmission).toHaveBeenCalledWith({
+      moduleId: "module-1",
+      input: expect.objectContaining({
+        journalName: "Nature Communications",
+        status: "Submitted",
+      }),
+    });
+    expect(
+      fixtures.createPaperSubmission.mock.invocationCallOrder[0],
+    ).toBeLessThan(fixtures.updateModule.mock.invocationCallOrder[0]);
 
     expect(await screen.findByRole("status"))
       .toHaveTextContent("Paper submitted — congratulations!");
     expect(screen.getByTestId("celebration-video")).toBeInTheDocument();
+  });
+
+  it("puts the header stage back when the submission form is cancelled", async () => {
+    renderPage();
+
+    const stage = screen.getByRole("combobox", {
+      name: "Change pipeline stage for Literature synthesis",
+    });
+    fireEvent.click(stage);
+    fireEvent.click(
+      screen.getByRole("option", { name: "Submitted, Under Review" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Where was this paper submitted?",
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(stage).toHaveTextContent("Concept"));
+    expect(fixtures.updateModule).not.toHaveBeenCalled();
+    expect(fixtures.createPaperSubmission).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("celebration-video")).not.toBeInTheDocument();
   });
 
   it("restores the previous header value when saving fails", async () => {

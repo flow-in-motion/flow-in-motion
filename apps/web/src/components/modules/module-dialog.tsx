@@ -2,6 +2,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -23,6 +24,7 @@ import {
   type Membership,
   type PaperCurrentlyWithType,
   useMe,
+  useCreatePaperSubmission,
 } from "@/api/hooks";
 import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
 import { OptionalCollaboratorEntries } from "@/components/sharing/optional-collaborator-entries";
@@ -54,7 +56,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
+  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
+import { newSubmissionInput } from "@/components/modules/move-to-submitted";
+import {
+  SubmissionDialog,
+  type SubmissionFormInput,
+} from "@/components/modules/submission-dialog";
 import { PAPER_STATUSES } from "@/lib/paper-status";
 
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
@@ -164,6 +172,15 @@ export function ModuleDialog({
   >([]);
   const [isPaperCelebrationOpen, setIsPaperCelebrationOpen] = useState(false);
   const [celebrationPaperTitle, setCelebrationPaperTitle] = useState("");
+  // Submission details given when the stage is set to "Submitted, Under
+  // Review"; logged once the paper is saved.
+  const [pendingSubmission, setPendingSubmission] =
+    useState<SubmissionFormInput | null>(null);
+  const [isStageSubmissionOpen, setIsStageSubmissionOpen] = useState(false);
+  // The saved paper, kept if logging its submission fails, so Save then only
+  // retries the submission instead of saving the paper again.
+  const savedForSubmissionRef = useRef<ApiModule | null>(null);
+  const createPaperSubmission = useCreatePaperSubmission(tenantId);
   const isEditing = Boolean(module);
   const me = useMe();
   const venueSuggestions = usePaperVenueSuggestions(tenantId, open);
@@ -220,6 +237,8 @@ export function ModuleDialog({
   useEffect(() => {
     if (!open) return;
     setSaveError(null);
+    setPendingSubmission(null);
+    savedForSubmissionRef.current = null;
     setLinkedTasks([]);
     setLinkedNotes([]);
     setDraftCollaborators([]);
@@ -296,8 +315,13 @@ export function ModuleDialog({
 
     const submittedPaperTitle =
       form.shortTitle.trim() || form.title.trim() || "Paper";
+    const submissionToLog =
+      pendingSubmission && form.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
+        ? pendingSubmission
+        : null;
     try {
-      const savedModule = await onSave({
+      const alreadySaved = savedForSubmissionRef.current;
+      const savedModule = alreadySaved ?? await onSave({
         ...form,
         status: form.status,
         shortTitle: form.shortTitle.trim(),
@@ -313,7 +337,7 @@ export function ModuleDialog({
             ? selectedProject.id
             : null,
       });
-      if (!isEditing && savedModule) {
+      if (!isEditing && savedModule && !alreadySaved) {
         await Promise.all([
           ...draftCollaborators.map((collaborator) =>
             createDraftInvitation(
@@ -351,6 +375,21 @@ export function ModuleDialog({
               queryKey: apiKeys.paperCurrentlyWithCollaborators(tenantId),
             }),
           ]);
+        }
+      }
+      if (submissionToLog && savedModule) {
+        savedForSubmissionRef.current = savedModule;
+        try {
+          await createPaperSubmission.mutateAsync({
+            moduleId: savedModule.id,
+            input: newSubmissionInput(submissionToLog),
+          });
+        } catch (error) {
+          throw new Error(
+            `The paper was saved, but its submission couldn't be logged${
+              error instanceof Error ? ` (${error.message})` : ""
+            }. Save again to retry, or Cancel and log it from the paper's page.`,
+          );
         }
       }
       if (shouldCelebrate) {
@@ -582,9 +621,21 @@ export function ModuleDialog({
               >
                 <Select
                   value={form.pipelineStage}
-                  onValueChange={(value) =>
-                    setForm((current) => ({ ...current, pipelineStage: value }))
-                  }
+                  onValueChange={(value) => {
+                    if (
+                      !pendingSubmission &&
+                      enteredSubmittedUnderReview(module?.pipelineStage, value)
+                    ) {
+                      // Ask for the submission first; the stage only
+                      // changes once it's filled in.
+                      setIsStageSubmissionOpen(true);
+                      return;
+                    }
+                    if (value !== SUBMITTED_UNDER_REVIEW_STAGE) {
+                      setPendingSubmission(null);
+                    }
+                    setForm((current) => ({ ...current, pipelineStage: value }));
+                  }}
                   required
                 >
                   <SelectTrigger id="module-pipeline-stage">
@@ -723,6 +774,24 @@ export function ModuleDialog({
               </Button>
             </DialogFooter>
           </form>
+          <SubmissionDialog
+            open={isStageSubmissionOpen}
+            onOpenChange={setIsStageSubmissionOpen}
+            defaultPaperTitle={form.title.trim() || form.shortTitle.trim()}
+            currentPipelineStage={form.pipelineStage || null}
+            forStageChange
+            logWhenPaperSaved
+            onSave={(input) => {
+              setPendingSubmission(input);
+              setForm((current) => ({
+                ...current,
+                pipelineStage: SUBMITTED_UNDER_REVIEW_STAGE,
+                currentlyWithType: "journal",
+                assignedToUserId: null,
+                assignedToInvitationId: null,
+              }));
+            }}
+          />
         </DialogContent>
       </Dialog>
       <PaperStageCelebration
