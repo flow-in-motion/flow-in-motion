@@ -435,6 +435,58 @@ describe("PipelinePage", () => {
     expect(screen.getByText("Sample Preparation Protocol")).toBeInTheDocument();
   });
 
+  it("scrolls to the submitted stage from the dashboard link in both views", () => {
+    const originalScroll = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "scrollIntoView",
+    );
+    const scrollIntoView = vi.fn();
+
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    try {
+      render(
+        <MemoryRouter initialEntries={["/pipeline#submitted-under-review"]}>
+          <PipelinePage />
+        </MemoryRouter>,
+      );
+
+      expect(
+        screen.getByRole("group", {
+          name: "Submitted, Under Review stage drop zone",
+        }),
+      ).toHaveAttribute("id", "submitted-under-review");
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "start",
+        inline: "nearest",
+      });
+
+      scrollIntoView.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+
+      expect(
+        screen.getByRole("group", {
+          name: "Submitted, Under Review stage drop zone",
+        }),
+      ).toHaveAttribute("id", "submitted-under-review");
+      expect(scrollIntoView).toHaveBeenCalled();
+    } finally {
+      if (originalScroll) {
+        Object.defineProperty(
+          Element.prototype,
+          "scrollIntoView",
+          originalScroll,
+        );
+      } else {
+        Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+      }
+    }
+  });
+
   it("shows papers without a matching stage in the Unassigned column", () => {
     modules.set([{ ...baseModules()[0]!, pipelineStage: null }]);
     render(

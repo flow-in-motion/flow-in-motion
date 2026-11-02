@@ -1,6 +1,6 @@
-import { useMemo, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { GripVertical, Pencil, Workflow } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
@@ -271,6 +271,7 @@ function PipelineItemRow({
 }
 
 export default function PipelinePage() {
+  const location = useLocation();
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
 
@@ -542,12 +543,25 @@ export default function PipelinePage() {
     setDragOverStageIndex(null);
   }
 
-  if (
+  const isPipelineLoading =
     workspace.isPending ||
     projectsQuery.isPending ||
     modulesQuery.isPending ||
-    stagesQuery.isPending
-  ) {
+    stagesQuery.isPending;
+
+  useEffect(() => {
+    if (location.hash !== "#submitted-under-review" || isPipelineLoading) {
+      return;
+    }
+
+    document.getElementById("submitted-under-review")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+  }, [location.hash, isPipelineLoading, view, stages]);
+
+  if (isPipelineLoading) {
     return <LoadingState title="Loading pipeline" layout="list" />;
   }
   if (modulesQuery.isError) {
@@ -713,12 +727,17 @@ export default function PipelinePage() {
                 </div>
 
                 <div
+                  id={
+                    stage.value === "Submitted, Under Review"
+                      ? "submitted-under-review"
+                      : undefined
+                  }
                   role="group"
                   aria-label={`${stage.value} stage drop zone`}
                   onDragOver={(event) => handleDragOver(event, index)}
                   onDrop={(event) => handleDrop(event, index)}
                   className={cn(
-                    "min-h-24 flex-1 rounded-lg border border-transparent bg-card/35 p-3 transition-colors",
+                    "min-h-24 flex-1 scroll-mt-24 rounded-lg border border-transparent bg-card/35 p-3 transition-colors",
                     !isLast && "mb-6",
                     draggedId && "border border-dashed border-primary/30",
                     dragOverStageIndex === index &&
@@ -800,12 +819,17 @@ export default function PipelinePage() {
               return (
                 <div
                   key={stage.id}
+                  id={
+                    stage.value === "Submitted, Under Review"
+                      ? "submitted-under-review"
+                      : undefined
+                  }
                   role="group"
                   aria-label={`${stage.value} stage drop zone`}
                   onDragOver={(event) => handleDragOver(event, index)}
                   onDrop={(event) => handleDrop(event, index)}
                   className={cn(
-                    "flex min-h-48 w-64 shrink-0 flex-col gap-3 rounded-lg border bg-card p-3 transition-colors",
+                    "flex min-h-48 w-64 shrink-0 scroll-mt-24 flex-col gap-3 rounded-lg border bg-card p-3 transition-colors",
                     draggedId && "border-dashed border-primary/30",
                     dragOverStageIndex === index &&
                       "border-primary bg-primary/5 ring-2 ring-primary/30",

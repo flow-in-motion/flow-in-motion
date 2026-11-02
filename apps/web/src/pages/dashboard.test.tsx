@@ -146,6 +146,17 @@ vi.mock("@/components/dashboard/conference-submissions-table", () => ({
 }));
 
 describe("DashboardPage", () => {
+  it("links the In Review Stage card to the submitted stage", () => {
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /In Review Stage/i }),
+    ).toHaveAttribute("href", "/pipeline#submitted-under-review");
+  });
   it("restores a resized widget after remounting", async () => {
     const view = render(
       <MemoryRouter>

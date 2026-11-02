@@ -104,7 +104,7 @@ function buildSummary(counts: {
       description: "Papers in the Submitted, Under Review stage",
       value: String(counts.reviewStage),
       icon: FilePenLine,
-      to: "/pipeline",
+      to: "/pipeline#submitted-under-review",
     },
   ];
 }
