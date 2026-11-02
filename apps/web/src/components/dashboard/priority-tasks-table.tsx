@@ -158,10 +158,13 @@ export function PriorityTasksTable() {
     return map;
   }, [projects, generalProject]);
 
-  const moduleById = useMemo(() => {
-    const map = new Map<string, string>();
+  const paperById = useMemo(() => {
+    const map = new Map<string, { displayTitle: string; title: string | null }>();
     for (const module of modules) {
-      map.set(module.id, paperDisplayTitle(module));
+      map.set(module.id, {
+        displayTitle: paperDisplayTitle(module),
+        title: module.title,
+      });
     }
     return map;
   }, [modules]);
@@ -182,26 +185,38 @@ export function PriorityTasksTable() {
   const rows = useMemo(() => {
     return tasks
       .filter((task) => task.status !== "Complete")
-      .map((task) => ({
-        id: task.id,
-        projectId: task.projectId ?? generalProject?.id ?? null,
-        moduleId: task.moduleId,
-        project: task.moduleId
-          ? (moduleById.get(task.moduleId) ?? "Unknown module")
-          : task.projectId
-            ? (projectById.get(task.projectId) ?? "Unknown project")
-            : "General",
-        task: task.title,
-        estimatedHours: task.estimatedHours
-          ? Number(task.estimatedHours)
-          : null,
-        loggedSeconds: task.loggedSeconds ?? 0,
-        dueDate: task.dueDate,
-        due: formatDueDate(task.dueDate),
-        overdue: Boolean(task.dueDate && task.dueDate < today),
-        priority: task.priority,
-      }));
-  }, [tasks, projectById, moduleById, generalProject, today]);
+      .map((task) => {
+        const paper = task.moduleId ? paperById.get(task.moduleId) : null;
+        return {
+          id: task.id,
+          projectId: task.projectId ?? generalProject?.id ?? null,
+          moduleId: task.moduleId,
+          project: task.moduleId
+            ? (paper?.displayTitle ?? "Unknown module")
+            : task.projectId
+              ? (projectById.get(task.projectId) ?? "Unknown project")
+              : "General",
+          task: task.title,
+          searchText: [
+            task.title,
+            task.projectId ? projectById.get(task.projectId) : null,
+            paper?.displayTitle,
+            paper?.title,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase(),
+          estimatedHours: task.estimatedHours
+            ? Number(task.estimatedHours)
+            : null,
+          loggedSeconds: task.loggedSeconds ?? 0,
+          dueDate: task.dueDate,
+          due: formatDueDate(task.dueDate),
+          overdue: Boolean(task.dueDate && task.dueDate < today),
+          priority: task.priority,
+        };
+      });
+  }, [tasks, projectById, paperById, generalProject, today]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -229,8 +244,7 @@ export function PriorityTasksTable() {
       }
       if (
         query &&
-        !row.project.toLowerCase().includes(query) &&
-        !row.task.toLowerCase().includes(query)
+        !row.searchText.includes(query)
       ) {
         return false;
       }
@@ -337,14 +351,14 @@ function clearFilters() {
           </Badge>
         </CardTitle>
         <CardDescription>
-          Tasks across all projects that need attention first.
+          Tasks across your projects and papers that need attention first.
         </CardDescription>
       </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search project or task…"
+            placeholder="Search project, paper or task…"
             className="sm:max-w-xs"
           />
           <Select
