@@ -63,6 +63,7 @@ import {
   PanelToggleButton,
 } from "@/components/shared/linked-items-panels";
 import { TaskTimeSummary } from "@/components/time-tracking/task-time-summary";
+import { ProjectActivityStreak } from "@/components/time-tracking/project-activity-streak";
 import { TaskTimerButton } from "@/components/time-tracking/task-timer-button";
 import { TaskDialog, type TaskFormInput } from "@/components/tasks/task-dialog";
 import { PageHeading } from "@/components/typography/heading";
@@ -1133,10 +1134,13 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
             onToggleVisible={() => setIsTasksVisible((visible) => !visible)}
             onUnlink={(task) => void handleUnlinkTask(task)}
             summary={
-              <TaskTimeSummary
-                tasks={allProjectTasks}
-                label="Time logged on this project and its papers against the estimates"
-              />
+              <>
+                <ProjectActivityStreak projectId={project.id} />
+                <TaskTimeSummary
+                  tasks={allProjectTasks}
+                  label="Time logged on this project and its papers against the estimates"
+                />
+              </>
             }
             renderTaskAction={(task) => (
               <TaskTimerButton taskId={task.id} taskTitle={task.title} />

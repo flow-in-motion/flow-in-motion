@@ -1,6 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { taskTimeEntries, tasks, modules } from '@research-tracker/migrations';
-import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import {
+  paperTimeEntries,
+  taskTimeEntries,
+  tasks,
+  modules,
+} from '@research-tracker/migrations';
+import {
+  and,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 
 /** Seconds in the stretch that is running right now (0 when paused). */
@@ -62,6 +77,53 @@ export interface LoggedTime {
 @Injectable()
 export class TaskTimeEntriesRepository {
   constructor(private readonly drizzle: DrizzleService) {}
+
+  /** Dates with at least a minute of completed work on a project or its papers. */
+  async activeDatesForProject(
+    projectId: string,
+    timeZone: string,
+  ): Promise<string[]> {
+    const taskDay = sql<string>`to_char(${taskTimeEntries.startedAt} AT TIME ZONE ${timeZone}, 'YYYY-MM-DD')`;
+    const paperDay = sql<string>`to_char(${paperTimeEntries.startedAt} AT TIME ZONE ${timeZone}, 'YYYY-MM-DD')`;
+    const [taskRows, paperRows] = await Promise.all([
+      this.drizzle.db
+        .selectDistinct({ day: taskDay })
+        .from(taskTimeEntries)
+        .leftJoin(tasks, eq(tasks.id, taskTimeEntries.taskId))
+        .leftJoin(
+          modules,
+          or(
+            eq(modules.id, taskTimeEntries.moduleId),
+            eq(modules.id, tasks.moduleId),
+          ),
+        )
+        .where(
+          and(
+            isNotNull(taskTimeEntries.endedAt),
+            gte(taskTimeEntries.durationSeconds, 60),
+            or(
+              eq(tasks.projectId, projectId),
+              eq(modules.projectId, projectId),
+            ),
+          ),
+        ),
+      this.drizzle.db
+        .selectDistinct({ day: paperDay })
+        .from(paperTimeEntries)
+        .innerJoin(modules, eq(modules.id, paperTimeEntries.paperId))
+        .where(
+          and(
+            eq(modules.projectId, projectId),
+            isNotNull(paperTimeEntries.endedAt),
+            gte(paperTimeEntries.durationSeconds, 60),
+          ),
+        ),
+    ]);
+
+    return [...new Set([...taskRows, ...paperRows].map((row) => row.day))].sort(
+      (a, b) => b.localeCompare(a),
+    );
+  }
 
   /** The caller's open (running or paused) timer, with its task. */
   async findOpen(userId: string): Promise<OpenTimerRow | undefined> {

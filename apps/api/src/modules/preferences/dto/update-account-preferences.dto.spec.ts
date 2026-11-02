@@ -72,3 +72,17 @@ describe('due reminder preferences', () => {
     ).resolves.toEqual(['dueReminders']);
   });
 });
+
+describe('project activity nudges', () => {
+  it.each([3, 7, 14])('accepts the %i day threshold', async (inactiveDays) => {
+    await expect(
+      errors({ projectActivityNudges: { enabled: true, inactiveDays } }),
+    ).resolves.toEqual([]);
+  });
+
+  it('rejects an unsupported threshold', async () => {
+    await expect(
+      errors({ projectActivityNudges: { enabled: true, inactiveDays: 5 } }),
+    ).resolves.toEqual(['projectActivityNudges']);
+  });
+});

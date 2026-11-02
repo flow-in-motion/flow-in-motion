@@ -66,6 +66,12 @@ export interface ApiPaperTime {
   totalSeconds: number;
 }
 
+export interface ApiProjectActivityStreak {
+  currentStreakDays: number;
+  lastActiveDate: string | null;
+  inactiveDays: number;
+}
+
 /** The timer, plus when it was fetched, so the clock can keep counting. */
 export interface CurrentTimer {
   timers: ApiTimer[];
@@ -80,6 +86,16 @@ export interface TimeEntryInput {
 }
 
 export const timeTrackingKeys = {
+  projectActivity: (projectId: string, timeZone: string) =>
+    [
+      "api",
+      "me",
+      "projects",
+      projectId,
+      "time-entries",
+      "activity-streak",
+      timeZone,
+    ] as const,
   current: ["api", "me", "time-entries", "current"] as const,
   task: (taskId: string) =>
     ["api", "me", "tasks", taskId, "time-entries"] as const,
@@ -88,6 +104,19 @@ export const timeTrackingKeys = {
 };
 
 const encode = encodeURIComponent;
+
+export function useProjectActivityStreak(projectId: string) {
+  const owner = useAuth().user?.id ?? "";
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  return useQuery({
+    queryKey: [...timeTrackingKeys.projectActivity(projectId, timeZone), owner],
+    enabled: Boolean(projectId && owner),
+    queryFn: () =>
+      authenticatedJson<ApiProjectActivityStreak>(
+        `/api/v1/me/projects/${encode(projectId)}/activity-streak?timeZone=${encode(timeZone)}`,
+      ),
+  });
+}
 
 /** Task lists and details carry logged totals, so refresh them all. */
 /** Refresh saved totals and entries for tasks and papers. */
@@ -184,8 +213,6 @@ export function useStopTimer() {
   });
 }
 
-
-
 /** The caller's time on one task, with the task's totals. */
 export function useTaskTime(taskId: string, enabled = true) {
   const owner = useAuth().user?.id ?? "";
@@ -272,10 +299,7 @@ export function useDeleteTimeEntry() {
         id: string;
         taskId: string | null;
         moduleId: string | null;
-      }>(
-        `/api/v1/me/time-entries/${encode(entryId)}`,
-        { method: "DELETE" },
-      ),
+      }>(`/api/v1/me/time-entries/${encode(entryId)}`, { method: "DELETE" }),
     onSuccess: () => refreshTaskTime(queryClient),
   });
 }
@@ -302,10 +326,7 @@ export function liveRunningSeconds(
 
   if (!current || !timer?.isRunning) return 0;
 
-  return (
-    timer.runningSeconds +
-    Math.max(0, (now - current.receivedAt) / 1000)
-  );
+  return timer.runningSeconds + Math.max(0, (now - current.receivedAt) / 1000);
 }
 
 /** All open timers, each with its own live elapsed time. */
@@ -328,17 +349,13 @@ export function useLiveTimer() {
     query,
     timers,
     elapsedSecondsFor: (entryId: string, fallback = 0) =>
-      timers.find((timer) => timer.id === entryId)?.elapsedSeconds ??
-      fallback,
+      timers.find((timer) => timer.id === entryId)?.elapsedSeconds ?? fallback,
     extraSecondsFor: (taskId: string) =>
       timers.find((timer) => timer.taskId === taskId)?.runningSeconds ?? 0,
     extraSecondsForPaper: (moduleId: string) =>
-      timers.find((timer) => timer.moduleId === moduleId)?.runningSeconds ??
-      0,
+      timers.find((timer) => timer.moduleId === moduleId)?.runningSeconds ?? 0,
   };
 }
-
-
 
 /** The caller's break reminder settings, with defaults filled in. */
 export function useBreakReminderSettings() {

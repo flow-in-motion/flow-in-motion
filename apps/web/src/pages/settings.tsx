@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
+  Activity,
   AlertTriangle,
   ArrowRight,
   Bell,
@@ -71,6 +72,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { BreakReminderSettingsCard } from "@/components/time-tracking/break-reminder-settings";
+import { ProjectActivityNudgeSettingsCard } from "@/components/time-tracking/project-activity-nudge-settings";
 import { DueReminderSettingsCard } from "@/components/reminders/due-reminder-settings";
 import {
   COLOR_THEMES,
@@ -116,6 +118,7 @@ const SETTINGS_SECTIONS = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "due-reminders", label: "Due-date reminders", icon: Bell },
   { id: "break-reminders", label: "Break reminders", icon: Coffee },
+  { id: "activity-nudges", label: "Activity nudges", icon: Activity },
   { id: "workspaces", label: "Workspaces", icon: Building2 },
   { id: "paper-pipeline-stages", label: "Paper stages", icon: Workflow },
   { id: "account", label: "Account & security", icon: ShieldCheck },
@@ -795,6 +798,12 @@ export default function SettingsPage() {
           {section === "break-reminders" ? (
             <section aria-label="Break reminders" className="grid gap-6">
               <BreakReminderSettingsCard />
+            </section>
+          ) : null}
+
+          {section === "activity-nudges" ? (
+            <section aria-label="Activity nudges" className="grid gap-6">
+              <ProjectActivityNudgeSettingsCard />
             </section>
           ) : null}
 

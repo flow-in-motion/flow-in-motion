@@ -88,7 +88,22 @@ export class DueRemindersDto {
   types!: string[];
 }
 
+export class ProjectActivityNudgesDto {
+  @ApiProperty()
+  @IsBoolean()
+  enabled!: boolean;
+
+  @ApiProperty({ enum: [3, 7, 14] })
+  @IsIn([3, 7, 14])
+  inactiveDays!: 3 | 7 | 14;
+}
+
 export class UpdateAccountPreferencesDto {
+  @ApiProperty({ required: false, type: ProjectActivityNudgesDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ProjectActivityNudgesDto)
+  projectActivityNudges?: ProjectActivityNudgesDto;
   @ApiProperty({ required: false, enum: ['light', 'dark'] })
   @IsOptional()
   @IsIn(['light', 'dark'])

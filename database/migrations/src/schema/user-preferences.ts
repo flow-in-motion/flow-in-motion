@@ -32,6 +32,12 @@ export interface AccountPreferenceValues {
   textSize?: string;
   breakReminders?: BreakReminderPreference;
   dueReminders?: DueReminderPreference;
+  projectActivityNudges?: ProjectActivityNudgePreference;
+}
+
+export interface ProjectActivityNudgePreference {
+  enabled: boolean;
+  inactiveDays: 3 | 7 | 14;
 }
 
 export interface DashboardLayoutPreference {

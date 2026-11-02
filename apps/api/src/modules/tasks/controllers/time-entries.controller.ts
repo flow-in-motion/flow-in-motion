@@ -1,12 +1,15 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -15,6 +18,7 @@ import { Request } from 'express';
 import type { AuthenticatedPrincipal } from '../../auth/jwt.strategy';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { UsersService } from '../../users/users.service';
+import { ProjectsService } from '../../projects/services/projects.service';
 import {
   CreateTimeEntryDto,
   StartPaperTimerDto,
@@ -40,11 +44,42 @@ export class TimeEntriesController {
   constructor(
     private readonly timeEntries: TaskTimeEntriesService,
     private readonly usersService: UsersService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   private async userId(req: AuthenticatedRequest) {
     const user = await this.usersService.findByExternalAuthId(req.user.sub);
     return user.id;
+  }
+
+  @ApiOperation({ summary: 'Logged-work streak for an accessible project' })
+  @Get('projects/:projectId/activity-streak')
+  async projectActivity(
+    @Req() req: AuthenticatedRequest,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Query('timeZone') requestedTimeZone?: string,
+  ) {
+    const timeZone = requestedTimeZone ?? 'UTC';
+    if (!timeZone || timeZone.length > 100) {
+      throw new BadRequestException('Invalid time zone');
+    }
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone });
+    } catch {
+      throw new BadRequestException('Invalid time zone');
+    }
+
+    const userId = await this.userId(req);
+    const project = await this.projectsService.findOneForCaller(
+      projectId,
+      userId,
+    );
+    if (!project) throw new NotFoundException('Project not found');
+    return this.timeEntries.projectActivity(
+      project.id,
+      project.createdAt,
+      timeZone,
+    );
   }
 
   @ApiOperation({ summary: "All the caller's running or paused timers" })

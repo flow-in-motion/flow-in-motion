@@ -1,4 +1,5 @@
 import { UsersService } from '../../users/users.service';
+import { ProjectsService } from '../../projects/services/projects.service';
 import { TaskTimeEntriesService } from '../services/task-time-entries.service';
 import { TimeEntriesController } from './time-entries.controller';
 
@@ -6,7 +7,13 @@ describe('TimeEntriesController', () => {
   const req = { user: { sub: 'auth-1' } } as never;
 
   let timeEntries: Record<
-    'current' | 'start' | 'startPaper' | 'pause' | 'resume' | 'stop',
+    | 'current'
+    | 'start'
+    | 'startPaper'
+    | 'pause'
+    | 'resume'
+    | 'stop'
+    | 'projectActivity',
     jest.Mock
   >;
   let controller: TimeEntriesController;
@@ -19,6 +26,13 @@ describe('TimeEntriesController', () => {
       pause: jest.fn().mockResolvedValue({ id: 'entry-1' }),
       resume: jest.fn().mockResolvedValue({ id: 'entry-1' }),
       stop: jest.fn().mockResolvedValue({ id: 'entry-1' }),
+      projectActivity: jest
+        .fn()
+        .mockResolvedValue({
+          currentStreakDays: 2,
+          lastActiveDate: '2026-11-01',
+          inactiveDays: 0,
+        }),
     };
 
     const users = {
@@ -30,6 +44,14 @@ describe('TimeEntriesController', () => {
     controller = new TimeEntriesController(
       timeEntries as unknown as TaskTimeEntriesService,
       users as unknown as UsersService,
+      {
+        findOneForCaller: jest
+          .fn()
+          .mockResolvedValue({
+            id: 'project-1',
+            createdAt: new Date('2026-10-01'),
+          }),
+      } as unknown as ProjectsService,
     );
   });
 
@@ -38,6 +60,28 @@ describe('TimeEntriesController', () => {
       timers: [],
     });
     expect(timeEntries.current).toHaveBeenCalledWith('user-1');
+  });
+
+  it('loads project activity only after checking project access', async () => {
+    await expect(
+      controller.projectActivity(req, 'project-1', 'Australia/Sydney'),
+    ).resolves.toEqual({
+      currentStreakDays: 2,
+      lastActiveDate: '2026-11-01',
+      inactiveDays: 0,
+    });
+    expect(timeEntries.projectActivity).toHaveBeenCalledWith(
+      'project-1',
+      new Date('2026-10-01'),
+      'Australia/Sydney',
+    );
+  });
+
+  it('rejects an invalid time zone', async () => {
+    await expect(
+      controller.projectActivity(req, 'project-1', 'not-a-zone'),
+    ).rejects.toThrow('Invalid time zone');
+    expect(timeEntries.projectActivity).not.toHaveBeenCalled();
   });
 
   it('returns all open timers', async () => {
