@@ -1,6 +1,6 @@
-import { useMemo, useState, type DragEvent } from "react";
+import { useMemo, useState, type DragEvent, useEffect } from "react";
 import { GripVertical, Pencil, Workflow } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 
 import {
@@ -72,6 +72,7 @@ interface PipelineRow {
   completion: number;
   outstanding: number;
   stageIndex: number | undefined;
+  submittedToJournal: string | null;
 }
 
 /** Selected = solid blue. Inactive = white pill, light-grey border. */
@@ -189,6 +190,11 @@ function PipelineItemRow({
         <span className={cn(ITEM_TITLE_CLASS, "leading-snug")}>
           {row.title}
         </span>
+        {row.submittedToJournal ? (
+          <p className="min-w-0 break-words text-xs leading-5 text-muted-foreground">
+            Submitted to: {row.submittedToJournal}
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
           {row.assignee ? (
             <Badge variant="outline">{row.assignee}</Badge>
@@ -226,7 +232,14 @@ function PipelineItemRow({
         />
         <span className={ITEM_ID_CLASS}>{row.displayId ?? row.id}</span>
       </span>
-      <span className={ITEM_TITLE_CLASS}>{row.title}</span>
+      <div className="min-w-0">
+        <span className={ITEM_TITLE_CLASS}>{row.title}</span>
+        {row.submittedToJournal ? (
+          <p className="mt-0.5 break-words text-xs leading-5 text-muted-foreground">
+            Submitted to: {row.submittedToJournal}
+          </p>
+        ) : null}
+      </div>
       <ItemEditLink row={row} />
       <div className="ml-auto flex flex-wrap items-center gap-3">
         {row.assignee ? <Badge variant="outline">{row.assignee}</Badge> : null}
@@ -244,6 +257,8 @@ function PipelineItemRow({
 }
 
 export default function PipelinePage() {
+  const location = useLocation();
+  // Keep the rest of the existing code.
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
 
@@ -393,6 +408,10 @@ export default function PipelinePage() {
           stageIndex: module.pipelineStage
             ? stageIndexByValue.get(module.pipelineStage)
             : undefined,
+          submittedToJournal:
+            module.pipelineStage === "Submitted, Under Review"
+              ? module.submittedToJournal?.trim() || null
+              : null,
         };
       }),
     [
@@ -511,14 +530,31 @@ export default function PipelinePage() {
     setDragOverStageIndex(null);
   }
 
+  const isPipelineLoading =
+  workspace.isPending ||
+  projectsQuery.isPending ||
+  modulesQuery.isPending ||
+  stagesQuery.isPending;
+
+useEffect(() => {
   if (
-    workspace.isPending ||
-    projectsQuery.isPending ||
-    modulesQuery.isPending ||
-    stagesQuery.isPending
+    location.hash !== "#submitted-under-review" ||
+    isPipelineLoading
   ) {
-    return <LoadingState title="Loading pipeline" layout="list" />;
+    return;
   }
+
+  document
+    .getElementById("submitted-under-review")
+    ?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+      inline: "nearest",
+    });
+}, [location.hash, isPipelineLoading, view, stages]);
+if (isPipelineLoading) {
+  return <LoadingState title="Loading pipeline" layout="list" />;
+}
   if (modulesQuery.isError) {
     return (
       <ErrorState
@@ -682,6 +718,11 @@ export default function PipelinePage() {
                 </div>
 
                 <div
+                  id={
+                    stage.value === "Submitted, Under Review"
+                      ? "submitted-under-review"
+                      : undefined
+                  }
                   role="group"
                   aria-label={`${stage.value} stage drop zone`}
                   onDragOver={(event) => handleDragOver(event, index)}
@@ -769,6 +810,11 @@ export default function PipelinePage() {
               return (
                 <div
                   key={stage.id}
+                  id={
+                    stage.value === "Submitted, Under Review"
+                      ? "submitted-under-review"
+                      : undefined
+                  }
                   role="group"
                   aria-label={`${stage.value} stage drop zone`}
                   onDragOver={(event) => handleDragOver(event, index)}
