@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   LinkedNotesPanel,
+  LinkedTasksPanel,
   type PanelNote,
+  type PanelTask,
 } from "@/components/shared/linked-items-panels";
 
 const notes: PanelNote[] = [
@@ -195,5 +197,100 @@ describe("LinkedNotesPanel pins", () => {
       "Newest note",
     ]);
     expect(input.map((note) => note.id)).toEqual(originalOrder);
+  });
+});
+
+describe("LinkedTasksPanel completed tasks", () => {
+  const tasks: PanelTask[] = [
+    {
+      id: "active",
+      title: "Draft discussion",
+      status: "In progress",
+      priority: "High",
+      dueDate: "2026-11-10",
+    },
+    {
+      id: "done-old",
+      title: "Collect data",
+      status: "Complete",
+      priority: "Medium",
+      dueDate: "2026-09-01",
+    },
+    {
+      id: "done-new",
+      title: "Ethics approval",
+      status: "Complete",
+      priority: "High",
+      dueDate: "2026-10-01",
+    },
+  ];
+
+  function taskLinks() {
+    return screen
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("href"));
+  }
+
+  it("shows this panel's own completed tasks in place, not the whole task list", () => {
+    render(
+      <MemoryRouter>
+        <LinkedTasksPanel
+          tasks={tasks}
+          entityLabel="paper"
+          contentId="paper-tasks"
+          visible
+          onToggleVisible={vi.fn()}
+          renderTaskAction={() => <button type="button">Timer</button>}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/2 completed tasks are hidden/)).toBeInTheDocument();
+    expect(screen.queryByText("Collect data")).not.toBeInTheDocument();
+    expect(taskLinks()).toEqual(["/tasks/active"]);
+
+    const show = screen.getByRole("button", { name: "Show completed tasks" });
+    expect(show).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(show);
+
+    expect(screen.getByText("Completed (2)")).toBeInTheDocument();
+    expect(taskLinks()).toEqual([
+      "/tasks/active",
+      "/tasks/done-new",
+      "/tasks/done-old",
+    ]);
+    expect(screen.queryByText(/completed tasks are hidden/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Timer" })).toHaveLength(1);
+
+    const hide = screen.getByRole("button", { name: "Hide completed tasks" });
+    expect(hide).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(hide);
+
+    expect(screen.queryByText("Collect data")).not.toBeInTheDocument();
+    expect(screen.getByText(/2 completed tasks are hidden/)).toBeInTheDocument();
+  });
+
+  it("can show the completed task when every task is complete", () => {
+    render(
+      <MemoryRouter>
+        <LinkedTasksPanel
+          tasks={[tasks[1]]}
+          entityLabel="paper"
+          contentId="paper-tasks"
+          visible
+          onToggleVisible={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText("All tasks for this paper are complete."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/1 completed task is hidden/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show completed task" }));
+
+    expect(taskLinks()).toEqual(["/tasks/done-old"]);
+    expect(screen.getByText("Collect data")).toBeInTheDocument();
   });
 });
