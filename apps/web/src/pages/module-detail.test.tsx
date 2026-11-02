@@ -676,6 +676,33 @@ describe("ModuleDetailPage", () => {
     );
   });
 
+  it("saves a cleared journal or conference list when its last entry is removed", async () => {
+    fixtures.module.targetJournal = "Nature Communications";
+    fixtures.module.backupConference = "AOM; EGOS";
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Nature Communications" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove AOM" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          moduleId: "module-1",
+          input: expect.objectContaining({
+            targetJournal: "",
+            backupJournal: "",
+            targetConference: "",
+            backupConference: "EGOS",
+          }),
+        }),
+      ),
+    );
+  });
+
   it("celebrates after moving the paper into Submitted, Under Review", async () => {
     renderPage();
 
