@@ -355,7 +355,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-full pb-12">
-      <div className="mx-auto w-full max-w-5xl">
+      <div className="w-full">
         <PageHeading
           tone="cyan"
           icon={SettingsIcon}
@@ -375,7 +375,7 @@ export default function SettingsPage() {
       {me.data.profileComplete ? null : (
         <div
           role="alert"
-          className="mx-auto mt-7 flex w-full max-w-5xl items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+          className="mt-7 flex w-full items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
         >
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
           <div>
@@ -389,7 +389,7 @@ export default function SettingsPage() {
       )}
 
 
-      <div className="mx-auto mt-7 grid w-full max-w-5xl grid-cols-1 gap-6">
+      <div className="mt-7 grid w-full min-w-0 grid-cols-1 gap-6">
         <nav aria-label="Settings sections" className="min-w-0">
         <ul className="flex flex-wrap gap-2">
             {SETTINGS_SECTIONS.map((item) => {

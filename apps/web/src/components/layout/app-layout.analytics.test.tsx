@@ -14,6 +14,7 @@ import { AppLayout } from "@/components/layout/app-layout";
 const analytics = vi.hoisted(() => ({
   tenantId: "",
   trackEvent: vi.fn(),
+  layout: "sidebar" as "sidebar" | "topnav",
 }));
 
 vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
@@ -24,7 +25,7 @@ vi.mock("@/api/hooks", () => ({
   useTrackEvent: () => analytics.trackEvent,
 }));
 vi.mock("@/theme/design-theme", () => ({
-  useDesignTheme: () => ({ layout: "sidebar" }),
+  useDesignTheme: () => ({ layout: analytics.layout }),
 }));
 vi.mock("@/components/layout/sidebar", () => ({ Sidebar: () => null }));
 vi.mock("@/components/layout/compact-sidebar", () => ({
@@ -72,7 +73,27 @@ describe("AppLayout usage tracking", () => {
   beforeEach(() => {
     analytics.tenantId = "";
     analytics.trackEvent.mockReset();
+    analytics.layout = "sidebar";
   });
+
+  it.each(["sidebar", "topnav"] as const)(
+    "lets every route use the available width in the %s layout",
+    (layout) => {
+      analytics.layout = layout;
+      const view = render(<TestApp />);
+
+      const routeStage = view.container.querySelector(".route-stage");
+      expect(routeStage).toHaveClass("w-full", "min-w-0");
+      expect(routeStage?.className).not.toMatch(/max-w-/);
+      expect(routeStage?.parentElement).toHaveClass("min-w-0");
+
+      fireEvent.click(screen.getByRole("button", { name: "Notes" }));
+      expect(view.container.querySelector(".route-stage")).toHaveClass(
+        "w-full",
+        "min-w-0",
+      );
+    },
+  );
 
   it("records the initial page after the workspace loads and every route visit", async () => {
     const view = render(<TestApp />);

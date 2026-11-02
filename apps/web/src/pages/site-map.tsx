@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function SiteMapPage() {
   return (
     <div className="min-h-full pb-12">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
+      <div className="flex w-full flex-col gap-3">
         {/* Opened from Settings, so that's where Back goes without history. */}
         <BackButton fallback="/settings" label="Back" />
         <PageHeading
@@ -21,7 +21,7 @@ export default function SiteMapPage() {
         />
       </div>
 
-      <div className="mx-auto mt-7 grid w-full max-w-5xl gap-6 md:grid-cols-2">
+      <div className="mt-7 grid w-full min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-3">
         {navGroups.map((group) => {
           const isFuture = group.label === "Future features";
           return (
