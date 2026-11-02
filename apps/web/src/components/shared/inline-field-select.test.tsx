@@ -27,4 +27,28 @@ describe("InlineFieldSelect", () => {
     await waitFor(() => expect(field).toHaveTextContent("Active"));
     expect(onError).toHaveBeenCalledWith("Permission denied");
   });
+
+  it("puts the old value back, without an error, when a change is called off", async () => {
+    const onError = vi.fn();
+
+    render(
+      <InlineFieldSelect
+        value="Active"
+        options={["Active", "Review"]}
+        fieldLabel="status"
+        itemLabel="Research paper"
+        onChange={vi.fn().mockResolvedValue(false)}
+        onError={onError}
+      />,
+    );
+
+    const field = screen.getByRole("combobox", {
+      name: "Change status for Research paper",
+    });
+    fireEvent.click(field);
+    fireEvent.click(screen.getByRole("option", { name: "Review" }));
+
+    await waitFor(() => expect(field).toHaveTextContent("Active"));
+    expect(onError).not.toHaveBeenCalled();
+  });
 });

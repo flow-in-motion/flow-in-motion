@@ -2189,6 +2189,34 @@ export function useCreateModuleSubmission(tenantId: string, moduleId: string) {
   });
 }
 
+/** Logs a submission for whichever paper is passed with each call. */
+export function useCreatePaperSubmission(tenantId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      moduleId,
+      input,
+    }: {
+      moduleId: string;
+      input: SubmissionInput;
+    }) =>
+      responseData<ApiModuleSubmission>(
+        await apiClient.POST(
+          "/api/v1/tenant/{tenantId}/modules/{moduleId}/submissions",
+          { params: { path: { tenantId, moduleId } }, body: input },
+        ),
+      ),
+    async onSuccess(_submission, { moduleId }) {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: moduleSubmissionsKey(tenantId, moduleId),
+        }),
+        invalidateResourceEverywhere(queryClient, "modules"),
+      ]);
+    },
+  });
+}
+
 export function useUpdateModuleSubmission(tenantId: string, moduleId: string) {
   const queryClient = useQueryClient();
   return useMutation({

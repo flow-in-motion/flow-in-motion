@@ -25,6 +25,8 @@ import {
   PaperStageCelebration,
   SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
+import { useMoveToSubmitted } from "@/components/modules/move-to-submitted";
+import { SubmissionDialog } from "@/components/modules/submission-dialog";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { TopScrollArea } from "@/components/shared/top-scroll-area";
@@ -289,6 +291,10 @@ export default function PipelinePage() {
 
   const stagesQuery = useModulePipelineStagePool(tenantId);
   const updateModule = useUpdateModule(tenantId);
+  const { requestMove, moveDialogProps } = useMoveToSubmitted(
+    tenantId,
+    (moduleId, input) => updateModule.mutateAsync({ moduleId, input }),
+  );
   const createModule = useCreateModule(tenantId);
   const trackEvent = useTrackEvent(tenantId);
 
@@ -501,17 +507,27 @@ export default function PipelinePage() {
 
     if (!row || !nextStage || previousStage === nextStage) return;
 
-    void updateModule
-      .mutateAsync({
-        moduleId: id,
-        input: { pipelineStage: nextStage },
-      })
-      .then(() => {
-        if (enteredSubmittedUnderReview(previousStage, nextStage)) {
+    if (enteredSubmittedUnderReview(previousStage, nextStage)) {
+      // Asks for the submission first; cancelling it leaves the paper where
+      // it was.
+      const module = modules.find((item) => item.id === id);
+      void requestMove({
+        id,
+        title: module?.title || module?.shortTitle || row.title,
+        pipelineStage: previousStage,
+      }).then((moved) => {
+        if (moved) {
           setCelebrationPaperTitle(row.title);
           setIsPaperCelebrationOpen(true);
         }
       });
+      return;
+    }
+
+    void updateModule.mutateAsync({
+      moduleId: id,
+      input: { pipelineStage: nextStage },
+    });
   }
 
   function handleDragStart(event: DragEvent<HTMLDivElement>, row: PipelineRow) {
@@ -587,6 +603,7 @@ export default function PipelinePage() {
         onOpenChange={setIsPaperCelebrationOpen}
         paperTitle={celebrationPaperTitle}
       />
+      <SubmissionDialog {...moveDialogProps} />
 
       <div className="surface-toolbar flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">

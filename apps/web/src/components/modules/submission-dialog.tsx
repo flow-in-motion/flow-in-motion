@@ -57,6 +57,14 @@ export interface SubmissionSaveInput extends SubmissionFormInput {
   moveToSubmittedStage: boolean;
 }
 
+/** Today's date where the user is, as YYYY-MM-DD. */
+function todayDate() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 interface SubmissionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -70,6 +78,17 @@ interface SubmissionDialogProps {
   offerSubmittedStage?: boolean;
   /** The paper's current pipeline stage, shown next to that offer. */
   currentPipelineStage?: string | null;
+  /**
+   * Opened because the paper is being moved into "Submitted, Under Review":
+   * the move is the point, so there's no tick box, today's date is filled
+   * in, and Cancel leaves the paper where it was.
+   */
+  forStageChange?: boolean;
+  /**
+   * With `forStageChange`, for edit forms: the details are only collected
+   * here, and logged when the paper itself is saved.
+   */
+  logWhenPaperSaved?: boolean;
   onSave: (input: SubmissionSaveInput) => Promise<void> | void;
 }
 
@@ -120,6 +139,8 @@ export function SubmissionDialog({
   defaultPaperTitle = "",
   offerSubmittedStage = false,
   currentPipelineStage = null,
+  forStageChange = false,
+  logWhenPaperSaved = false,
   onSave,
 }: SubmissionDialogProps) {
   const [form, setForm] = useState<SubmissionFormInput>(INITIAL_FORM);
@@ -130,7 +151,7 @@ export function SubmissionDialog({
   // move the paper.
   const [moveStageChoice, setMoveStageChoice] = useState<boolean | null>(null);
   const isEditing = Boolean(submission);
-  const showStageOption = offerSubmittedStage && !isEditing;
+  const showStageOption = offerSubmittedStage && !isEditing && !forStageChange;
   const moveToSubmittedStage =
     moveStageChoice ??
     (IN_REVIEW_STATUSES.has(form.status) &&
@@ -143,9 +164,13 @@ export function SubmissionDialog({
     setForm(
       submission
         ? formFromSubmission(submission)
-        : { ...INITIAL_FORM, paperTitle: defaultPaperTitle },
+        : {
+            ...INITIAL_FORM,
+            paperTitle: defaultPaperTitle,
+            submittedDate: forStageChange ? todayDate() : "",
+          },
     );
-  }, [open, submission, defaultPaperTitle]);
+  }, [open, submission, defaultPaperTitle, forStageChange]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -158,7 +183,8 @@ export function SubmissionDialog({
         journalName: form.journalName.trim(),
         paperTitle: form.paperTitle.trim(),
         notes: form.notes.trim(),
-        moveToSubmittedStage: showStageOption && moveToSubmittedStage,
+        moveToSubmittedStage:
+          forStageChange || (showStageOption && moveToSubmittedStage),
       });
       onOpenChange(false);
     } catch (error) {
@@ -172,10 +198,19 @@ export function SubmissionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit submission" : "Log a submission"}</DialogTitle>
+          <DialogTitle>
+            {isEditing
+              ? "Edit submission"
+              : forStageChange
+                ? "Where was this paper submitted?"
+                : "Log a submission"}
+          </DialogTitle>
           <DialogDescription>
-            Record where and when this paper was submitted, so you can look back at how long
-            review and revisions took.
+            {forStageChange && logWhenPaperSaved
+              ? `When you save the paper, it moves to “${SUBMITTED_UNDER_REVIEW_STAGE}”, this submission is logged and Currently with is set to Journal. Cancel to keep the current stage.`
+              : forStageChange
+              ? `Moving the paper to “${SUBMITTED_UNDER_REVIEW_STAGE}” logs this submission and sets Currently with to Journal. Cancel to leave the paper where it is.`
+              : "Record where and when this paper was submitted, so you can look back at how long review and revisions took."}
           </DialogDescription>
         </DialogHeader>
 
@@ -295,7 +330,15 @@ export function SubmissionDialog({
           <DialogFooter className="border-t pt-4">
             <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
             <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Save submission"}
+              {isSaving
+                ? "Saving…"
+                : isEditing
+                  ? "Save Changes"
+                  : forStageChange
+                    ? logWhenPaperSaved
+                      ? "Continue"
+                      : "Save and move paper"
+                    : "Save submission"}
             </Button>
           </DialogFooter>
         </form>
