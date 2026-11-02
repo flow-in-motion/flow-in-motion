@@ -264,15 +264,20 @@ export function PriorityTasksTable() {
   return (
     <Card className="overflow-hidden">
       <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card">
-        <div>
-          <CardTitle className="flex items-center gap-2">
-            <ListTodo className="h-4 w-4 text-primary" />
-            Tasks and To Do
-          </CardTitle>
-          <CardDescription>
-            Tasks across all projects that need attention first.
-          </CardDescription>
-        </div>
+      <div>
+        <CardTitle className="flex flex-wrap items-center gap-2">
+          <ListTodo className="h-4 w-4 text-primary" />
+          Tasks and To Do
+          <Badge variant="secondary">
+            {hasActiveFilters
+              ? `${filtered.length} of ${rows.length} to do`
+              : `${rows.length} to do`}
+          </Badge>
+        </CardTitle>
+        <CardDescription>
+          Tasks across all projects that need attention first.
+        </CardDescription>
+      </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             value={search}

@@ -266,6 +266,7 @@ describe("PriorityTasksTable", () => {
         <PriorityTasksTable />
       </MemoryRouter>,
     );
+    expect(screen.getByText("4 to do")).toBeInTheDocument();
     const taskNames = () =>
       screen
         .getAllByRole("link")
@@ -278,6 +279,7 @@ describe("PriorityTasksTable", () => {
     fireEvent.keyDown(filter, { key: "Enter" });
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Critical" }));
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "High" }));
+    expect(screen.getByText("2 of 4 to do")).toBeInTheDocument();
     // The menu stays open while ticking.
     expect(screen.getByRole("menu")).toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
@@ -287,6 +289,7 @@ describe("PriorityTasksTable", () => {
     expect(taskNames()).toEqual(["Middle task", "Zulu task"]);
 
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(screen.getByText("4 to do")).toBeInTheDocument();
     expect(filter).toHaveTextContent("All priorities");
     expect(taskNames()).toEqual([
       "Alpha task",
