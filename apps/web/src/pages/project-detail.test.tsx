@@ -10,6 +10,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ProjectDetailPage from "@/pages/project-detail";
 
+vi.mock("@/auth/auth-provider", () => ({
+  useAuth: () => ({ user: { id: "user-owner" } }),
+}));
+
 const fixtures = vi.hoisted(() => ({
   updateProject: vi.fn(),
   updateModule: vi.fn(),
@@ -50,6 +54,7 @@ const fixtures = vi.hoisted(() => ({
 
 vi.mock("@/api/time-tracking", () => import("@/test/time-tracking-mock"));
 vi.mock("@/api/hooks", () => ({
+  useAccountPreferences: () => ({ data: null, isSuccess: true }),
   useModule: (_tenantId: string, moduleId: string) => ({
     data: fixtures.modules.find((module) => module.id === moduleId),
   }),

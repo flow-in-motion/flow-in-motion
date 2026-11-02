@@ -47,6 +47,32 @@ function entryResponse(row: TimeEntryRow) {
   };
 }
 
+function localDay(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function shiftDay(day: string, offset: number): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function daysBetween(earlier: string, later: string): number {
+  return Math.round(
+    (Date.parse(`${later}T00:00:00Z`) - Date.parse(`${earlier}T00:00:00Z`)) /
+      86_400_000,
+  );
+}
+
 /**
  * Logging time on tasks: one timer per person (Start, Pause, Resume, Stop),
  * plus time added or corrected by hand. Each person sees and edits only their
@@ -60,6 +86,39 @@ export class TaskTimeEntriesService {
     private readonly taskMembers: TaskMembersRepository,
     private readonly papers: ProjectModulesRepository,
   ) {}
+
+  async projectActivity(
+    projectId: string,
+    createdAt: Date,
+    timeZone: string,
+    now = new Date(),
+  ) {
+    const today = localDay(now, timeZone);
+    const yesterday = shiftDay(today, -1);
+    const activeDates = (
+      await this.repository.activeDatesForProject(projectId, timeZone)
+    ).filter((day) => day <= today);
+    const active = new Set(activeDates);
+    const lastActiveDate = activeDates[0] ?? null;
+    let day: string | null = active.has(today)
+      ? today
+      : active.has(yesterday)
+        ? yesterday
+        : null;
+    let currentStreakDays = 0;
+
+    while (day !== null && active.has(day)) {
+      currentStreakDays += 1;
+      day = shiftDay(day, -1);
+    }
+
+    const inactivityStart = lastActiveDate ?? localDay(createdAt, timeZone);
+    return {
+      currentStreakDays,
+      lastActiveDate,
+      inactiveDays: Math.max(0, daysBetween(inactivityStart, today) - 1),
+    };
+  }
 
   /** A task the caller created or was added to, or 404. */
   private async accessibleTask(taskId: string, userId: string) {

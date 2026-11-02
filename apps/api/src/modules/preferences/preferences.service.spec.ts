@@ -100,6 +100,17 @@ describe('PreferencesService', () => {
     });
   });
 
+  it('saves project activity nudge settings', async () => {
+    repository.updateAccount.mockImplementation(
+      (_userId: string, preferences: unknown) => ({ preferences }),
+    );
+    const projectActivityNudges = { enabled: false, inactiveDays: 7 as const };
+    await service.updateAccount('user-1', { projectActivityNudges });
+    expect(repository.updateAccount).toHaveBeenCalledWith('user-1', {
+      projectActivityNudges,
+    });
+  });
+
   it('sanitizes workspace layouts and ignores unknown table keys', async () => {
     repository.updateWorkspace.mockImplementation(
       (_userId: string, _tenantId: string, preferences: unknown) => ({

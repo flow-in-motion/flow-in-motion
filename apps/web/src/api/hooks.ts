@@ -61,6 +61,10 @@ export interface UpdateProfile {
   researchInterests?: string;
 }
 export interface AccountPreferences {
+  projectActivityNudges?: {
+    enabled: boolean;
+    inactiveDays: 3 | 7 | 14;
+  };
   appearanceTheme?: "light" | "dark";
   designTheme?: "modern" | "minimal" | "executive";
   colorTheme?: "ocean" | "violet" | "emerald" | "rose";

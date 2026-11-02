@@ -50,7 +50,8 @@ describe('TaskTimeEntriesService', () => {
     | 'deleteFinished'
     | 'totalsForTasks'
     | 'findForPaper'
-    | 'totalsForPapers',
+    | 'totalsForPapers'
+    | 'activeDatesForProject',
     jest.Mock
   >;
   let tasks: { findByIdGlobal: jest.Mock };
@@ -75,6 +76,7 @@ describe('TaskTimeEntriesService', () => {
       totalsForTasks: jest.fn().mockResolvedValue(new Map()),
       findForPaper: jest.fn().mockResolvedValue([]),
       totalsForPapers: jest.fn().mockResolvedValue(new Map()),
+      activeDatesForProject: jest.fn().mockResolvedValue([]),
     };
     tasks = {
       findByIdGlobal: jest.fn().mockResolvedValue({
@@ -95,6 +97,52 @@ describe('TaskTimeEntriesService', () => {
       taskMembers as unknown as TaskMembersRepository,
       papers as unknown as ProjectModulesRepository,
     );
+  });
+
+  describe('project activity', () => {
+    const now = new Date('2026-11-02T12:00:00Z');
+    const created = new Date('2026-10-01T12:00:00Z');
+
+    it('continues a streak from yesterday without counting today as inactive', async () => {
+      repository.activeDatesForProject.mockResolvedValue([
+        '2026-11-01',
+        '2026-10-31',
+      ]);
+      await expect(
+        service.projectActivity('project-1', created, 'UTC', now),
+      ).resolves.toEqual({
+        currentStreakDays: 2,
+        lastActiveDate: '2026-11-01',
+        inactiveDays: 0,
+      });
+    });
+
+    it('ends the streak after a missed day and counts full inactive days', async () => {
+      repository.activeDatesForProject.mockResolvedValue(['2026-10-30']);
+      await expect(
+        service.projectActivity('project-1', created, 'UTC', now),
+      ).resolves.toEqual({
+        currentStreakDays: 0,
+        lastActiveDate: '2026-10-30',
+        inactiveDays: 2,
+      });
+    });
+
+    it('uses the caller’s local date at a UTC midnight boundary', async () => {
+      repository.activeDatesForProject.mockResolvedValue(['2026-11-02']);
+      await expect(
+        service.projectActivity(
+          'project-1',
+          created,
+          'Australia/Sydney',
+          new Date('2026-11-01T14:00:00Z'),
+        ),
+      ).resolves.toEqual({
+        currentStreakDays: 1,
+        lastActiveDate: '2026-11-02',
+        inactiveDays: 0,
+      });
+    });
   });
 
   describe('current', () => {

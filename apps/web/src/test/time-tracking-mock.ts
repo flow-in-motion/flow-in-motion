@@ -46,12 +46,22 @@ function mutation() {
 }
 
 export const timeTrackingKeys = {
+  projectActivity: (projectId: string, timeZone: string) =>
+    ["api", "me", "projects", projectId, "time-entries", "activity-streak", timeZone] as const,
   current: ["api", "me", "time-entries", "current"] as const,
   task: (taskId: string) =>
     ["api", "me", "tasks", taskId, "time-entries"] as const,
   paper: (moduleId: string) =>
     ["api", "me", "modules", moduleId, "time-entries"] as const,
 };
+
+export function useProjectActivityStreak() {
+  return {
+    data: { currentStreakDays: 0, lastActiveDate: null, inactiveDays: 0 },
+    isPending: false,
+    isError: false,
+  };
+}
 
 export function useCurrentTimer() {
   return { data: timeTrackingState.current, isPending: false, isError: false };

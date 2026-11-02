@@ -40,6 +40,8 @@ vi.mock("@/components/reminders/due-reminder-settings", () => ({
   DueReminderSettingsCard: () => <p>Due-date reminder settings</p>,
 }));
 vi.mock("@/api/hooks", () => ({
+  useAccountPreferences: () => ({ data: null, isSuccess: true }),
+  useUpdateAccountPreferences: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useMe: () => ({
     data: mockMe,
     isPending: false,
@@ -241,6 +243,7 @@ describe("SettingsPage", () => {
       "Appearance",
       "Due-date reminders",
       "Break reminders",
+      "Activity nudges",
       "Workspaces",
       "Paper stages",
       "Account & security",
@@ -259,6 +262,9 @@ describe("SettingsPage", () => {
     expect(
       within(menu).getByRole("link", { name: "Break reminders" }),
     ).toHaveAttribute("aria-current", "page");
+
+    fireEvent.click(within(menu).getByRole("link", { name: "Activity nudges" }));
+    expect(screen.getByRole("region", { name: "Activity nudges" })).toBeInTheDocument();
   });
 
   it("reminds an incomplete user and saves their professional profile", () => {
