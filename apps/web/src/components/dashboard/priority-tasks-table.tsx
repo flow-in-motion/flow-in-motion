@@ -37,9 +37,33 @@ import { paperDisplayTitle } from "@/lib/paper-title";
 import { cn } from "@/lib/utils";
 import { useColumnVisibility } from "@/hooks/use-column-visibility";
 import { useSessionListState } from "@/hooks/use-session-list-state";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /** Several can be ticked at once; none ticked shows every priority. */
 const PRIORITY_OPTIONS = ["Critical", "High", "Medium", "Low"] as const;
+const DUE_HORIZON_OPTIONS = [
+  { value: "all", label: "All open tasks" },
+  { value: "overdue", label: "Overdue" },
+  { value: "7", label: "Next 7 days" },
+  { value: "14", label: "Next 14 days" },
+  { value: "30", label: "Next 30 days" },
+  { value: "no-date", label: "No due date" },
+] as const;
+
+type DueHorizon = (typeof DUE_HORIZON_OPTIONS)[number]["value"];
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 const TASK_COLUMNS = [
   { id: "task", label: "Task" },
   { id: "project", label: "Project/paper" },
@@ -95,6 +119,13 @@ export function PriorityTasksTable() {
     () => new Set(),
   );
 
+  const [dueHorizon, setDueHorizon] = useSessionListState<DueHorizon>(
+    me.data?.id,
+    tenantId,
+    "dashboard-tasks:due-horizon",
+    "all",
+  );
+
   const [sortColumn, setSortColumn] = useSessionListState<SortColumn>(
     me.data?.id,
     tenantId,
@@ -135,7 +166,18 @@ export function PriorityTasksTable() {
     return map;
   }, [modules]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = localDateKey(now);
+  const horizonEnd =
+    dueHorizon === "7" || dueHorizon === "14" || dueHorizon === "30"
+      ? localDateKey(
+          new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate() + Number(dueHorizon) - 1,
+          ),
+        )
+      : null;
 
   const rows = useMemo(() => {
     return tasks
@@ -164,6 +206,24 @@ export function PriorityTasksTable() {
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     const matchingRows = rows.filter((row) => {
+      if (
+        dueHorizon === "overdue" &&
+        (!row.dueDate || row.dueDate >= today)
+      ) {
+        return false;
+      }
+
+      if (dueHorizon === "no-date" && row.dueDate) {
+        return false;
+      }
+
+      if (
+        horizonEnd &&
+        (!row.dueDate || row.dueDate < today || row.dueDate > horizonEnd)
+      ) {
+        return false;
+      }
+
       if (priorities.size > 0 && !priorities.has(row.priority ?? "")) {
         return false;
       }
@@ -234,14 +294,16 @@ export function PriorityTasksTable() {
       const directed = comparison * (sortDirection === "asc" ? 1 : -1);
       return directed || a.task.localeCompare(b.task);
     });
-  }, [rows, search, priorities, sortColumn, sortDirection]);
+  }, [rows, search, priorities, dueHorizon, today, horizonEnd, sortColumn, sortDirection]);
 
-  const hasActiveFilters = search !== "" || priorities.size > 0;
+  const hasActiveFilters =
+  search.trim() !== "" || priorities.size > 0 || dueHorizon !== "all";
 
-  function clearFilters() {
-    setSearch("");
-    setPriorities(new Set());
-  }
+function clearFilters() {
+  setSearch("");
+  setPriorities(new Set());
+  setDueHorizon("all");
+}
 
   function togglePriority(value: string) {
     setPriorities((current) => {
@@ -285,6 +347,24 @@ export function PriorityTasksTable() {
             placeholder="Search project or task…"
             className="sm:max-w-xs"
           />
+          <Select
+            value={dueHorizon}
+            onValueChange={(value) => setDueHorizon(value as DueHorizon)}
+          >
+            <SelectTrigger
+              className="sm:w-44"
+              aria-label="Filter tasks by due date"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DUE_HORIZON_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <MultiSelectFilter
             options={PRIORITY_OPTIONS}
             selected={priorities}
