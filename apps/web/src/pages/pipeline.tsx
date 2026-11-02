@@ -1,4 +1,4 @@
-import { useMemo, useState, type DragEvent, useEffect } from "react";
+import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { GripVertical, Pencil, Workflow } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useSessionListState } from "@/hooks/use-session-list-state";
@@ -23,6 +23,7 @@ import {
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
+  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -72,7 +73,11 @@ interface PipelineRow {
   completion: number;
   outstanding: number;
   stageIndex: number | undefined;
-  submittedToJournal: string | null;
+  /**
+   * For a paper in "Submitted, Under Review": the journal it's with, or ""
+   * if no active submission is logged. Null at any other stage.
+   */
+  submittedTo: string | null;
 }
 
 /** Selected = solid blue. Inactive = white pill, light-grey border. */
@@ -92,6 +97,21 @@ function groupByStage(rows: PipelineRow[], stageCount: number) {
     groups[row.stageIndex]?.push(row);
   }
   return groups;
+}
+
+function SubmittedToLine({ journal }: { journal: string }) {
+  return (
+    <span className="text-xs text-muted-foreground">
+      {journal ? (
+        <>
+          Submitted to{" "}
+          <span className="font-medium text-foreground">{journal}</span>
+        </>
+      ) : (
+        "No active submission logged"
+      )}
+    </span>
+  );
 }
 
 interface PipelineItemRowProps {
@@ -190,10 +210,8 @@ function PipelineItemRow({
         <span className={cn(ITEM_TITLE_CLASS, "leading-snug")}>
           {row.title}
         </span>
-        {row.submittedToJournal ? (
-          <p className="min-w-0 break-words text-xs leading-5 text-muted-foreground">
-            Submitted to: {row.submittedToJournal}
-          </p>
+        {row.submittedTo !== null ? (
+          <SubmittedToLine journal={row.submittedTo} />
         ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
           {row.assignee ? (
@@ -232,15 +250,11 @@ function PipelineItemRow({
         />
         <span className={ITEM_ID_CLASS}>{row.displayId ?? row.id}</span>
       </span>
-      <div className="min-w-0">
-        <span className={ITEM_TITLE_CLASS}>{row.title}</span>
-        {row.submittedToJournal ? (
-          <p className="mt-0.5 break-words text-xs leading-5 text-muted-foreground">
-            Submitted to: {row.submittedToJournal}
-          </p>
-        ) : null}
-      </div>
+      <span className={ITEM_TITLE_CLASS}>{row.title}</span>
       <ItemEditLink row={row} />
+      {row.submittedTo !== null ? (
+        <SubmittedToLine journal={row.submittedTo} />
+      ) : null}
       <div className="ml-auto flex flex-wrap items-center gap-3">
         {row.assignee ? <Badge variant="outline">{row.assignee}</Badge> : null}
         <Badge variant="outline" className={statusBadgeClass(row.status)}>
@@ -258,7 +272,6 @@ function PipelineItemRow({
 
 export default function PipelinePage() {
   const location = useLocation();
-  // Keep the rest of the existing code.
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
 
@@ -408,9 +421,9 @@ export default function PipelinePage() {
           stageIndex: module.pipelineStage
             ? stageIndexByValue.get(module.pipelineStage)
             : undefined,
-          submittedToJournal:
-            module.pipelineStage === "Submitted, Under Review"
-              ? module.submittedToJournal?.trim() || null
+          submittedTo:
+            module.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
+              ? (module.submittedToJournal?.trim() ?? "")
               : null,
         };
       }),
@@ -531,30 +544,26 @@ export default function PipelinePage() {
   }
 
   const isPipelineLoading =
-  workspace.isPending ||
-  projectsQuery.isPending ||
-  modulesQuery.isPending ||
-  stagesQuery.isPending;
+    workspace.isPending ||
+    projectsQuery.isPending ||
+    modulesQuery.isPending ||
+    stagesQuery.isPending;
 
-useEffect(() => {
-  if (
-    location.hash !== "#submitted-under-review" ||
-    isPipelineLoading
-  ) {
-    return;
-  }
+  useEffect(() => {
+    if (location.hash !== "#submitted-under-review" || isPipelineLoading) {
+      return;
+    }
 
-  document
-    .getElementById("submitted-under-review")
-    ?.scrollIntoView({
+    document.getElementById("submitted-under-review")?.scrollIntoView({
       behavior: "smooth",
       block: "start",
       inline: "nearest",
     });
-}, [location.hash, isPipelineLoading, view, stages]);
-if (isPipelineLoading) {
-  return <LoadingState title="Loading pipeline" layout="list" />;
-}
+  }, [location.hash, isPipelineLoading, view, stages]);
+
+  if (isPipelineLoading) {
+    return <LoadingState title="Loading pipeline" layout="list" />;
+  }
   if (modulesQuery.isError) {
     return (
       <ErrorState
@@ -728,7 +737,7 @@ if (isPipelineLoading) {
                   onDragOver={(event) => handleDragOver(event, index)}
                   onDrop={(event) => handleDrop(event, index)}
                   className={cn(
-                    "min-h-24 flex-1 rounded-lg border border-transparent bg-card/35 p-3 transition-colors",
+                    "min-h-24 flex-1 scroll-mt-24 rounded-lg border border-transparent bg-card/35 p-3 transition-colors",
                     !isLast && "mb-6",
                     draggedId && "border border-dashed border-primary/30",
                     dragOverStageIndex === index &&
@@ -820,7 +829,7 @@ if (isPipelineLoading) {
                   onDragOver={(event) => handleDragOver(event, index)}
                   onDrop={(event) => handleDrop(event, index)}
                   className={cn(
-                    "flex min-h-48 w-64 shrink-0 flex-col gap-3 rounded-lg border bg-card p-3 transition-colors",
+                    "flex min-h-48 w-64 shrink-0 scroll-mt-24 flex-col gap-3 rounded-lg border bg-card p-3 transition-colors",
                     draggedId && "border-dashed border-primary/30",
                     dragOverStageIndex === index &&
                       "border-primary bg-primary/5 ring-2 ring-primary/30",
