@@ -64,6 +64,20 @@ function sortActiveTasks<T extends PanelTask>(tasks: T[]): T[] {
     });
 }
 
+/** Completed tasks only, latest due date first (undated last), then title. */
+function sortCompletedTasks<T extends PanelTask>(tasks: T[]): T[] {
+  return tasks
+    .filter((task) => task.status === "Complete")
+    .sort((a, b) => {
+      if (a.dueDate !== b.dueDate) {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return b.dueDate.localeCompare(a.dueDate);
+      }
+      return a.title.localeCompare(b.title);
+    });
+}
+
 /** Pinned first when enabled, then most recently updated. */
 function sortRecentNotes<T extends PanelNote>(
   notes: T[],
@@ -176,11 +190,56 @@ export function LinkedTasksPanel<T extends PanelTask>({
   renderTaskAction?: (task: T) => ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   const activeTasks = sortActiveTasks(tasks);
   const shownTasks = expanded
     ? activeTasks
     : activeTasks.slice(0, PANEL_PREVIEW_COUNT);
-  const completedCount = tasks.length - activeTasks.length;
+  const completedTasks = sortCompletedTasks(tasks);
+  const completedCount = completedTasks.length;
+  const completedNoun = completedCount === 1 ? "task" : "tasks";
+  const completedListId = `${contentId}-completed`;
+
+  // Completed tasks are listed for reference only, so they skip the row's
+  // extra action (the timer on papers).
+  function renderTaskRow(task: T, withAction: boolean) {
+    return (
+      <div
+        key={task.id}
+        className="flex items-center gap-1 rounded-md border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-muted/40"
+      >
+        <Link
+          to={`/tasks/${task.id}`}
+          className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="flex min-w-0 items-baseline gap-2">
+            {task.displayId ? (
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                {task.displayId}
+              </span>
+            ) : null}
+            <span className="truncate text-sm font-semibold">
+              {task.title}
+            </span>
+          </span>
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="whitespace-nowrap text-xs text-muted-foreground">
+              Due {formatDate(task.dueDate)}
+            </span>
+            <StatusBadge status={task.status ?? "—"} />
+            <StatusBadge status={task.priority ?? "—"} />
+          </span>
+        </Link>
+        {withAction ? renderTaskAction?.(task) : null}
+        {onUnlink ? (
+          <UnlinkButton
+            label={unlinkLabel(task)}
+            onClick={() => onUnlink(task)}
+          />
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <Card>
@@ -207,42 +266,7 @@ export function LinkedTasksPanel<T extends PanelTask>({
             </p>
           ) : (
             <div className="grid gap-2">
-              {shownTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-1 rounded-md border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-muted/40"
-                >
-                  <Link
-                    to={`/tasks/${task.id}`}
-                    className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <span className="flex min-w-0 items-baseline gap-2">
-                      {task.displayId ? (
-                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                          {task.displayId}
-                        </span>
-                      ) : null}
-                      <span className="truncate text-sm font-semibold">
-                        {task.title}
-                      </span>
-                    </span>
-                    <span className="flex flex-wrap items-center gap-2">
-                      <span className="whitespace-nowrap text-xs text-muted-foreground">
-                        Due {formatDate(task.dueDate)}
-                      </span>
-                      <StatusBadge status={task.status ?? "—"} />
-                      <StatusBadge status={task.priority ?? "—"} />
-                    </span>
-                  </Link>
-                  {renderTaskAction?.(task)}
-                  {onUnlink ? (
-                    <UnlinkButton
-                      label={unlinkLabel(task)}
-                      onClick={() => onUnlink(task)}
-                    />
-                  ) : null}
-                </div>
-              ))}
+              {shownTasks.map((task) => renderTaskRow(task, true))}
             </div>
           )}
           <ShowMoreButton
@@ -252,13 +276,35 @@ export function LinkedTasksPanel<T extends PanelTask>({
             onToggle={() => setExpanded((value) => !value)}
           />
           {completedCount > 0 ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {completedCount} completed{" "}
-              {completedCount === 1 ? "task is" : "tasks are"} hidden.{" "}
-              <Link to="/tasks" className="underline hover:text-foreground">
-                View all tasks
-              </Link>
-            </p>
+            <div className="mt-2">
+              {showCompleted ? (
+                <div id={completedListId} className="grid gap-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Completed ({completedCount})
+                  </p>
+                  {completedTasks.map((task) => renderTaskRow(task, false))}
+                </div>
+              ) : null}
+              <p className="mt-2 text-xs text-muted-foreground">
+                {showCompleted ? null : (
+                  <>
+                    {completedCount} completed{" "}
+                    {completedCount === 1 ? "task is" : "tasks are"} hidden.{" "}
+                  </>
+                )}
+                <button
+                  type="button"
+                  aria-expanded={showCompleted}
+                  aria-controls={showCompleted ? completedListId : undefined}
+                  onClick={() => setShowCompleted((value) => !value)}
+                  className="underline hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {showCompleted
+                    ? `Hide completed ${completedNoun}`
+                    : `Show completed ${completedNoun}`}
+                </button>
+              </p>
+            </div>
           ) : null}
         </CardContent>
       ) : null}
