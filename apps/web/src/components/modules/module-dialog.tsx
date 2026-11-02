@@ -55,8 +55,8 @@ import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
 } from "@/components/modules/paper-stage-celebration";
+import { PAPER_STATUSES } from "@/lib/paper-status";
 
-const MODULE_STATUSES = ["Active", "Stalled", "Complete"] as const;
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"] as const;
 
 /** Picker option for a paper that doesn't belong to any project. */
@@ -535,7 +535,7 @@ export function ModuleDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {MODULE_STATUSES.map((status) => (
+                    {PAPER_STATUSES.map((status) => (
                       <SelectItem key={status} value={status}>
                         {status}
                       </SelectItem>

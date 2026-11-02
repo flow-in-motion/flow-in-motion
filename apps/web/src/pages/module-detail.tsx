@@ -107,8 +107,8 @@ import { ConferencePresentationHistory } from "@/components/modules/conference-p
 import { PaperConferenceSubmissions } from "@/components/modules/paper-conference-submissions";
 import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
 import { PaperTimeCard } from "@/components/time-tracking/paper-time-card";
+import { PAPER_STATUSES } from "@/lib/paper-status";
 
-const MODULE_STATUSES = ["Active", "Stalled", "Complete"];
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 
 interface EditableModule {
@@ -974,7 +974,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
               value={
                 <InlineFieldSelect
                   value={module.status}
-                  options={MODULE_STATUSES}
+                  options={PAPER_STATUSES}
                   fieldLabel="status"
                   itemLabel={paperDisplayTitle(module)}
                   triggerClassName="h-auto w-auto gap-1 rounded-sm border-0 bg-transparent p-0 shadow-none hover:bg-transparent"
@@ -1451,7 +1451,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {MODULE_STATUSES.map((value) => (
+                      {PAPER_STATUSES.map((value) => (
                         <SelectItem key={value} value={value}>
                           {value}
                         </SelectItem>

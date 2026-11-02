@@ -20,7 +20,10 @@ import type {
   ModuleSortField,
   SortDirection,
 } from '../dto/list-modules-query.dto';
-import type { CurrentlyWithType } from '../dto/create-module.dto';
+import {
+  PAPER_ONLY_STATUSES,
+  type CurrentlyWithType,
+} from '../dto/create-module.dto';
 import type { ModuleArchiveMode } from '../dto/archive-module.dto';
 const ARCHIVE_RETENTION_DAYS = 14;
 // Papers no longer use the "Review" status (being under review is a pipeline
@@ -339,7 +342,7 @@ export class ProjectModulesService {
     const status = paperStatus(input.status);
 
     const [statusId, priorityId] = await Promise.all([
-      this.resolveEnum('project_status', status),
+      this.resolvePaperStatus(status ?? DEFAULT_PAPER_STATUS),
       this.resolveEnum('importance', input.priority),
     ]);
     const pipelineStageId = input.pipelineStage
@@ -449,7 +452,7 @@ export class ProjectModulesService {
     }
     const status = paperStatus(input.status);
     const [statusId, priorityId, pipelineStageId] = await Promise.all([
-      status ? this.resolveEnum('project_status', status) : undefined,
+      status ? this.resolvePaperStatus(status) : undefined,
       input.priority
         ? this.resolveEnum('importance', input.priority)
         : undefined,
@@ -1020,6 +1023,13 @@ export class ProjectModulesService {
       assignedToUserId: null,
       assignedToInvitationId: null,
     };
+  }
+  private resolvePaperStatus(value: string) {
+    const category = PAPER_ONLY_STATUSES.some((status) => status === value)
+      ? 'paper_status'
+      : 'project_status';
+
+    return this.resolveEnum(category, value);
   }
 
   private async resolveEnum(

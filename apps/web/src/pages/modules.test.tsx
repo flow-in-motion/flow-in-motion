@@ -648,6 +648,27 @@ describe("ModulesPage", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
   });
+  it("filters by a new paper status", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: "Filter by statuses" }),
+      { key: "Enter" },
+    );
+    fireEvent.click(
+      screen.getByRole("menuitemcheckbox", { name: "Proposed" }),
+    );
+
+    await waitFor(() =>
+      expect(hookMocks.useModulesOptions).toHaveBeenLastCalledWith(
+        expect.objectContaining({ statuses: ["Proposed"] }),
+      ),
+    );
+  });
   it("restores paper search and status filters after returning", async () => {
     const first = render(
       <MemoryRouter>
@@ -753,15 +774,18 @@ describe("ModulesPage", () => {
         name: "Change status for Literature synthesis",
       }),
     );
+    for (const status of ["Proposed", "Parked", "Closed"]) {
+      expect(screen.getByRole("option", { name: status })).toBeInTheDocument();
+    }
     expect(
       screen.queryByRole("option", { name: "Review" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("option", { name: "Stalled" }));
+    fireEvent.click(screen.getByRole("option", { name: "Parked" }));
 
     await waitFor(() =>
       expect(hookMocks.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: { status: "Stalled" },
+        input: { status: "Parked" },
       }),
     );
   });

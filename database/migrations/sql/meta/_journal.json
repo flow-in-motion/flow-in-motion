@@ -596,6 +596,13 @@
       "when": 1793573642319,
       "tag": "0100_merge_paper_timers",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1793577205505,
+      "tag": "0101_paper_status_options",
+      "breakpoints": true
     }
   ]
 }
