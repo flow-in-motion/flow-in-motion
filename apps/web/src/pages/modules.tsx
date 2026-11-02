@@ -67,16 +67,16 @@ import { PAPER_STATUSES } from "@/lib/paper-status";
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
 
 const MODULE_COLUMNS = [
-  { id: "module", label: "Paper", width: "minmax(280px,2fr)" },
-  { id: "project", label: "Project", width: "180px" },
-  { id: "status", label: "Status", width: "110px" },
-  { id: "priority", label: "Priority", width: "110px" },
-  { id: "progress", label: "Progress", width: "130px" },
-  { id: "stage", label: "Stage", width: "170px" },
-  { id: "submittedTo", label: "Submitted to", width: "200px" },
-  { id: "logged", label: "Logged", width: "90px" },
-  { id: "due", label: "Next Action Date", width: "170px" },
-  { id: "assignee", label: "Currently With", width: "150px" },
+  { id: "module", label: "Paper", width: "minmax(230px,2fr)" },
+  { id: "project", label: "Project", width: "minmax(120px,1fr)" },
+  { id: "status", label: "Status", width: "100px" },
+  { id: "priority", label: "Priority", width: "100px" },
+  { id: "progress", label: "Progress", width: "110px" },
+  { id: "stage", label: "Stage", width: "minmax(140px,1fr)" },
+  { id: "submittedTo", label: "Submitted to", width: "minmax(150px,1fr)" },
+  { id: "logged", label: "Logged", width: "80px" },
+  { id: "due", label: "Next Action Date", width: "minmax(150px,1fr)" },
+  { id: "assignee", label: "Currently With", width: "minmax(140px,1fr)" },
 ] as const;
 
 type SortColumn = (typeof MODULE_COLUMNS)[number]["id"];
