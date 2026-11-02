@@ -23,6 +23,7 @@ import {
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
+  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
@@ -72,6 +73,11 @@ interface PipelineRow {
   completion: number;
   outstanding: number;
   stageIndex: number | undefined;
+  /**
+   * For a paper in "Submitted, Under Review": the journal it's with, or ""
+   * if no active submission is logged. Null at any other stage.
+   */
+  submittedTo: string | null;
 }
 
 /** Selected = solid blue. Inactive = white pill, light-grey border. */
@@ -91,6 +97,21 @@ function groupByStage(rows: PipelineRow[], stageCount: number) {
     groups[row.stageIndex]?.push(row);
   }
   return groups;
+}
+
+function SubmittedToLine({ journal }: { journal: string }) {
+  return (
+    <span className="text-xs text-muted-foreground">
+      {journal ? (
+        <>
+          Submitted to{" "}
+          <span className="font-medium text-foreground">{journal}</span>
+        </>
+      ) : (
+        "No active submission logged"
+      )}
+    </span>
+  );
 }
 
 interface PipelineItemRowProps {
@@ -189,6 +210,9 @@ function PipelineItemRow({
         <span className={cn(ITEM_TITLE_CLASS, "leading-snug")}>
           {row.title}
         </span>
+        {row.submittedTo !== null ? (
+          <SubmittedToLine journal={row.submittedTo} />
+        ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
           {row.assignee ? (
             <Badge variant="outline">{row.assignee}</Badge>
@@ -228,6 +252,9 @@ function PipelineItemRow({
       </span>
       <span className={ITEM_TITLE_CLASS}>{row.title}</span>
       <ItemEditLink row={row} />
+      {row.submittedTo !== null ? (
+        <SubmittedToLine journal={row.submittedTo} />
+      ) : null}
       <div className="ml-auto flex flex-wrap items-center gap-3">
         {row.assignee ? <Badge variant="outline">{row.assignee}</Badge> : null}
         <Badge variant="outline" className={statusBadgeClass(row.status)}>
@@ -393,6 +420,10 @@ export default function PipelinePage() {
           stageIndex: module.pipelineStage
             ? stageIndexByValue.get(module.pipelineStage)
             : undefined,
+          submittedTo:
+            module.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
+              ? (module.submittedToJournal?.trim() ?? "")
+              : null,
         };
       }),
     [
