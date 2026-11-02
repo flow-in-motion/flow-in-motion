@@ -499,7 +499,7 @@ export class ProjectModulesRepository {
             .where(
               and(
                 eq(enumTable.id, modules.statusId),
-                eq(enumTable.category, 'project_status'),
+                inArray(enumTable.category, ['project_status', 'paper_status']),
                 inArray(enumTable.value, statuses),
               ),
             ),

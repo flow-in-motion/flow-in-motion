@@ -62,8 +62,8 @@ import { ArchiveModuleDialog } from "@/components/modules/archive-module-dialog"
 import { priorityPillClass, statusPillClass } from "@/lib/tones";
 import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
 import { PaperLoggedTime } from "@/components/time-tracking/paper-logged-time";
+import { PAPER_STATUSES } from "@/lib/paper-status";
 
-const STATUS_OPTIONS = ["Active", "Stalled", "Complete"] as const;
 const PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"] as const;
 
 const MODULE_COLUMNS = [
@@ -157,10 +157,13 @@ function MultiSelectFilter({
 
 
 const MODULE_STATUS_ORDER: Record<string, number> = {
-  Active: 0,
-  Review: 1,
+  Proposed: 0,
+  Active: 1,
+  Review: 1, // Compatibility with older records.
   Stalled: 2,
   Complete: 3,
+  Parked: 4,
+  Closed: 5,
 };
 const PAPER_PRIORITY_ORDER: Record<string, number> = {
   Low: 0,
@@ -627,7 +630,7 @@ export default function ModulesPage() {
           className="sm:max-w-xs"
         />
         <MultiSelectFilter
-          options={STATUS_OPTIONS}
+          options={PAPER_STATUSES}
           selected={selectedStatuses}
           pluralLabel="statuses"
           triggerClassName="sm:w-40"
@@ -802,7 +805,7 @@ export default function ModulesPage() {
                   {columns.isColumnVisible("status") ? (
                     <InlineFieldSelect
                       value={module.status}
-                      options={STATUS_OPTIONS}
+                      options={PAPER_STATUSES}
                       fieldLabel="status"
                       itemLabel={paperDisplayTitle(module)}
                       valueClassName={statusPillClass}

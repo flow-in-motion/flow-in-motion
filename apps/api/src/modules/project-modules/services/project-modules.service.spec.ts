@@ -622,6 +622,35 @@ describe('ProjectModulesService', () => {
   });
 
   describe('create', () => {
+    it.each(['Proposed', 'Parked', 'Closed'])(
+      'stores %s as a paper-only status',
+      async (status) => {
+        enumRepository.findByCategoryAndValue.mockImplementation(
+          (category: string, value: string) =>
+            Promise.resolve({ id: `${category}-${value}-id` }),
+        );
+        repository.create.mockResolvedValue({
+          id: 'module-1',
+          statusId: `paper_status-${status}-id`,
+          pipelineStageId: null,
+        });
+
+        await service.create('tenant-1', 'user-1', {
+          shortTitle: 'New Paper',
+          status,
+        });
+
+        expect(enumRepository.findByCategoryAndValue).toHaveBeenCalledWith(
+          'paper_status',
+          status,
+        );
+        expect(repository.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            statusId: `paper_status-${status}-id`,
+          }),
+        );
+      },
+    );
     it('creates an independent paper with no project', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
         (category: string, value: string) =>
@@ -918,10 +947,15 @@ describe('ProjectModulesService', () => {
 
     it('passes through the target/backup journal and conference fields', async () => {
       enumRepository.findByCategoryAndValue.mockImplementation(
-        (category: string, value: string) =>
-          category === 'project_role' && value === 'Owner'
-            ? Promise.resolve({ id: 'owner-role-id' })
-            : Promise.resolve(undefined),
+        (category: string, value: string) => {
+          if (category === 'project_role' && value === 'Owner') {
+            return Promise.resolve({ id: 'owner-role-id' });
+          }
+          if (category === 'project_status' && value === 'Active') {
+            return Promise.resolve({ id: 'active-status-id' });
+          }
+          return Promise.resolve(undefined);
+        },
       );
       repository.create.mockResolvedValue({
         id: 'module-1',
@@ -1082,6 +1116,41 @@ describe('ProjectModulesService', () => {
         'tenant-1',
         'module-1',
         expect.objectContaining({ dueDate }),
+      );
+    });
+
+    it('updates a paper to a paper-only status', async () => {
+      repository.findById.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: 'active-status-id',
+        pipelineStageId: null,
+      });
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'owner-role-id',
+      });
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (category: string, value: string) =>
+          Promise.resolve({ id: `${category}-${value}-id` }),
+      );
+      repository.update.mockResolvedValue({
+        id: 'module-1',
+        statusId: 'paper_status-Parked-id',
+        pipelineStageId: null,
+      });
+
+      await service.update('tenant-1', 'module-1', 'user-1', {
+        status: 'Parked',
+      });
+
+      expect(enumRepository.findByCategoryAndValue).toHaveBeenCalledWith(
+        'paper_status',
+        'Parked',
+      );
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({ statusId: 'paper_status-Parked-id' }),
       );
     });
 

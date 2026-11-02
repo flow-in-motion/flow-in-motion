@@ -9,6 +9,17 @@ import {
   Length,
 } from 'class-validator';
 
+export const PAPER_STATUSES = [
+  'Proposed',
+  'Active',
+  'Stalled',
+  'Complete',
+  'Parked',
+  'Closed',
+] as const;
+
+export const PAPER_ONLY_STATUSES = ['Proposed', 'Parked', 'Closed'] as const;
+
 export const CURRENTLY_WITH_TYPES = [
   'me',
   'collaborator',
@@ -102,9 +113,12 @@ export class CreateModuleDto {
   @ApiProperty({
     required: false,
     example: 'Active',
+    enum: PAPER_STATUSES,
   })
   @IsOptional()
   @IsString()
+  // Older clients may still send Review; the service maps it to Active.
+  @IsIn([...PAPER_STATUSES, 'Review'])
   status?: string;
 
   @ApiProperty({

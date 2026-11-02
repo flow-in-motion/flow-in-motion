@@ -1364,12 +1364,12 @@ describe("ModuleDetailPage", () => {
         name: "Change status for Literature synthesis",
       }),
     );
-    fireEvent.click(screen.getByRole("option", { name: "Stalled" }));
+    fireEvent.click(screen.getByRole("option", { name: "Closed" }));
 
     await waitFor(() =>
       expect(fixtures.updateModule).toHaveBeenCalledWith({
         moduleId: "module-1",
-        input: { status: "Stalled" },
+        input: { status: "Closed" },
       }),
     );
 
