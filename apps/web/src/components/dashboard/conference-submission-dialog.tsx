@@ -360,7 +360,7 @@ export function ConferenceSubmissionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? `Edit ${wording.noun}` : "Add an event"}
@@ -399,34 +399,36 @@ export function ConferenceSubmissionDialog({
             </FormField>
           </div>
 
-          <FormField label={wording.locationLabel} htmlFor="conference-location">
-            <Input id="conference-location" value={form.location}
-              onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
-              placeholder={wording.locationPlaceholder} />
-          </FormField>
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            <FormField label={wording.locationLabel} htmlFor="conference-location">
+              <Input id="conference-location" value={form.location}
+                onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
+                placeholder={wording.locationPlaceholder} />
+            </FormField>
 
-          <FormField
-            label="Conference website"
-            htmlFor="conference-website"
-          >
-            <Input
-              id="conference-website"
-              type="url"
-              inputMode="url"
-              autoComplete="url"
-              value={form.websiteUrl}
-              maxLength={2048}
-              pattern="https?://.+"
-              title="Enter a website address starting with https:// or http://"
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  websiteUrl: event.target.value,
-                }))
-              }
-              placeholder="https://conference.example.org"
-            />
-          </FormField>
+            <FormField
+              label="Conference website"
+              htmlFor="conference-website"
+            >
+              <Input
+                id="conference-website"
+                type="url"
+                inputMode="url"
+                autoComplete="url"
+                value={form.websiteUrl}
+                maxLength={2048}
+                pattern="https?://.+"
+                title="Enter a website address starting with https:// or http://"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    websiteUrl: event.target.value,
+                  }))
+                }
+                placeholder="https://conference.example.org"
+              />
+            </FormField>
+          </div>
 
           <FormField label="Notes / abstract" htmlFor="conference-notes">
             <Textarea
@@ -474,72 +476,76 @@ export function ConferenceSubmissionDialog({
             ) : null}
           </div>
 
-          <FormField label="Submission type" htmlFor="conference-type">
-            <Select value={form.submissionType || "not-specified"}
-              onValueChange={(value) => setForm((current) => ({
-                ...current,
-                submissionType: value === "not-specified" ? "" : value,
-              }))}>
-              <SelectTrigger id="conference-type"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="not-specified">Not specified</SelectItem>
-                <SelectItem value="Abstract">Abstract</SelectItem>
-                <SelectItem value="Full paper">Full paper</SelectItem>
-                <SelectItem value="Poster">Poster</SelectItem>
-              </SelectContent>
-            </Select>
-          </FormField>
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            <FormField label="Submission type" htmlFor="conference-type">
+              <Select value={form.submissionType || "not-specified"}
+                onValueChange={(value) => setForm((current) => ({
+                  ...current,
+                  submissionType: value === "not-specified" ? "" : value,
+                }))}>
+                <SelectTrigger id="conference-type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="not-specified">Not specified</SelectItem>
+                  <SelectItem value="Abstract">Abstract</SelectItem>
+                  <SelectItem value="Full paper">Full paper</SelectItem>
+                  <SelectItem value="Poster">Poster</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
 
-          <FormField label="Intent" htmlFor="conference-intent">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button id="conference-intent" type="button" variant="outline" className="justify-start font-normal" aria-label={`Intent: ${form.intents.length > 0 ? form.intents.join(", ") : "Not specified"}`}>
-                  {form.intents.length > 0 ? form.intents.join(", ") : "Not specified"}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                {CONFERENCE_INTENTS.map((intent) => (
-                  <DropdownMenuCheckboxItem
-                    key={intent}
-                    checked={form.intents.includes(intent)}
-                    onSelect={(event) => event.preventDefault()}
-                    onCheckedChange={() =>
-                      setForm((current) => ({
-                        ...current,
-                        intents: current.intents.includes(intent)
-                          ? current.intents.filter((value) => value !== intent)
-                          : [...current.intents, intent],
-                      }))
-                    }
-                  >
-                    {intent}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </FormField>
+            <FormField label="Intent" htmlFor="conference-intent">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button id="conference-intent" type="button" variant="outline" className="justify-start font-normal" aria-label={`Intent: ${form.intents.length > 0 ? form.intents.join(", ") : "Not specified"}`}>
+                    {form.intents.length > 0 ? form.intents.join(", ") : "Not specified"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                  {CONFERENCE_INTENTS.map((intent) => (
+                    <DropdownMenuCheckboxItem
+                      key={intent}
+                      checked={form.intents.includes(intent)}
+                      onSelect={(event) => event.preventDefault()}
+                      onCheckedChange={() =>
+                        setForm((current) => ({
+                          ...current,
+                          intents: current.intents.includes(intent)
+                            ? current.intents.filter((value) => value !== intent)
+                            : [...current.intents, intent],
+                        }))
+                      }
+                    >
+                      {intent}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </FormField>
+          </div>
 
-          <FormField label="Linked projects" htmlFor="conference-project-link">
-            <ConferenceLinkPicker
-              id="conference-project-link"
-              kind="project"
-              tenantId={tenantId}
-              dialogOpen={open}
-              selected={linkedProjects}
-              onChange={setLinkedProjects}
-            />
-          </FormField>
+          <div className="grid items-start gap-4 sm:grid-cols-2">
+            <FormField label="Linked projects" htmlFor="conference-project-link">
+              <ConferenceLinkPicker
+                id="conference-project-link"
+                kind="project"
+                tenantId={tenantId}
+                dialogOpen={open}
+                selected={linkedProjects}
+                onChange={setLinkedProjects}
+              />
+            </FormField>
 
-          <FormField label="Linked papers" htmlFor="conference-linked-paper">
-            <ConferenceLinkPicker
-              id="conference-linked-paper"
-              kind="paper"
-              tenantId={tenantId}
-              dialogOpen={open}
-              selected={linkedPapers}
-              onChange={setLinkedPapers}
-            />
-          </FormField>
+            <FormField label="Linked papers" htmlFor="conference-linked-paper">
+              <ConferenceLinkPicker
+                id="conference-linked-paper"
+                kind="paper"
+                tenantId={tenantId}
+                dialogOpen={open}
+                selected={linkedPapers}
+                onChange={setLinkedPapers}
+              />
+            </FormField>
+          </div>
 
           {formError ? <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{formError}</p> : null}
 
