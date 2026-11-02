@@ -676,6 +676,33 @@ describe("ModuleDetailPage", () => {
     );
   });
 
+  it("saves a cleared journal or conference list when its last entry is removed", async () => {
+    fixtures.module.targetJournal = "Nature Communications";
+    fixtures.module.backupConference = "AOM; EGOS";
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove Nature Communications" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove AOM" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith(
+        expect.objectContaining({
+          moduleId: "module-1",
+          input: expect.objectContaining({
+            targetJournal: "",
+            backupJournal: "",
+            targetConference: "",
+            backupConference: "EGOS",
+          }),
+        }),
+      ),
+    );
+  });
+
   it("celebrates after moving the paper into Submitted, Under Review", async () => {
     renderPage();
 
@@ -1258,6 +1285,27 @@ describe("ModuleDetailPage", () => {
     );
 
     expect(screen.getByText("Nature Communications")).toBeInTheDocument();
+  });
+
+  it("shows every journal and conference heading, saying when one has none", () => {
+    fixtures.module.targetJournal = "Nature Communications; Science";
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show journals & conferences" }),
+    );
+
+    for (const heading of [
+      "Target journals",
+      "Backup journals",
+      "Target conferences",
+      "Backup conferences",
+    ]) {
+      expect(screen.getByText(heading)).toBeInTheDocument();
+    }
+    expect(screen.getByText("Nature Communications")).toBeInTheDocument();
+    expect(screen.getByText("Science")).toBeInTheDocument();
+    expect(screen.getAllByText("None added")).toHaveLength(3);
   });
 
   it("shows tasks and notes as separate panels, each of which can be hidden", () => {

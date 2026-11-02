@@ -652,10 +652,11 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         title: form.title.trim() || undefined,
         description: form.description.trim() || undefined,
         abstract: form.abstract.trim() || undefined,
-        targetJournal: form.targetJournal.trim() || undefined,
-        backupJournal: form.backupJournal.trim() || undefined,
-        targetConference: form.targetConference.trim() || undefined,
-        backupConference: form.backupConference.trim() || undefined,
+        // Always sent, so removing the last entry clears the list.
+        targetJournal: form.targetJournal.trim(),
+        backupJournal: form.backupJournal.trim(),
+        targetConference: form.targetConference.trim(),
+        backupConference: form.backupConference.trim(),
         status: form.status,
         priority: form.priority || undefined,
         pipelineStage: form.pipelineStage,
@@ -1626,62 +1627,34 @@ async function saveHeaderField(input: HeaderUpdateInput) {
               id="module-publishing-targets-content"
               className="grid gap-3 sm:grid-cols-2"
             >
-              {module.targetJournal ? (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Target journals
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {splitTagList(module.targetJournal).map((entry) => (
-                      <Badge key={entry} variant="secondary">
-                        {entry}
-                      </Badge>
-                    ))}
+              {[
+                { label: "Target journals", value: module.targetJournal },
+                { label: "Backup journals", value: module.backupJournal },
+                { label: "Target conferences", value: module.targetConference },
+                { label: "Backup conferences", value: module.backupConference },
+              ].map(({ label, value }) => {
+                const entries = splitTagList(value);
+                return (
+                  <div key={label}>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </p>
+                    {entries.length > 0 ? (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {entries.map((entry) => (
+                          <Badge key={entry} variant="secondary">
+                            {entry}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1.5 text-sm text-muted-foreground">
+                        None added
+                      </p>
+                    )}
                   </div>
-                </div>
-              ) : null}
-              {module.backupJournal ? (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Backup journals
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {splitTagList(module.backupJournal).map((entry) => (
-                      <Badge key={entry} variant="secondary">
-                        {entry}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {module.targetConference ? (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Target conferences
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {splitTagList(module.targetConference).map((entry) => (
-                      <Badge key={entry} variant="secondary">
-                        {entry}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {module.backupConference ? (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Backup conferences
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {splitTagList(module.backupConference).map((entry) => (
-                      <Badge key={entry} variant="secondary">
-                        {entry}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+                );
+              })}
             </CardContent>
           ) : null}
         </Card>
