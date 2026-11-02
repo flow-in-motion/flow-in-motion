@@ -126,6 +126,86 @@ describe("PriorityTasksTable", () => {
     },
   );
 
+  it("filters incomplete tasks by due-date horizon", () => {
+    const originalTasks = fixtures.tasks;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 2, 12));
+
+    fixtures.tasks = [
+      ...[
+        ["overdue", "2026-11-01"],
+        ["today", "2026-11-02"],
+        ["day-6", "2026-11-08"],
+        ["day-7", "2026-11-09"],
+        ["day-13", "2026-11-15"],
+        ["day-14", "2026-11-16"],
+        ["day-29", "2026-12-01"],
+        ["day-30", "2026-12-02"],
+      ].map(([id, dueDate]) => ({
+        ...originalTasks[0],
+        id,
+        title: id,
+        dueDate,
+      })),
+      {
+        ...originalTasks[0],
+        id: "undated",
+        title: "undated",
+        dueDate: null,
+      },
+      {
+        ...originalTasks[0],
+        id: "completed",
+        title: "completed",
+        status: "Complete",
+        dueDate: "2026-11-02",
+      },
+    ];
+
+    try {
+      render(
+        <MemoryRouter>
+          <PriorityTasksTable />
+        </MemoryRouter>,
+      );
+
+      const choose = (label: string) => {
+        fireEvent.click(
+          screen.getByRole("combobox", {
+            name: "Filter tasks by due date",
+          }),
+        );
+        fireEvent.click(screen.getByRole("option", { name: label }));
+      };
+
+      expect(screen.getByText("9 to do")).toBeInTheDocument();
+
+      choose("Next 7 days");
+      expect(screen.getByText("2 of 9 to do")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "day-6" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "day-7" })).not.toBeInTheDocument();
+
+      choose("Next 14 days");
+      expect(screen.getByText("4 of 9 to do")).toBeInTheDocument();
+
+      choose("Next 30 days");
+      expect(screen.getByText("6 of 9 to do")).toBeInTheDocument();
+
+      choose("Overdue");
+      expect(screen.getByRole("link", { name: "overdue" })).toBeInTheDocument();
+
+      choose("No due date");
+      expect(screen.getByRole("link", { name: "undated" })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+      expect(screen.getByText("9 to do")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "completed" })).not.toBeInTheDocument();
+    } finally {
+      fixtures.tasks = originalTasks;
+      vi.useRealTimers();
+    }
+  });
+
   it("finds selected priorities beyond the first task page", async () => {
     const originalTasks = fixtures.tasks;
 
