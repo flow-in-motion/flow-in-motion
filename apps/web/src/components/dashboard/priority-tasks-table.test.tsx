@@ -16,6 +16,7 @@ interface FixtureTask {
 }
 
 const fixtures = vi.hoisted(() => ({
+  modules: [] as { id: string; shortTitle: string | null; title: string | null }[],
   projects: [
     { id: "project-zeta", title: "Zeta Project" },
     { id: "project-alpha", title: "Alpha Project" },
@@ -84,13 +85,46 @@ vi.mock("@/api/hooks", () => ({
     },
   }),
   useProjects: () => ({ data: { data: fixtures.projects } }),
-  useModules: () => ({ data: { data: [] } }),
+  useModules: () => ({ data: { data: fixtures.modules } }),
 }));
 
 describe("PriorityTasksTable", () => {
   beforeEach(() => {
     window.localStorage?.clear();
     window.sessionStorage.clear();
+  });
+
+  it("searches a paper's working title, formal title, and project", () => {
+    const originalTasks = fixtures.tasks;
+    fixtures.modules = [{
+      id: "paper-1",
+      shortTitle: "Working paper name",
+      title: "Formal publication title",
+    }];
+    fixtures.tasks = [{
+      ...originalTasks[0],
+      id: "paper-task",
+      title: "Revise introduction",
+      moduleId: "paper-1",
+    }, originalTasks[1]];
+
+    try {
+      render(
+        <MemoryRouter>
+          <PriorityTasksTable />
+        </MemoryRouter>,
+      );
+
+      const search = screen.getByPlaceholderText("Search project, paper or task…");
+      for (const query of ["working paper", "formal publication", "zeta project", "revise introduction"]) {
+        fireEvent.change(search, { target: { value: query } });
+        expect(screen.getByRole("link", { name: "Revise introduction" })).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Zulu task" })).not.toBeInTheDocument();
+      }
+    } finally {
+      fixtures.tasks = originalTasks;
+      fixtures.modules = [];
+    }
   });
 
   it.each(["2026-10-05", null])(
