@@ -9,7 +9,7 @@ export default function ExportPage() {
 
   return (
     <div className="min-h-full pb-12">
-      <div className="mx-auto w-full max-w-5xl">
+      <div className="w-full">
         <PageHeading
           tone="cyan"
           icon={Download}

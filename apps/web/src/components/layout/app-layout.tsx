@@ -40,10 +40,8 @@ export function AppLayout() {
         <TopNav />
         <RunningTimerBar className="top-[4.5rem]" />
         <BreakReminder />
-        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
-          <div key={location.pathname} className={`route-stage mx-auto w-full ${
-  location.pathname === "/modules" ? "max-w-none" : "max-w-[1480px]"
-}`}>
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
+          <div key={location.pathname} className="route-stage w-full min-w-0">
             <AppErrorBoundary label="This page">
               <Outlet />
             </AppErrorBoundary>
@@ -63,10 +61,8 @@ export function AppLayout() {
         <SiteHeader />
         <RunningTimerBar className="top-16 lg:top-0" />
         <BreakReminder />
-        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
-          <div key={location.pathname} className={`route-stage mx-auto w-full ${
-  location.pathname === "/modules" ? "max-w-none" : "max-w-[1480px]"
-}`}>
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
+          <div key={location.pathname} className="route-stage w-full min-w-0">
             <AppErrorBoundary label="This page">
               <Outlet />
             </AppErrorBoundary>
