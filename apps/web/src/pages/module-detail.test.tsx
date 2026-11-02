@@ -1260,6 +1260,27 @@ describe("ModuleDetailPage", () => {
     expect(screen.getByText("Nature Communications")).toBeInTheDocument();
   });
 
+  it("shows every journal and conference heading, saying when one has none", () => {
+    fixtures.module.targetJournal = "Nature Communications; Science";
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show journals & conferences" }),
+    );
+
+    for (const heading of [
+      "Target journals",
+      "Backup journals",
+      "Target conferences",
+      "Backup conferences",
+    ]) {
+      expect(screen.getByText(heading)).toBeInTheDocument();
+    }
+    expect(screen.getByText("Nature Communications")).toBeInTheDocument();
+    expect(screen.getByText("Science")).toBeInTheDocument();
+    expect(screen.getAllByText("None added")).toHaveLength(3);
+  });
+
   it("shows tasks and notes as separate panels, each of which can be hidden", () => {
     renderPage();
 
