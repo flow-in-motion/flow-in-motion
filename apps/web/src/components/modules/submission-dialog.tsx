@@ -33,14 +33,7 @@ export const SUBMISSION_STATUSES = [
   "Withdrawn",
 ] as const;
 
-/** Statuses meaning the paper is currently out with the venue. */
 const IN_REVIEW_STATUSES = new Set(["Submitted", "Under review", "Resubmitted"]);
-
-/**
- * Stages a paper only reaches once a venue has decided. Logging a submission
- * shouldn't pull a paper back from these without the user asking.
- */
-const DECIDED_STAGES = new Set(["Accepted", "Dissemination", "Complete"]);
 
 export interface SubmissionFormInput {
   submittedDate: string;
@@ -52,10 +45,7 @@ export interface SubmissionFormInput {
   notes: string;
 }
 
-export interface SubmissionSaveInput extends SubmissionFormInput {
-  /** Also move the paper into the "Submitted, Under Review" stage. */
-  moveToSubmittedStage: boolean;
-}
+export type SubmissionSaveInput = SubmissionFormInput;
 
 /** Today's date where the user is, as YYYY-MM-DD. */
 function todayDate() {
@@ -71,13 +61,6 @@ interface SubmissionDialogProps {
   submission?: ApiModuleSubmission | null;
   /** Pre-fills the title for a new submission (the paper's current title). */
   defaultPaperTitle?: string;
-  /**
-   * Offer to move the paper into "Submitted, Under Review" in the same save.
-   * Only shown for new submissions.
-   */
-  offerSubmittedStage?: boolean;
-  /** The paper's current pipeline stage, shown next to that offer. */
-  currentPipelineStage?: string | null;
   /**
    * Opened because the paper is being moved into "Submitted, Under Review":
    * the move is the point, so there's no tick box, today's date is filled
@@ -137,8 +120,6 @@ export function SubmissionDialog({
   onOpenChange,
   submission,
   defaultPaperTitle = "",
-  offerSubmittedStage = false,
-  currentPipelineStage = null,
   forStageChange = false,
   logWhenPaperSaved = false,
   onSave,
@@ -146,21 +127,11 @@ export function SubmissionDialog({
   const [form, setForm] = useState<SubmissionFormInput>(INITIAL_FORM);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // null until the user ticks or unticks the box themselves; until then the
-  // box follows the chosen status, so recording an old rejection doesn't
-  // move the paper.
-  const [moveStageChoice, setMoveStageChoice] = useState<boolean | null>(null);
   const isEditing = Boolean(submission);
-  const showStageOption = offerSubmittedStage && !isEditing && !forStageChange;
-  const moveToSubmittedStage =
-    moveStageChoice ??
-    (IN_REVIEW_STATUSES.has(form.status) &&
-      !DECIDED_STAGES.has(currentPipelineStage ?? ""));
 
   useEffect(() => {
     if (!open) return;
     setSaveError(null);
-    setMoveStageChoice(null);
     setForm(
       submission
         ? formFromSubmission(submission)
@@ -183,8 +154,6 @@ export function SubmissionDialog({
         journalName: form.journalName.trim(),
         paperTitle: form.paperTitle.trim(),
         notes: form.notes.trim(),
-        moveToSubmittedStage:
-          forStageChange || (showStageOption && moveToSubmittedStage),
       });
       onOpenChange(false);
     } catch (error) {
@@ -210,7 +179,7 @@ export function SubmissionDialog({
               ? `When you save the paper, it moves to “${SUBMITTED_UNDER_REVIEW_STAGE}”, this submission is logged and Currently with is set to Journal. Cancel to keep the current stage.`
               : forStageChange
               ? `Moving the paper to “${SUBMITTED_UNDER_REVIEW_STAGE}” logs this submission and sets Currently with to Journal. Cancel to leave the paper where it is.`
-              : "Record where and when this paper was submitted, so you can look back at how long review and revisions took."}
+              : `Record where and when this paper was submitted. Submitted and Resubmitted move it to “${SUBMITTED_UNDER_REVIEW_STAGE}”; Rejected and Revision requested move it to “Revisions”.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -256,7 +225,7 @@ export function SubmissionDialog({
               >
                 <SelectTrigger id="submission-status"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {SUBMISSION_STATUSES.map((status) => (
+                  {SUBMISSION_STATUSES.filter((status) => !forStageChange || IN_REVIEW_STATUSES.has(status)).map((status) => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
                 </SelectContent>
@@ -296,30 +265,6 @@ export function SubmissionDialog({
               rows={3}
             />
           </FormField>
-
-          {showStageOption ? (
-            <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/40 p-3">
-              <input
-                id="submission-move-stage"
-                type="checkbox"
-                checked={moveToSubmittedStage}
-                onChange={(event) => setMoveStageChoice(event.target.checked)}
-                aria-describedby="submission-move-stage-hint"
-                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-              />
-              <div className="grid gap-0.5">
-                <label htmlFor="submission-move-stage" className="cursor-pointer text-sm font-medium">
-                  Move paper to “{SUBMITTED_UNDER_REVIEW_STAGE}”
-                </label>
-                <p id="submission-move-stage-hint" className="text-xs text-muted-foreground">
-                  {currentPipelineStage
-                    ? `Currently in “${currentPipelineStage}”.`
-                    : "It has no pipeline stage yet."}{" "}
-                  Untick this if you're recording an older submission.
-                </p>
-              </div>
-            </div>
-          ) : null}
 
           {saveError ? (
             <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">

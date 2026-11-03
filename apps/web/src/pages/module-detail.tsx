@@ -57,8 +57,8 @@ import {
 import {
   newSubmissionInput,
   useMoveToSubmitted,
-  WITH_JOURNAL,
 } from "@/components/modules/move-to-submitted";
+import { stageForSubmissionStatus } from "@/components/modules/submission-stage";
 import {
   SubmissionDialog,
   type SubmissionFormInput,
@@ -823,37 +823,23 @@ async function saveHeaderField(input: HeaderUpdateInput) {
       decisionDate: input.decisionDate || undefined,
       notes: input.notes || undefined,
     };
+    const previousStage = module?.pipelineStage ?? null;
     if (editingSubmission) {
       await updateSubmission.mutateAsync({
         submissionId: editingSubmission.id,
         input: payload,
       });
+      if (
+        editingSubmission.status !== input.status &&
+        enteredSubmittedUnderReview(previousStage, stageForSubmissionStatus(input.status))
+      ) {
+        setIsPaperCelebrationOpen(true);
+      }
       return;
     }
 
-    const previousStage = module?.pipelineStage ?? null;
     await createSubmission.mutateAsync(payload);
-    if (!input.moveToSubmittedStage) return;
-
-    // The submission is already saved at this point, so a failed stage change
-    // is reported on the page rather than in the dialog: retrying the dialog
-    // would log the submission a second time.
-    setActionError(null);
-    try {
-      await updateModule.mutateAsync({
-        moduleId,
-        input: { pipelineStage: SUBMITTED_UNDER_REVIEW_STAGE, ...WITH_JOURNAL },
-      });
-    } catch (error) {
-      setActionError(
-        `The submission was logged, but the pipeline stage couldn't be changed${
-          error instanceof Error ? ` (${error.message})` : ""
-        }. You can change it from the Pipeline stage field.`,
-      );
-      return;
-    }
-
-    if (enteredSubmittedUnderReview(previousStage, SUBMITTED_UNDER_REVIEW_STAGE)) {
+    if (enteredSubmittedUnderReview(previousStage, stageForSubmissionStatus(input.status))) {
       setIsPaperCelebrationOpen(true);
     }
   }
@@ -1794,7 +1780,6 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           open={isStageSubmissionOpen}
           onOpenChange={setIsStageSubmissionOpen}
           defaultPaperTitle={form?.title || form?.shortTitle || ""}
-          currentPipelineStage={form?.pipelineStage || null}
           forStageChange
           logWhenPaperSaved
           onSave={(input) => {
@@ -1818,14 +1803,6 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           onOpenChange={setIsSubmissionDialogOpen}
           submission={editingSubmission}
           defaultPaperTitle={module.title || module.shortTitle || ""}
-          offerSubmittedStage={
-            module.pipelineStage !== SUBMITTED_UNDER_REVIEW_STAGE &&
-            (stagesQuery.data ?? []).some(
-              (stage) =>
-                stage.value === SUBMITTED_UNDER_REVIEW_STAGE && !stage.hidden,
-            )
-          }
-          currentPipelineStage={module.pipelineStage}
           onSave={handleSaveSubmission}
         />
 

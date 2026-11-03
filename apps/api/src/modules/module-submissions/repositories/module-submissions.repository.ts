@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { moduleSubmissions } from '@research-tracker/migrations';
-import { and, desc, eq } from 'drizzle-orm';
+import { moduleSubmissions, modules } from '@research-tracker/migrations';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../../db/drizzle.service';
 
 interface CreateSubmissionValues {
@@ -67,13 +67,51 @@ export class ModuleSubmissionsRepository {
     return submission;
   }
 
-  async create(values: CreateSubmissionValues) {
-    const [submission] = await this.drizzle.db
-      .insert(moduleSubmissions)
-      .values(values)
-      .returning();
+  private async setPaperStage(
+    tx: Parameters<Parameters<DrizzleService['db']['transaction']>[0]>[0],
+    tenantId: string,
+    moduleId: string,
+    stageId: string,
+    withJournal: boolean,
+  ) {
+    await tx
+      .update(modules)
+      .set({
+        pipelineStageId: stageId,
+        pipelineStageChangedAt: sql`case when ${modules.pipelineStageId} is distinct from ${stageId} then now() else ${modules.pipelineStageChangedAt} end`,
+        ...(withJournal
+          ? {
+              currentlyWithType: 'journal',
+              assignedToUserId: null,
+              assignedToInvitationId: null,
+            }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(and(eq(modules.tenantId, tenantId), eq(modules.id, moduleId)));
+  }
 
-    return submission;
+  async create(
+    values: CreateSubmissionValues,
+    stageId?: string,
+    withJournal = false,
+  ) {
+    return this.drizzle.db.transaction(async (tx) => {
+      const [submission] = await tx
+        .insert(moduleSubmissions)
+        .values(values)
+        .returning();
+      if (submission && stageId) {
+        await this.setPaperStage(
+          tx,
+          values.tenantId,
+          values.moduleId,
+          stageId,
+          withJournal,
+        );
+      }
+      return submission;
+    });
   }
 
   async update(
@@ -81,20 +119,26 @@ export class ModuleSubmissionsRepository {
     moduleId: string,
     submissionId: string,
     values: UpdateSubmissionValues,
+    stageId?: string,
+    withJournal = false,
   ) {
-    const [submission] = await this.drizzle.db
-      .update(moduleSubmissions)
-      .set({ ...values, updatedAt: new Date() })
-      .where(
-        and(
-          eq(moduleSubmissions.tenantId, tenantId),
-          eq(moduleSubmissions.moduleId, moduleId),
-          eq(moduleSubmissions.id, submissionId),
-        ),
-      )
-      .returning();
-
-    return submission;
+    return this.drizzle.db.transaction(async (tx) => {
+      const [submission] = await tx
+        .update(moduleSubmissions)
+        .set({ ...values, updatedAt: new Date() })
+        .where(
+          and(
+            eq(moduleSubmissions.tenantId, tenantId),
+            eq(moduleSubmissions.moduleId, moduleId),
+            eq(moduleSubmissions.id, submissionId),
+          ),
+        )
+        .returning();
+      if (submission && stageId) {
+        await this.setPaperStage(tx, tenantId, moduleId, stageId, withJournal);
+      }
+      return submission;
+    });
   }
 
   async remove(tenantId: string, moduleId: string, submissionId: string) {

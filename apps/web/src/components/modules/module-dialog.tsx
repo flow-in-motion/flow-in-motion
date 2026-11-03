@@ -778,7 +778,6 @@ export function ModuleDialog({
             open={isStageSubmissionOpen}
             onOpenChange={setIsStageSubmissionOpen}
             defaultPaperTitle={form.title.trim() || form.shortTitle.trim()}
-            currentPipelineStage={form.pipelineStage || null}
             forStageChange
             logWhenPaperSaved
             onSave={(input) => {
