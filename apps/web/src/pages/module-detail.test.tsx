@@ -1064,101 +1064,67 @@ describe("ModuleDetailPage", () => {
     renderPage();
 
     startNewSubmission();
-    const moveStage = screen.getByRole("checkbox", {
-      name: "Move paper to “Submitted, Under Review”",
-    });
-    expect(moveStage).toBeChecked();
-    expect(moveStage).toHaveAccessibleDescription(/Currently in “Concept”/);
-
     fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
 
     await waitFor(() =>
-      expect(fixtures.updateModule).toHaveBeenCalledWith({
-        moduleId: "module-1",
-        input: {
-          pipelineStage: "Submitted, Under Review",
-          currentlyWithType: "journal",
-          assignedToUserId: null,
-          assignedToInvitationId: null,
-        },
-      }),
+      expect(fixtures.createSubmission).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "Submitted" }),
+      ),
     );
     expect(fixtures.createSubmission).toHaveBeenCalledTimes(1);
-    expect(
-      fixtures.createSubmission.mock.invocationCallOrder[0],
-    ).toBeLessThan(fixtures.updateModule.mock.invocationCallOrder[0]);
+    expect(fixtures.updateModule).not.toHaveBeenCalled();
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Paper submitted — congratulations!",
     );
     expect(screen.getByTestId("celebration-video")).toBeInTheDocument();
   });
 
-  it("leaves the pipeline stage alone when the move option is unticked", async () => {
+  it("celebrates a resubmission through the normal review flow", async () => {
     renderPage();
 
     startNewSubmission();
-    fireEvent.click(
-      screen.getByRole("checkbox", {
-        name: "Move paper to “Submitted, Under Review”",
-      }),
-    );
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("combobox", { name: "Status" }));
+    fireEvent.click(screen.getByRole("option", { name: "Resubmitted" }));
     fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
 
-    await waitFor(() => expect(fixtures.createSubmission).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    await waitFor(() => expect(fixtures.createSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "Resubmitted" }),
+    ));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Paper submitted — congratulations!",
     );
-    expect(fixtures.updateModule).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("celebration-video")).not.toBeInTheDocument();
   });
 
-  it("doesn't move the paper by default when recording a decided submission", async () => {
+  it.each(["Rejected", "Revision requested"])("logs %s without a review celebration", async (status) => {
     renderPage();
 
     startNewSubmission();
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("combobox", { name: "Status" }));
-    fireEvent.click(screen.getByRole("option", { name: "Rejected" }));
-
-    expect(
-      screen.getByRole("checkbox", {
-        name: "Move paper to “Submitted, Under Review”",
-      }),
-    ).not.toBeChecked();
+    fireEvent.click(screen.getByRole("option", { name: status }));
 
     fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
 
     await waitFor(() =>
       expect(fixtures.createSubmission).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "Rejected" }),
+        expect.objectContaining({ status }),
       ),
     );
     expect(fixtures.updateModule).not.toHaveBeenCalled();
   });
 
-  it("doesn't offer the stage move when the paper is already under review", () => {
-    fixtures.module.pipelineStage = "Submitted, Under Review";
-    renderPage();
-
-    fireEvent.click(screen.getByRole("button", { name: "Log submission" }));
-
-    expect(
-      screen.queryByRole("checkbox", { name: /Move paper to/ }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("keeps the logged submission and explains when the stage change fails", async () => {
-    fixtures.updateModule.mockRejectedValueOnce(new Error("Network error"));
+  it("shows a save error when logging the submission fails", async () => {
+    fixtures.createSubmission.mockRejectedValueOnce(new Error("Network error"));
     renderPage();
 
     startNewSubmission();
     fireEvent.click(screen.getByRole("button", { name: "Save submission" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "The submission was logged, but the pipeline stage couldn't be changed (Network error).",
+      "Network error",
     );
     expect(fixtures.createSubmission).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.queryByTestId("celebration-video")).not.toBeInTheDocument();
   });
 
@@ -1261,9 +1227,6 @@ describe("ModuleDetailPage", () => {
         name: "Edit submission to Nature Communications",
       }),
     );
-    expect(
-      screen.queryByRole("checkbox", { name: /Move paper to/ }),
-    ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
     fireEvent.click(screen.getByRole("option", { name: "Accepted" }));
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
@@ -1275,6 +1238,38 @@ describe("ModuleDetailPage", () => {
       }),
     );
     expect(fixtures.updateModule).not.toHaveBeenCalled();
+  });
+
+  it("celebrates when an edited rejection becomes a resubmission", async () => {
+    fixtures.submissions = [{
+      id: "submission-1",
+      tenantId: "workspace-1",
+      moduleId: "module-1",
+      createdBy: "user-owner",
+      submittedDate: "2026-03-01",
+      journalName: "Nature Communications",
+      status: "Rejected",
+      revisionRounds: null,
+      decisionDate: null,
+      notes: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    }];
+    fixtures.module.pipelineStage = "Revisions";
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit submission to Nature Communications" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    fireEvent.click(screen.getByRole("option", { name: "Resubmitted" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    await waitFor(() => expect(fixtures.updateSubmission).toHaveBeenCalledWith({
+      submissionId: "submission-1",
+      input: expect.objectContaining({ status: "Resubmitted" }),
+    }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Paper submitted — congratulations!",
+    );
   });
 
   it("deletes a submission after confirmation", async () => {

@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { ModuleSubmissionsService } from './module-submissions.service';
 import { ModuleSubmissionsRepository } from '../repositories/module-submissions.repository';
+import { EnumRepository } from '../../enum/repositories/enum.repository';
 
 describe('ModuleSubmissionsService', () => {
   let service: ModuleSubmissionsService;
@@ -11,6 +12,7 @@ describe('ModuleSubmissionsService', () => {
     update: jest.Mock;
     remove: jest.Mock;
   };
+  let enums: { findModuleStageByValueForTenant: jest.Mock };
 
   const tenantId = 'tenant-1';
   const moduleId = 'module-1';
@@ -25,8 +27,18 @@ describe('ModuleSubmissionsService', () => {
       remove: jest.fn(),
     };
 
+    enums = {
+      findModuleStageByValueForTenant: jest
+        .fn()
+        .mockImplementation((_tenantId: string, stage: string) =>
+          Promise.resolve({
+            id: stage === 'Revisions' ? 'stage-revisions' : 'stage-review',
+          }),
+        ),
+    };
     service = new ModuleSubmissionsService(
       repository as unknown as ModuleSubmissionsRepository,
+      enums as unknown as EnumRepository,
     );
   });
 
@@ -55,18 +67,22 @@ describe('ModuleSubmissionsService', () => {
         notes: '  Reviewer 2 requested more controls  ',
       });
 
-      expect(repository.create).toHaveBeenCalledWith({
-        tenantId,
-        moduleId,
-        createdBy: callerUserId,
-        submittedDate: '2026-03-01',
-        journalName: 'Nature Communications',
-        paperTitle: null,
-        status: 'Submitted',
-        revisionRounds: 2,
-        decisionDate: '2026-06-15',
-        notes: 'Reviewer 2 requested more controls',
-      });
+      expect(repository.create).toHaveBeenCalledWith(
+        {
+          tenantId,
+          moduleId,
+          createdBy: callerUserId,
+          submittedDate: '2026-03-01',
+          journalName: 'Nature Communications',
+          paperTitle: null,
+          status: 'Submitted',
+          revisionRounds: 2,
+          decisionDate: '2026-06-15',
+          notes: 'Reviewer 2 requested more controls',
+        },
+        'stage-review',
+        true,
+      );
     });
   });
 
@@ -85,6 +101,8 @@ describe('ModuleSubmissionsService', () => {
         expect.objectContaining({
           paperTitle: 'Reef monitoring with deep learning',
         }),
+        'stage-review',
+        true,
       );
     });
 
@@ -105,6 +123,8 @@ describe('ModuleSubmissionsService', () => {
         moduleId,
         'submission-1',
         expect.objectContaining({ paperTitle: expected }),
+        undefined,
+        false,
       );
     });
   });
@@ -146,10 +166,62 @@ describe('ModuleSubmissionsService', () => {
           decisionDate: undefined,
           notes: undefined,
         },
+        undefined,
+        false,
       );
       expect(result).toEqual({ id: 'submission-1', status: 'Accepted' });
     });
   });
+
+  it.each([
+    ['Submitted', 'stage-review', true],
+    ['Resubmitted', 'stage-review', true],
+    ['Rejected', 'stage-revisions', false],
+    ['Revision requested', 'stage-revisions', false],
+  ])(
+    'moves a newly logged %s submission to its paper stage',
+    async (status, stageId, withJournal) => {
+      repository.create.mockResolvedValue({ id: 'submission-1', status });
+
+      await service.create(tenantId, moduleId, callerUserId, {
+        submittedDate: '2026-03-01',
+        journalName: 'Nature',
+        status,
+      });
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ status }),
+        stageId,
+        withJournal,
+      );
+    },
+  );
+
+  it.each([
+    ['Resubmitted', 'stage-review', true],
+    ['Rejected', 'stage-revisions', false],
+    ['Revision requested', 'stage-revisions', false],
+  ])(
+    'moves the paper when its submission changes to %s',
+    async (status, stageId, withJournal) => {
+      repository.findById.mockResolvedValue({
+        id: 'submission-1',
+        status: 'Submitted',
+      });
+      repository.update.mockResolvedValue({ id: 'submission-1', status });
+
+      await service.update(tenantId, moduleId, 'submission-1', { status });
+
+      expect(repository.update).toHaveBeenCalledWith(
+        tenantId,
+        moduleId,
+        'submission-1',
+        expect.objectContaining({ status }),
+        stageId,
+        withJournal,
+      );
+    },
+  );
 
   describe('remove', () => {
     it('throws when the submission does not exist', async () => {
