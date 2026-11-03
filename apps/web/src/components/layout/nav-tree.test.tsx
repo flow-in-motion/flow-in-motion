@@ -33,7 +33,7 @@ describe("NavTree", () => {
       "href",
       "/settings/account-audit",
     );
-    expect(screen.getByRole("link", { name: /^Impact$/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^Impact, Engagement$/ })).toHaveAttribute(
       "href",
       "/future/impact",
     );
