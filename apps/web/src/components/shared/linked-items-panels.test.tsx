@@ -43,6 +43,47 @@ function noteTitles() {
 }
 
 describe("LinkedNotesPanel pins", () => {
+  it("puts a funding-pinned note into the three-note preview", () => {
+    const onTogglePin = vi.fn();
+    const fundingNotes = notes.map((note) => ({
+      ...note,
+      modulePinned: false,
+      fundingPinned: note.id === "pinned",
+    }));
+
+    render(
+      <MemoryRouter>
+        <LinkedNotesPanel
+          notes={fundingNotes}
+          entityLabel="funding"
+          contentId="funding-notes"
+          visible
+          onToggleVisible={vi.fn()}
+          pinnedFirst
+          getPinState={(note) => note.fundingPinned}
+          onTogglePin={onTogglePin}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(noteTitles()).toEqual([
+      "Old pinned note",
+      "Newest note",
+      "Middle note",
+    ]);
+    expect(
+      screen.queryByRole("link", { name: "Older note" }),
+    ).not.toBeInTheDocument();
+
+    const unpin = screen.getByRole("button", {
+      name: "Unpin Old pinned note",
+    });
+    expect(unpin).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(unpin);
+    expect(onTogglePin).toHaveBeenCalledWith(fundingNotes[3]);
+  });
+
   it("places pinned notes before recent notes in the three-note preview", () => {
     render(
       <MemoryRouter>

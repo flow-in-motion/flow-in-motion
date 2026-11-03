@@ -82,12 +82,15 @@ function sortCompletedTasks<T extends PanelTask>(tasks: T[]): T[] {
 function sortRecentNotes<T extends PanelNote>(
   notes: T[],
   pinnedFirst = false,
+  getPinState: (note: T) => boolean = (note) =>
+    Boolean(note.modulePinned),
 ): T[] {
-  const stamp = (note: PanelNote) => note.updatedAt ?? note.createdAt ?? "";
+  const stamp = (note: PanelNote) =>
+    note.updatedAt ?? note.createdAt ?? "";
 
   return [...notes].sort((a, b) => {
     const pinOrder = pinnedFirst
-      ? Number(Boolean(b.modulePinned)) - Number(Boolean(a.modulePinned))
+      ? Number(getPinState(b)) - Number(getPinState(a))
       : 0;
 
     return (
@@ -320,6 +323,7 @@ export function LinkedNotesPanel<T extends PanelNote>({
   onToggleVisible,
   actions,
   pinnedFirst = false,
+  getPinState = (note: T) => Boolean(note.modulePinned),
   onTogglePin,
   pinDisabled = false,
   onUnlink,
@@ -336,9 +340,10 @@ export function LinkedNotesPanel<T extends PanelNote>({
   pinDisabled?: boolean;
   onUnlink?: (note: T) => void;
   unlinkLabel?: (note: T) => string;
+  getPinState?: (note: T) => boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const sortedNotes = sortRecentNotes(notes, pinnedFirst);
+  const sortedNotes = sortRecentNotes(notes, pinnedFirst, getPinState);
   const shownNotes = expanded
     ? sortedNotes
     : sortedNotes.slice(0, PANEL_PREVIEW_COUNT);
@@ -386,22 +391,22 @@ export function LinkedNotesPanel<T extends PanelNote>({
                       type="button"
                       onClick={() => onTogglePin(note)}
                       disabled={pinDisabled}
-                      aria-label={`${note.modulePinned ? "Unpin" : "Pin"} ${note.title}`}
-                      aria-pressed={Boolean(note.modulePinned)}
-                      title={note.modulePinned ? "Unpin note" : "Pin note"}
+                      aria-label={`${getPinState(note) ? "Unpin" : "Pin"} ${note.title}`}
+                      aria-pressed={getPinState(note)}
+                      title={getPinState(note) ? "Unpin note" : "Pin note"}
                       className={`shrink-0 rounded-md p-1.5 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
-                        note.modulePinned
+                        getPinState(note)
                           ? "text-primary"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       <Pin
                         className="h-3.5 w-3.5"
-                        fill={note.modulePinned ? "currentColor" : "none"}
+                        fill={getPinState(note) ? "currentColor" : "none"}
                         aria-hidden="true"
                       />
                     </button>
-                  ) : pinnedFirst && note.modulePinned ? (
+                  ) : pinnedFirst && getPinState(note) ? (
                     <span
                       className="shrink-0 p-1.5 text-primary"
                       title="Pinned note"

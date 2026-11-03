@@ -4,6 +4,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { fundings } from "./fundings";
 import { notes } from "./notes";
@@ -25,6 +26,7 @@ export const fundingNotes = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
+    pinned: boolean("pinned").default(false).notNull(),
   },
   (table) => ({
     uniqueFundingNote: uniqueIndex("funding_notes_funding_id_note_id_key").on(

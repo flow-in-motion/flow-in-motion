@@ -411,6 +411,7 @@ export class FundingsRepository {
         followUpDate: notes.followUpDate,
         createdAt: notes.createdAt,
         updatedAt: notes.updatedAt,
+        fundingPinned: fundingNotes.pinned,
       })
       .from(fundingNotes)
       .innerJoin(notes, eq(notes.id, fundingNotes.noteId))
@@ -560,6 +561,27 @@ export class FundingsRepository {
       .insert(fundingNotes)
       .values({ tenantId, fundingId, noteId })
       .onConflictDoNothing();
+  }
+
+  async setNotePin(
+    tenantId: string,
+    fundingId: string,
+    noteId: string,
+    pinned: boolean,
+  ) {
+    const [link] = await this.drizzle.db
+      .update(fundingNotes)
+      .set({ pinned })
+      .where(
+        and(
+          eq(fundingNotes.tenantId, tenantId),
+          eq(fundingNotes.fundingId, fundingId),
+          eq(fundingNotes.noteId, noteId),
+        ),
+      )
+      .returning({ id: fundingNotes.id });
+
+    return link;
   }
 
   async detachNote(tenantId: string, fundingId: string, noteId: string) {
