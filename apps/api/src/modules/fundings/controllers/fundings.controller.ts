@@ -26,6 +26,7 @@ import { CreateFundingDto } from '../dto/create-funding.dto';
 import { ListFundingsQueryDto } from '../dto/list-fundings-query.dto';
 import { UpdateFundingDto } from '../dto/update-funding.dto';
 import { FundingsService } from '../services/fundings.service';
+import { UpdateFundingNotePinDto } from '../dto/update-funding-note-pin.dto';
 
 interface AuthenticatedRequest extends Request {
   user: AuthenticatedPrincipal;
@@ -127,6 +128,25 @@ export class FundingsController {
       fundingId,
       noteId,
       user.id,
+    );
+  }
+
+  @ApiOperation({ summary: 'Pin or unpin a funding note' })
+  @Patch(':fundingId/notes/:noteId/pin')
+  async setNotePin(
+    @Param('tenantId') tenantId: string,
+    @Param('fundingId') fundingId: string,
+    @Param('noteId') noteId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateFundingNotePinDto,
+  ) {
+    const user = await this.usersService.findByExternalAuthId(req.user.sub);
+    return this.fundingsService.setNotePin(
+      tenantId,
+      fundingId,
+      noteId,
+      user.id,
+      dto.pinned,
     );
   }
 

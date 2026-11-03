@@ -27,6 +27,7 @@ import {
   useProjects,
   useTasks,
   useUpdateFunding,
+  useSetFundingNotePin,
 } from "@/api/hooks";
 import { FundingDialog } from "@/components/funding/funding-dialog";
 import { NoteDialog, type NoteFormInput } from "@/components/notes/note-dialog";
@@ -192,6 +193,7 @@ export default function FundingDetailPage() {
   const deleteFunding = useDeleteFunding(tenantId);
   const attachNote = useAttachFundingNote(tenantId, fundingId);
   const detachNote = useDetachFundingNote(tenantId, fundingId);
+  const setNotePin = useSetFundingNotePin(tenantId, fundingId);
   const attachTask = useAttachFundingTask(tenantId, fundingId);
   const detachTask = useDetachFundingTask(tenantId, fundingId);
   const createNote = useCreateNote(tenantId);
@@ -372,6 +374,27 @@ export default function FundingDetailPage() {
         error instanceof Error
           ? error.message
           : "The note could not be detached.",
+      );
+    }
+  }
+
+  async function toggleFundingNotePin(note: {
+    id: string;
+    fundingPinned: boolean;
+  }) {
+    if (!canManage || setNotePin.isPending) return;
+
+    setActionError(null);
+    try {
+      await setNotePin.mutateAsync({
+        noteId: note.id,
+        pinned: !note.fundingPinned,
+      });
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "The note pin could not be updated.",
       );
     }
   }
@@ -620,6 +643,14 @@ export default function FundingDetailPage() {
         contentId="funding-notes-content"
         visible={isNotesVisible}
         onToggleVisible={() => setIsNotesVisible((visible) => !visible)}
+        pinnedFirst
+        getPinState={(note) => note.fundingPinned}
+        onTogglePin={
+          canManage
+            ? (note) => void toggleFundingNotePin(note)
+            : undefined
+        }
+        pinDisabled={setNotePin.isPending}
         onUnlink={
           canManage ? (note) => void detachExistingNote(note.id) : undefined
         }

@@ -4,6 +4,39 @@ import { FundingsService } from '../services/fundings.service';
 import { FundingsController } from './fundings.controller';
 
 describe('FundingsController', () => {
+  it('passes a funding note pin change to the service', async () => {
+    const service = {
+      setNotePin: jest.fn().mockResolvedValue({ id: 'funding-1' }),
+    };
+    const usersService = {
+      findByExternalAuthId: jest.fn().mockResolvedValue({
+        id: 'user-1',
+      }),
+    };
+    const configService = { get: jest.fn() };
+
+    const controller = new FundingsController(
+      service as unknown as FundingsService,
+      usersService as unknown as UsersService,
+      configService as unknown as ConfigService,
+    );
+
+    const req = {
+      user: { sub: 'external-user' },
+    } as unknown as Parameters<FundingsController['setNotePin']>[3];
+
+    await controller.setNotePin('tenant-1', 'funding-1', 'note-1', req, {
+      pinned: true,
+    });
+
+    expect(service.setNotePin).toHaveBeenCalledWith(
+      'tenant-1',
+      'funding-1',
+      'note-1',
+      'user-1',
+      true,
+    );
+  });
   it('passes pagination and search values to the service', async () => {
     const service = { list: jest.fn().mockResolvedValue({ data: [] }) };
     const usersService = {

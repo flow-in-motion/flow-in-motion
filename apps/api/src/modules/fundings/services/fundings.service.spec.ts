@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { FundingsRepository } from '../repositories/fundings.repository';
 import { FundingsService } from './fundings.service';
 
@@ -23,6 +27,7 @@ describe('FundingsService', () => {
     create: jest.Mock;
     update: jest.Mock;
     remove: jest.Mock;
+    setNotePin: jest.Mock;
   };
 
   beforeEach(() => {
@@ -45,6 +50,7 @@ describe('FundingsService', () => {
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
+      setNotePin: jest.fn(),
     };
     service = new FundingsService(repository as unknown as FundingsRepository);
   });
@@ -198,6 +204,77 @@ describe('FundingsService', () => {
       'funding-1',
       'note-1',
     );
+  });
+
+  describe('funding note pins', () => {
+    beforeEach(() => {
+      repository.findVisibleById.mockResolvedValue({
+        id: 'funding-1',
+        ownerUserId: 'user-1',
+      });
+      repository.findAccessibleNoteById.mockResolvedValue({
+        id: 'note-1',
+      });
+      repository.setNotePin.mockResolvedValue({ id: 'link-1' });
+    });
+
+    it.each([true, false])(
+      'lets the owner save pinned=%s on the attachment',
+      async (pinned) => {
+        repository.findLinkedNotes.mockResolvedValue([
+          { id: 'note-1', fundingPinned: pinned },
+        ]);
+
+        const result = await service.setNotePin(
+          'tenant-1',
+          'funding-1',
+          'note-1',
+          'user-1',
+          pinned,
+        );
+
+        expect(repository.setNotePin).toHaveBeenCalledWith(
+          'tenant-1',
+          'funding-1',
+          'note-1',
+          pinned,
+        );
+        expect(result.linkedNotes).toEqual([
+          { id: 'note-1', fundingPinned: pinned },
+        ]);
+      },
+    );
+
+    it('does not let a funding viewer change the pin', async () => {
+      repository.findVisibleById.mockResolvedValue({
+        id: 'funding-1',
+        ownerUserId: 'someone-else',
+      });
+
+      await expect(
+        service.setNotePin('tenant-1', 'funding-1', 'note-1', 'user-1', true),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(repository.setNotePin).not.toHaveBeenCalled();
+    });
+
+    it('does not pin a note the caller cannot access', async () => {
+      repository.findAccessibleNoteById.mockResolvedValue(undefined);
+
+      await expect(
+        service.setNotePin('tenant-1', 'funding-1', 'note-1', 'user-1', true),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(repository.setNotePin).not.toHaveBeenCalled();
+    });
+
+    it('rejects a note that is not attached to this funding', async () => {
+      repository.setNotePin.mockResolvedValue(undefined);
+
+      await expect(
+        service.setNotePin('tenant-1', 'funding-1', 'note-1', 'user-1', true),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 
   it('does not let a funding viewer manage task attachments', async () => {

@@ -441,6 +441,7 @@ export interface ApiFundingNote {
   followUpDate: string | null;
   createdAt: string;
   updatedAt?: string;
+  fundingPinned: boolean;
 }
 
 export interface ApiFundingTask {
@@ -3612,6 +3613,39 @@ export function useAttachFundingNote(tenantId: string, fundingId: string) {
 
 export function useDetachFundingNote(tenantId: string, fundingId: string) {
   return useFundingLinkMutation(tenantId, fundingId, "notes", "DELETE");
+}
+
+export function useSetFundingNotePin(
+  tenantId: string,
+  fundingId: string,
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      noteId,
+      pinned,
+    }: {
+      noteId: string;
+      pinned: boolean;
+    }) =>
+      apiJson<ApiFunding>(
+        `/api/v1/tenant/${encodeURIComponent(tenantId)}/fundings/${encodeURIComponent(fundingId)}/notes/${encodeURIComponent(noteId)}/pin`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ pinned }),
+        },
+      ),
+    async onSuccess(funding) {
+      queryClient.setQueryData(
+        apiKeys.funding(tenantId, fundingId),
+        funding,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: apiKeys.funding(tenantId, fundingId),
+      });
+    },
+  });
 }
 
 export function useAttachFundingTask(tenantId: string, fundingId: string) {

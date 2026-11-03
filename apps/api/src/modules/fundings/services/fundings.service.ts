@@ -206,6 +206,39 @@ export class FundingsService {
     return this.findOne(tenantId, fundingId, callerUserId);
   }
 
+  async setNotePin(
+    tenantId: string,
+    fundingId: string,
+    noteId: string,
+    callerUserId: string,
+    pinned: boolean,
+  ) {
+    await this.requireOwner(tenantId, fundingId, callerUserId);
+
+    const note = await this.repository.findAccessibleNoteById(
+      tenantId,
+      noteId,
+      callerUserId,
+    );
+    if (!note) {
+      throw new ForbiddenException('The selected note is inaccessible');
+    }
+
+    const link = await this.repository.setNotePin(
+      tenantId,
+      fundingId,
+      noteId,
+      pinned,
+    );
+    if (!link) {
+      throw new NotFoundException(
+        'The note is not attached to this funding record',
+      );
+    }
+
+    return this.findOne(tenantId, fundingId, callerUserId);
+  }
+
   async attachTask(
     tenantId: string,
     fundingId: string,

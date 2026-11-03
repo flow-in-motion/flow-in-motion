@@ -13,6 +13,10 @@ const fixtures = vi.hoisted(() => ({
   useTasks: vi.fn(),
   /** Overrides the funding's linked tasks for a single test. */
   fundingTasks: null as Array<Record<string, unknown>> | null,
+  setNotePin: vi.fn(),
+  notePinned: false,
+  currentUserId: "user-owner",
+  pinPending: false,
 }));
 
 vi.mock("@/api/hooks", () => ({
@@ -44,6 +48,7 @@ vi.mock("@/api/hooks", () => ({
           content: null,
           followUpDate: null,
           createdAt: "2026-10-01T00:00:00.000Z",
+          fundingPinned: fixtures.notePinned,
         },
       ],
       tasks: fixtures.fundingTasks ?? [
@@ -63,11 +68,18 @@ vi.mock("@/api/hooks", () => ({
     isError: false,
     refetch: vi.fn(),
   }),
-  useMe: () => ({ data: { id: "user-owner" }, isPending: false }),
+  useMe: () => ({
+    data: { id: fixtures.currentUserId },
+    isPending: false,
+  }),
   useUpdateFunding: () => ({ mutateAsync: vi.fn() }),
   useDeleteFunding: () => ({ mutateAsync: vi.fn() }),
   useAttachFundingNote: () => ({ mutateAsync: fixtures.attachNote }),
   useDetachFundingNote: () => ({ mutateAsync: fixtures.detachNote }),
+  useSetFundingNotePin: () => ({
+    mutateAsync: fixtures.setNotePin,
+    isPending: fixtures.pinPending,
+  }),
   useAttachFundingTask: () => ({ mutateAsync: fixtures.attachTask }),
   useDetachFundingTask: () => ({ mutateAsync: fixtures.detachTask }),
   useCreateNote: () => ({ mutateAsync: vi.fn() }),
@@ -102,6 +114,72 @@ describe("FundingDetailPage", () => {
     fixtures.detachTask.mockReset().mockResolvedValue({});
     fixtures.useNotes.mockReset();
     fixtures.useTasks.mockReset();
+    fixtures.setNotePin.mockReset().mockResolvedValue({});
+    fixtures.notePinned = false;
+    fixtures.currentUserId = "user-owner";
+    fixtures.pinPending = false;
+  });
+
+  it("pins a linked note for this funding", () => {
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Pin Budget note" }),
+    );
+
+    expect(fixtures.setNotePin).toHaveBeenCalledWith({
+      noteId: "note-1",
+      pinned: true,
+    });
+  });
+
+  it("unpins a linked note for this funding", () => {
+    fixtures.notePinned = true;
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Unpin Budget note" }),
+    );
+
+    expect(fixtures.setNotePin).toHaveBeenCalledWith({
+      noteId: "note-1",
+      pinned: false,
+    });
+  });
+
+  it("shows an error when saving the pin fails", async () => {
+    fixtures.setNotePin.mockRejectedValueOnce(
+      new Error("Unable to update note pin"),
+    );
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Pin Budget note" }),
+    );
+
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent("Unable to update note pin");
+  });
+
+  it("does not let a funding viewer change a pin", () => {
+    fixtures.currentUserId = "another-user";
+    fixtures.notePinned = true;
+    renderPage();
+
+    expect(
+      screen.queryByRole("button", { name: "Unpin Budget note" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTitle("Pinned note")).toBeInTheDocument();
+  });
+
+  it("disables pinning while a save is pending", () => {
+    fixtures.pinPending = true;
+    renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Pin Budget note" }),
+    ).toBeDisabled();
   });
 
   it("shows the description, follow-up date, and clickable linked work", () => {
