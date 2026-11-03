@@ -57,8 +57,8 @@ type SortDirection = "asc" | "desc";
 
 const NOTE_COLUMNS = [
   { id: "note", label: "Note", width: "minmax(220px,1.5fr)" },
-  { id: "content", label: "Content", width: "minmax(260px,2fr)" },
   { id: "linkedTo", label: "Linked to", width: "170px" },
+  { id: "content", label: "Content", width: "minmax(260px,2fr)" },
   { id: "visibility", label: "Visibility", width: "110px" },
   { id: "followUp", label: "Follow-up", width: "120px" },
   { id: "created", label: "Created", width: "150px" },
@@ -560,11 +560,6 @@ export default function DailyNotesPage() {
                       </div>
                     </div>
                   ) : null}
-                  {columns.isColumnVisible("content") ? (
-                    <span className="min-w-0 truncate text-sm leading-5 text-muted-foreground">
-                      {notePreview(note.content)}
-                    </span>
-                  ) : null}
                   {columns.isColumnVisible("linkedTo") ? (
                     note.moduleId || note.projectId || generalProject ? (
                       <Link
@@ -582,6 +577,11 @@ export default function DailyNotesPage() {
                         General
                       </span>
                     )
+                  ) : null}
+                  {columns.isColumnVisible("content") ? (
+                    <span className="min-w-0 truncate text-sm leading-5 text-muted-foreground">
+                      {notePreview(note.content)}
+                    </span>
                   ) : null}
                   {TASK_NOTE_SHARING_ENABLED && columns.isColumnVisible("visibility") ? (
                     <Badge

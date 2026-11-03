@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -311,6 +311,23 @@ describe("DailyNotesPage", () => {
     expect(
       screen.getByText("Baseline readings look consistent."),
     ).toBeInTheDocument();
+  });
+
+  it("shows Linked to between Note and Content in the header and note rows", () => {
+    renderPage();
+
+    const noteHeader = screen.getByRole("button", { name: "Sort by Note" });
+    const linkedHeader = screen.getByRole("button", { name: "Sort by Linked to" });
+    const contentHeader = screen.getByRole("button", { name: "Sort by Content" });
+    expect(noteHeader.compareDocumentPosition(linkedHeader) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(linkedHeader.compareDocumentPosition(contentHeader) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const row = screen.getByRole("link", { name: "Initial observations" })
+      .closest<HTMLElement>('[style*="grid-template-columns"]');
+    expect(row).not.toBeNull();
+    const linkedCell = within(row!).getByText("General");
+    const contentCell = within(row!).getByText("Baseline readings look consistent.");
+    expect(linkedCell.compareDocumentPosition(contentCell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("requests the next notes page when Next is clicked", () => {
