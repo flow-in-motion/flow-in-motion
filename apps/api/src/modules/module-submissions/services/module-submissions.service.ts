@@ -19,7 +19,9 @@ export class ModuleSubmissionsService {
         ? 'Submitted, Under Review'
         : status === 'Rejected' || status === 'Revision requested'
           ? 'Revisions'
-          : null;
+          : status === 'Accepted'
+            ? 'Accepted'
+            : null;
     if (!stage) return undefined;
     const match = await this.enums.findModuleStageByValueForTenant(
       tenantId,

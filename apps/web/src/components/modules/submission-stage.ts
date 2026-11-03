@@ -8,5 +8,6 @@ export function stageForSubmissionStatus(status: string) {
   if (status === "Rejected" || status === "Revision requested") {
     return "Revisions";
   }
+  if (status === "Accepted") return "Accepted";
   return null;
 }
