@@ -91,7 +91,7 @@ export const navGroups: NavGroup[] = [
         to: "/future/hdr-students",
         icon: GraduationCap,
       },
-      { label: "Impact", to: "/future/impact", icon: BarChart3 },
+      { label: "Impact, Engagement", to: "/future/impact", icon: BarChart3 },
       {
         label: "Journal rankings & research lists",
         to: "/future/journal-rankings-research-lists",
