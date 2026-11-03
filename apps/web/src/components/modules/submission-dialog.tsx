@@ -179,7 +179,7 @@ export function SubmissionDialog({
               ? `When you save the paper, it moves to “${SUBMITTED_UNDER_REVIEW_STAGE}”, this submission is logged and Currently with is set to Journal. Cancel to keep the current stage.`
               : forStageChange
               ? `Moving the paper to “${SUBMITTED_UNDER_REVIEW_STAGE}” logs this submission and sets Currently with to Journal. Cancel to leave the paper where it is.`
-              : `Record where and when this paper was submitted. Submitted and Resubmitted move it to “${SUBMITTED_UNDER_REVIEW_STAGE}”; Rejected and Revision requested move it to “Revisions”.`}
+              : `Record where and when this paper was submitted. Submitted and Resubmitted move it to “${SUBMITTED_UNDER_REVIEW_STAGE}”; Rejected and Revision requested move it to “Revisions”; Accepted moves it to “Accepted”.`}
           </DialogDescription>
         </DialogHeader>
 

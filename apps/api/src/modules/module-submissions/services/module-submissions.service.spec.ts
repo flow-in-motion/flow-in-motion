@@ -32,7 +32,12 @@ describe('ModuleSubmissionsService', () => {
         .fn()
         .mockImplementation((_tenantId: string, stage: string) =>
           Promise.resolve({
-            id: stage === 'Revisions' ? 'stage-revisions' : 'stage-review',
+            id:
+              stage === 'Accepted'
+                ? 'stage-accepted'
+                : stage === 'Revisions'
+                  ? 'stage-revisions'
+                  : 'stage-review',
           }),
         ),
     };
@@ -166,7 +171,7 @@ describe('ModuleSubmissionsService', () => {
           decisionDate: undefined,
           notes: undefined,
         },
-        undefined,
+        'stage-accepted',
         false,
       );
       expect(result).toEqual({ id: 'submission-1', status: 'Accepted' });
@@ -178,6 +183,7 @@ describe('ModuleSubmissionsService', () => {
     ['Resubmitted', 'stage-review', true],
     ['Rejected', 'stage-revisions', false],
     ['Revision requested', 'stage-revisions', false],
+    ['Accepted', 'stage-accepted', false],
   ])(
     'moves a newly logged %s submission to its paper stage',
     async (status, stageId, withJournal) => {
@@ -201,6 +207,7 @@ describe('ModuleSubmissionsService', () => {
     ['Resubmitted', 'stage-review', true],
     ['Rejected', 'stage-revisions', false],
     ['Revision requested', 'stage-revisions', false],
+    ['Accepted', 'stage-accepted', false],
   ])(
     'moves the paper when its submission changes to %s',
     async (status, stageId, withJournal) => {
