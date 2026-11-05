@@ -28,6 +28,7 @@ const PipelinePage = lazy(() => import("@/pages/pipeline"));
 const AccountAuditPage = lazy(() => import("@/pages/account-audit"));
 const SettingsPage = lazy(() => import("@/pages/settings"));
 const FutureFeaturePage = lazy(() => import("@/pages/future-feature"));
+const HdrStudentsPage = lazy(() => import("@/pages/hdr-students"));
 const SignInPage = lazy(() => import("@/pages/sign-in"));
 const SignUpPage = lazy(() => import("@/pages/sign-up"));
 const ConfirmSignUpPage = lazy(() => import("@/pages/confirm-sign-up"));
@@ -116,6 +117,7 @@ export default function App() {
                 path="settings/account-audit"
                 element={routePage(<AccountAuditPage />)}
               />
+              <Route path="future/hdr-students" element={routePage(<HdrStudentsPage />)} />
               <Route path="future/:feature" element={routePage(<FutureFeaturePage />)} />
               <Route path="site-map" element={routePage(<SiteMapPage />)} />
               <Route path="usage" element={routePage(<UsagePage />)} />
