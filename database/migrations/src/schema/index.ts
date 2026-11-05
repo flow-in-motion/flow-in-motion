@@ -38,3 +38,4 @@ export * from './usage-weekly-snapshots';
 export * from './usage-daily-snapshots';
 export * from './research-change-events';
 export * from './paper-time-entries';
+export * from './hdr-people';
