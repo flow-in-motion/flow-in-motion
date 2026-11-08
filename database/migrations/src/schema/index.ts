@@ -40,3 +40,4 @@ export * from './research-change-events';
 export * from './paper-time-entries';
 export * from './hdr-people';
 export * from './academic-reviews';
+export * from './work-time-entries';

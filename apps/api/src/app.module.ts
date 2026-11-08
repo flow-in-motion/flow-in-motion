@@ -36,6 +36,7 @@ import { RequestContextInterceptor } from './db/request-context.interceptor';
 import { DataExportModule } from './modules/data-export/data-export.module';
 import { HdrModule } from './modules/hdr/hdr.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { WorkTimeModule } from './modules/work-time/work-time.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -114,6 +115,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     DataExportModule,
     HdrModule,
     ReviewsModule,
+    WorkTimeModule,
   ],
   controllers: [AppController],
   providers: [
