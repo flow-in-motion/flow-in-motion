@@ -964,3 +964,5 @@ describe("ProjectDetailPage", () => {
 });
 
 vi.mock("@/components/time-tracking/work-timer-controls", () => ({ WorkTimerControls: () => null }));
+
+vi.mock("@/components/time-tracking/work-time-card", () => ({ WorkTimeCard: ({kind, targetId}: {kind: string; targetId: string}) => <section aria-label={`Time for ${kind}:${targetId}`} /> }));

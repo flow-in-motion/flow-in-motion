@@ -1,3 +1,4 @@
+import { WorkTimeCard } from "@/components/time-tracking/work-time-card";
 import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import { PAPER_STATUSES } from "@/lib/paper-status";
 import {
@@ -1196,6 +1197,8 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
               </>
             }
           />
+
+          <WorkTimeCard key={project.id} kind="project" targetId={project.id} />
 
           <section aria-labelledby="project-collaborators-heading">
             <div className="mb-3 flex items-center justify-between gap-3">

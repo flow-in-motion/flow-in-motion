@@ -1,3 +1,7 @@
+import { HdrPersonDialog } from "@/components/hdr/hdr-person-dialog";
+import { PaperTimerButton } from "./paper-timer-button";
+import { TaskTimerButton } from "./task-timer-button";
+import { WorkTimeCard } from "./work-time-card";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   fireEvent,
@@ -115,7 +119,7 @@ vi.mock("@/api/client", () => ({
     throw new Error(`Unexpected request: ${method} ${path}`);
   },
 }));
-function show(kind: WorkTimeKind = "project") {
+function show(kind: WorkTimeKind = "project", withTime = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -124,6 +128,7 @@ function show(kind: WorkTimeKind = "project") {
       <MemoryRouter>
         <WorkRunningTimers />
         <WorkTimerControls kind={kind} targetId="target" title={`My ${kind}`} />
+        {withTime ? <WorkTimeCard kind={kind} targetId="target" /> : null}
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -144,7 +149,9 @@ describe("Project, Note and HDR timers", () => {
       });
       await waitFor(() => expect(start).toBeEnabled());
       fireEvent.click(start);
-      const region = await screen.findByRole("region");
+      const region = await screen.findByRole("region", {
+        name: `${kind === "hdr" ? "HDR" : kind === "note" ? "Note" : "Project"} timer: My ${kind}`,
+      });
       expect(within(region).getByRole("timer")).toHaveTextContent("03:00");
       fireEvent.click(
         within(region).getByRole("button", {
@@ -173,11 +180,34 @@ describe("Project, Note and HDR timers", () => {
       ).toBe(true);
     },
   );
+  it.each<WorkTimeKind>(["project", "note", "hdr"])(
+    "uses a single timer button in a %s list row",
+    async (kind) => {
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      render(
+        <QueryClientProvider client={client}>
+          <WorkTimerControls kind={kind} targetId="target" title="Work" />
+        </QueryClientProvider>,
+      );
+      await waitFor(() => expect(server.calls).toHaveLength(1));
+      expect(screen.getAllByRole("button")).toHaveLength(1);
+      expect(
+        screen.getByRole("button", { name: "Start timer for Work" }),
+      ).toHaveClass("h-8", "w-8");
+      expect(screen.queryByTitle("Time logged")).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /View time|Stop timer/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("restores the saved timer after remounting", async () => {
     server.timers = [timer("hdr")];
     server.entries = [...server.timers];
     const first = show("hdr");
-    await screen.findByRole("region");
+    await screen.findByRole("region", { name: "HDR timer: My hdr" });
     first.unmount();
     show("hdr");
     expect(
@@ -217,18 +247,16 @@ describe("Project, Note and HDR timers", () => {
     });
     await waitFor(() => expect(start).toBeEnabled());
     fireEvent.click(start);
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Access has changed",
+    await waitFor(() =>
+      expect(start).toHaveAttribute("title", "Access has changed"),
     );
+    expect(start).toHaveAttribute("aria-invalid", "true");
     expect(server.timers).toHaveLength(0);
   });
   it("views, adds, edits and removes only time entries", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    show("note");
-    fireEvent.click(
-      screen.getByRole("button", { name: "View time for My note" }),
-    );
-    const dialog = await screen.findByRole("dialog");
+    show("note", true);
+    const dialog = await screen.findByRole("region", { name: "Time" });
     fireEvent.click(
       await within(dialog).findByRole("button", { name: "Add time" }),
     );
@@ -239,17 +267,21 @@ describe("Project, Note and HDR timers", () => {
       target: { value: "A meeting" },
     });
     fireEvent.click(
-      within(dialog).getByRole("button", { name: /Add time|Save changes/ }),
+      within(
+        within(dialog).getByRole("form", { name: /Add time|Edit time entry/ }),
+      ).getByRole("button", { name: /Add time|Save changes/ }),
     );
     await within(dialog).findByText("A meeting");
     fireEvent.click(
-      within(dialog).getByRole("button", { name: "Edit time entry" }),
+      within(dialog).getByRole("button", { name: /^Edit time logged/ }),
     );
     fireEvent.change(within(dialog).getByLabelText("Minutes"), {
       target: { value: "25" },
     });
     fireEvent.click(
-      within(dialog).getByRole("button", { name: /Add time|Save changes/ }),
+      within(
+        within(dialog).getByRole("form", { name: /Add time|Edit time entry/ }),
+      ).getByRole("button", { name: /Add time|Save changes/ }),
     );
     await waitFor(() => expect(server.entries[0]?.durationSeconds).toBe(1500));
     await waitFor(() =>
@@ -258,14 +290,89 @@ describe("Project, Note and HDR timers", () => {
       ).not.toBeInTheDocument(),
     );
     fireEvent.click(
-      within(dialog).getByRole("button", { name: "Delete time entry" }),
+      within(dialog).getByRole("button", { name: /^Delete time logged/ }),
     );
     await within(dialog).findByText(/No time logged yet/);
     expect(server.entries).toHaveLength(0);
   });
+  it("matches the existing detail timer button appearance and labels", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <TaskTimerButton taskId="task" taskTitle="Task" variant="button" />
+        <PaperTimerButton
+          moduleId="paper"
+          paperTitle="Paper"
+          variant="button"
+        />
+        <WorkTimerControls
+          kind="project"
+          targetId="target"
+          title="Project"
+          variant="button"
+        />
+      </QueryClientProvider>,
+    );
+    const task = screen.getByRole("button", { name: "Start timer for Task" });
+    const paper = screen.getByRole("button", { name: "Start timer for Paper" });
+    const project = screen.getByRole("button", {
+      name: "Start timer for Project",
+    });
+    expect(project.className).toBe(task.className);
+    expect(project.className).toBe(paper.className);
+    expect(project).toHaveTextContent("Start timer");
+  });
+
+  it("adds HDR time without submitting the student record form", async () => {
+    const save = vi.fn(),
+      close = vi.fn();
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <HdrPersonDialog
+          tenantId="tenant"
+          person={{
+            id: "target",
+            name: "Student",
+            type: "PhD",
+            category: "Current",
+            email: null,
+            researchTopic: null,
+            projects: [],
+            papers: [],
+          }}
+          onSave={save}
+          onClose={close}
+        />
+      </QueryClientProvider>,
+    );
+    const panel = await screen.findByRole("region", { name: "Time" });
+    fireEvent.click(within(panel).getByRole("button", { name: "Add time" }));
+    const form = within(panel).getByRole("form", { name: "Add time" });
+    fireEvent.change(within(form).getByLabelText("Minutes"), {
+      target: { value: "20" },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "Add time" }));
+    await waitFor(() => expect(server.entries[0]?.durationSeconds).toBe(1200));
+    expect(save).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/Name/)).toHaveValue("Student");
+  });
+
   it("adds a running stretch exactly once, and never ticks paused entries", () => {
     const entry = timer("project");
     expect(workElapsed(entry, 1000, 11000)).toBe(190);
     expect(workElapsed({ ...entry, isRunning: false }, 1000, 11000)).toBe(180);
   });
 });
+
+vi.mock("@/components/hdr/hdr-work-picker", () => ({
+  HdrWorkPicker: () => null,
+}));

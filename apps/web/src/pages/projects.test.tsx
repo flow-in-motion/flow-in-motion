@@ -300,6 +300,15 @@ describe("ProjectsPage", () => {
     expect(screen.getByText("All statuses")).toBeInTheDocument();
   });
 
+  it("keeps My Role close to the project without dropping or reordering columns", () => {
+    const {container}=renderPage();
+    const grids=container.querySelectorAll<HTMLElement>("[style*=grid-template-columns]");
+    expect(grids.length).toBeGreaterThan(1);
+    for(const grid of grids) expect(grid.style.gridTemplateColumns).toMatch(/^minmax\(240px,\s*360px\) 110px 110px 80px 80px 130px 110px$/);
+    expect(screen.getByRole("button",{name:"Sort by My Role"})).toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"Sort by Due Date"})).toBeInTheDocument();
+  });
+
   it("changes a project status directly from its list row", async () => {
     renderPage();
 

@@ -1,3 +1,4 @@
+import { WorkTimeCard } from "@/components/time-tracking/work-time-card";
 import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import {
   useEffect,
@@ -1005,6 +1006,7 @@ const hasTodayEntry = Boolean(
         </CardContent>
       </Card>
     ) : null}
+      {!form ? <WorkTimeCard key={note.id} kind="note" targetId={note.id} /> : null}
       <div className="flex flex-col gap-6">
         <section aria-labelledby="note-linked-work-heading">
         <div className="mb-3 flex items-center justify-between gap-3">

@@ -1,5 +1,6 @@
-import { lazy, Suspense, useState } from "react";
-import { Clock3, Pause, Play, Square } from "lucide-react";
+import { useState } from "react";
+import { Pause, Play } from "lucide-react";
+
 import {
   useCurrentWorkTimers,
   useWorkTimeAction,
@@ -7,123 +8,101 @@ import {
 } from "@/api/work-time-tracking";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-const WorkTimeDialog = lazy(async () => ({
-  default: (await import("./work-time-dialog")).WorkTimeDialog,
-}));
 
+type TimerState = "idle" | "running" | "paused";
+
+/** Same list/detail controls as Paper/Task timers; history lives in the Time panel. */
 export function WorkTimerControls({
   kind,
   targetId,
   title,
   variant = "icon",
-}: WorkTimeTarget & { title: string; variant?: "icon" | "button" }) {
+  className,
+}: WorkTimeTarget & {
+  title: string;
+  /** "icon" for lists; "button" for the detail page. */
+  variant?: "icon" | "button";
+  className?: string;
+}) {
   const current = useCurrentWorkTimers();
   const action = useWorkTimeAction();
-  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const timer = current.data?.timers.find(
-    (t) => t.kind === kind && t.targetId === targetId,
+    (item) => item.kind === kind && item.targetId === targetId,
   );
-  const verb = timer ? (timer.isRunning ? "Pause" : "Resume") : "Start";
-  const Icon = timer?.isRunning ? Pause : Play;
-  async function toggle() {
+  const state: TimerState = !timer
+    ? "idle"
+    : timer.isRunning
+      ? "running"
+      : "paused";
+  const isPending = action.isPending;
+  const verb =
+    state === "running" ? "Pause" : state === "paused" ? "Resume" : "Start";
+  const label = `${verb} timer for ${title}`;
+
+  async function handleClick() {
     setError(null);
     try {
-      await action.mutateAsync(
-        timer
-          ? { action: timer.isRunning ? "pause" : "resume", entryId: timer.id }
-          : { action: "start", kind, targetId },
+      if (timer && state === "running") {
+        await action.mutateAsync({ action: "pause", entryId: timer.id });
+      } else if (timer && state === "paused") {
+        await action.mutateAsync({ action: "resume", entryId: timer.id });
+      } else {
+        await action.mutateAsync({ action: "start", kind, targetId });
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't update the timer. Please try again.",
       );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update the timer.");
     }
   }
-  return (
-    <span
-      className="inline-flex items-center gap-1"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <Button
-        type="button"
-        size={variant === "icon" ? "icon" : "default"}
-        variant="ghost"
-        className={cn(
-          variant === "icon" && "h-8 w-8 shrink-0",
-          timer?.isRunning &&
-            "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
-          timer &&
-            !timer.isRunning &&
-            "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300",
-        )}
-        aria-label={`${verb} timer for ${title}`}
-        title={error ?? `${verb} timer`}
-        disabled={action.isPending || current.isPending || current.isError}
-        onClick={() => void toggle()}
-      >
-        <Icon className="h-3.5 w-3.5" />
-        {variant === "button" ? `${verb} timer` : null}
-      </Button>
-      {timer ? (
+
+  const Icon = state === "running" ? Pause : Play;
+
+  if (variant === "button") {
+    return (
+      <span className={cn("inline-flex flex-col items-start gap-1", className)}>
         <Button
           type="button"
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8"
-          aria-label={`Stop timer for ${title}`}
-          title="Stop timer"
-          disabled={action.isPending}
-          onClick={() => {
-            setError(null);
-            void action
-              .mutateAsync({ action: "stop", entryId: timer.id })
-              .catch((e: unknown) =>
-                setError(
-                  e instanceof Error ? e.message : "Could not stop the timer.",
-                ),
-              );
-          }}
+          variant={state === "idle" ? "default" : "outline"}
+          onClick={() => void handleClick()}
+          disabled={isPending}
+          aria-label={label}
         >
-          <Square className="h-3.5 w-3.5" />
+          <Icon />
+          {state === "idle" ? "Start timer" : verb}
         </Button>
-      ) : null}
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className="h-8 w-8"
-        aria-label={`View time for ${title}`}
-        title="Time logged"
-        onClick={() => setOpen(true)}
-      >
-        <Clock3 className="h-3.5 w-3.5" />
-      </Button>
-      {current.isError ? (
-        <span role="alert" className="text-xs text-destructive">
-          Timer unavailable.{" "}
-          <button
-            type="button"
-            className="underline"
-            onClick={() => void current.refetch()}
-          >
-            Retry
-          </button>
-        </span>
-      ) : null}
-      {error ? (
-        <span role="alert" className="text-xs text-destructive">
-          {error}
-        </span>
-      ) : null}
-      {open ? (
-        <Suspense fallback={null}>
-          <WorkTimeDialog
-            kind={kind}
-            targetId={targetId}
-            title={title}
-            onClose={() => setOpen(false)}
-          />
-        </Suspense>
-      ) : null}
-    </span>
+        {error ? (
+          <span role="alert" className="text-xs text-destructive">
+            {error}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void handleClick()}
+      disabled={isPending}
+      aria-label={label}
+      title={error ?? `${verb} timer`}
+      aria-invalid={error ? true : undefined}
+      className={cn(
+        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
+        state === "running" &&
+          "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
+        state === "paused" &&
+          "bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
+        error && "text-destructive",
+        className,
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
   );
 }
