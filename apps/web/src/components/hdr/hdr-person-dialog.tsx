@@ -1,3 +1,5 @@
+import { WorkTimeCard } from "@/components/time-tracking/work-time-card";
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import { useState, type FormEvent } from "react";
 
 import type { HdrCategory, HdrInput, HdrPerson, HdrType } from "@/api/hdr";
@@ -91,6 +93,7 @@ export function HdrPersonDialog({
             record. Only a name is needed to start.
           </DialogDescription>
         </DialogHeader>
+        {person ? <WorkTimerControls kind="hdr" targetId={person.id} title={person.name} variant="button" /> : null}
         <form onSubmit={(event) => void submit(event)} className="space-y-4">
           <fieldset disabled={saving} className="space-y-4">
             <div className="space-y-1.5">
@@ -193,6 +196,7 @@ export function HdrPersonDialog({
             </Button>
           </DialogFooter>
         </form>
+        {person ? <WorkTimeCard key={person.id} kind="hdr" targetId={person.id} /> : null}
       </DialogContent>
     </Dialog>
   );

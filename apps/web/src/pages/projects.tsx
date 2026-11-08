@@ -63,7 +63,7 @@ type StatusFilter = (typeof STATUS_FILTERS)[number];
 type RoleFilter = (typeof ROLE_FILTERS)[number];
 
 const PROJECT_COLUMNS = [
-  { id: "project", label: "Project", width: "minmax(240px,2fr)" },
+  { id: "project", label: "Project", width: "minmax(240px,360px)" },
   { id: "role", label: "My Role", width: "110px" },
   { id: "status", label: "Status", width: "110px" },
   { id: "papers", label: "Papers", width: "80px" },

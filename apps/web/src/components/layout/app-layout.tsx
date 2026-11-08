@@ -3,8 +3,7 @@ import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
 import { useCurrentWorkspace, useTrackEvent } from "@/api/hooks";
-import { CompactSidebar } from "@/components/layout/compact-sidebar";
-import { Sidebar } from "@/components/layout/sidebar";
+import { CollapsibleSidebar } from "@/components/layout/collapsible-sidebar";
 import { SiteHeader } from "@/components/layout/site-header";
 import { TopNav } from "@/components/layout/top-nav";
 import { AppErrorBoundary } from "@/components/shared/error-boundary";
@@ -39,8 +38,10 @@ export function AppLayout() {
     return (
       <div className="app-canvas flex min-h-screen flex-col">
         <TopNav />
-        <RunningTimerBar className="top-[4.5rem]" />
-        <WorkRunningTimers />
+        <div className="sticky top-[4.5rem] z-30">
+          <RunningTimerBar className="static" />
+          <WorkRunningTimers />
+        </div>
         <BreakReminder />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
           <div key={location.pathname} className="route-stage w-full min-w-0">
@@ -54,15 +55,15 @@ export function AppLayout() {
     );
   }
 
-  const SidebarComponent = layout === "sidebar-compact" ? CompactSidebar : Sidebar;
-
   return (
     <div className="app-canvas flex min-h-screen">
-      <SidebarComponent />
+      <CollapsibleSidebar compact={layout === "sidebar-compact"} />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <SiteHeader />
-        <RunningTimerBar className="top-16 lg:top-0" />
-        <WorkRunningTimers />
+        <div className="sticky top-16 z-30 lg:top-0">
+          <RunningTimerBar className="static" />
+          <WorkRunningTimers />
+        </div>
         <BreakReminder />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
           <div key={location.pathname} className="route-stage w-full min-w-0">

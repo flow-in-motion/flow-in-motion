@@ -43,7 +43,7 @@ function WorkTimerRow({
       role="region"
       aria-label={`${timer.kind === "hdr" ? "HDR" : timer.kind === "project" ? "Project" : "Note"} timer: ${timer.title}`}
       className={cn(
-        "border-b",
+        "border-b last:border-b-0",
         timer.isRunning
           ? "border-emerald-200 bg-emerald-50/90 dark:border-emerald-900 dark:bg-emerald-950/70"
           : "border-amber-200 bg-amber-50/90 dark:border-amber-900 dark:bg-amber-950/70",
@@ -51,17 +51,27 @@ function WorkTimerRow({
     >
       <div className="mx-auto flex w-full max-w-[1480px] flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6 xl:px-10">
         <span className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "h-2.5 w-2.5 shrink-0 rounded-full",
+              timer.isRunning ? "animate-pulse bg-emerald-500" : "bg-amber-500",
+            )}
+          />
           <span className="shrink-0 text-muted-foreground">
             {timer.isRunning ? "Working on" : "Paused"}
           </span>
           {path ? (
-            <Link className="truncate font-semibold hover:underline" to={path}>
+            <Link
+              className="truncate font-semibold text-foreground hover:underline"
+              to={path}
+            >
               {timer.title}
             </Link>
           ) : (
             <button
               type="button"
-              className="truncate font-semibold hover:underline"
+              className="truncate font-semibold text-foreground hover:underline"
               onClick={() => setOpen(true)}
             >
               {timer.title}
@@ -75,27 +85,29 @@ function WorkTimerRow({
         >
           {formatClock(workElapsed(timer, receivedAt))}
         </span>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={action.isPending}
-          aria-label={`${timer.isRunning ? "Pause" : "Resume"} timer for ${timer.title}`}
-          onClick={() => void run(timer.isRunning ? "pause" : "resume")}
-        >
-          {timer.isRunning ? <Pause /> : <Play />}
-          {timer.isRunning ? "Pause" : "Resume"}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={action.isPending}
-          aria-label={`Stop timer for ${timer.title}`}
-          onClick={() => void run("stop")}
-        >
-          <Square /> Stop
-        </Button>
+        <span className="flex items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={action.isPending}
+            aria-label={`${timer.isRunning ? "Pause" : "Resume"} timer for ${timer.title}`}
+            onClick={() => void run(timer.isRunning ? "pause" : "resume")}
+          >
+            {timer.isRunning ? <Pause /> : <Play />}
+            {timer.isRunning ? "Pause" : "Resume"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={action.isPending}
+            aria-label={`Stop timer for ${timer.title}`}
+            onClick={() => void run("stop")}
+          >
+            <Square /> Stop
+          </Button>
+        </span>
         {error ? (
           <p role="alert" className="w-full text-xs text-destructive">
             {error}
@@ -121,7 +133,11 @@ export function WorkRunningTimers() {
   useTicker(timers.some((t) => t.isRunning));
   if (!timers.length) return null;
   return (
-    <div>
+    <div
+      role="region"
+      aria-label="Open project, note and HDR timers"
+      className="border-b backdrop-blur-xl"
+    >
       {timers.map((timer) => (
         <WorkTimerRow
           key={timer.id}
