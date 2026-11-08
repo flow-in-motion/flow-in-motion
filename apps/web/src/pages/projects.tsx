@@ -1,3 +1,5 @@
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
+import { PAPER_STATUSES } from "@/lib/paper-status";
 import { useEffect, useMemo, useState } from "react";
 import { FolderKanban, Pencil, Trash2, UserPlus } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -52,7 +54,7 @@ import { PaginationControls } from "@/components/shared/pagination-controls";
 import { useSessionListState } from "@/hooks/use-session-list-state";
 import { rolePillClass, statusPillClass } from "@/lib/tones";
 
-const STATUS_OPTIONS = ["Active", "Review", "Stalled", "Complete"] as const;
+const STATUS_OPTIONS = PAPER_STATUSES;
 const STATUS_FILTERS = ["All", ...STATUS_OPTIONS] as const;
 const ROLE_OPTIONS = ["Owner", "Collaborator", "Supervisor", "Lead"] as const;
 const ROLE_FILTERS = ["All roles", ...ROLE_OPTIONS] as const;
@@ -73,12 +75,9 @@ const PROJECT_COLUMNS = [
 type SortColumn = (typeof PROJECT_COLUMNS)[number]["id"];
 type SortDirection = "asc" | "desc";
 
-const PROJECT_STATUS_ORDER: Record<string, number> = {
-  Active: 0,
-  Review: 1,
-  Stalled: 2,
-  Complete: 3,
-};
+const PROJECT_STATUS_ORDER: Record<string, number> = Object.fromEntries(
+  PAPER_STATUSES.map((status, index) => [status, index]),
+);
 export default function ProjectsPage() {
   const workspace = useCurrentWorkspace();
   const tenantId = workspace.data?.id ?? "";
@@ -118,12 +117,16 @@ export default function ProjectsPage() {
     "projects:search",
     "",
   );
-  const [status, setStatus] = useSessionListState<StatusFilter>(
+  const [storedStatus, setStatus] = useSessionListState<StatusFilter>(
     me.data?.id,
     tenantId,
     "projects:status",
     "All",
   );
+  // A saved retired Review filter must not hide every project after upgrade.
+  const status = (STATUS_FILTERS as readonly string[]).includes(storedStatus)
+    ? storedStatus
+    : "All";
   const [role, setRole] = useSessionListState<RoleFilter>(
     me.data?.id,
     tenantId,
@@ -488,6 +491,7 @@ export default function ProjectsPage() {
                             <UserPlus className="h-3.5 w-3.5" />
                           </button>
                         ) : null}
+                        <WorkTimerControls kind="project" targetId={project.id} title={project.title} />
                         <Link
                           to={`/projects/${project.id}?edit=true`}
                           aria-label={`Edit ${project.title}`}

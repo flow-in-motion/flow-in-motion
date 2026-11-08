@@ -1,3 +1,5 @@
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
+import { PAPER_STATUSES } from "@/lib/paper-status";
 import {
   useEffect,
   useState,
@@ -89,7 +91,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const PROJECT_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
+const PROJECT_STATUSES = PAPER_STATUSES;
 const PROJECT_HEADER_FIELDS = {
   researchArea: "Research area",
   scheduledFor: "Scheduled date",
@@ -831,6 +833,7 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge status={project.status ?? "—"} />
+            <WorkTimerControls kind="project" targetId={project.id} title={project.title} variant="button" />
             <Button
               type="button"
               variant="outline"

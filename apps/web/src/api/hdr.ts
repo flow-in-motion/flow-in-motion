@@ -91,8 +91,14 @@ export function useSaveHdrPerson(tenantId: string) {
           body: JSON.stringify(input),
         },
       ),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: scopedKey(tenantId, owner) }),
+    onSuccess: (_person, { personId, input }) => {
+      if (personId && input.name !== undefined) {
+        void client.invalidateQueries({
+          queryKey: ["api", "work-time-entries"],
+        });
+      }
+      return client.invalidateQueries({ queryKey: scopedKey(tenantId, owner) });
+    },
   });
 }
 
@@ -105,7 +111,9 @@ export function useDeleteHdrPerson(tenantId: string) {
         `${basePath(tenantId)}/${encodeURIComponent(personId)}`,
         { method: "DELETE" },
       ),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: scopedKey(tenantId, owner) }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
+      return client.invalidateQueries({ queryKey: scopedKey(tenantId, owner) });
+    },
   });
 }

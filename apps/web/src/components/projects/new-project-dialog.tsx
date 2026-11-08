@@ -1,3 +1,4 @@
+import { PAPER_STATUSES } from "@/lib/paper-status";
 import {
   useContext,
   useEffect,
@@ -47,7 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const PROJECT_STATUSES = ["Active", "Review", "Stalled", "Complete"] as const;
+const PROJECT_STATUSES = PAPER_STATUSES;
 
 export interface NewProjectInput {
   title: string;

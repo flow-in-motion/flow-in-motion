@@ -1,3 +1,4 @@
+import { sessionListStateKey } from "@/hooks/use-session-list-state";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   fireEvent,
@@ -292,6 +293,13 @@ describe("ProjectsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("does not retain a retired Review filter that would hide all projects", () => {
+    sessionStorage.setItem(sessionListStateKey("user-owner", fixtures.tenantId, "projects:status"), JSON.stringify({ kind: "value", value: "Review" }));
+    renderPage();
+    expect(screen.getByRole("link", { name: fixtures.project.title })).toBeInTheDocument();
+    expect(screen.getByText("All statuses")).toBeInTheDocument();
+  });
+
   it("changes a project status directly from its list row", async () => {
     renderPage();
 
@@ -300,12 +308,14 @@ describe("ProjectsPage", () => {
         name: "Change status for Enzyme Kinetics Inhibition Study Across Temperature Gradients",
       }),
     );
-    fireEvent.click(screen.getByRole("option", { name: "Review" }));
+    expect(screen.queryByRole("option", { name: "Review" })).not.toBeInTheDocument();
+    for (const status of ["Proposed", "Active", "Stalled", "Complete", "Parked", "Closed"]) expect(screen.getByRole("option", { name: status })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Parked" }));
 
     await waitFor(() =>
       expect(hookMocks.updateProject).toHaveBeenCalledWith({
         projectId: "PRJ-101",
-        input: { status: "Review" },
+        input: { status: "Parked" },
       }),
     );
   });
@@ -512,3 +522,5 @@ describe("ProjectsPage", () => {
     ]);
   });
 });
+
+vi.mock("@/components/time-tracking/work-timer-controls", () => ({ WorkTimerControls: () => null }));

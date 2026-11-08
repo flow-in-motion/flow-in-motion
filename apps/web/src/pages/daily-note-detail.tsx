@@ -1,3 +1,4 @@
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import {
   useEffect,
   useLayoutEffect,
@@ -721,6 +722,7 @@ const hasTodayEntry = Boolean(
         description="Review and update this research update, decision or observation."
         actions={
           <div className="flex flex-wrap items-center gap-3">
+            <WorkTimerControls kind="note" targetId={note.id} title={note.title || "Untitled note"} variant="button" />
             {TASK_NOTE_SHARING_ENABLED ? (
               <Badge variant="outline">{note.visibility ?? "Private"}</Badge>
             ) : null}

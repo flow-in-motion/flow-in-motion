@@ -315,3 +315,5 @@ describe("HDR basics", () => {
     confirm.mockRestore();
   });
 });
+
+vi.mock("@/components/time-tracking/work-timer-controls", () => ({ WorkTimerControls: () => null }));
