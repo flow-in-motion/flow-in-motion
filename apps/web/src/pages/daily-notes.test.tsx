@@ -622,3 +622,5 @@ describe("DailyNotesPage", () => {
     ).toBeInTheDocument();
   });
 });
+
+vi.mock("@/components/time-tracking/work-timer-controls", () => ({ WorkTimerControls: () => null }));

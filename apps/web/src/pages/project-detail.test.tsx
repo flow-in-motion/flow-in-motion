@@ -962,3 +962,5 @@ describe("ProjectDetailPage", () => {
     ).toHaveValue("15/08/2026");
   });
 });
+
+vi.mock("@/components/time-tracking/work-timer-controls", () => ({ WorkTimerControls: () => null }));

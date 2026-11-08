@@ -1168,7 +1168,10 @@ export function useUpdateProject(tenantId: string) {
           },
         ),
       ),
-    async onSuccess(project) {
+    async onSuccess(project, { input }) {
+      if (input.title !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
+      }
       queryClient.setQueryData(apiKeys.project(tenantId, project.id), project);
       queryClient.setQueryData(myProjectKey(project.id), project);
       await Promise.all([
@@ -1202,6 +1205,7 @@ export function useArchiveProject(tenantId: string) {
         },
       ),
     async onSuccess() {
+      void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: apiKeys.projects(tenantId) }),
         queryClient.invalidateQueries({ queryKey: apiKeys.archive(tenantId) }),
@@ -1334,7 +1338,10 @@ export function useUpdateMyProject() {
           body: input as Partial<CreateProjectInput>,
         }),
       ),
-    async onSuccess(project) {
+    async onSuccess(project, { input }) {
+      if (input.title !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
+      }
       queryClient.setQueryData(myProjectKey(project.id), project);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: myProjectsKey }),
@@ -1363,6 +1370,7 @@ export function useArchiveMyProject() {
         },
       ),
     async onSuccess() {
+      void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: myProjectsKey }),
         invalidateResourceEverywhere(queryClient, "projects"),
@@ -1795,6 +1803,7 @@ export function useArchiveModule(tenantId: string) {
         }),
       ),
     async onSuccess(_result, moduleId) {
+      void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       // Both tenant-scoped and cross-workspace module lists are paginated,
       // so invalidate them and let React Query refetch the affected pages.
       queryClient.removeQueries({
@@ -2023,6 +2032,7 @@ export function useArchiveMyModule() {
         }),
       ),
     async onSuccess() {
+      void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: myModulesKey }),
         invalidateResourceEverywhere(queryClient, "modules"),
@@ -2099,6 +2109,7 @@ export function useArchiveMyModuleWithOptions() {
         },
       ),
     async onSuccess(result) {
+      void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       await Promise.all([
         invalidateResourceEverywhere(queryClient, "modules"),
         invalidateResourceEverywhere(queryClient, "tasks"),
@@ -3001,7 +3012,10 @@ export function useUpdateNote(tenantId: string) {
           body: input as Partial<CreateNoteInput>,
         }),
       ),
-    async onSuccess(note) {
+    async onSuccess(note, { input }) {
+      if (input.title !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
+      }
       queryClient.setQueryData(apiKeys.note(tenantId, note.id), note);
       // A note can be reached both via this tenant-scoped cache and via the
       // tenant-agnostic "my notes" cache — invalidate both, or a stale
@@ -3022,6 +3036,7 @@ export function useDeleteNote(tenantId: string) {
         }),
       ),
     async onSuccess() {
+      void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       await queryClient.invalidateQueries({
         queryKey: ["api", "tenant", tenantId, "notes"],
       });
@@ -3135,7 +3150,10 @@ export function useUpdateMyNote() {
           body: input as Partial<CreateNoteInput>,
         }),
       ),
-    async onSuccess(note) {
+    async onSuccess(note, { input }) {
+      if (input.title !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
+      }
       queryClient.setQueryData(myNoteKey(note.id), note);
       queryClient.setQueryData(
         apiKeys.note(note.tenantId,note.id),
@@ -3242,6 +3260,7 @@ export function useDeleteMyNote() {
         }),
       ),
     async onSuccess() {
+      void queryClient.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       await queryClient.invalidateQueries({ queryKey: myNotesKey });
     },
   });

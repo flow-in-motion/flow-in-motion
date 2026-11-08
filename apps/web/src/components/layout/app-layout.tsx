@@ -1,3 +1,4 @@
+import { WorkRunningTimers } from "@/components/time-tracking/work-running-timers";
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 
@@ -39,6 +40,7 @@ export function AppLayout() {
       <div className="app-canvas flex min-h-screen flex-col">
         <TopNav />
         <RunningTimerBar className="top-[4.5rem]" />
+        <WorkRunningTimers />
         <BreakReminder />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
           <div key={location.pathname} className="route-stage w-full min-w-0">
@@ -60,6 +62,7 @@ export function AppLayout() {
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <SiteHeader />
         <RunningTimerBar className="top-16 lg:top-0" />
+        <WorkRunningTimers />
         <BreakReminder />
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 xl:px-10">
           <div key={location.pathname} className="route-stage w-full min-w-0">

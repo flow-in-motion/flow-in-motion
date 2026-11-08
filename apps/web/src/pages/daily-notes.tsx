@@ -1,3 +1,4 @@
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import { useListSearch } from "@/hooks/use-list-search";
 import { useEffect, useMemo, useState } from "react";
 import { NotebookPen, Pencil, Pin, Trash2, UserPlus } from "lucide-react";
@@ -508,6 +509,7 @@ export default function DailyNotesPage() {
                         >
                           {noteTitle(note)}
                         </Link>
+                        <WorkTimerControls kind="note" targetId={note.id} title={noteTitle(note)} />
                         {note.visibility === "Shared" &&
                         note.createdBy === me.data?.id ? (
                           <button

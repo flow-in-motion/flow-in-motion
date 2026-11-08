@@ -120,3 +120,5 @@ describe("AppLayout usage tracking", () => {
     });
   });
 });
+
+vi.mock("@/components/time-tracking/work-running-timers", () => ({ WorkRunningTimers: () => null }));

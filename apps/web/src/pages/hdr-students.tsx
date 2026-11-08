@@ -1,3 +1,4 @@
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import { GraduationCap, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -247,6 +248,7 @@ function HdrList({ tenantId, userId }: { tenantId: string; userId: string }) {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
+                        <WorkTimerControls kind="hdr" targetId={person.id} title={person.name} />
                         <Button
                           variant="ghost"
                           size="icon"
