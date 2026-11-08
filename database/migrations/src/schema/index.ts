@@ -39,3 +39,4 @@ export * from './usage-daily-snapshots';
 export * from './research-change-events';
 export * from './paper-time-entries';
 export * from './hdr-people';
+export * from './academic-reviews';

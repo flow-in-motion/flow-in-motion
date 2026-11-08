@@ -35,6 +35,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { RequestContextInterceptor } from './db/request-context.interceptor';
 import { DataExportModule } from './modules/data-export/data-export.module';
 import { HdrModule } from './modules/hdr/hdr.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -112,6 +113,7 @@ import { HdrModule } from './modules/hdr/hdr.module';
     FundingsModule,
     DataExportModule,
     HdrModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [
