@@ -147,6 +147,27 @@ describe("ConferenceDetailPage", () => {
     vi.restoreAllMocks();
   });
 
+  it.each([true, false])(
+    "only warns overdue when submissions are pending: %s",
+    (pending) => {
+      fixtures.conference = {
+        ...conference,
+        daysRemaining: -5,
+        submissionDeadlinePending: pending,
+      };
+      renderPage();
+
+      const label = screen.getByText(
+        pending ? "5 days overdue" : "Deadline passed",
+      );
+      expect(label.className.includes("text-destructive")).toBe(pending);
+      expect(
+        screen.queryByText(pending ? "Deadline passed" : "5 days overdue"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText("Submissions (3)")).toBeInTheDocument();
+    },
+  );
+
   it("shows linked projects and submissions in separate panels", () => {
     renderPage();
 

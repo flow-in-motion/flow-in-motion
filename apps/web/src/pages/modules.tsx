@@ -37,6 +37,7 @@ import {
 } from "@/components/modules/paper-stage-celebration";
 import { useMoveToSubmitted } from "@/components/modules/move-to-submitted";
 import { SubmissionDialog } from "@/components/modules/submission-dialog";
+import { hasActiveSubmissionStage } from "@/components/modules/submission-stage";
 import { PaperCurrentlyWithSelect } from "@/components/modules/paper-currently-with-select";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
@@ -232,8 +233,8 @@ function InlinePaperCurrentlyWith({
 }
 
 function submittedJournal(module: ApiModule) {
-  return module.pipelineStage === "Submitted, Under Review"
-    ? module.submittedToJournal?.trim() ?? ""
+  return hasActiveSubmissionStage(module.pipelineStage)
+    ? (module.submittedToJournal?.trim() ?? "")
     : "";
 }
 

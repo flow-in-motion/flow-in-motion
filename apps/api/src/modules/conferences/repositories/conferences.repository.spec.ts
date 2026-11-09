@@ -170,6 +170,35 @@ describe('ConferencesRepository', () => {
     }
   });
 
+  it('loads submission states in one batch without losing inherited deadlines or archive checks', async () => {
+    const { queries, repository } = setup();
+    const tenantId = '00000000-0000-4000-8000-000000000001';
+    const ids = [
+      '00000000-0000-4000-8000-000000000005',
+      '00000000-0000-4000-8000-000000000006',
+    ];
+    await repository.findSubmissionsForConferences(tenantId, ids);
+
+    expect(queries).toHaveLength(1);
+    const query = queries[0]!;
+    expect(query.params).toEqual([tenantId, ...ids]);
+    expect(query.sql).toContain('"conference_modules"."conference_id" in');
+    expect(query.sql).toContain('"modules"."archived_at" is null');
+    expect(query.sql).toContain('"paper_projects"."archived_at" is null');
+    expect(query.sql).toContain('"submitted_projects"."archived_at" is null');
+    expect(query.sql).not.toContain('"submission_due" is not null');
+    expect(query.sql).not.toContain('"status" =');
+    expect(query.sql).not.toContain(' limit ');
+  });
+
+  it('does not query submission states for an empty conference page', async () => {
+    const { queries, repository } = setup();
+    expect(
+      await repository.findSubmissionsForConferences('tenant-1', []),
+    ).toEqual([]);
+    expect(queries).toHaveLength(0);
+  });
+
   it('does not filter by text when there is no search term', async () => {
     const { queries, repository } = setup();
 

@@ -23,10 +23,10 @@ import {
 import {
   enteredSubmittedUnderReview,
   PaperStageCelebration,
-  SUBMITTED_UNDER_REVIEW_STAGE,
 } from "@/components/modules/paper-stage-celebration";
 import { useMoveToSubmitted } from "@/components/modules/move-to-submitted";
 import { SubmissionDialog } from "@/components/modules/submission-dialog";
+import { hasActiveSubmissionStage } from "@/components/modules/submission-stage";
 import { ErrorState } from "@/components/shared/error-state";
 import { LoadingState } from "@/components/shared/loading-state";
 import { TopScrollArea } from "@/components/shared/top-scroll-area";
@@ -76,8 +76,8 @@ interface PipelineRow {
   outstanding: number;
   stageIndex: number | undefined;
   /**
-   * For a paper in "Submitted, Under Review": the journal it's with, or ""
-   * if no active submission is logged. Null at any other stage.
+   * The active journal for papers under review or in revisions. An empty
+   * string prompts an under-review paper to log a submission; null hides it.
    */
   submittedTo: string | null;
 }
@@ -427,10 +427,10 @@ export default function PipelinePage() {
           stageIndex: module.pipelineStage
             ? stageIndexByValue.get(module.pipelineStage)
             : undefined,
-          submittedTo:
-            module.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE
-              ? (module.submittedToJournal?.trim() ?? "")
-              : null,
+          submittedTo: hasActiveSubmissionStage(module.pipelineStage)
+            ? module.submittedToJournal?.trim() ||
+              (module.pipelineStage === "Revisions" ? null : "")
+            : null,
         };
       }),
     [

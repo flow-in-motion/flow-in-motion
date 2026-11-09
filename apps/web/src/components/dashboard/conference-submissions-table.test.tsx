@@ -17,6 +17,7 @@ type ConferenceFixture = {
   submissionType: string | null;
   intents: Array<"Considering" | "Submitting" | "Attending">;
   daysRemaining: number | null;
+  submissionDeadlinePending?: boolean;
   projects: Array<{ id: string; displayId: string; title: string }>;
   papers: Array<{
     id: string;
@@ -198,6 +199,60 @@ describe("ConferenceSubmissionsTable", () => {
     hookMocks.pagination.totalItems = 0;
     hookMocks.pagination.totalPages = 1;
   });
+  it.each([true, false])(
+    "keeps pending submission warnings separate from the event deadline: %s",
+    (pending) => {
+      store.set([
+        {
+          id: "conf-1",
+          tenantId: fixtures.tenantId,
+          ownerUserId: fixtures.userId,
+          name: "Conference",
+          acronym: null,
+          location: null,
+          submissionDue: "2026-11-01",
+          daysRemaining: -5,
+          submissionDeadlinePending: pending,
+          startDate: null,
+          endDate: null,
+          submissionType: null,
+          intents: [],
+          projects: [],
+          papers: [],
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          upcomingSubmissions: [
+            {
+              id: "submission-1",
+              name: "Pending workshop",
+              kind: "other",
+              moduleId: null,
+              projectId: null,
+              submissionDue: "2026-10-30",
+              daysRemaining: -7,
+              submissionType: "PDW",
+              status: "Planning",
+            },
+          ],
+        },
+      ]);
+      render(
+        <MemoryRouter>
+          <ConferenceSubmissionsTable showPast />
+        </MemoryRouter>,
+      );
+
+      const eventLabel = screen.getByText(
+        pending ? "5 days overdue" : "Deadline passed",
+      );
+      expect(eventLabel.className.includes("text-destructive")).toBe(pending);
+      expect(screen.getByText("7 days overdue")).toHaveClass(
+        "text-destructive",
+      );
+      expect(screen.getByText("Pending workshop")).toBeInTheDocument();
+    },
+  );
+
   it("requests the next conferences page on the full Conferences table", () => {
     hookMocks.pagination.totalItems = 21;
     hookMocks.pagination.totalPages = 2;

@@ -552,10 +552,16 @@ export default function ConferencesPage() {
                         <span
                           className={cn(
                             "text-xs",
-                            conferenceUrgencyClass(conference.daysRemaining),
+                            conferenceUrgencyClass(
+                              conference.daysRemaining,
+                              conference.submissionDeadlinePending,
+                            ),
                           )}
                         >
-                          {conferenceUrgencyLabel(conference.daysRemaining)}
+                          {conferenceUrgencyLabel(
+                            conference.daysRemaining,
+                            conference.submissionDeadlinePending,
+                          )}
                         </span>
                       </div>
                     ) : null}

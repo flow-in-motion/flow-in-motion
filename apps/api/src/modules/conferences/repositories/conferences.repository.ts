@@ -854,11 +854,11 @@ export class ConferencesRepository {
   }
 
   /**
-   * Submissions with their own deadline that are still to be sent in
-   * (no status yet, or Planning), for many conferences at once. Used to
-   * show each submission's deadline in the upcoming deadlines list.
+   * Active submissions for many conferences at once. Include completed and
+   * inherited-deadline rows so the service can distinguish pending deadlines
+   * from dates whose submissions have already been sent in.
    */
-  async findPendingDatedSubmissionsForConferences(
+  async findSubmissionsForConferences(
     tenantId: string,
     conferenceIds: string[],
   ) {
@@ -893,11 +893,6 @@ export class ConferencesRepository {
         and(
           eq(conferenceModules.tenantId, tenantId),
           inArray(conferenceModules.conferenceId, conferenceIds),
-          isNotNull(conferenceModules.submissionDue),
-          or(
-            isNull(conferenceModules.status),
-            eq(conferenceModules.status, 'Planning'),
-          ),
           or(
             isNull(conferenceModules.moduleId),
             and(

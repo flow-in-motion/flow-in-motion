@@ -21,7 +21,7 @@ import { PageHeading } from "@/components/typography/heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { eventWording } from "@/lib/conference-format";
+import { conferenceUrgencyLabel, eventWording } from "@/lib/conference-format";
 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
@@ -160,8 +160,9 @@ function conferenceInput(conference: ApiConference): ConferenceSubmissionInput {
   };
 }
 
-function deadlineLabel(daysRemaining: number | null) {
+function deadlineLabel(daysRemaining: number | null, pending = true) {
   if (daysRemaining === null) return "No deadline added.";
+  if (!pending) return conferenceUrgencyLabel(daysRemaining, false);
   if (daysRemaining < 0) return `${Math.abs(daysRemaining)} day${daysRemaining === -1 ? "" : "s"} overdue`;
   if (daysRemaining === 0) return "Due today";
   return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining`;
@@ -317,12 +318,12 @@ export default function ConferenceDetailPage() {
           </CardContent>
         </Card>
 
-        <Card className={conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "border-rose-300 dark:border-rose-900" : undefined}>
+        <Card className={conference.submissionDeadlinePending !== false && conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "border-rose-300 dark:border-rose-900" : undefined}>
           <CardHeader><CardTitle>Submission deadline</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{formatDate(conference.submissionDue)}</p>
-            <p className={conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "mt-2 text-sm font-medium text-destructive" : "mt-2 text-sm text-muted-foreground"}>
-              {deadlineLabel(conference.daysRemaining)}
+            <p className={conference.submissionDeadlinePending !== false && conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "mt-2 text-sm font-medium text-destructive" : "mt-2 text-sm text-muted-foreground"}>
+              {deadlineLabel(conference.daysRemaining, conference.submissionDeadlinePending)}
             </p>
           </CardContent>
         </Card>
