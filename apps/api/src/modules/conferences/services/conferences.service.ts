@@ -47,27 +47,35 @@ export class ConferencesService {
 
     const conferenceIds = data.map((conference) => conference.id);
 
-    const [projectsByConference, papersByConference, datedSubmissions] =
+    const [projectsByConference, papersByConference, submissions] =
       await Promise.all([
         this.repository.findLinkedProjectsForConferences(
           tenantId,
           conferenceIds,
         ),
         this.repository.findLinkedPapersForConferences(tenantId, conferenceIds),
-        this.repository.findPendingDatedSubmissionsForConferences(
-          tenantId,
-          conferenceIds,
-        ),
+        this.repository.findSubmissionsForConferences(tenantId, conferenceIds),
       ]);
+
+    const submissionsByConference = new Map<string, typeof submissions>();
+    for (const row of submissions) {
+      const rows = submissionsByConference.get(row.conferenceId) ?? [];
+      rows.push(row);
+      submissionsByConference.set(row.conferenceId, rows);
+    }
 
     const conferencesWithProjects = data.map((conference) => ({
       ...conference,
       daysRemaining: calculateDaysRemaining(conference.submissionDue),
+      submissionDeadlinePending: submissionDeadlinePending(
+        conference.submissionDue,
+        submissionsByConference.get(conference.id) ?? [],
+      ),
       projects: projectsByConference.get(conference.id) ?? [],
       papers: papersByConference.get(conference.id) ?? [],
       // Submissions with their own deadline, still to be sent in.
-      upcomingSubmissions: datedSubmissions
-        .filter((row) => row.conferenceId === conference.id)
+      upcomingSubmissions: (submissionsByConference.get(conference.id) ?? [])
+        .filter((row) => row.submissionDue && submissionPending(row))
         .map((row) => ({
           ...submissionResponse(row),
           daysRemaining: calculateDaysRemaining(row.submissionDue),
@@ -725,6 +733,10 @@ export class ConferencesService {
     return {
       ...conference,
       daysRemaining: calculateDaysRemaining(conference.submissionDue),
+      submissionDeadlinePending: submissionDeadlinePending(
+        conference.submissionDue,
+        submissions,
+      ),
       projects,
       papers,
       submissions: submissions.map(submissionResponse),
@@ -735,6 +747,26 @@ export class ConferencesService {
 type SubmissionRow = Awaited<
   ReturnType<ConferencesRepository['findSubmissions']>
 >[number];
+
+function submissionPending(row: Pick<SubmissionRow, 'status'>) {
+  return row.status === null || row.status === 'Planning';
+}
+
+/** A submission's own date overrides the event-level deadline. */
+function submissionDeadlinePending(
+  due: string | null,
+  submissions: Pick<SubmissionRow, 'status' | 'submissionDue'>[],
+) {
+  // Before any submission is recorded, retain the event's existing countdown.
+  return (
+    submissions.length === 0 ||
+    submissions.some(
+      (row) =>
+        submissionPending(row) &&
+        (!row.submissionDue || row.submissionDue === due),
+    )
+  );
+}
 
 /** A submission as the app shows it: what it is, its name, and its details. */
 function submissionResponse(row: SubmissionRow) {

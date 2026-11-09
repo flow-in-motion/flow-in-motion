@@ -104,15 +104,27 @@ export function conferenceTypeBadgeClass(type: string | null) {
   return "border-blue-300 text-blue-700 dark:border-blue-800 dark:text-blue-400";
 }
 
-export function conferenceUrgencyLabel(daysRemaining: number | null) {
+export function conferenceUrgencyLabel(
+  daysRemaining: number | null,
+  pending = true,
+) {
   if (daysRemaining === null) return "No deadline";
-  if (daysRemaining < 0) return `${Math.abs(daysRemaining)} day${daysRemaining === -1 ? "" : "s"} overdue`;
+  if (!pending) {
+    if (daysRemaining < 0) return "Deadline passed";
+    if (daysRemaining === 0) return "Deadline today";
+    return `Deadline in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
+  }
+  if (daysRemaining < 0)
+    return `${Math.abs(daysRemaining)} day${daysRemaining === -1 ? "" : "s"} overdue`;
   if (daysRemaining === 0) return "Due today";
   return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`;
 }
 
-export function conferenceUrgencyClass(daysRemaining: number | null) {
-  if (daysRemaining === null) return "text-muted-foreground";
+export function conferenceUrgencyClass(
+  daysRemaining: number | null,
+  pending = true,
+) {
+  if (daysRemaining === null || !pending) return "text-muted-foreground";
   if (daysRemaining <= 3) return "font-semibold text-destructive";
   if (daysRemaining <= 7) return "font-medium text-orange-600 dark:text-orange-400";
   return "text-muted-foreground";

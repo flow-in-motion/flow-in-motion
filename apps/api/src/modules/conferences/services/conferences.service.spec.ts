@@ -20,7 +20,7 @@ describe('ConferencesService', () => {
     findVisiblePageByUser: jest.Mock;
     findLinkedProjectsForConferences: jest.Mock;
     findLinkedPapersForConferences: jest.Mock;
-    findPendingDatedSubmissionsForConferences: jest.Mock;
+    findSubmissionsForConferences: jest.Mock;
     searchOwnedLinkOptions: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -42,9 +42,7 @@ describe('ConferencesService', () => {
       findVisiblePageByUser: jest.fn(),
       findLinkedProjectsForConferences: jest.fn(),
       findLinkedPapersForConferences: jest.fn(),
-      findPendingDatedSubmissionsForConferences: jest
-        .fn()
-        .mockResolvedValue([]),
+      findSubmissionsForConferences: jest.fn().mockResolvedValue([]),
       searchOwnedLinkOptions: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -500,7 +498,7 @@ describe('ConferencesService', () => {
       });
       repository.findLinkedProjectsForConferences.mockResolvedValue(new Map());
       repository.findLinkedPapersForConferences.mockResolvedValue(new Map());
-      repository.findPendingDatedSubmissionsForConferences.mockResolvedValue([
+      repository.findSubmissionsForConferences.mockResolvedValue([
         {
           conferenceId: 'conference-2',
           id: 'submission-1',
@@ -522,9 +520,10 @@ describe('ConferencesService', () => {
 
       const result = await service.list('tenant-1', 'user-1', 1, 20);
 
-      expect(
-        repository.findPendingDatedSubmissionsForConferences,
-      ).toHaveBeenCalledWith('tenant-1', ['conference-1', 'conference-2']);
+      expect(repository.findSubmissionsForConferences).toHaveBeenCalledWith(
+        'tenant-1',
+        ['conference-1', 'conference-2'],
+      );
       expect(result.data[0]?.upcomingSubmissions).toEqual([]);
       expect(result.data[1]?.upcomingSubmissions).toEqual([
         expect.objectContaining({
@@ -551,6 +550,124 @@ describe('ConferencesService', () => {
       expect(result.data[0]).toEqual(
         expect.objectContaining({ daysRemaining: null }),
       );
+    });
+  });
+
+  describe('submission deadline state', () => {
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-11-10T12:00:00Z'));
+      const conference = { id: 'conference-1', submissionDue: '2026-11-05' };
+      repository.findVisibleById.mockResolvedValue(conference);
+      repository.findVisiblePageByUser.mockResolvedValue({
+        data: [conference],
+        totalItems: 1,
+      });
+      repository.findLinkedProjectsForConferences.mockResolvedValue(new Map());
+      repository.findLinkedPapersForConferences.mockResolvedValue(new Map());
+    });
+
+    afterEach(() => jest.useRealTimers());
+
+    const row = (
+      status: string | null,
+      submissionDue: string | null = null,
+    ) => ({
+      id: 'submission-1',
+      conferenceId: 'conference-1',
+      moduleId: 'paper-1',
+      projectId: null,
+      paperTitle: 'Paper',
+      status,
+      submissionDue,
+    });
+
+    it.each([
+      ['no submissions recorded', [], true],
+      ['unclassified submission', [row(null)], true],
+      ['planned submission', [row('Planning')], true],
+      ...['Submitted', 'Accepted', 'Rejected', 'Withdrawn', 'Presented'].map(
+        (status) => [status, [row(status)], false],
+      ),
+      [
+        'mixed submitted and planning',
+        [row('Submitted'), row('Planning')],
+        true,
+      ],
+      [
+        'pending on the event date',
+        [row('Submitted'), row('Planning', '2026-11-05')],
+        true,
+      ],
+      [
+        'pending on its own later date',
+        [row('Submitted'), row('Planning', '2026-11-20')],
+        false,
+      ],
+      [
+        'pending on its own earlier date',
+        [row('Planning', '2026-11-01')],
+        false,
+      ],
+    ])(
+      '%s has consistent state in the list and detail',
+      async (_name, submissions, pending) => {
+        repository.findSubmissions.mockResolvedValue(submissions);
+        repository.findSubmissionsForConferences.mockResolvedValue(submissions);
+
+        const detail = await service.findOne(
+          tenantId,
+          'conference-1',
+          callerUserId,
+        );
+        const list = await service.list(tenantId, callerUserId, 1, 20);
+
+        for (const result of [detail, list.data[0]]) {
+          expect(result).toEqual(
+            expect.objectContaining({
+              submissionDue: '2026-11-05',
+              daysRemaining: -5,
+              submissionDeadlinePending: pending,
+            }),
+          );
+        }
+        expect(detail.submissions).toHaveLength(
+          (submissions as unknown[]).length,
+        );
+        const expectedDated = (submissions as ReturnType<typeof row>[]).filter(
+          (submission) =>
+            submission.submissionDue &&
+            (submission.status === null || submission.status === 'Planning'),
+        );
+        expect(list.data[0]?.upcomingSubmissions).toHaveLength(
+          expectedDated.length,
+        );
+        expect(repository.findSubmissionsForConferences).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(repository.findSubmissionsForConferences).toHaveBeenCalledWith(
+          tenantId,
+          ['conference-1'],
+        );
+      },
+    );
+
+    it('does not apply one conference’s completed status to another', async () => {
+      repository.findVisiblePageByUser.mockResolvedValue({
+        data: [
+          { id: 'conference-1', submissionDue: '2026-11-05' },
+          { id: 'conference-2', submissionDue: '2026-11-05' },
+        ],
+        totalItems: 2,
+      });
+      repository.findSubmissionsForConferences.mockResolvedValue([
+        row('Submitted'),
+        { ...row('Planning'), conferenceId: 'conference-2' },
+      ]);
+
+      const result = await service.list(tenantId, callerUserId, 1, 20);
+      expect(
+        result.data.map((conference) => conference.submissionDeadlinePending),
+      ).toEqual([false, true]);
     });
   });
 

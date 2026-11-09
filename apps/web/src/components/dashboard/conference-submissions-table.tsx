@@ -86,6 +86,7 @@ interface DeadlineRow {
   submission: UpcomingSubmission | null;
   due: string | null;
   daysRemaining: number | null;
+  pending: boolean;
   submissionType: string | null;
 }
 
@@ -97,6 +98,7 @@ function deadlineRows(conference: ApiConference): DeadlineRow[] {
     submission,
     due: submission.submissionDue,
     daysRemaining: submission.daysRemaining,
+    pending: true,
     submissionType: submission.submissionType,
   }));
   // An event with no deadline of its own is still listed, unless its
@@ -110,6 +112,7 @@ function deadlineRows(conference: ApiConference): DeadlineRow[] {
             submission: null,
             due: conference.submissionDue,
             daysRemaining: conference.daysRemaining,
+            pending: conference.submissionDeadlinePending !== false,
             submissionType: conference.submissionType,
           },
         ]
@@ -469,10 +472,16 @@ export function ConferenceSubmissionsTable({
                           <span
                             className={cn(
                               "text-xs",
-                              urgencyClass(deadlineRow.daysRemaining),
+                              urgencyClass(
+                                deadlineRow.daysRemaining,
+                                deadlineRow.pending,
+                              ),
                             )}
                           >
-                            {urgencyLabel(deadlineRow.daysRemaining)}
+                            {urgencyLabel(
+                              deadlineRow.daysRemaining,
+                              deadlineRow.pending,
+                            )}
                           </span>
                         </div>
                       </TableCell>

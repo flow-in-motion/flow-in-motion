@@ -391,47 +391,61 @@ describe("PipelinePage", () => {
     );
   });
 
-  it("names the journal for papers under review in both pipeline views", () => {
-    modules.set([
-      {
-        ...baseModules()[0]!,
-        id: "MOD-301",
-        displayId: "MOD-301",
-        shortTitle: "Field Trial Results",
-        title: "Field Trial Results",
-        pipelineStage: "Submitted, Under Review",
-        submittedToJournal: "Nature Communications",
-      },
-      {
-        ...baseModules()[0]!,
-        id: "MOD-302",
-        displayId: "MOD-302",
-        shortTitle: "Survey Methods",
-        title: "Survey Methods",
-        pipelineStage: "Submitted, Under Review",
-        submittedToJournal: null,
-      },
-      {
-        ...baseModules()[0]!,
-        submittedToJournal: "Should not show",
-      },
-    ]);
-    render(
-      <MemoryRouter>
-        <PipelinePage />
-      </MemoryRouter>,
-    );
+  it.each(["Submitted, Under Review", "Revisions"])(
+    "names the active journal in %s in both pipeline views",
+    (stage) => {
+      modules.set([
+        {
+          ...baseModules()[0]!,
+          id: "MOD-301",
+          displayId: "MOD-301",
+          shortTitle: "Field Trial Results",
+          title: "Field Trial Results",
+          pipelineStage: stage,
+          submittedToJournal: "Nature Communications",
+        },
+        {
+          ...baseModules()[0]!,
+          id: "MOD-302",
+          displayId: "MOD-302",
+          shortTitle: "Survey Methods",
+          title: "Survey Methods",
+          pipelineStage: stage,
+          submittedToJournal: null,
+        },
+        {
+          ...baseModules()[0]!,
+          submittedToJournal: "Should not show",
+        },
+        {
+          ...baseModules()[0]!,
+          id: "MOD-303",
+          shortTitle: "Rejected paper",
+          pipelineStage: "Revisions",
+          submittedToJournal: null,
+        },
+      ]);
+      render(
+        <MemoryRouter>
+          <PipelinePage />
+        </MemoryRouter>,
+      );
 
-    for (const view of ["List", "Columns"]) {
-      if (view === "Columns") {
-        fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+      for (const view of ["List", "Columns"]) {
+        if (view === "Columns") {
+          fireEvent.click(screen.getByRole("button", { name: "Columns" }));
+        }
+        expect(screen.getByText("Nature Communications")).toBeVisible();
+        expect(screen.getAllByText(/^Submitted to/)).toHaveLength(1);
+        if (stage === "Submitted, Under Review") {
+          expect(screen.getByText("No active submission logged")).toBeVisible();
+        } else {
+          expect(screen.queryByText("No active submission logged")).not.toBeInTheDocument();
+        }
+        expect(screen.queryByText("Should not show")).not.toBeInTheDocument();
       }
-      expect(screen.getByText("Nature Communications")).toBeVisible();
-      expect(screen.getAllByText(/^Submitted to/)).toHaveLength(1);
-      expect(screen.getByText("No active submission logged")).toBeVisible();
-      expect(screen.queryByText("Should not show")).not.toBeInTheDocument();
-    }
-  });
+    },
+  );
 
   it("creates a new paper from the New Paper button", async () => {
     render(

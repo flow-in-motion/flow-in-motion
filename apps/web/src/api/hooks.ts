@@ -383,6 +383,8 @@ export interface ApiConference {
   submissionType: string | null;
   intents: ConferenceIntent[];
   daysRemaining: number | null;
+  /** Whether any submission still uses the event-level deadline. */
+  submissionDeadlinePending?: boolean;
   projects: ApiConferenceProject[];
   papers: ApiConferencePaper[];
   /** Included when a single conference is fetched or changed. */

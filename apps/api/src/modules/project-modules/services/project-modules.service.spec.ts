@@ -111,6 +111,7 @@ describe('ProjectModulesService', () => {
         new Map([
           ['submitted-stage', 'Submitted, Under Review'],
           ['draft-stage', 'Drafting'],
+          ['revision-stage', 'Revisions'],
         ]),
       );
     });
@@ -149,6 +150,39 @@ describe('ProjectModulesService', () => {
         const result = await service.findOne('tenant-1', 'module-1', 'user-1');
 
         expect(result?.submittedToJournal).toBeNull();
+      },
+    );
+
+    it.each([
+      ['Revision requested', 'Nature Communications'],
+      ['Resubmitted', 'Nature Communications'],
+      ['Rejected', null],
+      ['Withdrawn', null],
+    ])(
+      'keeps only the active journal during revisions: %s',
+      async (status, journal) => {
+        repository.findById.mockResolvedValue({
+          id: 'module-1',
+          tenantId: 'tenant-1',
+          projectId: null,
+          statusId: null,
+          priorityId: null,
+          pipelineStageId: 'revision-stage',
+        });
+        repository.findLatestSubmissionsForModules.mockResolvedValue([
+          {
+            moduleId: 'module-1',
+            journalName: 'Nature Communications',
+            status,
+          },
+        ]);
+
+        const result = await service.findOne('tenant-1', 'module-1', 'user-1');
+        expect(result?.pipelineStage).toBe('Revisions');
+        expect(result?.submittedToJournal).toBe(journal);
+        expect(repository.findLatestSubmissionsForModules).toHaveBeenCalledWith(
+          ['module-1'],
+        );
       },
     );
 

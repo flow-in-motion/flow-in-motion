@@ -146,6 +146,29 @@ describe("ConferencesPage", () => {
     fixtures.deleteConference.mockResolvedValue({});
   });
 
+  it.each([true, false])(
+    "only warns overdue when submissions are pending: %s",
+    (pending) => {
+      fixtures.conferences = [
+        { ...fixtures.conferences[1], submissionDeadlinePending: pending },
+      ];
+      render(
+        <MemoryRouter>
+          <ConferencesPage />
+        </MemoryRouter>,
+      );
+
+      const label = screen.getByText(
+        pending ? "5 days overdue" : "Deadline passed",
+      );
+      expect(label).toBeInTheDocument();
+      expect(label.className.includes("text-destructive")).toBe(pending);
+      expect(
+        screen.queryByText(pending ? "Deadline passed" : "5 days overdue"),
+      ).not.toBeInTheDocument();
+    },
+  );
+
   it("lists conferences with their linked projects, using the expandable list layout shared with Projects/Papers/Tasks", () => {
     renderPage();
 

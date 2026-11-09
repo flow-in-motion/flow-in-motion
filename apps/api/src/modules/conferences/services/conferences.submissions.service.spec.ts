@@ -167,6 +167,63 @@ describe('conference submissions', () => {
   });
 
   describe('editing', () => {
+    it('refreshes deadline state immediately when a planned submission is sent', async () => {
+      const { service, repository } = setup();
+      const conference = {
+        id: CONFERENCE,
+        ownerUserId: OWNER,
+        submissionDue: '2026-01-01',
+      };
+      let submission = {
+        id: 'submission-1',
+        moduleId: 'paper-1',
+        projectId: null,
+        status: 'Planning',
+        submissionDue: null,
+      };
+      repository.findVisibleById.mockResolvedValue(conference);
+      repository.findSubmissionForUpdate.mockImplementation(() =>
+        Promise.resolve(submission),
+      );
+      repository.findSubmissions.mockImplementation(() =>
+        Promise.resolve([submission]),
+      );
+      repository.updateSubmission.mockImplementation(
+        (_tenant, _conference, _id, values) => {
+          submission = { ...submission, ...values };
+          return Promise.resolve(submission);
+        },
+      );
+      expect(
+        (await service.findOne(TENANT, CONFERENCE, OWNER))
+          .submissionDeadlinePending,
+      ).toBe(true);
+
+      const result = await service.updateSubmission(
+        TENANT,
+        CONFERENCE,
+        submission.id,
+        OWNER,
+        { status: 'Submitted' },
+      );
+      expect(result.submissionDeadlinePending).toBe(false);
+      expect(result.submissionDue).toBe(conference.submissionDue);
+      expect(result.submissions[0]?.status).toBe('Submitted');
+      expect(
+        (await service.findOne(TENANT, CONFERENCE, OWNER))
+          .submissionDeadlinePending,
+      ).toBe(false);
+
+      const reopened = await service.updateSubmission(
+        TENANT,
+        CONFERENCE,
+        submission.id,
+        OWNER,
+        { status: 'Planning' },
+      );
+      expect(reopened.submissionDeadlinePending).toBe(true);
+    });
+
     it('changes only the details that were sent', async () => {
       const { service, repository } = setup();
       repository.findSubmissionForUpdate.mockResolvedValue({

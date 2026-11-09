@@ -493,26 +493,29 @@ describe("ModulesPage", () => {
     },
   );
 
-  it("shows the submitted journal for a paper under review", () => {
-    store.setModules(
-      store.getModules().map((paper) => ({
-        ...paper,
-        pipelineStage: "Submitted, Under Review",
-        submittedToJournal: "Nature Communications",
-      })),
-    );
+  it.each(["Submitted, Under Review", "Revisions"])(
+    "shows the active submitted journal in %s",
+    (stage) => {
+      store.setModules(
+        store.getModules().map((paper) => ({
+          ...paper,
+          pipelineStage: stage,
+          submittedToJournal: "Nature Communications",
+        })),
+      );
 
-    render(
-      <MemoryRouter>
-        <ModulesPage />
-      </MemoryRouter>,
-    );
+      render(
+        <MemoryRouter>
+          <ModulesPage />
+        </MemoryRouter>,
+      );
 
-    expect(
-      screen.getByRole("button", { name: "Sort by Submitted to" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Nature Communications")).toBeInTheDocument();
-  });
+      expect(
+        screen.getByRole("button", { name: "Sort by Submitted to" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Nature Communications")).toBeInTheDocument();
+    },
+  );
 
   it("shows when an under-review paper has no active submission logged", () => {
     store.setModules(
@@ -532,6 +535,24 @@ describe("ModulesPage", () => {
     expect(
       screen.getByText("No active submission logged"),
     ).toBeInTheDocument();
+  });
+
+  it("does not add a missing-submission prompt to a revision without an active journal", () => {
+    store.setModules(
+      store.getModules().map((paper) => ({
+        ...paper,
+        pipelineStage: "Revisions",
+        submittedToJournal: null,
+      })),
+    );
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.queryByText("No active submission logged"),
+    ).not.toBeInTheDocument();
   });
 
   it("hides the submitted journal outside the submitted stage", () => {

@@ -30,7 +30,10 @@ const ARCHIVE_RETENTION_DAYS = 14;
 // stage, not a status). Older clients may still send it, so treat it as Active.
 const RETIRED_PAPER_STATUS = 'Review';
 const DEFAULT_PAPER_STATUS = 'Active';
-const SUBMITTED_UNDER_REVIEW_STAGE = 'Submitted, Under Review';
+const ACTIVE_SUBMISSION_STAGES = new Set([
+  'Submitted, Under Review',
+  'Revisions',
+]);
 const ACTIVE_SUBMISSION_STATUSES = new Set([
   'Submitted',
   'Under review',
@@ -861,7 +864,7 @@ export class ProjectModulesService {
     );
 
     const submittedModuleIds = shapedRows
-      .filter((row) => row.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE)
+      .filter((row) => ACTIVE_SUBMISSION_STAGES.has(row.pipelineStage ?? ''))
       .map((row) => row.id);
 
     const latestSubmissions = submittedModuleIds.length
@@ -877,7 +880,7 @@ export class ProjectModulesService {
     return shapedRows.map((row) => {
       const submission = submissionByModuleId.get(row.id);
       const submittedToJournal =
-        row.pipelineStage === SUBMITTED_UNDER_REVIEW_STAGE &&
+        ACTIVE_SUBMISSION_STAGES.has(row.pipelineStage ?? '') &&
         submission &&
         ACTIVE_SUBMISSION_STATUSES.has(submission.status)
           ? submission.journalName.trim() || null
