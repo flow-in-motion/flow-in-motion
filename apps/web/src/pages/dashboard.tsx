@@ -1,3 +1,4 @@
+import { paperReferenceInput } from "@/lib/paper-references";
 // import { ActivityOverviewChart } from "@/components/dashboard/activity-overview-chart";
 import {
   ArrowUpRight,
@@ -494,6 +495,7 @@ export default function DashboardPage() {
       title: input.title || undefined,
       description: input.description || undefined,
       abstract: input.abstract || undefined,
+      ...paperReferenceInput(input),
       targetJournal: input.targetJournal || undefined,
       backupJournal: input.backupJournal || undefined,
       targetConference: input.targetConference || undefined,

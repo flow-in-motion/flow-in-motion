@@ -91,6 +91,17 @@ describe("HDR basics", () => {
       isError: false,
     });
   });
+  it("provides a larger resizable research topic field and saves text beyond the previous limit", async () => {
+    showPage();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Sample Student" }));
+    const field = screen.getByLabelText("Research topic (optional)");
+    expect(field).toHaveAttribute("rows", "6");
+    expect(field).toHaveClass("resize-y");
+    const topic = "Detailed research topic. ".repeat(150);
+    fireEvent.change(field, { target: { value: topic } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(fixture.save).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ researchTopic: topic.trim() }) })));
+  });
   it("shows server-wide counts and real existing work links", () => {
     showPage();
     expect(screen.getByText("37")).toBeInTheDocument();

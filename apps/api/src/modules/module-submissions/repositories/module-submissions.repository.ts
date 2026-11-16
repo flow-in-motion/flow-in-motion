@@ -9,6 +9,7 @@ interface CreateSubmissionValues {
   createdBy: string;
   submittedDate: string;
   journalName: string;
+  journalPublisher?: string | null;
   paperTitle?: string | null;
   status: string;
   revisionRounds?: number;
@@ -19,6 +20,7 @@ interface CreateSubmissionValues {
 interface UpdateSubmissionValues {
   submittedDate?: string;
   journalName?: string;
+  journalPublisher?: string | null;
   paperTitle?: string | null;
   status?: string;
   revisionRounds?: number;

@@ -655,6 +655,136 @@ describe('ProjectModulesService', () => {
     });
   });
 
+  describe('paper planning and references', () => {
+    const referenceValues = {
+      workingDate: '2027-01-12',
+      plannedHours: 1.5,
+      manuscriptUrl: 'https://example.org/manuscript',
+      dataUrl: 'https://example.org/data',
+      otherFilesUrl: 'https://example.org/files',
+      journalPublishers: [
+        { journalName: ' Nature ', publisher: ' Springer Nature ' },
+      ],
+    };
+    const storedValues = {
+      ...referenceValues,
+      plannedHours: '1.5',
+      journalPublishers: [
+        { journalName: 'Nature', publisher: 'Springer Nature' },
+      ],
+    };
+
+    it('saves planning and references with the existing paper create operation', async () => {
+      enumRepository.findByCategoryAndValue.mockImplementation(
+        (_category: string, value: string) => Promise.resolve({ id: value }),
+      );
+      repository.create.mockResolvedValue({
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        pipelineStageId: null,
+        ...storedValues,
+      });
+      const result = await service.create('tenant-1', 'user-1', {
+        shortTitle: 'Paper',
+        ...referenceValues,
+      });
+      expect(repository.create).toHaveBeenCalledTimes(1);
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ ...storedValues, dueDate: undefined }),
+      );
+      expect(result).toEqual(expect.objectContaining(storedValues));
+    });
+
+    it.each([
+      ['set', referenceValues, storedValues],
+      [
+        'clear',
+        {
+          workingDate: null,
+          plannedHours: null,
+          manuscriptUrl: null,
+          dataUrl: null,
+          otherFilesUrl: null,
+          journalPublishers: [],
+        },
+        {
+          workingDate: null,
+          plannedHours: null,
+          manuscriptUrl: null,
+          dataUrl: null,
+          otherFilesUrl: null,
+          journalPublishers: [],
+        },
+      ],
+    ])(
+      '%s planning without changing the due date or task time',
+      async (_label, input, expected) => {
+        const existing = {
+          id: 'module-1',
+          projectId: null,
+          statusId: null,
+          priorityId: null,
+          pipelineStageId: null,
+          dueDate: '2026-09-15',
+          ...storedValues,
+        };
+        repository.findById.mockResolvedValue(existing);
+        collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+          roleId: 'owner-role',
+        });
+        repository.update.mockResolvedValue({
+          ...existing,
+          ...(expected as object),
+        });
+        const result = await service.update(
+          'tenant-1',
+          'module-1',
+          'user-1',
+          input,
+        );
+        expect(repository.update).toHaveBeenCalledWith(
+          'tenant-1',
+          'module-1',
+          expect.objectContaining({
+            ...(expected as object),
+            dueDate: undefined,
+          }),
+        );
+        expect(result?.dueDate).toBe('2026-09-15');
+      },
+    );
+
+    it('leaves planning and links unchanged on a status-only update', async () => {
+      const existing = {
+        id: 'module-1',
+        projectId: null,
+        statusId: null,
+        priorityId: null,
+        pipelineStageId: null,
+        ...storedValues,
+      };
+      repository.findById.mockResolvedValue(existing);
+      collaboratorsRepository.findByModuleAndUser.mockResolvedValue({
+        roleId: 'owner-role',
+      });
+      repository.update.mockResolvedValue(existing);
+      await service.update('tenant-1', 'module-1', 'user-1', {});
+      expect(repository.update).toHaveBeenCalledWith(
+        'tenant-1',
+        'module-1',
+        expect.objectContaining({
+          workingDate: undefined,
+          plannedHours: undefined,
+          manuscriptUrl: undefined,
+          dataUrl: undefined,
+          otherFilesUrl: undefined,
+          journalPublishers: undefined,
+        }),
+      );
+    });
+  });
+
   describe('create', () => {
     it.each(['Proposed', 'Parked', 'Closed'])(
       'stores %s as a paper-only status',

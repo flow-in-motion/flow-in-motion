@@ -9,6 +9,8 @@ import {
   AnyPgColumn,
   date,
   check,
+  jsonb,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { projects } from "./projects";
 import { tenants } from "./tenants";
@@ -54,6 +56,15 @@ export const modules = pgTable(
     assignedToInvitationId: uuid("assigned_to_invitation_id"),
     currentlyWithType: text("currently_with_type"),
     dueDate: date("due_date"),
+    workingDate: date("working_date"),
+    plannedHours: numeric("planned_hours", { precision: 4, scale: 2 }),
+    manuscriptUrl: text("manuscript_url"),
+    dataUrl: text("data_url"),
+    otherFilesUrl: text("other_files_url"),
+    journalPublishers: jsonb("journal_publishers")
+      .$type<{ journalName: string; publisher: string }[]>()
+      .notNull()
+      .default([]),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -73,6 +84,10 @@ export const modules = pgTable(
     createdByIdx: index("modules_created_by_idx")
       .on(table.createdBy)
       .where(sql`${table.createdBy} IS NOT NULL`),
+    plannedHoursCheck: check(
+      "modules_planned_hours_check",
+      sql`${table.plannedHours} IS NULL OR (${table.plannedHours} > 0 AND ${table.plannedHours} <= 24)`,
+    ),
     currentlyWithTypeCheck: check(
       "modules_currently_with_type_check",
       sql`${table.currentlyWithType} IS NULL OR ${table.currentlyWithType} IN ('me', 'collaborator', 'journal', 'friendly_reviewer', 'others')`,

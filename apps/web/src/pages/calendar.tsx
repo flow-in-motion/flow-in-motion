@@ -1,3 +1,4 @@
+import { formatEstimate } from "@/lib/time-format";
 import { useMemo, useState } from "react";
 import {
   Calendar as CalendarIcon,
@@ -154,7 +155,7 @@ export default function CalendarPage() {
   const tenantId = workspace.data?.id ?? "";
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
-  const modulesQuery = useModules(tenantId);
+  const modulesQuery = useModules(tenantId, undefined, 1, true, { pageSize: "all" });
   const modules = modulesQuery.data?.data ?? [];
   const tasksQuery = useTasks(tenantId);
   const tasks = tasksQuery.data?.data ?? [];
@@ -210,6 +211,16 @@ export default function CalendarPage() {
     }
     if (activeFilter === null || activeFilter === "module") {
       for (const module of modules) {
+        if (module.workingDate) {
+          rows.push({
+            id: `paper-work:${module.id}`,
+            kind: "module",
+            title: `Work on ${paperDisplayTitle(module)}${module.plannedHours ? ` (${formatEstimate(module.plannedHours)})` : ""}`,
+            dueDate: module.workingDate,
+            href: `/modules/${module.id}`,
+            meta: "Planned work",
+          });
+        }
         if (!module.dueDate) continue;
         rows.push({
           id: module.id,

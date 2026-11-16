@@ -20,6 +20,12 @@ export class CreateSubmissionDto {
   @Length(1, 300)
   journalName!: string;
 
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  journalPublisher?: string | null;
+
   @ApiProperty({
     required: false,
     nullable: true,

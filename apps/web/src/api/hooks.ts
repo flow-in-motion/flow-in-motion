@@ -190,6 +190,12 @@ export interface ApiModule {
   pipelineStage: string | null;
   pipelineStageChangedAt: string | null;
   dueDate: string | null;
+  workingDate?: string | null;
+  plannedHours?: string | null;
+  manuscriptUrl?: string | null;
+  dataUrl?: string | null;
+  otherFilesUrl?: string | null;
+  journalPublishers?: { journalName: string; publisher: string }[];
   assignedToUserId: string | null;
   assignedToInvitationId?: string | null;
   assignedToDisplayName?: string | null;
@@ -1541,6 +1547,12 @@ export interface CreateModuleInput {
   priority?: string;
   pipelineStage?: string;
   dueDate?: string;
+  workingDate?: string | null;
+  plannedHours?: number | null;
+  manuscriptUrl?: string | null;
+  dataUrl?: string | null;
+  otherFilesUrl?: string | null;
+  journalPublishers?: { journalName: string; publisher: string }[];
   assignedToUserId?: string;
   currentlyWithType?: PaperCurrentlyWithType;
 }
@@ -2136,6 +2148,7 @@ export interface ApiModuleSubmission {
   createdBy: string;
   submittedDate: string;
   journalName: string;
+  journalPublisher?: string | null;
   /** The paper title as submitted to this venue. */
   paperTitle: string | null;
   status: string;
@@ -2149,6 +2162,7 @@ export interface ApiModuleSubmission {
 export interface SubmissionInput {
   submittedDate: string;
   journalName: string;
+  journalPublisher?: string | null;
   /** null clears the title on update. */
   paperTitle?: string | null;
   status: string;

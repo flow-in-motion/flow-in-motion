@@ -42,7 +42,7 @@ export class CreateHdrPersonDto {
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @IsString()
-  @MaxLength(1000)
+  @MaxLength(10000)
   researchTopic?: string | null;
 
   @ApiPropertyOptional({ type: [String] })

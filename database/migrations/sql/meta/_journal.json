@@ -631,6 +631,13 @@
       "when": 1794167041193,
       "tag": "0105_project_note_hdr_timers",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1794790695910,
+      "tag": "0106_paper_planning_links_journal_publishers",
+      "breakpoints": true
     }
   ]
 }

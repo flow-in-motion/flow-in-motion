@@ -1,3 +1,4 @@
+import { paperReferenceInput } from "@/lib/paper-references";
 import { useEffect, useMemo, useState, type DragEvent } from "react";
 import { GripVertical, Pencil, Workflow } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -484,6 +485,7 @@ export default function PipelinePage() {
       title: input.title || undefined,
       description: input.description || undefined,
       abstract: input.abstract || undefined,
+      ...paperReferenceInput(input),
       targetJournal: input.targetJournal || undefined,
       backupJournal: input.backupJournal || undefined,
       targetConference: input.targetConference || undefined,
@@ -516,6 +518,7 @@ export default function PipelinePage() {
         id,
         title: module?.title || module?.shortTitle || row.title,
         pipelineStage: previousStage,
+        journalPublishers: module?.journalPublishers,
       }).then((moved) => {
         if (moved) {
           setCelebrationPaperTitle(row.title);

@@ -64,6 +64,11 @@ export const navGroups: NavGroup[] = [
       { label: "Conferences/Events", to: "/conferences", icon: Presentation },
       { label: "Funding", to: "/funding", icon: DollarSign },
       { label: "Mind Map", to: "/mind-map", icon: Network },
+      {
+        label: "Reviews, HDR examinations",
+        to: "/future/reviews-hdr-examinations",
+        icon: ClipboardCheck,
+      },
     ],
   },
   {
@@ -96,11 +101,6 @@ export const navGroups: NavGroup[] = [
         label: "Journal rankings & research lists",
         to: "/future/journal-rankings-research-lists",
         icon: List,
-      },
-      {
-        label: "Reviews, HDR examinations",
-        to: "/future/reviews-hdr-examinations",
-        icon: ClipboardCheck,
       },
       { label: "Teaching", to: "/future/teaching", icon: BookOpen },
     ],

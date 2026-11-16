@@ -19,6 +19,7 @@ const fixtures = vi.hoisted(() => ({
   linkedPaperError: false,
 
   updateTask: vi.fn(),
+  trackEvent: vi.fn(),
   addDescriptionEntry: vi.fn(),
   updateDescriptionEntry: vi.fn(),
   deleteDescriptionEntry: vi.fn(),
@@ -85,7 +86,7 @@ vi.mock("@/api/hooks", () => ({
     error: undefined,
   }),
   useDeleteMyTask: () => ({ mutateAsync: fixtures.deleteTask, isPending: false }),
-  useTrackEvent: () => vi.fn(),
+  useTrackEvent: () => fixtures.trackEvent,
   useMyProject: (projectId: string) => {
     fixtures.projectLookups(projectId);
     return {
@@ -144,6 +145,8 @@ vi.mock("@/lib/feature-flags", () => ({
 describe("TaskDetailPage", () => {
   beforeEach(() => {
     fixtures.task.tenantId = "workspace-1";
+    fixtures.task.status = "To do";
+    fixtures.trackEvent.mockReset();
     fixtures.projectLists.mockClear();
     fixtures.paperLists.mockClear();
     fixtures.projectLookups.mockClear();
@@ -203,6 +206,28 @@ describe("TaskDetailPage", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     }];
   }
+
+  it("changes task status in the main view and records completion once", async () => {
+    renderTask();
+    fireEvent.click(screen.getByRole("combobox", { name: /Change status for/ }));
+    fireEvent.click(screen.getByRole("option", { name: "Complete" }));
+    await waitFor(() => expect(fixtures.updateTask).toHaveBeenCalledWith({ taskId: "task-1", input: { status: "Complete" } }));
+    expect(fixtures.trackEvent).toHaveBeenCalledTimes(1);
+    expect(fixtures.trackEvent).toHaveBeenCalledWith({ name: "task_completed" });
+    expect(screen.getByRole("button", { name: "Edit Task" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save Changes" })).not.toBeInTheDocument();
+  });
+
+  it("restores task status and shows an error when the update fails", async () => {
+    fixtures.updateTask.mockRejectedValue(new Error("Permission denied"));
+    renderTask();
+    const field = screen.getByRole("combobox", { name: /Change status for/ });
+    fireEvent.click(field);
+    fireEvent.click(screen.getByRole("option", { name: "Complete" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Permission denied"));
+    expect(field).toHaveTextContent("To do");
+    expect(fixtures.trackEvent).not.toHaveBeenCalled();
+  });
 
   it("offers the task timer and shows the time logged against the estimate", () => {
     fixtures.task.estimatedHours = "2";

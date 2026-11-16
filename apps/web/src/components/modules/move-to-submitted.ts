@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { useCreatePaperSubmission, type SubmissionInput } from "@/api/hooks";
 import { SUBMITTED_UNDER_REVIEW_STAGE } from "@/components/modules/paper-stage-celebration";
+import type { JournalPublisher } from "@/lib/paper-references";
 import type {
   SubmissionFormInput,
   SubmissionSaveInput,
@@ -19,6 +20,7 @@ export function newSubmissionInput(form: SubmissionFormInput): SubmissionInput {
   return {
     submittedDate: form.submittedDate,
     journalName: form.journalName,
+    journalPublisher: form.journalPublisher?.trim() || undefined,
     paperTitle: form.paperTitle || undefined,
     status: form.status,
     revisionRounds: form.revisionRounds ? Number(form.revisionRounds) : undefined,
@@ -32,6 +34,7 @@ export interface PaperToSubmit {
   /** Shown as the title as submitted, which the user can change. */
   title: string;
   pipelineStage: string | null | undefined;
+  journalPublishers?: JournalPublisher[];
 }
 
 type MoveInput = {
@@ -109,6 +112,7 @@ export function useMoveToSubmitted(
     onOpenChange: handleOpenChange,
     defaultPaperTitle: pending?.paper.title ?? "",
     currentPipelineStage: pending?.paper.pipelineStage ?? null,
+    journalPublishers: pending?.paper.journalPublishers,
     forStageChange: true,
     onSave: handleSave,
   };
