@@ -1,3 +1,6 @@
+import { formatEstimate } from "@/lib/time-format";
+import { PaperReferenceFields, JournalPublisherFields } from "@/components/modules/paper-reference-fields";
+import { paperReferenceInput, journalPublisherFor, safePaperUrl, type PaperReferenceForm } from "@/lib/paper-references";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
   ChevronDown,
@@ -117,7 +120,7 @@ import { PAPER_STATUSES } from "@/lib/paper-status";
 
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 
-interface EditableModule {
+interface EditableModule extends PaperReferenceForm {
   shortTitle: string;
   title: string;
   description: string;
@@ -153,6 +156,12 @@ function editableValues(
     priority: module.priority ?? "",
     pipelineStage: module.pipelineStage ?? "",
     dueDate: module.dueDate ?? "",
+    workingDate: module.workingDate ?? "",
+    plannedHours: module.plannedHours ?? "",
+    manuscriptUrl: module.manuscriptUrl ?? "",
+    dataUrl: module.dataUrl ?? "",
+    otherFilesUrl: module.otherFilesUrl ?? "",
+    journalPublishers: module.journalPublishers ?? [],
     assignedToUserId: module.assignedToUserId ?? "",
     assignedToInvitationId: module.assignedToInvitationId ?? "",
     currentlyWithType:
@@ -364,6 +373,7 @@ function SubmissionHistoryCard({
                       </span>
                       <StatusBadge status={submission.status} />
                     </div>
+                    {submission.journalPublisher ? <p className="mt-1 text-xs text-muted-foreground">Publisher: {submission.journalPublisher}</p> : null}
                     {submission.paperTitle ? (
                       <p className="mt-1 text-sm italic text-foreground/80">
                         “{submission.paperTitle}”
@@ -627,6 +637,7 @@ async function moveHeaderIntoSubmitted() {
     id: module.id,
     title: module.title || module.shortTitle || "",
     pipelineStage: module.pipelineStage,
+    journalPublishers: module.journalPublishers,
   });
   if (moved) setIsPaperCelebrationOpen(true);
   return moved;
@@ -682,6 +693,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         description: form.description.trim() || undefined,
         abstract: form.abstract.trim() || undefined,
         // Always sent, so removing the last entry clears the list.
+        ...paperReferenceInput(form),
         targetJournal: form.targetJournal.trim(),
         backupJournal: form.backupJournal.trim(),
         targetConference: form.targetConference.trim(),
@@ -814,6 +826,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
     const payload = {
       submittedDate: input.submittedDate,
       journalName: input.journalName,
+      journalPublisher: input.journalPublisher?.trim() || (editingSubmission ? null : undefined),
       // Send null when editing so a cleared title is removed.
       paperTitle: input.paperTitle || (editingSubmission ? null : undefined),
       status: input.status,
@@ -1151,6 +1164,16 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                 </span>
               }
             />
+            {module.workingDate ? <HeaderStat label="Working date" value={formatDate(module.workingDate)} /> : null}
+            {module.plannedHours ? <HeaderStat label="Planned duration" value={formatEstimate(module.plannedHours)} /> : null}
+            {([
+              ["Manuscript", module.manuscriptUrl],
+              ["Data", module.dataUrl],
+              ["Other files", module.otherFilesUrl],
+            ] as const).map(([label, value]) => {
+              const href = safePaperUrl(value);
+              return href ? <HeaderStat key={label} label={label} value={<a href={href} aria-label={`Open ${label.toLowerCase()}`} target="_blank" rel="noopener noreferrer" className="hover:underline">Open link</a>} /> : null;
+            })}
             <Dialog
               open={isDatePickerOpen}
               onOpenChange={(open) => {
@@ -1420,6 +1443,11 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     rows={6}
                   />
                 </FormField>
+                <PaperReferenceFields
+                  id="edit-module"
+                  value={form}
+                  onChange={(patch) => setForm({ ...form, ...patch })}
+                />
                 <FormField
                   label="Target journals"
                   htmlFor="edit-module-target-journal"
@@ -1448,6 +1476,13 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                     suggestions={venueSuggestions.data?.journals}
                   />
                 </FormField>
+                <JournalPublisherFields
+                  id="edit-module-journal-publisher"
+                  target={form.targetJournal}
+                  backup={form.backupJournal}
+                  value={form.journalPublishers}
+                  onChange={(journalPublishers) => setForm({ ...form, journalPublishers })}
+                />
                 <FormField
                   label="Target conferences"
                   htmlFor="edit-module-target-conference"
@@ -1696,6 +1731,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                         {entries.map((entry) => (
                           <Badge key={entry} variant="secondary">
                             {entry}
+                            {label.endsWith("journals") && journalPublisherFor(module.journalPublishers, entry) ? ` — ${journalPublisherFor(module.journalPublishers, entry)}` : ""}
                           </Badge>
                         ))}
                       </div>
@@ -1777,6 +1813,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         ) : null}
 
         <SubmissionDialog
+          journalPublishers={form?.journalPublishers}
           open={isStageSubmissionOpen}
           onOpenChange={setIsStageSubmissionOpen}
           defaultPaperTitle={form?.title || form?.shortTitle || ""}
@@ -1802,6 +1839,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           open={isSubmissionDialogOpen}
           onOpenChange={setIsSubmissionDialogOpen}
           submission={editingSubmission}
+          journalPublishers={module.journalPublishers}
           defaultPaperTitle={module.title || module.shortTitle || ""}
           onSave={handleSaveSubmission}
         />

@@ -160,8 +160,9 @@ export function HdrPersonDialog({
                 id="hdr-topic"
                 value={researchTopic}
                 onChange={(e) => setResearchTopic(e.target.value)}
-                rows={2}
-                maxLength={1000}
+                rows={6}
+                className="min-h-40 resize-y"
+                maxLength={10000}
               />
             </div>
             <HdrWorkPicker

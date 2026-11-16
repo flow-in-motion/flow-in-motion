@@ -1,3 +1,4 @@
+import { paperReferenceInput } from "@/lib/paper-references";
 import { useListSearch } from "@/hooks/use-list-search";
 import {
   useCallback,
@@ -538,6 +539,7 @@ export default function ModulesPage() {
       title: input.title || undefined,
       description: input.description || undefined,
       abstract: input.abstract || undefined,
+      ...paperReferenceInput(input),
       targetJournal: input.targetJournal || undefined,
       backupJournal: input.backupJournal || undefined,
       targetConference: input.targetConference || undefined,
@@ -879,6 +881,7 @@ export default function ModulesPage() {
                             id: module.id,
                             title: module.title || module.shortTitle || "",
                             pipelineStage: previousStage,
+                            journalPublishers: module.journalPublishers,
                           });
                           if (moved) {
                             setCelebrationPaperTitle(paperDisplayTitle(module));

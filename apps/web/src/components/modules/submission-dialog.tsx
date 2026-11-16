@@ -1,3 +1,4 @@
+import { journalPublisherFor, type JournalPublisher } from "@/lib/paper-references";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import type { ApiModuleSubmission } from "@/api/hooks";
@@ -38,6 +39,7 @@ const IN_REVIEW_STATUSES = new Set(["Submitted", "Under review", "Resubmitted"])
 export interface SubmissionFormInput {
   submittedDate: string;
   journalName: string;
+  journalPublisher?: string;
   paperTitle: string;
   status: string;
   revisionRounds: string;
@@ -72,12 +74,14 @@ interface SubmissionDialogProps {
    * here, and logged when the paper itself is saved.
    */
   logWhenPaperSaved?: boolean;
+  journalPublishers?: JournalPublisher[];
   onSave: (input: SubmissionSaveInput) => Promise<void> | void;
 }
 
 const INITIAL_FORM: SubmissionFormInput = {
   submittedDate: "",
   journalName: "",
+  journalPublisher: "",
   paperTitle: "",
   status: SUBMISSION_STATUSES[0],
   revisionRounds: "",
@@ -89,6 +93,7 @@ function formFromSubmission(submission: ApiModuleSubmission): SubmissionFormInpu
   return {
     submittedDate: submission.submittedDate,
     journalName: submission.journalName,
+    journalPublisher: submission.journalPublisher ?? "",
     paperTitle: submission.paperTitle ?? "",
     status: submission.status,
     revisionRounds:
@@ -122,6 +127,7 @@ export function SubmissionDialog({
   defaultPaperTitle = "",
   forStageChange = false,
   logWhenPaperSaved = false,
+  journalPublishers,
   onSave,
 }: SubmissionDialogProps) {
   const [form, setForm] = useState<SubmissionFormInput>(INITIAL_FORM);
@@ -152,6 +158,7 @@ export function SubmissionDialog({
       await onSave({
         ...form,
         journalName: form.journalName.trim(),
+        journalPublisher: form.journalPublisher?.trim() ?? "",
         paperTitle: form.paperTitle.trim(),
         notes: form.notes.trim(),
       });
@@ -211,12 +218,16 @@ export function SubmissionDialog({
                 id="submission-journal"
                 value={form.journalName}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, journalName: event.target.value }))
+                  setForm((current) => ({ ...current, journalName: event.target.value, journalPublisher: journalPublisherFor(journalPublishers, event.target.value) }))
                 }
                 placeholder="e.g. Nature Communications"
                 required
               />
             </FormField>
+            <FormField label="Journal publisher (optional)" htmlFor="submission-journal-publisher">
+              <Input id="submission-journal-publisher" value={form.journalPublisher ?? ""} maxLength={300} onChange={(event) => setForm((current) => ({ ...current, journalPublisher: event.target.value }))} />
+            </FormField>
+
 
             <FormField label="Status" htmlFor="submission-status">
               <Select

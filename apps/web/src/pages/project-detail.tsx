@@ -1,3 +1,4 @@
+import { paperReferenceInput } from "@/lib/paper-references";
 import { WorkTimeCard } from "@/components/time-tracking/work-time-card";
 import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import { PAPER_STATUSES } from "@/lib/paper-status";
@@ -501,6 +502,7 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
       title: input.title || undefined,
       description: input.description || undefined,
       abstract: input.abstract || undefined,
+      ...paperReferenceInput(input),
       targetJournal: input.targetJournal || undefined,
       backupJournal: input.backupJournal || undefined,
       targetConference: input.targetConference || undefined,

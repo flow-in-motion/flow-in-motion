@@ -37,6 +37,7 @@ const fixtures = vi.hoisted(() => {
   const dueDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-15`;
   return {
     dueDate,
+    paperRequests: vi.fn(),
     projects: [
       {
         id: "project-1",
@@ -49,7 +50,9 @@ const fixtures = vi.hoisted(() => {
       {
         id: "module-1",
         title: "Analysis module",
-        dueDate,
+        dueDate: dueDate as string | null,
+        workingDate: null as string | null,
+        plannedHours: null as string | null,
         projectId: "project-1",
       },
     ],
@@ -114,7 +117,8 @@ vi.mock("@/api/hooks", async () => {
       error: null,
       refetch: vi.fn(),
     }),
-    useModules: () => ({
+    useModules: (...args: unknown[]) => ({
+      _request: fixtures.paperRequests(...args),
       data: {
         data: fixtures.modules,
         meta: {
@@ -245,6 +249,23 @@ describe("CalendarPage", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     calendarEventsStore.set([]);
+    fixtures.paperRequests.mockClear();
+  });
+
+  it("shows planned paper work alongside its unchanged deadline using all accessible papers", () => {
+    const original = fixtures.modules;
+    try {
+      fixtures.modules = [
+        ...Array.from({ length: 24 }, (_, index) => ({ ...original[0]!, id: `paper-${index}`, title: `Other paper ${index}`, dueDate: null })),
+        { ...original[0]!, id: "paper-25", title: "Twenty-fifth paper", workingDate: fixtures.dueDate, plannedHours: "1.5" },
+      ];
+      render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+      expect(fixtures.paperRequests).toHaveBeenCalledWith("workspace-1", undefined, 1, true, { pageSize: "all" });
+      expect(screen.getAllByRole("link", { name: "Twenty-fifth paper" }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole("link", { name: /Work on Twenty-fifth paper \(1h 30m\)/ }).length).toBeGreaterThan(0);
+      fireEvent.click(screen.getByRole("button", { name: /Tasks/ }));
+      expect(screen.queryByRole("link", { name: "Twenty-fifth paper" })).not.toBeInTheDocument();
+    } finally { fixtures.modules = original; }
   });
 
   it("starts with every filter unselected and shows all due dates", () => {

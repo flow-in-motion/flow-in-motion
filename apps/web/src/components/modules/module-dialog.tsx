@@ -1,3 +1,5 @@
+import { PaperReferenceFields, JournalPublisherFields } from "@/components/modules/paper-reference-fields";
+import { savedJournalPublishers, type PaperReferenceForm } from "@/lib/paper-references";
 import {
   useContext,
   useEffect,
@@ -74,7 +76,7 @@ const INDEPENDENT_PAPER_OPTION: LinkExistingOption = {
   sublabel: "No project",
 };
 
-export interface ModuleFormInput {
+export interface ModuleFormInput extends PaperReferenceForm {
   shortTitle: string;
   title: string;
   description: string;
@@ -122,6 +124,12 @@ const INITIAL_FORM: ModuleFormInput = {
   priority: "Medium",
   pipelineStage: "",
   dueDate: "",
+  workingDate: "",
+  plannedHours: "",
+  manuscriptUrl: "",
+  dataUrl: "",
+  otherFilesUrl: "",
+  journalPublishers: [],
   assignedToUserId: null,
   assignedToInvitationId: null,
   currentlyWithType: "me",
@@ -248,6 +256,12 @@ export function ModuleDialog({
         title: module.title ?? "",
         description: module.description ?? "",
         abstract: module.abstract ?? "",
+        workingDate: module.workingDate ?? "",
+        plannedHours: module.plannedHours ?? "",
+        manuscriptUrl: module.manuscriptUrl ?? "",
+        dataUrl: module.dataUrl ?? "",
+        otherFilesUrl: module.otherFilesUrl ?? "",
+        journalPublishers: module.journalPublishers ?? [],
         targetJournal: module.targetJournal ?? "",
         backupJournal: module.backupJournal ?? "",
         targetConference: module.targetConference ?? "",
@@ -327,6 +341,7 @@ export function ModuleDialog({
         shortTitle: form.shortTitle.trim(),
         description: form.description.trim(),
         abstract: form.abstract.trim(),
+        journalPublishers: savedJournalPublishers(form.journalPublishers, form.targetJournal, form.backupJournal),
         targetJournal: form.targetJournal.trim(),
         backupJournal: form.backupJournal.trim(),
         targetConference: form.targetConference.trim(),
@@ -490,6 +505,12 @@ export function ModuleDialog({
               />
             </FormField>
 
+            <PaperReferenceFields
+              id="module"
+              value={form}
+              onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
+            />
+
             <p className="text-xs text-muted-foreground">
               Type a name and press Enter to add it — you can add multiple
               journals or conferences.
@@ -525,6 +546,13 @@ export function ModuleDialog({
                 />
               </FormField>
 
+              <JournalPublisherFields
+                id="module-journal-publisher"
+                target={form.targetJournal}
+                backup={form.backupJournal}
+                value={form.journalPublishers}
+                onChange={(journalPublishers) => setForm((current) => ({ ...current, journalPublishers }))}
+              />
               <FormField
                 label="Target conferences"
                 htmlFor="module-target-conference"
@@ -775,6 +803,7 @@ export function ModuleDialog({
             </DialogFooter>
           </form>
           <SubmissionDialog
+            journalPublishers={form.journalPublishers}
             open={isStageSubmissionOpen}
             onOpenChange={setIsStageSubmissionOpen}
             defaultPaperTitle={form.title.trim() || form.shortTitle.trim()}

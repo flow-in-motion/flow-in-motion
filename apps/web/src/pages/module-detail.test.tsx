@@ -122,6 +122,12 @@ const fixtures = vi.hoisted(() => ({
     priority: "High" as string | null,
     pipelineStage: "Concept",
     dueDate: "2026-09-15" as string | null,
+    workingDate: null as string | null,
+    plannedHours: null as string | null,
+    manuscriptUrl: null as string | null,
+    dataUrl: null as string | null,
+    otherFilesUrl: null as string | null,
+    journalPublishers: [] as { journalName: string; publisher: string }[],
     assignedToUserId: null,
     currentlyWithType: null,
     archivedAt: null,
@@ -408,6 +414,12 @@ describe("ModuleDetailPage", () => {
       note.modulePinned = false;
     });
     fixtures.module.dueDate = "2026-09-15";
+    fixtures.module.workingDate = null;
+    fixtures.module.plannedHours = null;
+    fixtures.module.manuscriptUrl = null;
+    fixtures.module.dataUrl = null;
+    fixtures.module.otherFilesUrl = null;
+    fixtures.module.journalPublishers = [];
     fixtures.module.status = "Active";
     fixtures.module.pipelineStage = "Concept";
     fixtures.module.priority = "High";
@@ -680,6 +692,35 @@ describe("ModuleDetailPage", () => {
         }),
       ),
     );
+  });
+
+  it("saves and clears paper planning, reference URLs and per-journal publishers without changing its deadline", async () => {
+    fixtures.module.targetJournal = "Nature; PLOS ONE";
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+    fireEvent.change(screen.getByLabelText(/Working date/), { target: { value: "2027-01-12" } });
+    fireEvent.change(screen.getByLabelText(/Planned duration/), { target: { value: "1.5" } });
+    fireEvent.change(screen.getByLabelText(/Manuscript URL/), { target: { value: "https://example.org/manuscript" } });
+    fireEvent.change(screen.getByLabelText(/Data URL/), { target: { value: "https://example.org/data" } });
+    fireEvent.change(screen.getByLabelText(/Other files URL/), { target: { value: "https://example.org/files" } });
+    fireEvent.change(screen.getByLabelText(/Publisher for Nature /), { target: { value: "Springer Nature" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() => expect(fixtures.updateModule).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({
+      dueDate: "2026-09-15", workingDate: "2027-01-12", plannedHours: 1.5,
+      manuscriptUrl: "https://example.org/manuscript", dataUrl: "https://example.org/data", otherFilesUrl: "https://example.org/files",
+      journalPublishers: [{ journalName: "Nature", publisher: "Springer Nature" }],
+    }) })));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Edit Paper" })).toBeInTheDocument());
+    expect(screen.getByRole("link", { name: "Open manuscript" })).toHaveAttribute("href", "https://example.org/manuscript");
+    expect(screen.getByText("1h 30m")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Paper" }));
+    for (const label of [/Working date/, /Planned duration/, /Manuscript URL/, /Data URL/, /Other files URL/, /Publisher for Nature /]) {
+      fireEvent.change(screen.getByLabelText(label), { target: { value: "" } });
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() => expect(fixtures.updateModule).toHaveBeenLastCalledWith(expect.objectContaining({ input: expect.objectContaining({
+      dueDate: "2026-09-15", workingDate: null, plannedHours: null, manuscriptUrl: null, dataUrl: null, otherFilesUrl: null, journalPublishers: [],
+    }) })));
   });
 
   it("saves a cleared journal or conference list when its last entry is removed", async () => {

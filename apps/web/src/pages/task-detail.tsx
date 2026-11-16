@@ -1,3 +1,4 @@
+import { InlineFieldSelect } from "@/components/shared/inline-field-select";
 import {
   useEffect,
   useLayoutEffect,
@@ -824,9 +825,23 @@ export default function TaskDetailPage() {
         description="Review and update the task's status, priority and progress."
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="outline" className={statusPillClass(task.status)}>
-              {task.status ?? "—"}
-            </Badge>
+            <InlineFieldSelect
+              value={task.status}
+              options={TASK_STATUSES}
+              fieldLabel="status"
+              itemLabel={task.title}
+              valueClassName={statusPillClass}
+              triggerClassName="h-auto w-auto gap-1 rounded-full px-2.5 py-0.5"
+              disabled={isSaving || updateTask.isPending}
+              onChange={async (status) => {
+                await updateTask.mutateAsync({ taskId, input: { status } });
+                if (status === "Complete" && task.status !== "Complete") {
+                  trackEvent({ name: "task_completed" });
+                }
+                setForm((current) => current ? { ...current, status } : current);
+              }}
+              onError={setActionError}
+            />
             <Badge variant="outline" className={priorityPillClass(task.priority)}>
               {task.priority ?? "—"}
             </Badge>
