@@ -1,4 +1,5 @@
 // apps/api/src/modules/project-modules/dto/create-module.dto.ts
+import { PaperPlanningDto } from './paper-planning.dto';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsDateString,
@@ -30,7 +31,7 @@ export const CURRENTLY_WITH_TYPES = [
 
 export type CurrentlyWithType = (typeof CURRENTLY_WITH_TYPES)[number];
 
-export class CreateModuleDto {
+export class CreateModuleDto extends PaperPlanningDto {
   @ApiProperty({
     example: 'Kinase paper',
     description:

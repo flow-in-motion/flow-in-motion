@@ -761,6 +761,12 @@ export class ProjectModulesRepository {
       assignedToUserId: string | null;
       assignedToInvitationId: string | null;
       currentlyWithType: string | null;
+      workingDate: string | null;
+      plannedHours: string | null;
+      manuscriptUrl: string | null;
+      dataUrl: string | null;
+      otherFilesUrl: string | null;
+      journalPublishers: { journalName: string; publisher: string }[];
       dueDate: string | null;
     }>,
   ) {
