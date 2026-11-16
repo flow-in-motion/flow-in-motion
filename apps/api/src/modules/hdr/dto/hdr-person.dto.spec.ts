@@ -7,6 +7,25 @@ import {
 } from './hdr-person.dto';
 
 describe('HDR input validation', () => {
+  it('accepts extended research topics without requiring any new field', async () => {
+    expect(
+      await validate(
+        plainToInstance(CreateHdrPersonDto, {
+          name: 'Student',
+          researchTopic: 'a'.repeat(10000),
+        }),
+      ),
+    ).toHaveLength(0);
+    expect(
+      (
+        await validate(
+          plainToInstance(UpdateHdrPersonDto, {
+            researchTopic: 'a'.repeat(10001),
+          }),
+        )
+      ).length,
+    ).toBeGreaterThan(0);
+  });
   it('allows a name-only record and optional contact details', async () => {
     expect(
       await validate(

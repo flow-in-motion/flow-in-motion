@@ -1,3 +1,4 @@
+import type { PaperPlanningDto } from '../dto/paper-planning.dto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -316,7 +317,7 @@ export class ProjectModulesService {
   async create(
     tenantId: string,
     callerUserId: string,
-    input: {
+    input: PaperPlanningDto & {
       projectId?: string;
       shortTitle: string;
       title?: string;
@@ -367,6 +368,22 @@ export class ProjectModulesService {
       title: input.title,
       description: input.description,
       abstract: input.abstract,
+      workingDate: input.workingDate,
+      plannedHours:
+        input.plannedHours === undefined
+          ? undefined
+          : input.plannedHours === null
+            ? null
+            : String(input.plannedHours),
+      manuscriptUrl: input.manuscriptUrl,
+      dataUrl: input.dataUrl,
+      otherFilesUrl: input.otherFilesUrl,
+      journalPublishers: input.journalPublishers?.map(
+        ({ journalName, publisher }) => ({
+          journalName: journalName.trim(),
+          publisher: publisher.trim(),
+        }),
+      ),
       targetJournal: input.targetJournal,
       backupJournal: input.backupJournal,
       targetConference: input.targetConference,
@@ -406,24 +423,25 @@ export class ProjectModulesService {
     tenantId: string,
     moduleId: string,
     callerUserId: string,
-    input: Partial<{
-      shortTitle: string;
-      title: string;
-      description: string;
-      abstract: string;
-      targetJournal: string;
-      backupJournal: string;
-      targetConference: string;
-      backupConference: string;
-      projectId: string | null;
-      status: string;
-      priority: string;
-      pipelineStage: string;
-      assignedToUserId: string | null;
-      assignedToInvitationId: string | null;
-      currentlyWithType: CurrentlyWithType;
-      dueDate: string | null;
-    }>,
+    input: PaperPlanningDto &
+      Partial<{
+        shortTitle: string;
+        title: string;
+        description: string;
+        abstract: string;
+        targetJournal: string;
+        backupJournal: string;
+        targetConference: string;
+        backupConference: string;
+        projectId: string | null;
+        status: string;
+        priority: string;
+        pipelineStage: string;
+        assignedToUserId: string | null;
+        assignedToInvitationId: string | null;
+        currentlyWithType: CurrentlyWithType;
+        dueDate: string | null;
+      }>,
   ) {
     const existing = await this.findOne(tenantId, moduleId, callerUserId);
     const existingCurrentlyWith = existing as typeof existing & {
@@ -489,6 +507,22 @@ export class ProjectModulesService {
       title: input.title,
       description: input.description,
       abstract: input.abstract,
+      workingDate: input.workingDate,
+      plannedHours:
+        input.plannedHours === undefined
+          ? undefined
+          : input.plannedHours === null
+            ? null
+            : String(input.plannedHours),
+      manuscriptUrl: input.manuscriptUrl,
+      dataUrl: input.dataUrl,
+      otherFilesUrl: input.otherFilesUrl,
+      journalPublishers: input.journalPublishers?.map(
+        ({ journalName, publisher }) => ({
+          journalName: journalName.trim(),
+          publisher: publisher.trim(),
+        }),
+      ),
       targetJournal: input.targetJournal,
       backupJournal: input.backupJournal,
       targetConference: input.targetConference,

@@ -66,6 +66,7 @@ describe('ModuleSubmissionsService', () => {
       await service.create(tenantId, moduleId, callerUserId, {
         submittedDate: '2026-03-01',
         journalName: '  Nature Communications  ',
+        journalPublisher: '  Springer Nature  ',
         status: 'Submitted',
         revisionRounds: 2,
         decisionDate: '2026-06-15',
@@ -79,6 +80,7 @@ describe('ModuleSubmissionsService', () => {
           createdBy: callerUserId,
           submittedDate: '2026-03-01',
           journalName: 'Nature Communications',
+          journalPublisher: 'Springer Nature',
           paperTitle: null,
           status: 'Submitted',
           revisionRounds: 2,
@@ -133,6 +135,37 @@ describe('ModuleSubmissionsService', () => {
       );
     });
   });
+
+  it.each([' Wiley ', '', null, undefined])(
+    'changes, clears, or preserves the publisher without changing submission status: %s',
+    async (journalPublisher) => {
+      repository.findById.mockResolvedValue({
+        id: 'submission-1',
+        journalName: 'Journal',
+        status: 'Revision requested',
+        journalPublisher: 'Previous publisher',
+      });
+      repository.update.mockResolvedValue({ id: 'submission-1' });
+      await service.update(tenantId, moduleId, 'submission-1', {
+        journalPublisher,
+      });
+      expect(repository.update).toHaveBeenCalledWith(
+        tenantId,
+        moduleId,
+        'submission-1',
+        expect.objectContaining({
+          journalPublisher:
+            journalPublisher === undefined
+              ? undefined
+              : journalPublisher?.trim() || null,
+          status: undefined,
+        }),
+        undefined,
+        false,
+      );
+      expect(enums.findModuleStageByValueForTenant).not.toHaveBeenCalled();
+    },
+  );
 
   describe('update', () => {
     it('throws when the submission does not exist', async () => {

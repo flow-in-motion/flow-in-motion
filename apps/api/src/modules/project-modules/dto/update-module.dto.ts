@@ -1,5 +1,15 @@
 import { ApiProperty, OmitType, PartialType } from '@nestjs/swagger';
-import { IsDateString, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsOptional,
+  IsUUID,
+  IsArray,
+  ArrayMaxSize,
+  ValidateIf,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { JournalPublisherDto } from './paper-planning.dto';
 import { CreateModuleDto } from './create-module.dto';
 
 export class UpdateModuleDto extends PartialType(
@@ -7,8 +17,17 @@ export class UpdateModuleDto extends PartialType(
     'assignedToUserId',
     'dueDate',
     'projectId',
+    'journalPublishers',
   ] as const),
 ) {
+  @ApiProperty({ required: false, type: [JournalPublisherDto] })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => JournalPublisherDto)
+  journalPublishers?: JournalPublisherDto[];
+
   @ApiProperty({
     required: false,
     nullable: true,
