@@ -65,6 +65,11 @@ export const navGroups: NavGroup[] = [
       { label: "Funding", to: "/funding", icon: DollarSign },
       { label: "Mind Map", to: "/mind-map", icon: Network },
       {
+        label: "HDR students",
+        to: "/future/hdr-students",
+        icon: GraduationCap,
+      },
+      {
         label: "Reviews, HDR examinations",
         to: "/future/reviews-hdr-examinations",
         icon: ClipboardCheck,
@@ -91,11 +96,6 @@ export const navGroups: NavGroup[] = [
       { label: "CV Builder", to: "/future/cv-builder", icon: FileText },
       { label: "Dissemination", to: "/future/dissemination", icon: Megaphone },
       { label: "Documents", to: "/future/documents", icon: Files },
-      {
-        label: "HDR students",
-        to: "/future/hdr-students",
-        icon: GraduationCap,
-      },
       { label: "Impact, Engagement", to: "/future/impact", icon: BarChart3 },
       {
         label: "Journal rankings & research lists",
