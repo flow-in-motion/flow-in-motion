@@ -18,6 +18,8 @@ const fixture = vi.hoisted(() => ({
   record: {
     id: "exam",
     kind: "examination",
+    status: "To do",
+    completedAt: null as string | null,
     studentName: "Sample Student",
     studentNumber: "001234",
     supervisorName1: "Supervisor One",
@@ -58,6 +60,9 @@ vi.mock("@/api/reviews", () => ({
         data: [
           {
             ...fixture.record,
+            ...((args[2] as { scope?: string }).scope === "completed"
+              ? { status: "Complete", completedAt: "2026-11-16T12:00:00Z" }
+              : {}),
             ...(kind === "journal"
               ? {
                   id: "journal",
@@ -213,6 +218,7 @@ describe("Reviews and HDR examinations page", () => {
           dueOn: null,
           journalRanking: null,
           initialNote: null,
+          status: "To do",
         },
       }),
     );
@@ -359,5 +365,112 @@ describe("Reviews and HDR examinations page", () => {
     );
     await waitFor(() => expect(fixture.remove).toHaveBeenCalledWith("journal"));
     confirm.mockRestore();
+  });
+
+  it("loads completed panels only when opened, independently for each kind", () => {
+    render(<ReviewsExaminationsPage />);
+    expect(
+      fixture.list.mock.calls.every((call) => call[2].scope === "active"),
+    ).toBe(true);
+    expect(
+      screen.queryByRole("table", { name: "Completed reviews" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Completed reviews" }));
+    expect(
+      screen.getByRole("table", { name: "Completed reviews" }),
+    ).toBeInTheDocument();
+    expect(fixture.list).toHaveBeenCalledWith(
+      "workspace",
+      "journal",
+      expect.objectContaining({ scope: "completed", page: 1 }),
+    );
+    expect(
+      fixture.list.mock.calls.some(
+        (call) => call[1] === "examination" && call[2].scope === "completed",
+      ),
+    ).toBe(false);
+    const panel = within(
+      screen.getByRole("region", { name: "Completed reviews" }),
+    );
+    fireEvent.click(panel.getByRole("button", { name: "Next" }));
+    expect(fixture.list).toHaveBeenLastCalledWith(
+      "workspace",
+      "journal",
+      expect.objectContaining({ scope: "completed", page: 2 }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Completed HDR examinations" }),
+    );
+    expect(
+      screen.getByRole("table", { name: "Completed HDR examinations" }),
+    ).toBeInTheDocument();
+  });
+  it("changes only review status inline and restores the status if saving fails", async () => {
+    fixture.save.mockRejectedValue(new Error("Permission denied"));
+    render(<ReviewsExaminationsPage />);
+    const field = screen.getByRole("combobox", {
+      name: "Change status for Sample Manuscript",
+    });
+    fireEvent.click(field);
+    for (const value of ["To do", "Underway", "Waiting", "Complete"])
+      expect(screen.getByRole("option", { name: value })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("option", { name: "Complete" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Permission denied"),
+    );
+    expect(fixture.save).toHaveBeenCalledWith({
+      id: "journal",
+      input: { status: "Complete" },
+    });
+    expect(field).toHaveTextContent("To do");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+  it("allows an examination to be marked complete from its record without entering edit", async () => {
+    render(<ReviewsExaminationsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Sample Student" }));
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(
+      dialog.getByRole("combobox", {
+        name: "Change status for Sample Student",
+      }),
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Complete" }));
+    await waitFor(() =>
+      expect(fixture.save).toHaveBeenCalledWith({
+        id: "exam",
+        input: { status: "Complete" },
+      }),
+    );
+    expect(
+      dialog.getByRole("button", { name: "Edit examination" }),
+    ).toBeInTheDocument();
+    expect(
+      dialog.queryByRole("button", { name: "Save changes" }),
+    ).not.toBeInTheDocument();
+  });
+  it("reopens completed reviews using the same status control", async () => {
+    render(<ReviewsExaminationsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Completed reviews" }));
+    const completed = within(
+      screen.getByRole("region", { name: "Completed reviews" }),
+    );
+    const field = completed.getByRole("combobox", {
+      name: "Change status for Sample Manuscript",
+    });
+    expect(field).toHaveTextContent("Complete");
+    expect(
+      completed.getByRole("columnheader", { name: "Completed" }),
+    ).toBeInTheDocument();
+    fireEvent.click(field);
+    fireEvent.click(screen.getByRole("option", { name: "Underway" }));
+    await waitFor(() =>
+      expect(fixture.save).toHaveBeenCalledWith({
+        id: "journal",
+        input: { status: "Underway" },
+      }),
+    );
+    expect(
+      completed.queryByRole("button", { name: "Add review" }),
+    ).not.toBeInTheDocument();
   });
 });

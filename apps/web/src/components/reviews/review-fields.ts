@@ -55,3 +55,10 @@ export function reviewDate(value: string | null | undefined) {
     year: "numeric",
   }).format(new Date(year, month - 1, day));
 }
+
+export const REVIEW_STATUSES = [
+  "To do",
+  "Underway",
+  "Waiting",
+  "Complete",
+] as const;
