@@ -212,4 +212,27 @@ describe('conference presentation service', () => {
 
     expect(repository.findPresentationsByModule).not.toHaveBeenCalled();
   });
+  it('exposes submission edit capability only for an owned paper and conference, without owner identifiers', async () => {
+    const { service, repository } = setup();
+    repository.findSubmissionsByModule.mockResolvedValue([
+      { id: 'owned', ownerUserId: 'user-1' },
+      { id: 'other-owner', ownerUserId: 'someone-else' },
+    ]);
+    const result = await service.listPaperPresentations(
+      'tenant-1',
+      'paper-1',
+      'user-1',
+    );
+    expect(result.submissions).toEqual([
+      { id: 'owned', canManage: true },
+      { id: 'other-owner', canManage: false },
+    ]);
+    repository.findLinkableModuleIds.mockResolvedValue([]);
+    const readOnly = await service.listPaperPresentations(
+      'tenant-1',
+      'paper-1',
+      'user-1',
+    );
+    expect(readOnly.submissions.every((row) => !row.canManage)).toBe(true);
+  });
 });

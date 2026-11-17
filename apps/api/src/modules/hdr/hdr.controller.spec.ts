@@ -19,6 +19,11 @@ describe('HDR supervision HTTP boundary', () => {
   const note = '66666666-6666-4666-8666-666666666666';
   const base = `/api/v1/tenant/${tenant}/hdr-people`;
   const service = {
+    counts: jest.fn().mockResolvedValue({
+      currentStudents: 31,
+      potentialStudents: 7,
+      visitingScholars: 2,
+    }),
     create: jest.fn(),
     update: jest.fn(),
     notes: jest.fn(),
@@ -160,5 +165,22 @@ describe('HDR supervision HTTP boundary', () => {
       .send({ createdAt: '2027-01-01' })
       .expect(400);
     expect(service.update).not.toHaveBeenCalled();
+  });
+  it('serves private aggregate counts for the authenticated caller only', async () => {
+    const result = await request(app.getHttpServer())
+      .get(`${base}/counts`)
+      .expect(200);
+    expect(service.counts).toHaveBeenCalledWith(tenant, 'caller');
+    expect(result.body).toEqual({
+      currentStudents: 31,
+      potentialStudents: 7,
+      visitingScholars: 2,
+    });
+    authenticated = false;
+    await request(app.getHttpServer()).get(`${base}/counts`).expect(403);
+    authenticated = true;
+    member = false;
+    await request(app.getHttpServer()).get(`${base}/counts`).expect(403);
+    expect(service.counts).toHaveBeenCalledTimes(1);
   });
 });
