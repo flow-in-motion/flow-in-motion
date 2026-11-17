@@ -3,7 +3,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useHdrPeople, useSaveHdrPerson } from "./hdr";
+import {
+  useHdrPeople,
+  useSaveHdrPerson,
+  useHdrDiscussionNotes,
+  useHdrNoteMutation,
+} from "./hdr";
 
 const fixture = vi.hoisted(() => ({ userId: "owner-1", json: vi.fn() }));
 vi.mock("@/auth/auth-provider", () => ({
@@ -87,5 +92,52 @@ describe("HDR request isolation", () => {
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: ["api", "tenant", "workspace", "hdr-people", "owner-1"],
     });
+  });
+  it("keeps discussion notes private to the selected account and student", async () => {
+    const { result, rerender } = renderHook(
+      () => useHdrDiscussionNotes("workspace", "student"),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(fixture.json).toHaveBeenCalledWith(
+      "/api/v1/tenant/workspace/hdr-people/student/notes",
+    );
+    fixture.json.mockImplementation(() => new Promise(() => {}));
+    fixture.userId = "owner-2";
+    rerender();
+    expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(fixture.json).toHaveBeenCalledTimes(2));
+  });
+  it("saves only discussion content and invalidates only that student's notes", async () => {
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const { result } = renderHook(
+      () => useHdrNoteMutation("workspace", "student"),
+      { wrapper },
+    );
+    await act(() =>
+      result.current.mutateAsync({
+        noteId: "note",
+        content: "Revised discussion",
+      }),
+    );
+    expect(fixture.json).toHaveBeenCalledWith(
+      "/api/v1/tenant/workspace/hdr-people/student/notes/note",
+      { method: "PATCH", body: '{"content":"Revised discussion"}' },
+    );
+    expect(invalidate.mock.calls).toEqual([
+      [
+        {
+          queryKey: [
+            "api",
+            "tenant",
+            "workspace",
+            "hdr-people",
+            "owner-1",
+            "notes",
+            "student",
+          ],
+        },
+      ],
+    ]);
   });
 });

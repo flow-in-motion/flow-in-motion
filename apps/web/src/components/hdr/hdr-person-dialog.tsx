@@ -2,7 +2,14 @@ import { WorkTimeCard } from "@/components/time-tracking/work-time-card";
 import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import { useState, type FormEvent } from "react";
 
-import type { HdrCategory, HdrInput, HdrPerson, HdrType } from "@/api/hdr";
+import { HdrDiscussionNotesPanel } from "./hdr-discussion-notes-panel";
+import type {
+  SupervisionType,
+  HdrCategory,
+  HdrInput,
+  HdrPerson,
+  HdrType,
+} from "@/api/hdr";
 import {
   HdrWorkPicker,
   type HdrWorkOption,
@@ -41,6 +48,15 @@ export function HdrPersonDialog({
   const [researchTopic, setResearchTopic] = useState(
     person?.researchTopic ?? "",
   );
+  const [supervisionType, setSupervisionType] = useState<SupervisionType | "">(
+    person?.supervisionType ?? "",
+  );
+  const [startDate, setStartDate] = useState(person?.startDate ?? "");
+  const [submissionDueDate, setSubmissionDueDate] = useState(
+    person?.submissionDueDate ?? "",
+  );
+  const [conferences, setConferences] = useState(person?.conferences ?? "");
+  const [initialDiscussionNote, setInitialDiscussionNote] = useState("");
   const [selectedProjects, setProjects] = useState<HdrWorkOption[]>(
     () => person?.projects.map((p) => ({ id: p.id, label: p.title })) ?? [],
   );
@@ -64,6 +80,13 @@ export function HdrPersonDialog({
         category,
         email: email.trim() || null,
         researchTopic: researchTopic.trim() || null,
+        supervisionType: supervisionType || null,
+        startDate: startDate || null,
+        submissionDueDate: submissionDueDate || null,
+        conferences: conferences.trim() || null,
+        ...(!person
+          ? { initialDiscussionNote: initialDiscussionNote.trim() || null }
+          : {}),
         projectIds: selectedProjects.map((p) => p.id),
         paperIds: selectedPapers.map((p) => p.id),
       });
@@ -94,6 +117,14 @@ export function HdrPersonDialog({
           </DialogDescription>
         </DialogHeader>
         {person ? <WorkTimerControls kind="hdr" targetId={person.id} title={person.name} variant="button" /> : null}
+        {person?.createdAt ? (
+          <p className="text-sm text-muted-foreground">
+            Date added:{" "}
+            <time dateTime={person.createdAt}>
+              {new Date(person.createdAt).toLocaleDateString()}
+            </time>
+          </p>
+        ) : null}
         <form onSubmit={(event) => void submit(event)} className="space-y-4">
           <fieldset disabled={saving} className="space-y-4">
             <div className="space-y-1.5">
@@ -141,6 +172,61 @@ export function HdrPersonDialog({
               </div>
             </div>
             <div className="space-y-1.5">
+              <label
+                htmlFor="hdr-supervision-type"
+                className="text-sm font-medium"
+              >
+                Supervision type (optional)
+              </label>
+              <select
+                id="hdr-supervision-type"
+                value={supervisionType}
+                onChange={(e) =>
+                  setSupervisionType(e.target.value as SupervisionType | "")
+                }
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Not specified</option>
+                {[
+                  "Primary",
+                  "Associate",
+                  "Co-supervisor",
+                  "Panel",
+                  "Other",
+                ].map((value) => (
+                  <option key={value}>{value}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label htmlFor="hdr-start-date" className="text-sm font-medium">
+                  Start date (optional)
+                </label>
+                <Input
+                  id="hdr-start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="hdr-submission-due"
+                  className="text-sm font-medium"
+                >
+                  Submission due date (optional)
+                </label>
+                <Input
+                  id="hdr-submission-due"
+                  type="date"
+                  value={submissionDueDate}
+                  min={startDate || undefined}
+                  onChange={(e) => setSubmissionDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
               <label htmlFor="hdr-email" className="text-sm font-medium">
                 Email (optional)
               </label>
@@ -165,6 +251,39 @@ export function HdrPersonDialog({
                 maxLength={10000}
               />
             </div>
+            <div className="space-y-1.5">
+              <label htmlFor="hdr-conferences" className="text-sm font-medium">
+                Conferences (optional)
+              </label>
+              <Textarea
+                id="hdr-conferences"
+                value={conferences}
+                onChange={(e) => setConferences(e.target.value)}
+                rows={3}
+                maxLength={10000}
+              />
+            </div>
+            {!person ? (
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="hdr-initial-discussion"
+                  className="text-sm font-medium"
+                >
+                  Discussion notes (optional)
+                </label>
+                <Textarea
+                  id="hdr-initial-discussion"
+                  value={initialDiscussionNote}
+                  onChange={(e) => setInitialDiscussionNote(e.target.value)}
+                  rows={12}
+                  className="min-h-72 resize-y"
+                  maxLength={20000}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The date is added automatically when saved.
+                </p>
+              </div>
+            ) : null}
             <HdrWorkPicker
               tenantId={tenantId}
               kind="projects"
@@ -197,6 +316,9 @@ export function HdrPersonDialog({
             </Button>
           </DialogFooter>
         </form>
+        {person ? (
+          <HdrDiscussionNotesPanel tenantId={tenantId} personId={person.id} />
+        ) : null}
         {person ? <WorkTimeCard key={person.id} kind="hdr" targetId={person.id} /> : null}
       </DialogContent>
     </Dialog>

@@ -3,6 +3,7 @@ import { authenticatedJson } from "@/api/client";
 import { useAuth } from "@/auth/auth-provider";
 
 export type ReviewKind = "journal" | "examination";
+export type ReviewStatus = "To do" | "Underway" | "Waiting" | "Complete";
 export type DegreeType = "PhD" | "MRes" | "Masters" | "Other";
 export interface ReviewFields {
   studentName: string | null;
@@ -30,6 +31,8 @@ export interface ReviewNote {
   updatedAt: string;
 }
 export interface ReviewRecord extends ReviewFields {
+  status?: ReviewStatus;
+  completedAt?: string | null;
   id: string;
   kind: ReviewKind;
   notes: ReviewNote[];
@@ -38,6 +41,8 @@ export type ReviewSummary = Pick<
   ReviewRecord,
   | "id"
   | "kind"
+  | "status"
+  | "completedAt"
   | "studentName"
   | "universityName"
   | "thesisTitle"
@@ -50,9 +55,11 @@ export type ReviewSummary = Pick<
   | "dueOn"
 >;
 export type ReviewInput = Partial<ReviewFields> & {
+  status?: ReviewStatus;
   initialNote?: string | null;
 };
 export interface ReviewListOptions {
+  scope?: "active" | "completed" | "all";
   page: number;
   pageSize: number | "all";
   search: string;
@@ -86,6 +93,7 @@ export function useReviews(
         page: String(options.page),
         pageSize: String(options.pageSize),
       });
+      if (options.scope) params.set("scope", options.scope);
       if (options.search.trim()) params.set("search", options.search.trim());
       return authenticatedJson<ReviewPage>(`${base(tenant, kind)}?${params}`);
     },

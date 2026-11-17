@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { fieldsFor, labelFor, recordTitle, reviewDate } from "./review-fields";
 import { ReviewForm } from "./review-form";
+import { ReviewStatusSelect } from "./review-status-select";
 import { ReviewNotesPanel } from "./review-notes-panel";
 
 export function ReviewRecordDialog({
@@ -86,6 +87,24 @@ export function ReviewRecordDialog({
                 {kind === "examination" ? "Edit examination" : "Edit review"}
               </Button>
             </div>
+            <div className="space-y-1.5 sm:max-w-xs">
+              <p className="text-sm text-muted-foreground">Status</p>
+              <ReviewStatusSelect
+                tenantId={tenantId}
+                kind={kind}
+                id={record.id}
+                title={recordTitle(record)}
+                status={record.status}
+              />
+            </div>
+            {record.completedAt ? (
+              <p className="text-sm text-muted-foreground">
+                Completed:{" "}
+                <time dateTime={record.completedAt}>
+                  {new Date(record.completedAt).toLocaleDateString()}
+                </time>
+              </p>
+            ) : null}
             <dl className="grid gap-4 sm:grid-cols-2">
               {fieldsFor(kind)
                 .filter(({ key }) => key !== "abstract")

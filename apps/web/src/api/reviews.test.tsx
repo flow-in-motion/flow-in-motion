@@ -134,4 +134,29 @@ describe("Reviews API cache and request isolation", () => {
       ],
     });
   });
+  it("keeps active and completed pagination caches separate", async () => {
+    let scope: "active" | "completed" = "active";
+    const { result, rerender } = renderHook(
+      () =>
+        useReviews("w", "journal", {
+          page: 2,
+          pageSize: 50,
+          search: " Rare ",
+          scope,
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(fixture.json).toHaveBeenCalledWith(
+      "/api/v1/tenant/w/reviews/journal?page=2&pageSize=50&scope=active&search=Rare",
+    );
+    fixture.json.mockImplementation(() => new Promise(() => {}));
+    scope = "completed";
+    rerender();
+    expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(fixture.json).toHaveBeenCalledTimes(2));
+    expect(fixture.json).toHaveBeenLastCalledWith(
+      "/api/v1/tenant/w/reviews/journal?page=2&pageSize=50&scope=completed&search=Rare",
+    );
+  });
 });

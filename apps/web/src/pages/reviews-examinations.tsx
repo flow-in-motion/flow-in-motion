@@ -1,4 +1,11 @@
-import { ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { useCurrentWorkspace, useMe } from "@/api/hooks";
 import {
@@ -7,6 +14,7 @@ import {
   type ReviewKind,
   type ReviewSummary,
 } from "@/api/reviews";
+import { ReviewStatusSelect } from "@/components/reviews/review-status-select";
 import { recordTitle, reviewDate } from "@/components/reviews/review-fields";
 import { ReviewRecordDialog } from "@/components/reviews/review-record-dialog";
 import { ErrorState } from "@/components/shared/error-state";
@@ -29,17 +37,23 @@ function ReviewTable({
   tenantId,
   userId,
   kind,
+  completed = false,
 }: {
   tenantId: string;
   userId: string;
   kind: ReviewKind;
+  completed?: boolean;
 }) {
-  const heading = kind === "examination" ? "HDR examinations" : "Reviews";
+  const baseHeading = kind === "examination" ? "HDR examinations" : "Reviews";
+  const completedHeading =
+    kind === "examination" ? "Completed HDR examinations" : "Completed reviews";
+  const heading = completed ? completedHeading : baseHeading;
+  const [showCompleted, setShowCompleted] = useState(false);
   const { search, setSearch, requestSearch, page, setPage } = useListSearch(
     {
       userId,
       workspaceId: tenantId,
-      preferenceKey: `academic-reviews-${kind}`,
+      preferenceKey: `academic-reviews-${kind}${completed ? "-completed" : ""}`,
     },
     300,
   );
@@ -50,6 +64,7 @@ function ReviewTable({
     page,
     pageSize,
     search: requestSearch,
+    scope: completed ? "completed" : "active",
   });
   const remove = useDeleteReview(tenantId, kind);
   const columns =
@@ -91,10 +106,12 @@ function ReviewTable({
     <section aria-label={heading} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">{heading}</h2>
-        <Button onClick={() => setSelected({})}>
-          <Plus className="h-4 w-4" />
-          {kind === "examination" ? "Add examination" : "Add review"}
-        </Button>
+        {!completed ? (
+          <Button onClick={() => setSelected({})}>
+            <Plus className="h-4 w-4" />
+            {kind === "examination" ? "Add examination" : "Add review"}
+          </Button>
+        ) : null}
       </div>
       <SearchInput
         value={search}
@@ -130,6 +147,8 @@ function ReviewTable({
                 {columns.map((column) => (
                   <TableHead key={column}>{column}</TableHead>
                 ))}
+                <TableHead>Status</TableHead>
+                {completed ? <TableHead>Completed</TableHead> : null}
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -168,6 +187,26 @@ function ReviewTable({
                       <TableCell>{row.journalRanking || "—"}</TableCell>
                     ) : null}
                     <TableCell>
+                      <ReviewStatusSelect
+                        tenantId={tenantId}
+                        kind={kind}
+                        id={row.id}
+                        title={recordTitle(row)}
+                        status={row.status}
+                      />
+                    </TableCell>
+                    {completed ? (
+                      <TableCell className="whitespace-nowrap">
+                        {row.completedAt ? (
+                          <time dateTime={row.completedAt}>
+                            {new Date(row.completedAt).toLocaleDateString()}
+                          </time>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    ) : null}
+                    <TableCell>
                       <div className="flex gap-1">
                         <Button
                           variant="ghost"
@@ -195,7 +234,7 @@ function ReviewTable({
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={columns.length + 1}
+                    colSpan={columns.length + (completed ? 3 : 2)}
                     className="py-10 text-center text-muted-foreground"
                   >
                     {requestSearch
@@ -218,6 +257,30 @@ function ReviewTable({
           />
         </>
       )}
+      {!completed ? (
+        <div className="space-y-4 border-t pt-4">
+          <Button
+            variant="ghost"
+            aria-expanded={showCompleted}
+            onClick={() => setShowCompleted(!showCompleted)}
+          >
+            {showCompleted ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+            {completedHeading}
+          </Button>
+          {showCompleted ? (
+            <ReviewTable
+              tenantId={tenantId}
+              userId={userId}
+              kind={kind}
+              completed
+            />
+          ) : null}
+        </div>
+      ) : null}
       {selected ? (
         <ReviewRecordDialog
           tenantId={tenantId}

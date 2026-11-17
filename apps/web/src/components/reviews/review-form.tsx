@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import {
   useSaveReview,
   type ReviewInput,
+  type ReviewStatus,
   type ReviewKind,
   type ReviewRecord,
 } from "@/api/reviews";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { fieldsFor } from "./review-fields";
+import { fieldsFor, REVIEW_STATUSES } from "./review-fields";
 
 export function ReviewForm({
   tenantId,
@@ -28,6 +29,7 @@ export function ReviewForm({
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fields.map(({ key }) => [key, record?.[key] ?? ""])),
   );
+  const [status, setStatus] = useState<ReviewStatus>(record?.status ?? "To do");
   const [initialNote, setInitialNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const save = useSaveReview(tenantId, kind);
@@ -38,6 +40,7 @@ export function ReviewForm({
     const input = Object.fromEntries(
       fields.map(({ key }) => [key, values[key]?.trim() || null]),
     ) as ReviewInput;
+    input.status = status;
     if (!record) input.initialNote = initialNote.trim() || null;
     try {
       onSaved(await save.mutateAsync({ id: record?.id, input }));
@@ -112,6 +115,21 @@ export function ReviewForm({
             </div>
           );
         })}
+        <div className="space-y-1.5">
+          <label htmlFor={`${kind}-status`} className="text-sm font-medium">
+            Status
+          </label>
+          <select
+            id={`${kind}-status`}
+            value={status}
+            onChange={(e) => setStatus(e.target.value as ReviewStatus)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            {REVIEW_STATUSES.map((value) => (
+              <option key={value}>{value}</option>
+            ))}
+          </select>
+        </div>
         {!record ? (
           <div className="space-y-1.5 sm:col-span-2">
             <label

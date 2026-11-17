@@ -15,7 +15,22 @@ export interface HdrPaper {
   shortTitle: string | null;
   displayId: string | null;
 }
-export interface HdrPerson {
+export type SupervisionType =
+  "Primary" | "Associate" | "Co-supervisor" | "Panel" | "Other";
+interface SupervisionFields {
+  supervisionType?: SupervisionType | null;
+  startDate?: string | null;
+  submissionDueDate?: string | null;
+  conferences?: string | null;
+}
+export interface HdrDiscussionNote {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface HdrPerson extends SupervisionFields {
+  createdAt?: string;
   id: string;
   name: string;
   type: HdrType;
@@ -25,7 +40,8 @@ export interface HdrPerson {
   projects: HdrProject[];
   papers: HdrPaper[];
 }
-export interface HdrInput {
+export interface HdrInput extends SupervisionFields {
+  initialDiscussionNote?: string | null;
   name: string;
   type: HdrType;
   category: HdrCategory;
@@ -115,5 +131,44 @@ export function useDeleteHdrPerson(tenantId: string) {
       void client.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       return client.invalidateQueries({ queryKey: scopedKey(tenantId, owner) });
     },
+  });
+}
+
+export function useHdrDiscussionNotes(tenantId: string, personId: string) {
+  const owner = useAuth().user?.id ?? "";
+  return useQuery({
+    queryKey: [...scopedKey(tenantId, owner), "notes", personId],
+    enabled: Boolean(tenantId && owner && personId),
+    queryFn: () =>
+      authenticatedJson<HdrDiscussionNote[]>(
+        `${basePath(tenantId)}/${encodeURIComponent(personId)}/notes`,
+      ),
+  });
+}
+
+export function useHdrNoteMutation(tenantId: string, personId: string) {
+  const owner = useAuth().user?.id ?? "";
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      noteId,
+      content,
+      remove,
+    }: {
+      noteId?: string;
+      content?: string;
+      remove?: boolean;
+    }) =>
+      authenticatedJson(
+        `${basePath(tenantId)}/${encodeURIComponent(personId)}/notes${noteId ? `/${encodeURIComponent(noteId)}` : ""}`,
+        {
+          method: remove ? "DELETE" : noteId ? "PATCH" : "POST",
+          ...(remove ? {} : { body: JSON.stringify({ content }) }),
+        },
+      ),
+    onSuccess: () =>
+      client.invalidateQueries({
+        queryKey: [...scopedKey(tenantId, owner), "notes", personId],
+      }),
   });
 }

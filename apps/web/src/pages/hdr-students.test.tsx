@@ -14,11 +14,15 @@ const fixture = vi.hoisted(() => ({
   list: vi.fn(),
   save: vi.fn(),
   remove: vi.fn(),
+  note: vi.fn(),
+  notes: vi.fn(),
   projects: vi.fn(),
   papers: vi.fn(),
   person: {
     id: "person",
     name: "Sample Student",
+    createdAt: "2026-11-16T10:00:00Z",
+    supervisionType: "Primary",
     type: "PhD",
     category: "Current",
     email: "sample@example.org",
@@ -58,6 +62,8 @@ vi.mock("@/api/hdr", () => ({
       isFetching: false,
     };
   },
+  useHdrDiscussionNotes: (...args: unknown[]) => fixture.notes(...args),
+  useHdrNoteMutation: () => ({ mutateAsync: fixture.note, isPending: false }),
   useSaveHdrPerson: () => ({ mutateAsync: fixture.save }),
   useDeleteHdrPerson: () => ({ mutateAsync: fixture.remove }),
 }));
@@ -75,6 +81,18 @@ describe("HDR basics", () => {
     window.sessionStorage.clear();
     vi.clearAllMocks();
     fixture.save.mockResolvedValue({});
+    fixture.note.mockResolvedValue({});
+    fixture.notes.mockReturnValue({
+      data: [
+        {
+          id: "discussion",
+          content: "Existing discussion",
+          createdAt: "2026-11-16T11:00:00Z",
+        },
+      ],
+      isPending: false,
+      isError: false,
+    });
     fixture.remove.mockResolvedValue({});
     fixture.projects.mockReturnValue({
       data: {
@@ -93,14 +111,22 @@ describe("HDR basics", () => {
   });
   it("provides a larger resizable research topic field and saves text beyond the previous limit", async () => {
     showPage();
-    fireEvent.click(screen.getByRole("button", { name: "Edit Sample Student" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Sample Student" }),
+    );
     const field = screen.getByLabelText("Research topic (optional)");
     expect(field).toHaveAttribute("rows", "6");
     expect(field).toHaveClass("resize-y");
     const topic = "Detailed research topic. ".repeat(150);
     fireEvent.change(field, { target: { value: topic } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    await waitFor(() => expect(fixture.save).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ researchTopic: topic.trim() }) })));
+    await waitFor(() =>
+      expect(fixture.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: expect.objectContaining({ researchTopic: topic.trim() }),
+        }),
+      ),
+    );
   });
   it("shows server-wide counts and real existing work links", () => {
     showPage();
@@ -133,6 +159,11 @@ describe("HDR basics", () => {
           category: "Current",
           email: null,
           researchTopic: null,
+          supervisionType: null,
+          startDate: null,
+          submissionDueDate: null,
+          conferences: null,
+          initialDiscussionNote: null,
           paperIds: [],
           projectIds: [],
         },
@@ -325,8 +356,100 @@ describe("HDR basics", () => {
     );
     confirm.mockRestore();
   });
+  it("shows the automatic added date and supervision type without fetching notes for the list", async () => {
+    showPage();
+    expect(
+      screen.getByRole("columnheader", { name: "Date added" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Supervision type" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Primary")).toBeInTheDocument();
+    expect(
+      document.querySelector('time[datetime="2026-11-16T10:00:00Z"]'),
+    ).toBeInTheDocument();
+    expect(fixture.notes).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Sample Student" }),
+    );
+    expect(fixture.notes).toHaveBeenCalledWith("workspace", "person");
+    expect(screen.getByText("Existing discussion")).toBeInTheDocument();
+    const textarea = screen.getByLabelText("New note");
+    expect(textarea).toHaveAttribute("rows", "12");
+    expect(textarea).toHaveClass("resize-y");
+    fireEvent.change(textarea, { target: { value: "New dated discussion" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await waitFor(() =>
+      expect(fixture.note).toHaveBeenCalledWith({
+        content: "New dated discussion",
+        noteId: undefined,
+      }),
+    );
+    expect(fixture.save).not.toHaveBeenCalled();
+  });
+  it("saves optional supervision details and an initial discussion without changing the paper picker", async () => {
+    showPage();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add student / scholar" }),
+    );
+    fireEvent.change(screen.getByLabelText(/Name/), {
+      target: { value: "Student" },
+    });
+    fireEvent.change(screen.getByLabelText("Supervision type (optional)"), {
+      target: { value: "Co-supervisor" },
+    });
+    fireEvent.change(screen.getByLabelText("Start date (optional)"), {
+      target: { value: "2027-01-01" },
+    });
+    fireEvent.change(screen.getByLabelText("Submission due date (optional)"), {
+      target: { value: "2030-01-01" },
+    });
+    fireEvent.change(screen.getByLabelText("Conferences (optional)"), {
+      target: { value: "Conference 2027" },
+    });
+    fireEvent.change(screen.getByLabelText("Discussion notes (optional)"), {
+      target: { value: "First discussion" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add record" }));
+    await waitFor(() =>
+      expect(fixture.save).toHaveBeenCalledWith({
+        personId: undefined,
+        input: expect.objectContaining({
+          supervisionType: "Co-supervisor",
+          startDate: "2027-01-01",
+          submissionDueDate: "2030-01-01",
+          conferences: "Conference 2027",
+          initialDiscussionNote: "First discussion",
+          paperIds: [],
+          projectIds: [],
+        }),
+      }),
+    );
+  });
+  it("preserves a discussion draft when saving fails", async () => {
+    fixture.note.mockRejectedValue(new Error("Save failed"));
+    showPage();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Edit Sample Student" }),
+    );
+    fireEvent.change(screen.getByLabelText("New note"), {
+      target: { value: "Keep my discussion" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Save failed"),
+    );
+    expect(screen.getByLabelText("New note")).toHaveValue("Keep my discussion");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 });
 
-vi.mock("@/components/time-tracking/work-timer-controls", () => ({ WorkTimerControls: () => null }));
+vi.mock("@/components/time-tracking/work-timer-controls", () => ({
+  WorkTimerControls: () => null,
+}));
 
-vi.mock("@/components/time-tracking/work-time-card", () => ({ WorkTimeCard: ({kind, targetId}: {kind: string; targetId: string}) => <section aria-label={`Time for ${kind}:${targetId}`} /> }));
+vi.mock("@/components/time-tracking/work-time-card", () => ({
+  WorkTimeCard: ({ kind, targetId }: { kind: string; targetId: string }) => (
+    <section aria-label={`Time for ${kind}:${targetId}`} />
+  ),
+}));

@@ -178,6 +178,8 @@ function HdrList({ tenantId, userId }: { tenantId: string; userId: string }) {
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Supervision type</TableHead>
+                <TableHead>Date added</TableHead>
                 <TableHead>Linked projects</TableHead>
                 <TableHead>Linked papers</TableHead>
                 <TableHead>
@@ -211,6 +213,16 @@ function HdrList({ tenantId, userId }: { tenantId: string; userId: string }) {
                     <TableCell>{person.type}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{person.category}</Badge>
+                    </TableCell>
+                    <TableCell>{person.supervisionType || "—"}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {person.createdAt ? (
+                        <time dateTime={person.createdAt}>
+                          {new Date(person.createdAt).toLocaleDateString()}
+                        </time>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell className="min-w-40">
                       {person.projects.length ? (
@@ -273,7 +285,7 @@ function HdrList({ tenantId, userId }: { tenantId: string; userId: string }) {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={8}
                     className="py-10 text-center text-muted-foreground"
                   >
                     {requestSearch || type || category
