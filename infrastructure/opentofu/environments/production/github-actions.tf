@@ -1,7 +1,3 @@
-data "tls_certificate" "github_actions" {
-  url = "https://token.actions.githubusercontent.com"
-}
-
 resource "aws_iam_openid_connect_provider" "github_actions" {
   url = "https://token.actions.githubusercontent.com"
 
@@ -9,11 +5,8 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
     "sts.amazonaws.com",
   ]
 
-  thumbprint_list = [
-    data.tls_certificate.github_actions.certificates[
-      length(data.tls_certificate.github_actions.certificates) - 1
-    ].sha1_fingerprint,
-  ]
+  # GitHub uses AWS trusted CAs. Preserve the existing provider thumbprints
+  # instead of recalculating them and requesting IAM updates during deployment.
 }
 
 data "aws_iam_policy_document" "github_actions_assume_role" {
