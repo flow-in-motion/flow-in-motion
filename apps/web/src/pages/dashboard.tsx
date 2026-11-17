@@ -78,6 +78,7 @@ import {
   normalizeDashboardWidths,
 } from "@/lib/dashboard-layout";
 import { DashboardResizeHandle } from "@/components/dashboard/dashboard-resize-handle";
+import kpiStyles from "./dashboard-kpis.module.css";
 
 function buildSummary(counts: {
   activeProjects: number;
@@ -714,37 +715,38 @@ export default function DashboardPage() {
       />
 
       {summary.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={kpiStyles.row}>
           {summary.map((item) => {
             const tone = summaryCardStyle;
             const card = (
-              <Card className="group relative h-full overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary/25 hover:shadow-[var(--shadow-md)]">
+              <Card className={cn(kpiStyles.card, "group relative h-full overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary/25 hover:shadow-[var(--shadow-md)]")}>
                 <span
                   className={cn("absolute inset-x-0 top-0 h-1", tone.rail)}
                   aria-hidden="true"
                 />
-                <CardHeader className="min-h-[11.25rem] justify-between gap-4 p-5 pt-6">
-                  <div className="flex items-start justify-between gap-3">
+                <CardHeader className={cn(kpiStyles.header, "min-h-[11.25rem] justify-between gap-4 p-5 pt-6")}>
+                  <div className={cn(kpiStyles.icons, "flex items-start justify-between gap-3")}>
                     <span
                       className={cn(
+                        kpiStyles.icon,
                         "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
                         tone.icon,
                       )}
                     >
                       <item.icon className="h-[1.125rem] w-[1.125rem]" />
                     </span>
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/70 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                    <span className={cn(kpiStyles.arrow, "flex h-7 w-7 items-center justify-center rounded-full bg-accent/70 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary")}>
                       <ArrowUpRight className="h-3.5 w-3.5" />
                     </span>
                   </div>
                   <div>
-                    <CardDescription className="font-medium text-foreground/80">
+                    <CardDescription className={cn(kpiStyles.label, "font-medium text-foreground/80")}>
                       {item.label}
                     </CardDescription>
-                    <CardTitle className="mt-1.5 text-[1.875rem] font-semibold tabular-nums tracking-[-0.04em] text-foreground">
+                    <CardTitle className={cn(kpiStyles.value, "mt-1.5 text-[1.875rem] font-semibold tabular-nums tracking-[-0.04em] text-foreground")}>
                       {item.value}
                     </CardTitle>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    <p className={cn(kpiStyles.description, "mt-1 text-xs leading-5 text-muted-foreground")}>
                       {item.description}
                     </p>
                   </div>
@@ -756,7 +758,7 @@ export default function DashboardPage() {
               <Link
                 key={item.label}
                 to={item.to}
-                className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
+                className="block h-full min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
               >
                 {card}
               </Link>
