@@ -1,0 +1,62 @@
+.row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: clamp(0.125rem, 1.5%, 1rem);
+  min-width: 0;
+}
+
+.card {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.card .header {
+  gap: clamp(0.25rem, 8cqw, 1rem);
+  padding: clamp(0.25rem, 8cqw, 1.25rem);
+  padding-top: clamp(0.5rem, 10cqw, 1.5rem);
+  overflow-wrap: anywhere;
+}
+
+.card .icons {
+  gap: clamp(0.125rem, 3cqw, 0.75rem);
+}
+
+.card .icon {
+  width: clamp(1rem, 20cqw, 2.25rem);
+  height: clamp(1rem, 20cqw, 2.25rem);
+}
+
+.card .icon svg {
+  width: 50%;
+  height: 50%;
+}
+
+.card .arrow {
+  width: clamp(0.75rem, 16cqw, 1.75rem);
+  height: clamp(0.75rem, 16cqw, 1.75rem);
+  flex-shrink: 0;
+}
+
+.card .arrow svg {
+  width: 50%;
+  height: 50%;
+}
+
+.card .label {
+  font-size: clamp(0.625rem, 9cqw, 0.875rem);
+}
+
+.card .value {
+  font-size: clamp(1rem, 20cqw, 1.875rem);
+}
+
+.card .description {
+  font-size: clamp(0.625rem, 8cqw, 0.75rem);
+}
+
+@container (max-width: 5rem) {
+  .card .arrow {
+    display: none;
+  }
+}
