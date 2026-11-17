@@ -961,6 +961,27 @@ describe("ProjectDetailPage", () => {
       within(dialog).getByRole("textbox", { name: "Due date" }),
     ).toHaveValue("15/08/2026");
   });
+  it("shows the current stage, holder, priority and deadline for linked papers without changing their links", () => {
+    Object.assign(fixtures.modules[0], {
+      pipelineStage: "Writing",
+      currentlyWithType: "collaborator",
+      assignedToDisplayName: "Named Coauthor",
+      assignedToUserId: "coauthor",
+      priority: "High",
+      dueDate: "2027-01-15",
+    });
+    renderProject();
+    const paper = screen.getByRole("link", { name: /Assay optimization/ });
+    expect(paper).toHaveAttribute("href", "/modules/module-1");
+    expect(paper).toHaveTextContent("Writing");
+    expect(paper).toHaveTextContent("Named Coauthor");
+    expect(paper).toHaveTextContent("High");
+    expect(paper).toHaveTextContent("15/01/2027");
+    expect(
+      screen.getByRole("button", { name: /Unlink Assay optimization/ }),
+    ).toBeInTheDocument();
+    expect(fixtures.updateModule).not.toHaveBeenCalled();
+  });
 });
 
 vi.mock("@/components/time-tracking/work-timer-controls", () => ({ WorkTimerControls: () => null }));

@@ -1,3 +1,9 @@
+import {
+  DASHBOARD_KPIS,
+  isDashboardKpiId,
+  type DashboardKpiId,
+} from "@/lib/dashboard-kpis";
+import { useHdrCounts } from "@/api/hdr";
 import { paperReferenceInput } from "@/lib/paper-references";
 // import { ActivityOverviewChart } from "@/components/dashboard/activity-overview-chart";
 import {
@@ -6,6 +12,7 @@ import {
   FilePenLine,
   FileStack,
   FolderKanban,
+  GraduationCap,
   LayoutDashboard,
   ListTodo,
   NotebookPen,
@@ -77,9 +84,12 @@ function buildSummary(counts: {
   openTasks: number;
   reviewStage: number;
   activeModules: number;
+  currentStudents: number | null | undefined;
+  potentialStudents: number | null | undefined;
 }) {
   return [
     {
+      id: "kpi:active-projects" as const,
       label: "Active Projects",
       description: "Projects currently active",
       value: String(counts.activeProjects),
@@ -87,6 +97,7 @@ function buildSummary(counts: {
       to: "/projects",
     },
     {
+      id: "kpi:active-papers" as const,
       label: "Active Papers",
       description: "Papers currently active",
       value: String(counts.activeModules),
@@ -94,6 +105,7 @@ function buildSummary(counts: {
       to: "/modules",
     },
     {
+      id: "kpi:open-tasks" as const,
       label: "Open Tasks",
       description: "Tasks still to complete",
       value: String(counts.openTasks),
@@ -101,12 +113,33 @@ function buildSummary(counts: {
       to: "/tasks",
     },
     {
+      id: "kpi:review-stage" as const,
       label: "In Review Stage",
       description: "Papers in the Submitted, Under Review stage",
       value: String(counts.reviewStage),
       icon: FilePenLine,
       to: "/pipeline#submitted-under-review",
     },
+    ...(["current", "potential"] as const).map((kind) => {
+      const count =
+        kind === "current" ? counts.currentStudents : counts.potentialStudents;
+      return {
+        id:
+          kind === "current"
+            ? ("kpi:current-students" as const)
+            : ("kpi:potential-students" as const),
+        label: kind === "current" ? "Current Students" : "Potential Students",
+        description:
+          count === null
+            ? "Student counts could not be loaded"
+            : kind === "current"
+              ? "Current HDR students"
+              : "Potential HDR students",
+        value: count === null ? "—" : count === undefined ? "…" : String(count),
+        icon: GraduationCap,
+        to: "/future/hdr-students",
+      };
+    }),
   ];
 }
 
@@ -203,12 +236,18 @@ const DASHBOARD_LAYOUT_KEY = "research-in-motion.dashboard-layout.v1";
 
 interface StoredDashboardLayout {
   order: DashboardWidgetId[];
-  hidden: DashboardWidgetId[];
+  hidden: (DashboardWidgetId | DashboardKpiId)[];
   widths?: Record<string, number>;
 }
 
 function isDashboardWidgetId(value: unknown): value is DashboardWidgetId {
   return DEFAULT_WIDGET_ORDER.includes(value as DashboardWidgetId);
+}
+
+function isDashboardHiddenId(
+  value: unknown,
+): value is DashboardWidgetId | DashboardKpiId {
+  return isDashboardWidgetId(value) || isDashboardKpiId(value);
 }
 
 function loadDashboardLayout(
@@ -244,7 +283,7 @@ function loadDashboardLayout(
     ];
 
     const hidden = Array.isArray(stored?.hidden)
-      ? [...new Set(stored.hidden.filter(isDashboardWidgetId))]
+      ? [...new Set(stored.hidden.filter(isDashboardHiddenId))]
       : [...DEFAULT_HIDDEN_WIDGETS];
 
     return {
@@ -301,6 +340,15 @@ export default function DashboardPage() {
     width: number;
   } | null>(null);
 
+  const studentKpisVisible = [
+    "kpi:current-students",
+    "kpi:potential-students",
+  ].some((id) => !layout.hidden.includes(id as DashboardKpiId));
+  const studentCounts = useHdrCounts(
+    tenantId,
+    studentKpisVisible &&
+      (!preferences || preferences.workspacePreferences !== undefined),
+  );
   const summary = useMemo(
     () =>
       buildSummary({
@@ -309,8 +357,21 @@ export default function DashboardPage() {
         openTasks: tasksQuery.data?.summary?.open ?? 0,
         reviewStage: modulesQuery.data?.summary?.review ?? 0,
         activeModules: modulesQuery.data?.summary?.active ?? 0,
-      }),
-    [projects, tasksQuery.data, modulesQuery.data],
+        currentStudents:
+          studentCounts.data?.currentStudents ??
+          (studentCounts.isError ? null : undefined),
+        potentialStudents:
+          studentCounts.data?.potentialStudents ??
+          (studentCounts.isError ? null : undefined),
+      }).filter((item) => !layout.hidden.includes(item.id)),
+    [
+      projects,
+      tasksQuery.data,
+      modulesQuery.data,
+      studentCounts.data,
+      studentCounts.isError,
+      layout.hidden,
+    ],
   );
   const visibleWidgets = new Set(
     layout.order.filter((id) => !layout.hidden.includes(id)),
@@ -357,7 +418,7 @@ export default function DashboardPage() {
           ...new Set(savedOrder),
           ...DEFAULT_WIDGET_ORDER.filter((id) => !savedOrder.includes(id)),
         ],
-        hidden: [...new Set(remote.hidden.filter(isDashboardWidgetId))],
+        hidden: [...new Set(remote.hidden.filter(isDashboardHiddenId))],
         ...(remote.widths !== undefined
           ? {
               widths: normalizeDashboardWidths(
@@ -415,6 +476,16 @@ export default function DashboardPage() {
         : [...current.hidden, widgetId],
     }));
   }
+  function toggleKpi(id: string) {
+    if (!isDashboardKpiId(id)) return;
+    setLayout((current) => ({
+      ...current,
+      hidden: current.hidden.includes(id)
+        ? current.hidden.filter((hidden) => hidden !== id)
+        : [...current.hidden, id],
+    }));
+  }
+
   function resizeWidget(widgetId: DashboardWidgetId, width: number) {
     setLayout((current) => ({
       ...current,
@@ -642,49 +713,59 @@ export default function DashboardPage() {
         onSave={handleCreateConference}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summary.map((item) => {
-          const tone = summaryCardStyle;
-          const card = (
-            <Card className="group relative h-full overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary/25 hover:shadow-[var(--shadow-md)]">
-              <span className={cn("absolute inset-x-0 top-0 h-1", tone.rail)} aria-hidden="true" />
-              <CardHeader className="min-h-[11.25rem] justify-between gap-4 p-5 pt-6">
-                <div className="flex items-start justify-between gap-3">
-                  <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border", tone.icon)}>
-                    <item.icon className="h-[1.125rem] w-[1.125rem]" />
-                  </span>
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/70 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </span>
-                </div>
-                <div>
-                  <CardDescription className="font-medium text-foreground/80">
-                    {item.label}
-                  </CardDescription>
-                  <CardTitle className="mt-1.5 text-[1.875rem] font-semibold tabular-nums tracking-[-0.04em] text-foreground">
-                    {item.value}
-                  </CardTitle>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {item.description}
-                  </p>
-                </div>
-              </CardHeader>
-            </Card>
-          );
+      {summary.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {summary.map((item) => {
+            const tone = summaryCardStyle;
+            const card = (
+              <Card className="group relative h-full overflow-hidden transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:border-primary/25 hover:shadow-[var(--shadow-md)]">
+                <span
+                  className={cn("absolute inset-x-0 top-0 h-1", tone.rail)}
+                  aria-hidden="true"
+                />
+                <CardHeader className="min-h-[11.25rem] justify-between gap-4 p-5 pt-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <span
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
+                        tone.icon,
+                      )}
+                    >
+                      <item.icon className="h-[1.125rem] w-[1.125rem]" />
+                    </span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/70 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                  <div>
+                    <CardDescription className="font-medium text-foreground/80">
+                      {item.label}
+                    </CardDescription>
+                    <CardTitle className="mt-1.5 text-[1.875rem] font-semibold tabular-nums tracking-[-0.04em] text-foreground">
+                      {item.value}
+                    </CardTitle>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {item.description}
+                    </p>
+                  </div>
+                </CardHeader>
+              </Card>
+            );
 
-          return item.to ? (
-            <Link
-              key={item.label}
-              to={item.to}
-              className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
-            >
-              {card}
-            </Link>
-          ) : (
-            <div key={item.label}>{card}</div>
-          );
-        })}
-      </div>
+            return item.to ? (
+              <Link
+                key={item.label}
+                to={item.to}
+                className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2"
+              >
+                {card}
+              </Link>
+            ) : (
+              <div key={item.label}>{card}</div>
+            );
+          })}
+        </div>
+      ) : null}
       {/* <WorkOnThisNextBanner /> */}
       {isResizingWidgets ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 p-4">
@@ -770,6 +851,15 @@ export default function DashboardPage() {
       <CustomizeDashboardDialog
         open={isCustomizeOpen}
         onOpenChange={setIsCustomizeOpen}
+        kpis={DASHBOARD_KPIS}
+        visibleKpis={
+          new Set(
+            DASHBOARD_KPIS.filter((kpi) => !layout.hidden.includes(kpi.id)).map(
+              (kpi) => kpi.id,
+            ),
+          )
+        }
+        onToggleKpi={toggleKpi}
         widgets={layout.order.map((id) => DASHBOARD_WIDGETS.find((widget) => widget.id === id)!)}
         visibleWidgets={visibleWidgets}
         onToggle={toggleWidget}

@@ -209,7 +209,7 @@ function initialForm(submission: ApiConferenceSubmission | null): SubmissionForm
 }
 
 /** Add a submission, or edit one (its paper or project can't be swapped). */
-function SubmissionFormDialog({
+export function SubmissionFormDialog({
   open,
   onOpenChange,
   tenantId,

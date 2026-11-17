@@ -1,4 +1,6 @@
-import { useId, useState } from "react";
+import { Pencil } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { lazy, Suspense, useId, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useModuleConferencePresentations } from "@/api/hooks";
@@ -6,6 +8,10 @@ import { PanelToggleButton } from "@/components/shared/linked-items-panels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { statusBadgeClass } from "@/lib/tones";
 import { cn } from "@/lib/utils";
+
+const PaperConferenceSubmissionEditor = lazy(
+  () => import("./paper-conference-submission-editor"),
+);
 
 function formatDate(iso: string | null) {
   if (!iso) return null;
@@ -29,6 +35,10 @@ export function PaperConferenceSubmissions({
   tenantId: string;
   moduleId: string;
 }) {
+  const [editing, setEditing] = useState<{
+    conferenceId: string;
+    submissionId: string;
+  } | null>(null);
   const contentId = useId();
   const [visible, setVisible] = useState(true);
   // Shares its request with the conference presentation history below.
@@ -93,6 +103,22 @@ export function PaperConferenceSubmissions({
                         </span>
                       ) : null}
                     </Link>
+                    {submission.canManage ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Edit submission to ${submission.conferenceName}`}
+                        onClick={() =>
+                          setEditing({
+                            conferenceId: submission.conferenceId,
+                            submissionId: submission.id,
+                          })
+                        }
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : null}
                     {submission.status ? (
                       <span
                         className={cn(
@@ -110,6 +136,17 @@ export function PaperConferenceSubmissions({
             </ul>
           )}
         </CardContent>
+      ) : null}
+      {editing ? (
+        <Suspense fallback={<p role="status">Loading editor…</p>}>
+          <PaperConferenceSubmissionEditor
+            tenantId={tenantId}
+            moduleId={moduleId}
+            conferenceId={editing.conferenceId}
+            submissionId={editing.submissionId}
+            onClose={() => setEditing(null)}
+          />
+        </Suspense>
       ) : null}
     </Card>
   );

@@ -172,3 +172,14 @@ export function useHdrNoteMutation(tenantId: string, personId: string) {
       }),
   });
 }
+
+export function useHdrCounts(tenantId: string, enabled = true) {
+  const owner = useAuth().user?.id ?? "";
+  return useQuery({
+    queryKey: [...scopedKey(tenantId, owner), "counts"],
+    enabled: Boolean(enabled && tenantId && owner),
+    staleTime: 30_000,
+    queryFn: () =>
+      authenticatedJson<HdrPage["counts"]>(`${basePath(tenantId)}/counts`),
+  });
+}

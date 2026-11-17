@@ -1,7 +1,14 @@
 import { formatEstimate } from "@/lib/time-format";
 import { PaperReferenceFields, JournalPublisherFields } from "@/components/modules/paper-reference-fields";
 import { paperReferenceInput, journalPublisherFor, safePaperUrl, type PaperReferenceForm } from "@/lib/paper-references";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -118,6 +125,11 @@ import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button"
 import { PaperTimeCard } from "@/components/time-tracking/paper-time-card";
 import { PAPER_STATUSES } from "@/lib/paper-status";
 
+const PaperSectionEditor = lazy(
+  () => import("@/components/modules/paper-section-editor"),
+);
+import type { PaperEditSection } from "@/components/modules/paper-section-editor";
+
 const PAPER_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 
 interface EditableModule extends PaperReferenceForm {
@@ -190,6 +202,30 @@ function HeaderStat({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function DetailEditButton({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`Edit ${label}`}
+      title={`Edit ${label}`}
+      aria-haspopup="dialog"
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+    >
+      <Pencil className="h-3 w-3" />
+    </button>
+  );
+}
+
 function FormField({
   label,
   htmlFor,
@@ -234,6 +270,9 @@ function ModuleTasksDetails({
       visible={visible}
       onToggleVisible={onToggleVisible}
       onUnlink={onUnlinkTask}
+      editHref={
+        onUnlinkTask ? (task) => `/tasks/${task.id}?edit=true` : undefined
+      }
       summary={
         <TaskTimeSummary
           tasks={tasks}
@@ -294,6 +333,9 @@ function ModuleNotesDetails({
       visible={visible}
       onToggleVisible={onToggleVisible}
       onUnlink={onUnlinkNote}
+      editHref={
+        onUnlinkNote ? (note) => `/daily-notes/${note.id}?edit=true` : undefined
+      }
       unlinkLabel={(note) => `Unlink ${note.title} from this module`}
       actions={
         <>
@@ -518,6 +560,9 @@ export default function ModuleDetailPage() {
   const deleteSubmission = useDeleteModuleSubmission(
     tenantId,
     module?.id ?? "",
+  );
+  const [editingSection, setEditingSection] = useState<PaperEditSection | null>(
+    null,
   );
   const [form, setForm] = useState<EditableModule | null>(null);
   // Submission details given when the edit form's stage is set to
@@ -1014,7 +1059,19 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         {!form ? (
           <div className="flex flex-wrap gap-2">
             {module.title ? (
-              <HeaderStat label="Formal title" value={module.title} />
+              <HeaderStat
+                label="Formal title"
+                value={
+                  <span className="inline-flex items-center gap-1">
+                    {module.title}
+                    <DetailEditButton
+                      label="paper title and description"
+                      disabled={isHeaderSaving || updateModule.isPending}
+                      onClick={() => setEditingSection("details")}
+                    />
+                  </span>
+                }
+              />
             ) : null}
             <HeaderStat
               label="Status"
@@ -1164,15 +1221,65 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                 </span>
               }
             />
-            {module.workingDate ? <HeaderStat label="Working date" value={formatDate(module.workingDate)} /> : null}
-            {module.plannedHours ? <HeaderStat label="Planned duration" value={formatEstimate(module.plannedHours)} /> : null}
-            {([
-              ["Manuscript", module.manuscriptUrl],
-              ["Data", module.dataUrl],
-              ["Other files", module.otherFilesUrl],
-            ] as const).map(([label, value]) => {
+            {module.workingDate ? (
+              <HeaderStat
+                label="Working date"
+                value={
+                  <span className="inline-flex items-center gap-1">
+                    {formatDate(module.workingDate)}
+                    <DetailEditButton
+                      label="working date"
+                      onClick={() => setEditingSection("references")}
+                    />
+                  </span>
+                }
+              />
+            ) : null}
+            {module.plannedHours ? (
+              <HeaderStat
+                label="Planned duration"
+                value={
+                  <span className="inline-flex items-center gap-1">
+                    {formatEstimate(module.plannedHours)}
+                    <DetailEditButton
+                      label="planned duration"
+                      onClick={() => setEditingSection("references")}
+                    />
+                  </span>
+                }
+              />
+            ) : null}
+            {(
+              [
+                ["Manuscript", module.manuscriptUrl],
+                ["Data", module.dataUrl],
+                ["Other files", module.otherFilesUrl],
+              ] as const
+            ).map(([label, value]) => {
               const href = safePaperUrl(value);
-              return href ? <HeaderStat key={label} label={label} value={<a href={href} aria-label={`Open ${label.toLowerCase()}`} target="_blank" rel="noopener noreferrer" className="hover:underline">Open link</a>} /> : null;
+              return href ? (
+                <HeaderStat
+                  key={label}
+                  label={label}
+                  value={
+                    <span className="inline-flex items-center gap-1">
+                      <a
+                        href={href}
+                        aria-label={`Open ${label.toLowerCase()}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        Open link
+                      </a>
+                      <DetailEditButton
+                        label={`${label.toLowerCase()} link`}
+                        onClick={() => setEditingSection("references")}
+                      />
+                    </span>
+                  }
+                />
+              ) : null;
             })}
             <Dialog
               open={isDatePickerOpen}
@@ -1339,6 +1446,28 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           </div>
         ) : null}
       </PageHeading>
+      {editingSection ? (
+        <Suspense
+          fallback={
+            <p role="status" className="text-sm text-muted-foreground">
+              Loading editor…
+            </p>
+          }
+        >
+          <PaperSectionEditor
+            key={`${module.id}:${editingSection}`}
+            paper={module}
+            tenantId={tenantId}
+            section={editingSection}
+            onSave={async (input) => {
+              if (isHeaderSaving || updateModule.isPending)
+                throw new Error("Please wait for the current save to finish.");
+              return saveHeaderField(input);
+            }}
+            onClose={() => setEditingSection(null)}
+          />
+        </Suspense>
+      ) : null}
 
       {form ? (
         <Card>
@@ -1665,16 +1794,22 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle>Abstract</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              aria-expanded={isAbstractVisible}
-              aria-controls="module-abstract-content"
-              onClick={() => setIsAbstractVisible((visible) => !visible)}
-            >
-              {isAbstractVisible ? <ChevronUp /> : <ChevronDown />}
-              {isAbstractVisible ? "Hide abstract" : "Show abstract"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <DetailEditButton
+                label="abstract"
+                onClick={() => setEditingSection("abstract")}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                aria-expanded={isAbstractVisible}
+                aria-controls="module-abstract-content"
+                onClick={() => setIsAbstractVisible((visible) => !visible)}
+              >
+                {isAbstractVisible ? <ChevronUp /> : <ChevronDown />}
+                {isAbstractVisible ? "Hide abstract" : "Show abstract"}
+              </Button>
+            </div>
           </CardHeader>
           {isAbstractVisible ? (
             <CardContent id="module-abstract-content">
@@ -1694,20 +1829,26 @@ async function saveHeaderField(input: HeaderUpdateInput) {
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
             <CardTitle>Journals &amp; conferences</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              aria-expanded={isPublishingTargetsVisible}
-              aria-controls="module-publishing-targets-content"
-              onClick={() =>
-                setIsPublishingTargetsVisible((visible) => !visible)
-              }
-            >
-              {isPublishingTargetsVisible ? <ChevronUp /> : <ChevronDown />}
-              {isPublishingTargetsVisible
-                ? "Hide journals & conferences"
-                : "Show journals & conferences"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <DetailEditButton
+                label="journals and conferences"
+                onClick={() => setEditingSection("publishing")}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                aria-expanded={isPublishingTargetsVisible}
+                aria-controls="module-publishing-targets-content"
+                onClick={() =>
+                  setIsPublishingTargetsVisible((visible) => !visible)
+                }
+              >
+                {isPublishingTargetsVisible ? <ChevronUp /> : <ChevronDown />}
+                {isPublishingTargetsVisible
+                  ? "Hide journals & conferences"
+                  : "Show journals & conferences"}
+              </Button>
+            </div>
           </CardHeader>
           {isPublishingTargetsVisible ? (
             <CardContent
