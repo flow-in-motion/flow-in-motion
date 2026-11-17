@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 import { Transform } from 'class-transformer';
 import {
   IsDateString,
@@ -8,17 +9,35 @@ import {
   IsString,
   Matches,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 
 export enum ReviewKind {
   Journal = 'journal',
   Examination = 'examination',
 }
+export const REVIEW_STATUSES = [
+  'To do',
+  'Underway',
+  'Waiting',
+  'Complete',
+] as const;
+export class ListReviewsDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ enum: ['active', 'completed', 'all'] })
+  @IsOptional()
+  @IsIn(['active', 'completed', 'all'])
+  scope?: 'active' | 'completed' | 'all';
+}
 export const DEGREE_TYPES = ['PhD', 'MRes', 'Masters', 'Other'] as const;
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
 class ReviewDatesDto {
+  @ApiPropertyOptional({ enum: REVIEW_STATUSES, default: 'To do' })
+  @ValidateIf((_o, value: unknown) => value !== undefined)
+  @IsIn(REVIEW_STATUSES)
+  status?: (typeof REVIEW_STATUSES)[number];
+
   @ApiPropertyOptional({ nullable: true, example: '2027-01-15' })
   @IsOptional()
   @IsDateString({ strict: true })

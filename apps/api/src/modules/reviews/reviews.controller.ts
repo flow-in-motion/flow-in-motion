@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { AuthenticatedPrincipal } from '../auth/jwt.strategy';
 import { TenantMemberGuard } from '../memberships/policies/tenant-member.guard';
@@ -23,6 +22,7 @@ import {
   CreateExaminationDto,
   CreateJournalReviewDto,
   ReviewKind,
+  ListReviewsDto,
   SaveReviewNoteDto,
   UpdateExaminationDto,
   UpdateJournalReviewDto,
@@ -50,7 +50,7 @@ export class ReviewsController {
     @Param('tenantId', ParseUUIDPipe) tenant: string,
     @Param('kind', new ParseEnumPipe(ReviewKind)) kind: ReviewKind,
     @Req() req: AuthenticatedRequest,
-    @Query() query: PaginationQueryDto,
+    @Query() query: ListReviewsDto,
   ) {
     return this.service.list(tenant, await this.caller(req), kind, query);
   }

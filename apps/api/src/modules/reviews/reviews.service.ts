@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import {
   assertAllFits,
   buildPaginationMeta,
@@ -13,12 +12,13 @@ import {
   CreateExaminationDto,
   CreateJournalReviewDto,
   ReviewKind,
+  ListReviewsDto,
   UpdateExaminationDto,
   UpdateJournalReviewDto,
 } from './dto/review.dto';
 import { ReviewsRepository, ReviewUpdate } from './reviews.repository';
 
-const commonFields = ['requestedOn', 'dueOn'] as const;
+const commonFields = ['requestedOn', 'dueOn', 'status'] as const;
 const examFields = [
   'studentName',
   'studentNumber',
@@ -47,7 +47,7 @@ export class ReviewsService {
     tenantId: string,
     userId: string,
     kind: ReviewKind,
-    query: PaginationQueryDto,
+    query: ListReviewsDto,
   ) {
     const requestedSize = query.pageSize ?? 20;
     const size = listPageSize(requestedSize);
@@ -58,6 +58,7 @@ export class ReviewsService {
       query.search,
       query.page ?? 1,
       size,
+      query.scope ?? 'all',
     );
     assertAllFits(requestedSize, result.totalItems);
     return {
@@ -132,6 +133,7 @@ export class ReviewsService {
     // The existing request transaction covers the parent and optional initial note.
     const row = await this.repository.create({
       ...values,
+      completedAt: values.status === 'Complete' ? new Date() : null,
       tenantId,
       ownerUserId: userId,
       kind,

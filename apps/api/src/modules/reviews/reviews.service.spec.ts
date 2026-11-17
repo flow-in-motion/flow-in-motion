@@ -48,6 +48,7 @@ describe('Private reviews service', () => {
     });
     expect(repo.create).toHaveBeenLastCalledWith({
       kind: 'examination',
+      completedAt: null,
       tenantId: 'workspace',
       ownerUserId: 'owner',
       studentName: 'Student',
@@ -59,6 +60,7 @@ describe('Private reviews service', () => {
     });
     expect(repo.create).toHaveBeenLastCalledWith({
       kind: 'journal',
+      completedAt: null,
       tenantId: 'workspace',
       ownerUserId: 'owner',
       manuscriptTitle: 'Manuscript',
@@ -70,6 +72,60 @@ describe('Private reviews service', () => {
       'Initial note',
     );
   });
+  it.each([ReviewKind.Journal, ReviewKind.Examination])(
+    'accepts task-style status changes for %s and derives completion on the server',
+    async (kind) => {
+      const before = Date.now();
+      await service.create('w', 'u', kind, {
+        studentName: 'Student',
+        manuscriptTitle: 'Paper',
+        status: 'Complete',
+      });
+      const saved = repo.create.mock.calls[0][0] as {
+        status: string;
+        completedAt: Date;
+      };
+      expect(saved.status).toBe('Complete');
+      expect(saved.completedAt.getTime()).toBeGreaterThanOrEqual(before);
+      expect(saved.completedAt.getTime()).toBeLessThanOrEqual(Date.now());
+      for (const status of [
+        'Waiting',
+        'Underway',
+        'To do',
+        'Complete',
+      ] as const) {
+        await service.update('w', 'u', kind, 'r', { status });
+        expect(repo.update).toHaveBeenLastCalledWith('w', 'u', kind, 'r', {
+          status,
+        });
+      }
+      await service.update('w', 'u', kind, 'r', { dueOn: null });
+      expect(repo.update).toHaveBeenLastCalledWith('w', 'u', kind, 'r', {
+        dueOn: null,
+      });
+    },
+  );
+  it.each(['active', 'completed'] as const)(
+    'passes %s scope to server pagination',
+    async (scope) => {
+      repo.page.mockResolvedValue({ data: [], totalItems: 0, page: 1 });
+      await service.list('w', 'u', ReviewKind.Journal, {
+        scope,
+        page: 5,
+        pageSize: 20,
+        search: 'Rare',
+      });
+      expect(repo.page).toHaveBeenCalledWith(
+        'w',
+        'u',
+        'journal',
+        'Rare',
+        5,
+        20,
+        scope,
+      );
+    },
+  );
   it('does not create empty notes and refuses blank required fields', async () => {
     await service.create('w', 'u', ReviewKind.Examination, {
       studentName: 'Student',
@@ -150,7 +206,15 @@ describe('Private reviews service', () => {
       pageSize: 20,
       search: 'title',
     });
-    expect(repo.page).toHaveBeenCalledWith('w', 'u', 'journal', 'title', 2, 20);
+    expect(repo.page).toHaveBeenCalledWith(
+      'w',
+      'u',
+      'journal',
+      'title',
+      2,
+      20,
+      'all',
+    );
     expect(result.meta).toEqual({
       page: 2,
       pageSize: 20,

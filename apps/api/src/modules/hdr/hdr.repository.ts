@@ -1,19 +1,41 @@
 import { Injectable } from '@nestjs/common';
 import {
+  hdrDiscussionNotes,
   hdrPapers,
   hdrPeople,
   hdrProjects,
   modules,
   projects,
 } from '@research-tracker/migrations';
-import { and, asc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { DrizzleService } from '../../db/drizzle.service';
 import { searchPattern } from '../../common/pagination';
 import { ListHdrPeopleDto } from './dto/hdr-person.dto';
 
 type PersonValues = typeof hdrPeople.$inferInsert;
 type PersonUpdate = Partial<
-  Pick<PersonValues, 'name' | 'type' | 'category' | 'email' | 'researchTopic'>
+  Pick<
+    PersonValues,
+    | 'name'
+    | 'type'
+    | 'category'
+    | 'email'
+    | 'researchTopic'
+    | 'supervisionType'
+    | 'startDate'
+    | 'submissionDueDate'
+    | 'conferences'
+  >
 >;
 
 @Injectable()
@@ -254,5 +276,57 @@ export class HdrRepository {
       .where(and(this.owned(tenantId, userId), eq(hdrPeople.id, personId)))
       .returning({ id: hdrPeople.id });
     return person;
+  }
+  async notes(tenantId: string, id: string) {
+    return this.drizzle.db
+      .select()
+      .from(hdrDiscussionNotes)
+      .where(
+        and(
+          eq(hdrDiscussionNotes.tenantId, tenantId),
+          eq(hdrDiscussionNotes.personId, id),
+        ),
+      )
+      .orderBy(desc(hdrDiscussionNotes.createdAt), desc(hdrDiscussionNotes.id));
+  }
+  async createNote(tenantId: string, personId: string, content: string) {
+    const [note] = await this.drizzle.db
+      .insert(hdrDiscussionNotes)
+      .values({ tenantId, personId, content })
+      .returning();
+    if (!note) throw new Error('Note could not be created');
+    return note;
+  }
+  async updateNote(
+    tenantId: string,
+    personId: string,
+    noteId: string,
+    content: string,
+  ) {
+    const [note] = await this.drizzle.db
+      .update(hdrDiscussionNotes)
+      .set({ content, updatedAt: new Date() })
+      .where(
+        and(
+          eq(hdrDiscussionNotes.tenantId, tenantId),
+          eq(hdrDiscussionNotes.personId, personId),
+          eq(hdrDiscussionNotes.id, noteId),
+        ),
+      )
+      .returning();
+    return note;
+  }
+  async removeNote(tenantId: string, personId: string, noteId: string) {
+    const [note] = await this.drizzle.db
+      .delete(hdrDiscussionNotes)
+      .where(
+        and(
+          eq(hdrDiscussionNotes.tenantId, tenantId),
+          eq(hdrDiscussionNotes.personId, personId),
+          eq(hdrDiscussionNotes.id, noteId),
+        ),
+      )
+      .returning({ id: hdrDiscussionNotes.id });
+    return note;
   }
 }

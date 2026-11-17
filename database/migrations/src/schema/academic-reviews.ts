@@ -25,6 +25,8 @@ export const academicReviews = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     kind: text("kind").notNull(),
+    status: text("status").notNull().default("To do"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     studentName: text("student_name"),
     studentNumber: text("student_number"),
     supervisorName1: text("supervisor_name_1"),
@@ -57,6 +59,14 @@ export const academicReviews = pgTable(
       t.kind,
       t.createdAt,
       t.id,
+    ),
+    check(
+      "academic_reviews_status_check",
+      sql`${t.status} IN ('To do', 'Underway', 'Waiting', 'Complete')`,
+    ),
+    check(
+      "academic_reviews_completion_check",
+      sql`(${t.status} = 'Complete' AND ${t.completedAt} IS NOT NULL) OR (${t.status} <> 'Complete' AND ${t.completedAt} IS NULL)`,
     ),
     check(
       "academic_reviews_kind_check",

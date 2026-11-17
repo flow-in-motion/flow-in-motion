@@ -638,6 +638,13 @@
       "when": 1794790695910,
       "tag": "0106_paper_planning_links_journal_publishers",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1794796821623,
+      "tag": "0107_hdr_supervision_review_status",
+      "breakpoints": true
     }
   ]
 }
