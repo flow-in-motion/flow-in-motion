@@ -3,6 +3,7 @@ import { validate } from 'class-validator';
 import {
   CreateHdrPersonDto,
   ListHdrPeopleDto,
+  SaveHdrNoteDto,
   UpdateHdrPersonDto,
 } from './hdr-person.dto';
 
@@ -97,5 +98,55 @@ describe('HDR input validation', () => {
       (await validate(plainToInstance(ListHdrPeopleDto, { pageSize: 1000 })))
         .length,
     ).toBeGreaterThan(0);
+  });
+
+  it('allows all optional supervision values but rejects bad dates, types and client timestamps', async () => {
+    const options = { whitelist: true, forbidNonWhitelisted: true };
+    for (const supervisionType of [
+      'Primary',
+      'Associate',
+      'Co-supervisor',
+      'Panel',
+      'Other',
+      null,
+    ])
+      expect(
+        await validate(
+          plainToInstance(UpdateHdrPersonDto, {
+            supervisionType,
+            startDate: null,
+            submissionDueDate: '2030-12-01',
+            conferences: null,
+          }),
+          options,
+        ),
+      ).toHaveLength(0);
+    for (const input of [
+      { supervisionType: 'Unknown' },
+      { startDate: '2027-02-30' },
+      { submissionDueDate: 'tomorrow' },
+      { createdAt: '2027-01-01' },
+      { initialDiscussionNote: 'use notes endpoint on edit' },
+    ])
+      expect(
+        (await validate(plainToInstance(UpdateHdrPersonDto, input), options))
+          .length,
+      ).toBeGreaterThan(0);
+  });
+
+  it('dates notes on the server and validates note content', async () => {
+    const options = { whitelist: true, forbidNonWhitelisted: true };
+    const dto = plainToInstance(SaveHdrNoteDto, { content: ' First\nSecond ' });
+    expect(await validate(dto, options)).toHaveLength(0);
+    expect(dto.content).toBe('First\nSecond');
+    for (const input of [
+      { content: ' ' },
+      { content: 'x'.repeat(20001) },
+      { content: 'Text', createdAt: '2027-01-01' },
+    ])
+      expect(
+        (await validate(plainToInstance(SaveHdrNoteDto, input), options))
+          .length,
+      ).toBeGreaterThan(0);
   });
 });

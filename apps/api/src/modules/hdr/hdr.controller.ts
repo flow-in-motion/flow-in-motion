@@ -20,6 +20,7 @@ import { UsersService } from '../users/users.service';
 import {
   CreateHdrPersonDto,
   ListHdrPeopleDto,
+  SaveHdrNoteDto,
   UpdateHdrPersonDto,
 } from './dto/hdr-person.dto';
 import { HdrService } from './hdr.service';
@@ -83,5 +84,60 @@ export class HdrController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.service.remove(tenantId, personId, await this.caller(req));
+  }
+  @Get(':personId/notes')
+  async notes(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('personId', ParseUUIDPipe) personId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.service.notes(tenantId, personId, await this.caller(req));
+  }
+
+  @Post(':personId/notes')
+  async createNote(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('personId', ParseUUIDPipe) personId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: SaveHdrNoteDto,
+  ) {
+    return this.service.saveNote(
+      tenantId,
+      personId,
+      await this.caller(req),
+      dto.content,
+    );
+  }
+
+  @Patch(':personId/notes/:noteId')
+  async updateNote(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('personId', ParseUUIDPipe) personId: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: SaveHdrNoteDto,
+  ) {
+    return this.service.saveNote(
+      tenantId,
+      personId,
+      await this.caller(req),
+      dto.content,
+      noteId,
+    );
+  }
+
+  @Delete(':personId/notes/:noteId')
+  async removeNote(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Param('personId', ParseUUIDPipe) personId: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.service.removeNote(
+      tenantId,
+      personId,
+      await this.caller(req),
+      noteId,
+    );
   }
 }

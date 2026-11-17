@@ -4,6 +4,9 @@ import {
   ArrayUnique,
   IsArray,
   IsEmail,
+  IsDateString,
+  IsNotEmpty,
+  Matches,
   IsIn,
   IsOptional,
   IsString,
@@ -12,12 +15,20 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
 
 export const HDR_TYPES = ['PhD', 'MRes', 'Visiting scholar'] as const;
+export const HDR_SUPERVISION_TYPES = [
+  'Primary',
+  'Associate',
+  'Co-supervisor',
+  'Panel',
+  'Other',
+] as const;
 export const HDR_CATEGORIES = ['Current', 'Potential'] as const;
 
-export class CreateHdrPersonDto {
+export class HdrPersonFieldsDto {
   @ApiProperty()
   @IsString()
   @Length(1, 200)
@@ -45,6 +56,29 @@ export class CreateHdrPersonDto {
   @MaxLength(10000)
   researchTopic?: string | null;
 
+  @ApiPropertyOptional({ nullable: true, enum: HDR_SUPERVISION_TYPES })
+  @IsOptional()
+  @IsIn(HDR_SUPERVISION_TYPES)
+  supervisionType?: (typeof HDR_SUPERVISION_TYPES)[number] | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  startDate?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  submissionDueDate?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10000)
+  conferences?: string | null;
+
   @ApiPropertyOptional({ type: [String] })
   @ValidateIf((_o, v: unknown) => v !== undefined)
   @IsArray()
@@ -62,8 +96,27 @@ export class CreateHdrPersonDto {
   paperIds?: string[];
 }
 
-// Undefined means unchanged; null is permitted only on the optional text fields.
-export class UpdateHdrPersonDto extends PartialType(CreateHdrPersonDto, {
+export class CreateHdrPersonDto extends HdrPersonFieldsDto {
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
+  initialDiscussionNote?: string | null;
+}
+
+export class SaveHdrNoteDto {
+  @ApiProperty()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20000)
+  content!: string;
+}
+
+// Undefined means unchanged; null clears an optional supervision or contact field.
+export class UpdateHdrPersonDto extends PartialType(HdrPersonFieldsDto, {
   skipNullProperties: false,
 }) {}
 

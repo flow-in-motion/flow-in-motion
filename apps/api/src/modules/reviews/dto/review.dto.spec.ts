@@ -4,6 +4,7 @@ import {
   CreateExaminationDto,
   CreateJournalReviewDto,
   SaveReviewNoteDto,
+  ListReviewsDto,
   UpdateExaminationDto,
   UpdateJournalReviewDto,
 } from './review.dto';
@@ -153,5 +154,33 @@ describe('Reviews and examination input validation', () => {
     });
     expect(await validate(note, options)).toHaveLength(0);
     expect(note.content).toBe('First line\nSecond line');
+  });
+  it('validates statuses and list scope without accepting a client completion timestamp', async () => {
+    for (const dtoType of [UpdateExaminationDto, UpdateJournalReviewDto]) {
+      for (const status of ['To do', 'Underway', 'Waiting', 'Complete'])
+        expect(
+          await validate(plainToInstance(dtoType, { status }), options),
+        ).toHaveLength(0);
+      for (const input of [
+        { status: null },
+        { status: 'Review' },
+        { completedAt: '2027-01-01T00:00:00Z' },
+      ])
+        expect(
+          (await validate(plainToInstance(dtoType, input), options)).length,
+        ).toBeGreaterThan(0);
+    }
+    for (const scope of ['active', 'completed', 'all'])
+      expect(
+        await validate(plainToInstance(ListReviewsDto, { scope }), options),
+      ).toHaveLength(0);
+    expect(
+      (
+        await validate(
+          plainToInstance(ListReviewsDto, { scope: 'unknown' }),
+          options,
+        )
+      ).length,
+    ).toBeGreaterThan(0);
   });
 });

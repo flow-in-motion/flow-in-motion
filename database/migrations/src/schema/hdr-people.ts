@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   check,
+  date,
   foreignKey,
   index,
   pgTable,
@@ -30,6 +31,10 @@ export const hdrPeople = pgTable(
     category: text("category").notNull().default("Current"),
     email: text("email"),
     researchTopic: text("research_topic"),
+    supervisionType: text("supervision_type"),
+    startDate: date("start_date"),
+    submissionDueDate: date("submission_due_date"),
+    conferences: text("conferences"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -44,6 +49,14 @@ export const hdrPeople = pgTable(
       t.name,
     ),
     unique("hdr_people_id_tenant_key").on(t.id, t.tenantId),
+    check(
+      "hdr_people_supervision_type_check",
+      sql`${t.supervisionType} IS NULL OR ${t.supervisionType} IN ('Primary', 'Associate', 'Co-supervisor', 'Panel', 'Other')`,
+    ),
+    check(
+      "hdr_people_dates_check",
+      sql`${t.startDate} IS NULL OR ${t.submissionDueDate} IS NULL OR ${t.submissionDueDate} >= ${t.startDate}`,
+    ),
     check(
       "hdr_people_name_check",
       sql`length(trim(${t.name})) BETWEEN 1 AND 200`,
@@ -94,5 +107,37 @@ export const hdrPapers = pgTable(
       foreignColumns: [hdrPeople.id, hdrPeople.tenantId],
     }).onDelete("cascade"),
     index("hdr_papers_paper_idx").on(t.paperId),
+  ],
+);
+
+export const hdrDiscussionNotes = pgTable(
+  "hdr_discussion_notes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantId: uuid("tenant_id").notNull(),
+    personId: uuid("person_id").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.personId, t.tenantId],
+      foreignColumns: [hdrPeople.id, hdrPeople.tenantId],
+    }).onDelete("cascade"),
+    index("hdr_discussion_notes_person_created_idx").on(
+      t.personId,
+      t.tenantId,
+      t.createdAt,
+      t.id,
+    ),
+    check(
+      "hdr_discussion_notes_content_check",
+      sql`length(trim(${t.content})) BETWEEN 1 AND 20000`,
+    ),
   ],
 );

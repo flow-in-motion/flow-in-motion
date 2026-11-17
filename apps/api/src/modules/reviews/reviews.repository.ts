@@ -3,14 +3,17 @@ import {
   academicReviewNotes,
   academicReviews,
 } from '@research-tracker/migrations';
-import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import { and, desc, eq, ilike, ne, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../db/drizzle.service';
 import { searchPattern } from '../../common/pagination';
 import { ReviewKind } from './dto/review.dto';
 
 type ReviewValues = typeof academicReviews.$inferInsert;
 export type ReviewUpdate = Partial<
-  Omit<ReviewValues, 'id' | 'tenantId' | 'ownerUserId' | 'kind' | 'createdAt'>
+  Omit<
+    ReviewValues,
+    'id' | 'tenantId' | 'ownerUserId' | 'kind' | 'createdAt' | 'completedAt'
+  >
 >;
 
 @Injectable()
@@ -32,10 +35,16 @@ export class ReviewsRepository {
     search: string | undefined,
     page: number,
     pageSize: number,
+    scope: 'active' | 'completed' | 'all' = 'all',
   ) {
     const pattern = search?.trim() ? searchPattern(search.trim()) : null;
     const where = and(
       this.owned(tenantId, userId, kind),
+      scope === 'completed'
+        ? eq(academicReviews.status, 'Complete')
+        : scope === 'active'
+          ? ne(academicReviews.status, 'Complete')
+          : undefined,
       pattern
         ? or(
             ilike(academicReviews.studentName, pattern),
@@ -65,6 +74,8 @@ export class ReviewsRepository {
       .select({
         id: academicReviews.id,
         kind: academicReviews.kind,
+        status: academicReviews.status,
+        completedAt: academicReviews.completedAt,
         studentName: academicReviews.studentName,
         universityName: academicReviews.universityName,
         thesisTitle: academicReviews.thesisTitle,
@@ -78,7 +89,14 @@ export class ReviewsRepository {
       })
       .from(academicReviews)
       .where(where)
-      .orderBy(desc(academicReviews.createdAt), desc(academicReviews.id))
+      .orderBy(
+        desc(
+          scope === 'completed'
+            ? academicReviews.completedAt
+            : academicReviews.createdAt,
+        ),
+        desc(academicReviews.id),
+      )
       .offset((safePage - 1) * pageSize)
       .limit(pageSize);
     return { data, totalItems, page: safePage };
@@ -115,7 +133,19 @@ export class ReviewsRepository {
   ) {
     const [row] = await this.drizzle.db
       .update(academicReviews)
-      .set({ ...values, updatedAt: new Date() })
+      .set({
+        ...values,
+        updatedAt: new Date(),
+        // Derived atomically from the saved status; repeated Complete preserves its date.
+        ...(values.status === undefined
+          ? {}
+          : {
+              completedAt:
+                values.status === 'Complete'
+                  ? sql`coalesce(${academicReviews.completedAt}, now())`
+                  : null,
+            }),
+      })
       .where(
         and(this.owned(tenantId, userId, kind), eq(academicReviews.id, id)),
       )

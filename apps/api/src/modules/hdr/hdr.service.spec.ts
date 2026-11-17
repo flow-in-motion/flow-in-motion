@@ -16,7 +16,11 @@ describe('HDR records', () => {
     | 'validPapers'
     | 'create'
     | 'update'
-    | 'remove',
+    | 'remove'
+    | 'notes'
+    | 'createNote'
+    | 'updateNote'
+    | 'removeNote',
     jest.Mock
   >;
   beforeEach(() => {
@@ -28,6 +32,10 @@ describe('HDR records', () => {
       validPapers: jest.fn().mockResolvedValue([]),
       create: jest.fn().mockResolvedValue({ id: 'person' }),
       update: jest.fn().mockResolvedValue({ id: 'person' }),
+      notes: jest.fn().mockResolvedValue([]),
+      createNote: jest.fn().mockResolvedValue({ id: 'note' }),
+      updateNote: jest.fn().mockResolvedValue({ id: 'note' }),
+      removeNote: jest.fn().mockResolvedValue({ id: 'note' }),
       remove: jest.fn().mockResolvedValue({ id: 'person' }),
     };
     service = new HdrService(repo as unknown as HdrRepository);
@@ -45,10 +53,104 @@ describe('HDR records', () => {
         category: 'Current',
         email: null,
         researchTopic: null,
+        supervisionType: null,
+        startDate: null,
+        submissionDueDate: null,
+        conferences: null,
       },
       [],
       [],
     );
+  });
+  it('saves optional supervision fields and an initial discussion note without touching work', async () => {
+    await service.create('w', 'u', {
+      name: 'Student',
+      supervisionType: 'Associate',
+      startDate: '2027-01-01',
+      submissionDueDate: '2030-01-01',
+      conferences: ' Conference ',
+      initialDiscussionNote: ' First discussion\nSecond line ',
+    });
+    expect(repo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supervisionType: 'Associate',
+        startDate: '2027-01-01',
+        submissionDueDate: '2030-01-01',
+        conferences: 'Conference',
+      }),
+      [],
+      [],
+    );
+    expect(repo.createNote).toHaveBeenCalledWith(
+      'w',
+      'person',
+      'First discussion\nSecond line',
+    );
+  });
+  it('validates merged supervision dates and supports clearing optional values', async () => {
+    repo.findOwned.mockResolvedValue({
+      id: 'person',
+      startDate: '2027-01-01',
+      submissionDueDate: '2030-01-01',
+    });
+    await expect(
+      service.update('w', 'person', 'u', { startDate: '2031-01-01' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repo.update).not.toHaveBeenCalled();
+    await service.update('w', 'person', 'u', {
+      startDate: null,
+      supervisionType: null,
+      conferences: null,
+    });
+    expect(repo.update).toHaveBeenCalledWith(
+      'w',
+      'person',
+      'u',
+      expect.objectContaining({
+        startDate: null,
+        supervisionType: null,
+        conferences: null,
+      }),
+      undefined,
+      undefined,
+    );
+  });
+  it('checks ownership before every discussion-note operation', async () => {
+    repo.findOwned.mockResolvedValue(undefined);
+    for (const action of [
+      () => service.notes('w', 'person', 'other'),
+      () => service.saveNote('w', 'person', 'other', 'Text'),
+      () => service.saveNote('w', 'person', 'other', 'Text', 'note'),
+      () => service.removeNote('w', 'person', 'other', 'note'),
+    ])
+      await expect(action()).rejects.toBeInstanceOf(NotFoundException);
+    for (const method of [
+      'notes',
+      'createNote',
+      'updateNote',
+      'removeNote',
+    ] as const)
+      expect(repo[method]).not.toHaveBeenCalled();
+  });
+  it('keeps notes scoped to their student and refuses blank or missing notes', async () => {
+    await service.saveNote('w', 'person', 'u', ' Revised note ', 'note');
+    expect(repo.updateNote).toHaveBeenCalledWith(
+      'w',
+      'person',
+      'note',
+      'Revised note',
+    );
+    await expect(
+      service.saveNote('w', 'person', 'u', ' '),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    repo.updateNote.mockResolvedValue(undefined);
+    await expect(
+      service.saveNote('w', 'person', 'u', 'Text', 'foreign-note'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    repo.removeNote.mockResolvedValue(undefined);
+    await expect(
+      service.removeNote('w', 'person', 'u', 'foreign-note'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
   it('rejects blank names', async () => {
     await expect(
