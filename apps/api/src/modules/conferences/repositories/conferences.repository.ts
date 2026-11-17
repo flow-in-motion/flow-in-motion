@@ -1000,6 +1000,7 @@ export class ConferencesRepository {
     return this.drizzle.db
       .select({
         id: conferenceModules.id,
+        ownerUserId: conferences.ownerUserId,
         conferenceId: conferences.id,
         conferenceName: conferences.name,
         acronym: conferences.acronym,

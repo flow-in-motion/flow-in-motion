@@ -43,6 +43,18 @@ export class HdrController {
     return (await this.users.findByExternalAuthId(req.user.sub)).id;
   }
 
+  @Get('counts')
+  @ApiOperation({
+    summary:
+      'Count the caller’s private HDR records without loading student details',
+  })
+  async counts(
+    @Param('tenantId', ParseUUIDPipe) tenantId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.service.counts(tenantId, await this.caller(req));
+  }
+
   @Get()
   @ApiOperation({ summary: 'List the caller’s private HDR records and counts' })
   async list(

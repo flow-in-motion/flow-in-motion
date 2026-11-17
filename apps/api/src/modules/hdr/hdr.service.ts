@@ -20,6 +20,10 @@ import { HdrRepository } from './hdr.repository';
 export class HdrService {
   constructor(private readonly repository: HdrRepository) {}
 
+  counts(tenantId: string, userId: string) {
+    return this.repository.counts(tenantId, userId);
+  }
+
   async list(tenantId: string, userId: string, query: ListHdrPeopleDto) {
     const requestedSize = query.pageSize ?? 20;
     const pageSize = listPageSize(requestedSize);

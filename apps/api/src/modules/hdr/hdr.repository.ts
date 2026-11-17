@@ -72,6 +72,19 @@ export class HdrRepository {
     );
   }
 
+  async counts(tenantId: string, userId: string) {
+    const [counts] = await this.drizzle.db
+      .select({
+        currentStudents: sql<number>`count(*) FILTER (WHERE ${hdrPeople.type} <> 'Visiting scholar' AND ${hdrPeople.category} = 'Current')::int`,
+        potentialStudents: sql<number>`count(*) FILTER (WHERE ${hdrPeople.type} <> 'Visiting scholar' AND ${hdrPeople.category} = 'Potential')::int`,
+        visitingScholars: sql<number>`count(*) FILTER (WHERE ${hdrPeople.type} = 'Visiting scholar')::int`,
+      })
+      .from(hdrPeople)
+      .where(this.owned(tenantId, userId));
+    if (!counts) throw new Error('HDR counts could not be loaded');
+    return counts;
+  }
+
   async page(
     tenantId: string,
     userId: string,

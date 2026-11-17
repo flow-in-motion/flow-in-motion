@@ -482,8 +482,11 @@ export class ConferencesService {
 
     return {
       canLogPresentation: canManagePaper,
-      // The same conference records, seen as submissions (type and status).
-      submissions,
+      // Expose the existing management boundary without leaking owner ids.
+      submissions: submissions.map(({ ownerUserId, ...submission }) => ({
+        ...submission,
+        canManage: canManagePaper && ownerUserId === callerUserId,
+      })),
       data: presentations.map(({ ownerUserId, ...presentation }) => ({
         ...presentation,
         canManage: canManagePaper && ownerUserId === callerUserId,
