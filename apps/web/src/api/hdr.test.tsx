@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  useHdrCounts,
   useHdrPeople,
   useSaveHdrPerson,
   useHdrDiscussionNotes,
@@ -139,5 +140,25 @@ describe("HDR request isolation", () => {
         },
       ],
     ]);
+  });
+  it("fetches only aggregate counts, deduplicates the request and scopes caches to the account", async () => {
+    const { result, rerender } = renderHook(
+      () => [useHdrCounts("workspace"), useHdrCounts("workspace")],
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current[0].isSuccess).toBe(true));
+    expect(fixture.json).toHaveBeenCalledTimes(1);
+    expect(fixture.json).toHaveBeenCalledWith(
+      "/api/v1/tenant/workspace/hdr-people/counts",
+    );
+    fixture.json.mockImplementation(() => new Promise(() => {}));
+    fixture.userId = "owner-2";
+    rerender();
+    expect(result.current[0].data).toBeUndefined();
+    await waitFor(() => expect(fixture.json).toHaveBeenCalledTimes(2));
+  });
+  it("does not fetch HDR counts when hidden", () => {
+    renderHook(() => useHdrCounts("workspace", false), { wrapper });
+    expect(fixture.json).not.toHaveBeenCalled();
   });
 });

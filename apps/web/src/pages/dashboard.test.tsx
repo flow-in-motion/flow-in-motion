@@ -44,7 +44,18 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   ),
 }));
 
+vi.mock("@/api/hdr", () => ({
+  useHdrCounts: (...args: unknown[]) => {
+    queryState.hdrCounts(...args);
+    return {
+      data: { currentStudents: 31, potentialStudents: 7 },
+      isError: false,
+    };
+  },
+}));
+
 const queryState = vi.hoisted(() => ({
+  hdrCounts: vi.fn(),
   projectsPending: false,
   tasksPending: false,
   stagesPending: false,
@@ -475,5 +486,138 @@ describe("DashboardPage", () => {
       "pipeline",
       "conferences",
     ]);
+  });
+  it("shows all six KPI choices and persists hiding a KPI independently of widget order", async () => {
+    const view = render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Current Students")).toBeInTheDocument();
+    expect(screen.getByText("31")).toBeInTheDocument();
+    expect(screen.getByText("Potential Students")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Customise dashboard" }),
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Current Students" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Current Students" }),
+    ).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByText("Current Students")).not.toBeInTheDocument();
+    expect(screen.getByText("Potential Students")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          localStorage.getItem("research-in-motion.dashboard-layout.v1") ??
+            "{}",
+        ).hidden,
+      ).toContain("kpi:current-students"),
+    );
+    view.unmount();
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText("Current Students")).not.toBeInTheDocument();
+    expect(screen.getByText("Potential Students")).toBeInTheDocument();
+  });
+  it("can hide all KPIs and avoids loading student counts when both student KPIs are hidden", () => {
+    localStorage.setItem(
+      "research-in-motion.dashboard-layout.v1",
+      JSON.stringify({
+        order: ["pipeline", "conferences"],
+        hidden: [
+          "kpi:active-projects",
+          "kpi:active-papers",
+          "kpi:open-tasks",
+          "kpi:review-stage",
+          "kpi:current-students",
+          "kpi:potential-students",
+        ],
+      }),
+    );
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    for (const label of [
+      "Active Projects",
+      "Active Papers",
+      "Open Tasks",
+      "In Review Stage",
+      "Current Students",
+      "Potential Students",
+    ])
+      expect(
+        screen.queryByText(label, { exact: true }),
+      ).not.toBeInTheDocument();
+    expect(queryState.hdrCounts).toHaveBeenLastCalledWith("workspace-1", false);
+  });
+  it("restores KPI defaults through the existing Reset layout button", () => {
+    render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Customise dashboard" }),
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Active Papers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset layout" }));
+    expect(
+      screen.getByRole("checkbox", { name: "Active Papers" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Current Students" }),
+    ).toBeChecked();
+  });
+  it("restores KPI choices saved on the server and saves later changes through existing preferences", async () => {
+    const save = vi.fn();
+    render(
+      <MemoryRouter>
+        <PreferencesContext.Provider
+          value={{
+            workspaceId: "workspace-1",
+            workspacePreferences: {
+              dashboardLayout: {
+                order: ["pipeline", "conferences"],
+                hidden: [
+                  "kpi:current-students",
+                  "stalled-papers",
+                  "task-health",
+                  "priority-workload",
+                  "tasks",
+                ],
+              },
+            },
+            updateDashboardLayout: save,
+            updateTableColumns: vi.fn(),
+            updatePipelineHiddenStages: vi.fn(),
+          }}
+        >
+          <DashboardPage />
+        </PreferencesContext.Provider>
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Current Students")).not.toBeInTheDocument(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Customise dashboard" }),
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "Current Students" }),
+    ).not.toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Current Students" }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hidden: expect.not.arrayContaining(["kpi:current-students"]),
+        }),
+      ),
+    );
   });
 });

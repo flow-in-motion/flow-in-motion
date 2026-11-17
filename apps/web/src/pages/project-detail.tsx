@@ -1,3 +1,4 @@
+import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
 import { paperReferenceInput } from "@/lib/paper-references";
 import { WorkTimeCard } from "@/components/time-tracking/work-time-card";
 import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
@@ -185,6 +186,7 @@ function FormField({
 
 function ProjectModulesDetails({
   modules,
+  currentUserId,
   visible,
   onToggleVisible,
   onAddModule,
@@ -192,6 +194,7 @@ function ProjectModulesDetails({
   onUnlinkModule,
 }: {
   modules: ApiModule[];
+  currentUserId?: string;
   visible: boolean;
   onToggleVisible: () => void;
   onAddModule: () => void;
@@ -249,6 +252,26 @@ function ProjectModulesDetails({
                       </div>
                       <StatusBadge status={module.status ?? "—"} />
                     </div>
+                    <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <div className="flex gap-1">
+                        <dt>Stage:</dt>
+                        <dd>{module.pipelineStage || "Unassigned"}</dd>
+                      </div>
+                      <div className="flex gap-1">
+                        <dt>Currently With:</dt>
+                        <dd>
+                          {paperCurrentlyWithLabel(module, currentUserId)}
+                        </dd>
+                      </div>
+                      <div className="flex gap-1">
+                        <dt>Priority:</dt>
+                        <dd>{module.priority || "—"}</dd>
+                      </div>
+                      <div className="flex gap-1">
+                        <dt>Due:</dt>
+                        <dd>{formatDate(module.dueDate)}</dd>
+                      </div>
+                    </dl>
                   </Link>
                   <button
                     type="button"
@@ -1124,6 +1147,7 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
       ) : (
         <div className="flex flex-col gap-6">
           <ProjectModulesDetails
+            currentUserId={me.data?.id}
             modules={modules}
             visible={isPapersVisible}
             onToggleVisible={() => setIsPapersVisible((visible) => !visible)}

@@ -68,6 +68,7 @@ import { CurrentlyWithFilter } from "@/components/modules/currently-with-filter"
 import { PaperTimerButton } from "@/components/time-tracking/paper-timer-button";
 
 const PIPELINE_COLUMNS = [
+  { id: "timer", label: "Timer" },
   { id: "paper", label: "Paper" },
   { id: "pipeline", label: "Stage Bar" },
   { id: "completion", label: "Progress" },
@@ -420,6 +421,14 @@ const selectedCurrentlyWithInvitationIds = new Set(
       <Table className={enlarged ? "table-fixed" : undefined}>
         <TableHeader>
           <TableRow>
+            {columns.isColumnVisible("timer") ? (
+              <TableHead
+                className="w-16"
+                style={enlarged ? { width: "4rem" } : undefined}
+              >
+                Timer
+              </TableHead>
+            ) : null}
             {columns.isColumnVisible("paper") ? (
               <TableHead style={enlarged ? { width: "16%" } : undefined}>
                 Paper
@@ -473,24 +482,25 @@ const selectedCurrentlyWithInvitationIds = new Set(
           ) : (
             filtered.map((row) => (
               <TableRow key={row.id}>
+                {columns.isColumnVisible("timer") ? (
+                  <TableCell>
+                    <PaperTimerButton moduleId={row.id} paperTitle={row.name} />
+                  </TableCell>
+                ) : null}
                 {columns.isColumnVisible("paper") ? (
                   <TableCell
-                      className="max-w-[220px] font-medium"
-                      title={row.name}
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Link
-                          to={`/modules/${row.id}`}
-                          className="min-w-0 truncate text-primary hover:underline"
-                        >
-                          {row.name}
-                        </Link>
-                        <PaperTimerButton
-                          moduleId={row.id}
-                          paperTitle={row.name}
-                        />
-                      </div>
-                    </TableCell>
+                    className="max-w-[220px] font-medium"
+                    title={row.name}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Link
+                        to={`/modules/${row.id}`}
+                        className="min-w-0 truncate text-primary hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                    </div>
+                  </TableCell>
                 ) : null}
 
                 {columns.isColumnVisible("pipeline") ? (

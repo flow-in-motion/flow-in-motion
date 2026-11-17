@@ -2316,6 +2316,7 @@ export interface ApiConferencePresentation {
 /** A paper's submission to a conference, as listed on the paper page. */
 export interface ApiPaperConferenceSubmission {
   id: string;
+  canManage?: boolean;
   conferenceId: string;
   conferenceName: string;
   acronym: string | null;

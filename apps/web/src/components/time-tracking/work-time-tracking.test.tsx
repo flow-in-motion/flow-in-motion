@@ -320,6 +320,10 @@ describe("Project, Note and HDR timers", () => {
     const project = screen.getByRole("button", {
       name: "Start timer for Project",
     });
+    for (const control of [task, paper, project]) {
+      expect(control.querySelector("svg.lucide-timer")).not.toBeNull();
+      expect(control.querySelector("svg.lucide-play")).toBeNull();
+    }
     expect(project.className).toBe(task.className);
     expect(project.className).toBe(paper.className);
     expect(project).toHaveTextContent("Start timer");

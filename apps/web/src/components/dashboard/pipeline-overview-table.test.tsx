@@ -658,4 +658,20 @@ describe("PipelineOverviewTable popup", () => {
       screen.queryByRole("link", { name: "Other holder paper" }),
     ).not.toBeInTheDocument();
   });
+  it("places the timer in its own first column in both the dashboard and enlarged pipeline", () => {
+    render(
+      <MemoryRouter>
+        <PipelineOverviewTable />
+      </MemoryRouter>,
+    );
+    const tables = screen.getAllByRole("table");
+    expect(within(tables[0]).getAllByRole("columnheader")[0]).toHaveTextContent(
+      "Timer",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Enlarge pipeline" }));
+    const enlarged = within(screen.getByRole("dialog")).getByRole("table");
+    expect(within(enlarged).getAllByRole("columnheader")[0]).toHaveTextContent(
+      "Timer",
+    );
+  });
 });

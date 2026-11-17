@@ -1808,4 +1808,39 @@ describe("ModuleDetailPage", () => {
       screen.getByRole("button", { name: "Unpin Meeting notes" }),
     ).toHaveAttribute("aria-pressed", "true");
   });
+  it("offers direct note and task edit links without opening Edit Paper", () => {
+    renderPage();
+    expect(
+      screen.getByRole("link", { name: `Edit ${fixtures.notes[0].title}` }),
+    ).toHaveAttribute("href", `/daily-notes/${fixtures.notes[0].id}?edit=true`);
+    expect(
+      screen.getByRole("link", { name: `Edit ${fixtures.tasks[0].title}` }),
+    ).toHaveAttribute("href", `/tasks/${fixtures.tasks[0].id}?edit=true`);
+    expect(
+      screen.queryByLabelText("edit-module-title"),
+    ).not.toBeInTheDocument();
+  });
+  it("edits an abstract in its own dialog and sends no unrelated paper fields", async () => {
+    fixtures.module.abstract = "Original abstract";
+    renderPage();
+    expect(screen.queryByText("Original abstract")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Edit abstract" }));
+    const field = await screen.findByLabelText("Abstract");
+    expect(field).toHaveValue("Original abstract");
+    fireEvent.change(field, { target: { value: "Revised abstract" } });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Save changes",
+      }),
+    );
+    await waitFor(() =>
+      expect(fixtures.updateModule).toHaveBeenCalledWith({
+        moduleId: "module-1",
+        input: { abstract: "Revised abstract" },
+      }),
+    );
+    expect(
+      screen.getByRole("button", { name: /Edit Paper/ }),
+    ).toBeInTheDocument();
+  });
 });

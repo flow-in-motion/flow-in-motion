@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pause, Play } from "lucide-react";
+import { Pause, Timer } from "lucide-react";
 
 import {
   useCurrentTimer,
@@ -63,7 +63,7 @@ export function PaperTimerButton({
     }
   }
 
-  const Icon = state === "running" ? Pause : Play;
+  const Icon = state === "running" ? Pause : Timer;
 
   if (variant === "button") {
     return (

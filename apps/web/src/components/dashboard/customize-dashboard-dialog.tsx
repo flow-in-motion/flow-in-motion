@@ -23,6 +23,9 @@ export interface DashboardWidgetOption<T extends string> {
 interface CustomizeDashboardDialogProps<T extends string> {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  kpis?: readonly { id: string; label: string }[];
+  visibleKpis?: ReadonlySet<string>;
+  onToggleKpi?: (id: string) => void;
   widgets: readonly DashboardWidgetOption<T>[];
   visibleWidgets: ReadonlySet<T>;
   onToggle: (widget: T) => void;
@@ -36,6 +39,9 @@ export function CustomizeDashboardDialog<T extends string>({
   open,
   onOpenChange,
   widgets,
+  kpis,
+  visibleKpis,
+  onToggleKpi,
   visibleWidgets,
   onToggle,
   onMove,
@@ -85,6 +91,29 @@ export function CustomizeDashboardDialog<T extends string>({
         </DialogHeader>
 
         <div className="max-h-[calc(100dvh-15rem)] space-y-2 overflow-y-auto pr-1">
+          {kpis && visibleKpis && onToggleKpi ? (
+            <fieldset className="mb-4 space-y-2">
+              <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Dashboard KPIs
+              </legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {kpis.map((kpi) => (
+                  <label
+                    key={kpi.id}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-muted/20 p-3 text-sm font-medium"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleKpis.has(kpi.id)}
+                      onChange={() => onToggleKpi(kpi.id)}
+                      className="h-4 w-4 shrink-0 accent-primary"
+                    />
+                    {kpi.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
           <div className="mb-1 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Dashboard widgets

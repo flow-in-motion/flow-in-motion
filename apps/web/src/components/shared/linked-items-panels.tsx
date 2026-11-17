@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Unlink, Pin } from "lucide-react";
+import { ChevronDown, ChevronUp, Unlink, Pin, Pencil } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -176,6 +176,7 @@ export function LinkedTasksPanel<T extends PanelTask>({
   unlinkLabel = (task) => `Unlink ${task.title} from this ${entityLabel}`,
   summary,
   renderTaskAction,
+  editHref,
 }: {
   tasks: T[];
   /** e.g. "paper", "project" — used in empty-state text. */
@@ -191,6 +192,7 @@ export function LinkedTasksPanel<T extends PanelTask>({
   summary?: ReactNode;
   /** An extra button on each task row, e.g. its timer. */
   renderTaskAction?: (task: T) => ReactNode;
+  editHref?: (task: T) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -234,6 +236,16 @@ export function LinkedTasksPanel<T extends PanelTask>({
           </span>
         </Link>
         {withAction ? renderTaskAction?.(task) : null}
+        {editHref ? (
+          <Link
+            to={editHref(task)}
+            aria-label={`Edit ${task.title}`}
+            title="Edit task"
+            className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Link>
+        ) : null}
         {onUnlink ? (
           <UnlinkButton
             label={unlinkLabel(task)}
@@ -327,6 +339,7 @@ export function LinkedNotesPanel<T extends PanelNote>({
   onTogglePin,
   pinDisabled = false,
   onUnlink,
+  editHref,
   unlinkLabel = (note) => `Unlink ${note.title} from this ${entityLabel}`,
 }: {
   notes: T[];
@@ -339,6 +352,7 @@ export function LinkedNotesPanel<T extends PanelNote>({
   onTogglePin?: (note: T) => void;
   pinDisabled?: boolean;
   onUnlink?: (note: T) => void;
+  editHref?: (note: T) => string;
   unlinkLabel?: (note: T) => string;
   getPinState?: (note: T) => boolean;
 }) {
@@ -386,6 +400,16 @@ export function LinkedNotesPanel<T extends PanelNote>({
                       </p>
                     ) : null}
                   </Link>
+                  {editHref ? (
+                    <Link
+                      to={editHref(note)}
+                      aria-label={`Edit ${note.title}`}
+                      title="Edit note"
+                      className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Link>
+                  ) : null}
                   {onTogglePin ? (
                     <button
                       type="button"
