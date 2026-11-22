@@ -387,6 +387,38 @@ describe("HDR basics", () => {
     );
     expect(fixture.save).not.toHaveBeenCalled();
   });
+  it("formats Date added as day/month/year in the list and record dialog", () => {
+    showPage();
+    expect(document.querySelector('time[datetime="2026-11-16T10:00:00Z"]')).toHaveTextContent("16/11/2026");
+    fireEvent.click(screen.getByRole("button", { name: "Edit Sample Student" }));
+    expect(within(screen.getByRole("dialog")).getByText("16/11/2026")).toBeInTheDocument();
+  });
+  it("previews notes in three lines, searches their complete text and edits the original content", () => {
+    const content = "First line\nSecond line\nThird line\nHidden fourth line with unique meeting detail";
+    fixture.notes.mockReturnValue({ data: [
+      { id: "long", content, createdAt: "2026-11-16T11:00:00Z" },
+      { id: "other", content: "Unrelated earlier discussion", createdAt: "2026-11-15T11:00:00Z" },
+    ], isPending: false, isError: false });
+    showPage();
+    fireEvent.click(screen.getByRole("button", { name: "Edit Sample Student" }));
+    const preview = document.getElementById("hdr-note-long")!;
+    expect(preview).toHaveClass("line-clamp-3");
+    fireEvent.change(screen.getByRole("textbox", { name: "Search discussion notes" }), { target: { value: "UNIQUE MEETING" } });
+    expect(screen.queryByText("Unrelated earlier discussion")).not.toBeInTheDocument();
+    expect(document.getElementById("hdr-note-long")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Read more" }));
+    expect(preview).not.toHaveClass("line-clamp-3");
+    fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(preview).toHaveClass("line-clamp-3");
+    fireEvent.click(screen.getByRole("button", { name: "Edit note from 2026-11-16T11:00:00Z" }));
+    expect(screen.getByLabelText("Edit note")).toHaveValue(content);
+    fireEvent.change(screen.getByRole("textbox", { name: "Search discussion notes" }), { target: { value: "absent phrase" } });
+    expect(screen.getByText("No matching discussion notes.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear discussion notes search" }));
+    expect(screen.getByText("Unrelated earlier discussion")).toBeInTheDocument();
+    expect(fixture.note).not.toHaveBeenCalled();
+    expect(fixture.save).not.toHaveBeenCalled();
+  });
   it("saves optional supervision details and an initial discussion without changing the paper picker", async () => {
     showPage();
     fireEvent.click(

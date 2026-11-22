@@ -200,7 +200,7 @@ describe("ConferenceSubmissionsTable", () => {
     hookMocks.pagination.totalPages = 1;
   });
   it.each([true, false])(
-    "keeps pending submission warnings separate from the event deadline: %s",
+    "does not mark expired event or submission deadlines overdue: %s",
     (pending) => {
       store.set([
         {
@@ -242,13 +242,10 @@ describe("ConferenceSubmissionsTable", () => {
         </MemoryRouter>,
       );
 
-      const eventLabel = screen.getByText(
-        pending ? "5 days overdue" : "Deadline passed",
-      );
-      expect(eventLabel.className.includes("text-destructive")).toBe(pending);
-      expect(screen.getByText("7 days overdue")).toHaveClass(
-        "text-destructive",
-      );
+      const labels = screen.getAllByText("Deadline passed");
+      expect(labels).toHaveLength(2);
+      for (const label of labels) expect(label).toHaveClass("text-muted-foreground");
+      expect(screen.queryByText(/days overdue/)).not.toBeInTheDocument();
       expect(screen.getByText("Pending workshop")).toBeInTheDocument();
     },
   );

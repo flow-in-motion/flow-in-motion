@@ -146,8 +146,19 @@ describe("ConferencesPage", () => {
     fixtures.deleteConference.mockResolvedValue({});
   });
 
+  it("shows days until the event even when its submission deadline has passed", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 22, 23, 45));
+    try {
+      fixtures.conferences = [{ ...fixtures.conferences[1], startDate: "2026-11-23" }];
+      render(<MemoryRouter><ConferencesPage /></MemoryRouter>);
+      expect(screen.getByText("1 day until event")).toBeInTheDocument();
+      expect(screen.getByText("Deadline passed")).toBeInTheDocument();
+      expect(screen.queryByText(/overdue/)).not.toBeInTheDocument();
+    } finally { vi.useRealTimers(); }
+  });
   it.each([true, false])(
-    "only warns overdue when submissions are pending: %s",
+    "shows expired submission dates without overdue warnings: %s",
     (pending) => {
       fixtures.conferences = [
         { ...fixtures.conferences[1], submissionDeadlinePending: pending },
@@ -159,12 +170,12 @@ describe("ConferencesPage", () => {
       );
 
       const label = screen.getByText(
-        pending ? "5 days overdue" : "Deadline passed",
+        "Deadline passed",
       );
       expect(label).toBeInTheDocument();
-      expect(label.className.includes("text-destructive")).toBe(pending);
+      expect(label.className.includes("text-destructive")).toBe(false);
       expect(
-        screen.queryByText(pending ? "Deadline passed" : "5 days overdue"),
+        screen.queryByText("5 days overdue"),
       ).not.toBeInTheDocument();
     },
   );

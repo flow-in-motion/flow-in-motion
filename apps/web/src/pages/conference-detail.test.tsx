@@ -147,8 +147,17 @@ describe("ConferenceDetailPage", () => {
     vi.restoreAllMocks();
   });
 
+  it("shows a start countdown without changing the saved event dates", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 22, 12));
+    try {
+      fixtures.conference = { ...conference, startDate: "2026-11-23" };
+      renderPage();
+      expect(screen.getByText("1 day until event")).toBeInTheDocument();
+    } finally { vi.useRealTimers(); }
+  });
   it.each([true, false])(
-    "only warns overdue when submissions are pending: %s",
+    "shows expired submission dates without overdue warnings: %s",
     (pending) => {
       fixtures.conference = {
         ...conference,
@@ -158,11 +167,11 @@ describe("ConferenceDetailPage", () => {
       renderPage();
 
       const label = screen.getByText(
-        pending ? "5 days overdue" : "Deadline passed",
+        "Deadline passed",
       );
-      expect(label.className.includes("text-destructive")).toBe(pending);
+      expect(label.className.includes("text-destructive")).toBe(false);
       expect(
-        screen.queryByText(pending ? "Deadline passed" : "5 days overdue"),
+        screen.queryByText("5 days overdue"),
       ).not.toBeInTheDocument();
       expect(screen.getByText("Submissions (3)")).toBeInTheDocument();
     },

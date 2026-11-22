@@ -84,7 +84,7 @@ export function NavTree({ onNavigate }: NavTreeProps) {
   }
 
   return (
-    <nav className="flex flex-col gap-6">
+    <nav className="flex flex-col gap-6 lg:gap-3">
       {navGroups.map((group) => (
         <div key={group.label} className="flex flex-col gap-1">
           {group.label ? (
@@ -110,7 +110,7 @@ export function NavTree({ onNavigate }: NavTreeProps) {
             )
           ) : null}
           {!group.collapsible || expandedGroups.has(group.label) ? (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 lg:gap-0.5">
             {group.items.map((item) => {
               const hasChildren = Boolean(item.children?.length);
               const isOpen = expanded.has(item.to);
@@ -124,7 +124,7 @@ export function NavTree({ onNavigate }: NavTreeProps) {
                       onClick={onNavigate}
                       className={({ isActive }) =>
                         cn(
-                          "group relative flex min-h-10 flex-1 items-center gap-2.5 rounded-lg border border-transparent px-2 py-1.5 text-[0.8125rem] font-medium text-muted-foreground transition-all before:absolute before:bottom-2 before:left-0 before:top-2 before:w-[3px] before:rounded-r-full before:bg-transparent hover:border-primary/10 hover:bg-white/55 hover:text-foreground dark:hover:bg-white/[0.06]",
+                          "group relative flex min-h-10 flex-1 items-center gap-2.5 rounded-lg border border-transparent px-2 py-1.5 text-[0.8125rem] font-medium text-muted-foreground transition-all before:absolute before:bottom-2 before:left-0 before:top-2 before:w-[3px] before:rounded-r-full before:bg-transparent hover:border-primary/10 hover:bg-white/55 hover:text-foreground dark:hover:bg-white/[0.06] lg:min-h-9 lg:py-1",
                           isActive && "border-primary/15 bg-white/80 font-semibold text-primary shadow-[var(--shadow-sm)] before:bg-primary hover:bg-white/80 hover:text-primary dark:bg-white/[0.08] dark:hover:bg-white/[0.08] [&_.nav-icon]:border-primary [&_.nav-icon]:bg-primary [&_.nav-icon]:text-primary-foreground",
                         )
                       }

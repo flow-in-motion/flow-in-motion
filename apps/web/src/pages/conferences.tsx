@@ -58,6 +58,7 @@ import {
 import { cn } from "@/lib/utils";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { ConferenceNotesPreview } from "@/components/dashboard/conference-notes-preview";
+import { EventCountdown } from "@/components/conferences/event-countdown";
 
 const CONFERENCE_COLUMNS = [
   { id: "conference", label: "Conference", width: "minmax(260px,2fr)" },
@@ -571,6 +572,7 @@ export default function ConferencesPage() {
                           conference.startDate,
                           conference.endDate,
                         )}
+                        <EventCountdown startDate={conference.startDate} />
                       </span>
                     ) : null}
                     {columns.isColumnVisible("type") ? (
