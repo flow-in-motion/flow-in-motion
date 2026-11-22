@@ -63,6 +63,7 @@ import { cn } from "@/lib/utils";
 import { paperDisplayTitle } from "@/lib/paper-title";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { ConferenceNotesPreview } from "@/components/dashboard/conference-notes-preview";
+import { EventCountdown } from "@/components/conferences/event-countdown";
 
 const CONFERENCE_COLUMNS = [
   { id: "conference", label: "Event" },
@@ -489,6 +490,7 @@ export function ConferenceSubmissionsTable({
                     {columns.isColumnVisible("conferenceDates") ? (
                       <TableCell className="text-muted-foreground">
                         {formatConferenceDates(row.startDate, row.endDate)}
+                        <EventCountdown startDate={row.startDate} />
                       </TableCell>
                     ) : null}
                     {columns.isColumnVisible("type") ? (

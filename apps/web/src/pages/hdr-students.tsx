@@ -218,7 +218,7 @@ function HdrList({ tenantId, userId }: { tenantId: string; userId: string }) {
                     <TableCell className="whitespace-nowrap">
                       {person.createdAt ? (
                         <time dateTime={person.createdAt}>
-                          {new Date(person.createdAt).toLocaleDateString()}
+                          {new Date(person.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}
                         </time>
                       ) : (
                         "—"

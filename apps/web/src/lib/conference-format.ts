@@ -109,13 +109,11 @@ export function conferenceUrgencyLabel(
   pending = true,
 ) {
   if (daysRemaining === null) return "No deadline";
+  if (daysRemaining < 0) return "Deadline passed";
   if (!pending) {
-    if (daysRemaining < 0) return "Deadline passed";
     if (daysRemaining === 0) return "Deadline today";
     return `Deadline in ${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`;
   }
-  if (daysRemaining < 0)
-    return `${Math.abs(daysRemaining)} day${daysRemaining === -1 ? "" : "s"} overdue`;
   if (daysRemaining === 0) return "Due today";
   return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`;
 }
@@ -124,10 +122,27 @@ export function conferenceUrgencyClass(
   daysRemaining: number | null,
   pending = true,
 ) {
-  if (daysRemaining === null || !pending) return "text-muted-foreground";
+  if (daysRemaining === null || daysRemaining < 0 || !pending) return "text-muted-foreground";
   if (daysRemaining <= 3) return "font-semibold text-destructive";
   if (daysRemaining <= 7) return "font-medium text-orange-600 dark:text-orange-400";
   return "text-muted-foreground";
+}
+
+/** Calendar days until the start, independent of daylight-saving day lengths. */
+export function conferenceEventCountdown(
+  startDate: string | null | undefined,
+  today = new Date(),
+) {
+  if (!startDate) return null;
+  const [year, month, day] = startDate.split("-").map(Number);
+  const start = new Date(year, month - 1, day);
+  if (!Number.isFinite(start.getTime()) || start.getFullYear() !== year ||
+      start.getMonth() !== month - 1 || start.getDate() !== day) return null;
+  const days = Math.round((Date.UTC(year, month - 1, day) -
+    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86_400_000);
+  if (days < 0) return null;
+  if (days === 0) return "Starts today";
+  return `${days} day${days === 1 ? "" : "s"} until event`;
 }
 
 export function matchesConferenceDeadline(

@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { conferenceUrgencyLabel, eventWording } from "@/lib/conference-format";
+import { EventCountdown } from "@/components/conferences/event-countdown";
 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
@@ -162,8 +163,7 @@ function conferenceInput(conference: ApiConference): ConferenceSubmissionInput {
 
 function deadlineLabel(daysRemaining: number | null, pending = true) {
   if (daysRemaining === null) return "No deadline added.";
-  if (!pending) return conferenceUrgencyLabel(daysRemaining, false);
-  if (daysRemaining < 0) return `${Math.abs(daysRemaining)} day${daysRemaining === -1 ? "" : "s"} overdue`;
+  if (!pending || daysRemaining < 0) return conferenceUrgencyLabel(daysRemaining, pending);
   if (daysRemaining === 0) return "Due today";
   return `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} remaining`;
 }
@@ -311,18 +311,18 @@ export default function ConferenceDetailPage() {
             <DetailItem label="Intent"><span className="flex flex-wrap gap-1">{conference.intents.length > 0 ? conference.intents.map((intent) => <Badge key={intent} variant="secondary">{intent}</Badge>) : "—"}</span></DetailItem>
             {wording.hasEventDates ? (
               <>
-                <DetailItem label="Starts"><span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4 text-muted-foreground" />{formatDate(conference.startDate)}</span></DetailItem>
+                <DetailItem label="Starts"><span><span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4 text-muted-foreground" />{formatDate(conference.startDate)}</span><EventCountdown startDate={conference.startDate} /></span></DetailItem>
                 <DetailItem label="Ends">{formatDate(conference.endDate)}</DetailItem>
               </>
             ) : null}
           </CardContent>
         </Card>
 
-        <Card className={conference.submissionDeadlinePending !== false && conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "border-rose-300 dark:border-rose-900" : undefined}>
+        <Card className={conference.submissionDeadlinePending !== false && conference.daysRemaining !== null && conference.daysRemaining >= 0 && conference.daysRemaining <= 7 ? "border-rose-300 dark:border-rose-900" : undefined}>
           <CardHeader><CardTitle>Submission deadline</CardTitle></CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{formatDate(conference.submissionDue)}</p>
-            <p className={conference.submissionDeadlinePending !== false && conference.daysRemaining !== null && conference.daysRemaining <= 7 ? "mt-2 text-sm font-medium text-destructive" : "mt-2 text-sm text-muted-foreground"}>
+            <p className={conference.submissionDeadlinePending !== false && conference.daysRemaining !== null && conference.daysRemaining >= 0 && conference.daysRemaining <= 7 ? "mt-2 text-sm font-medium text-destructive" : "mt-2 text-sm text-muted-foreground"}>
               {deadlineLabel(conference.daysRemaining, conference.submissionDeadlinePending)}
             </p>
           </CardContent>

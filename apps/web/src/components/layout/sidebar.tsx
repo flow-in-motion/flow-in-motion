@@ -11,7 +11,7 @@ export function Sidebar() {
         <Wordmark />
         <DueRemindersBell />
       </div>
-      <div className="flex-1 overflow-y-auto px-3 py-5 [scrollbar-color:hsl(var(--nav-border))_transparent] [scrollbar-width:thin]">
+      <div className="flex-1 overflow-y-auto px-3 py-3 [scrollbar-color:hsl(var(--nav-border))_transparent] [scrollbar-width:thin]">
         <NavTree />
       </div>
       <div className="shrink-0 border-t bg-white/25 px-3 py-3 dark:bg-black/10">

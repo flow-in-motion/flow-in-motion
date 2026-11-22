@@ -1,4 +1,4 @@
-import { paperCurrentlyWithLabel } from "@/lib/paper-currently-with";
+import { ProjectPapersPanel } from "@/components/projects/project-papers-panel";
 import { paperReferenceInput } from "@/lib/paper-references";
 import { WorkTimeCard } from "@/components/time-tracking/work-time-card";
 import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
@@ -18,7 +18,6 @@ import {
   Plus,
   Save,
   Trash2,
-  Unlink,
   Users,
 } from "lucide-react";
 import {
@@ -65,7 +64,6 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import {
   LinkedNotesPanel,
   LinkedTasksPanel,
-  PanelToggleButton,
 } from "@/components/shared/linked-items-panels";
 import { TaskTimeSummary } from "@/components/time-tracking/task-time-summary";
 import { ProjectActivityStreak } from "@/components/time-tracking/project-activity-streak";
@@ -184,114 +182,6 @@ function FormField({
   );
 }
 
-function ProjectModulesDetails({
-  modules,
-  currentUserId,
-  visible,
-  onToggleVisible,
-  onAddModule,
-  onLinkExisting,
-  onUnlinkModule,
-}: {
-  modules: ApiModule[];
-  currentUserId?: string;
-  visible: boolean;
-  onToggleVisible: () => void;
-  onAddModule: () => void;
-  onLinkExisting: () => void;
-  onUnlinkModule: (module: ApiModule) => void;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-        <CardTitle>Papers ({modules.length})</CardTitle>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onLinkExisting}>
-            <Link2 />
-            Link existing
-          </Button>
-          <Button variant="outline" size="sm" onClick={onAddModule}>
-            <Plus />
-            Add paper
-          </Button>
-          <PanelToggleButton
-            visible={visible}
-            onToggle={onToggleVisible}
-            label="papers"
-            controls="project-papers-content"
-          />
-        </div>
-      </CardHeader>
-      {visible ? (
-        <CardContent id="project-papers-content">
-          {modules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No papers are linked to this project.
-            </p>
-          ) : (
-            <div className="grid gap-2">
-              {modules.map((module) => (
-                <div
-                  key={module.id}
-                  className="flex items-start gap-1 rounded-md border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-muted/40"
-                >
-                  <Link
-                    to={`/modules/${module.id}`}
-                    className="min-w-0 flex-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        {module.displayId ? (
-                          <span className="block font-mono text-[10px] text-muted-foreground">
-                            {module.displayId}
-                          </span>
-                        ) : null}
-                        <span className="block text-sm font-semibold">
-                          {paperDisplayTitle(module)}
-                        </span>
-                      </div>
-                      <StatusBadge status={module.status ?? "—"} />
-                    </div>
-                    <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <div className="flex gap-1">
-                        <dt>Stage:</dt>
-                        <dd>{module.pipelineStage || "Unassigned"}</dd>
-                      </div>
-                      <div className="flex gap-1">
-                        <dt>Currently With:</dt>
-                        <dd>
-                          {paperCurrentlyWithLabel(module, currentUserId)}
-                        </dd>
-                      </div>
-                      <div className="flex gap-1">
-                        <dt>Priority:</dt>
-                        <dd>{module.priority || "—"}</dd>
-                      </div>
-                      <div className="flex gap-1">
-                        <dt>Due:</dt>
-                        <dd>{formatDate(module.dueDate)}</dd>
-                      </div>
-                    </dl>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => onUnlinkModule(module)}
-                    aria-label={`Unlink ${paperDisplayTitle(module)} from this project`}
-                    title="Unlink"
-                    className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <Unlink className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      ) : null}
-    </Card>
-  );
-}
-
 export default function ProjectDetailPage() {
   const { projectId = "" } = useParams();
   const navigate = useNavigate();
@@ -306,7 +196,11 @@ export default function ProjectDetailPage() {
   const projectQuery = useMyProject(projectId);
   const projectsQuery = useProjects(tenantId);
   const generalProject = projectsQuery.data?.generalProject ?? null;
-  const modulesQuery = useModules(tenantId, projectId);
+  const modulesQuery = useModules(tenantId, projectId, 1, true, {
+    pageSize: "all",
+    sortBy: "alphabetical",
+    sortDirection: "asc",
+  });
   const modules = modulesQuery.data?.data ?? [];
   // Load every linked task and note: the panels sort them client-side and
   // preview the first three, so a single server page would miss items.
@@ -1146,7 +1040,11 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
         </Card>
       ) : (
         <div className="flex flex-col gap-6">
-          <ProjectModulesDetails
+          <ProjectPapersPanel
+            tenantId={tenantId}
+            loading={modulesQuery.isPending}
+            error={modulesQuery.isError}
+            onRetry={() => void modulesQuery.refetch()}
             currentUserId={me.data?.id}
             modules={modules}
             visible={isPapersVisible}

@@ -9,6 +9,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ProjectDetailPage from "@/pages/project-detail";
+import { useModules } from "@/api/hooks";
 
 vi.mock("@/auth/auth-provider", () => ({
   useAuth: () => ({ user: { id: "user-owner" } }),
@@ -137,7 +138,7 @@ vi.mock("@/api/hooks", () => ({
   useTrackEvent: () => vi.fn(),
   useEnumValues: () => ({ data: [], isPending: false }),
   useModulePipelineStagePool: () => ({ data: [], isPending: false, isError: false }),
-  useModules: (_tenantId: string, projectId?: string) => ({
+  useModules: vi.fn((_tenantId: string, projectId?: string) => ({
     data: {
       data: projectId
         ? fixtures.modules.filter((module) => module.projectId === projectId)
@@ -149,7 +150,7 @@ vi.mock("@/api/hooks", () => ({
         totalPages: 1,
       },
     },
-  }),
+  })),
   useTasks: (_tenantId: string, projectId?: string) => ({
     data: {
       data: projectId
@@ -961,6 +962,12 @@ describe("ProjectDetailPage", () => {
       within(dialog).getByRole("textbox", { name: "Due date" }),
     ).toHaveValue("15/08/2026");
   });
+  it("requests all project papers in alphabetical order instead of only the first 20", () => {
+    renderProject();
+    expect(useModules).toHaveBeenCalledWith("workspace-1", "PRJ-101", 1, true, {
+      pageSize: "all", sortBy: "alphabetical", sortDirection: "asc",
+    });
+  });
   it("shows the current stage, holder, priority and deadline for linked papers without changing their links", () => {
     Object.assign(fixtures.modules[0], {
       pipelineStage: "Writing",
@@ -973,10 +980,11 @@ describe("ProjectDetailPage", () => {
     renderProject();
     const paper = screen.getByRole("link", { name: /Assay optimization/ });
     expect(paper).toHaveAttribute("href", "/modules/module-1");
-    expect(paper).toHaveTextContent("Writing");
-    expect(paper).toHaveTextContent("Named Coauthor");
-    expect(paper).toHaveTextContent("High");
-    expect(paper).toHaveTextContent("15/01/2027");
+    const row = paper.closest("tr")!;
+    expect(row).toHaveTextContent("Writing");
+    expect(row).toHaveTextContent("Named Coauthor");
+    expect(row).toHaveTextContent("High");
+    expect(row).toHaveTextContent("15/01/2027");
     expect(
       screen.getByRole("button", { name: /Unlink Assay optimization/ }),
     ).toBeInTheDocument();
