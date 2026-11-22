@@ -53,22 +53,21 @@ export const navGroups: NavGroup[] = [
       { label: "Papers", to: "/modules", icon: FileStack },
       { label: "Tasks and To Do", to: "/tasks", icon: ClipboardList },
       { label: "Notes", to: "/daily-notes", icon: NotebookPen },
-      { label: "Trash", to: "/projects/archive", icon: Trash2 },
     ],
   },
   {
     label: "Plan & review",
     items: [
-      { label: "Pipeline", to: "/pipeline", icon: Workflow },
       { label: "Calendar", to: "/calendar", icon: Calendar },
       { label: "Conferences/Events", to: "/conferences", icon: Presentation },
       { label: "Funding", to: "/funding", icon: DollarSign },
-      { label: "Mind Map", to: "/mind-map", icon: Network },
       {
         label: "HDR students",
         to: "/future/hdr-students",
         icon: GraduationCap,
       },
+      { label: "Mind Map", to: "/mind-map", icon: Network },
+      { label: "Pipeline", to: "/pipeline", icon: Workflow },
       {
         label: "Reviews, HDR examinations",
         to: "/future/reviews-hdr-examinations",
@@ -80,7 +79,8 @@ export const navGroups: NavGroup[] = [
     label: "Account",
     items: [
       { label: "Usage", to: "/usage", icon: BarChart3 },
-      { label: "Export", to: "/export", icon: Download}
+      { label: "Export", to: "/export", icon: Download},
+      { label: "Trash", to: "/projects/archive", icon: Trash2 },
     ],
   },
   {

@@ -1,4 +1,4 @@
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { lazy, Suspense, useId, useState } from "react";
 import { Link } from "react-router-dom";
@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 
 const PaperConferenceSubmissionEditor = lazy(
   () => import("./paper-conference-submission-editor"),
+);
+const PaperConferenceSubmissionAdder = lazy(
+  () => import("./paper-conference-submission-adder"),
 );
 
 function formatDate(iso: string | null) {
@@ -26,15 +29,18 @@ function formatDate(iso: string | null) {
 /**
  * Where this paper has been submitted to conferences, with each
  * submission's type and status. These are the same records shown on each
- * conference's page, which is where they're added and changed.
+ * conference's page, and can also be added from this paper.
  */
 export function PaperConferenceSubmissions({
   tenantId,
   moduleId,
+  paperTitle = "This paper",
 }: {
   tenantId: string;
   moduleId: string;
+  paperTitle?: string;
 }) {
+  const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<{
     conferenceId: string;
     submissionId: string;
@@ -49,12 +55,25 @@ export function PaperConferenceSubmissions({
     <Card role="region" aria-label="Conference submissions">
       <CardHeader className="flex-row flex-wrap items-center justify-between gap-3 space-y-0">
         <CardTitle>Conference submissions ({submissions.length})</CardTitle>
-        <PanelToggleButton
-          visible={visible}
-          onToggle={() => setVisible((current) => !current)}
-          label="conference submissions"
-          controls={contentId}
-        />
+        <div className="flex items-center gap-2">
+          {history.data?.canLogPresentation ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setAdding(true)}
+            >
+              <Plus />
+              Add conference submission
+            </Button>
+          ) : null}
+          <PanelToggleButton
+            visible={visible}
+            onToggle={() => setVisible((current) => !current)}
+            label="conference submissions"
+            controls={contentId}
+          />
+        </div>
       </CardHeader>
       {visible ? (
         <CardContent id={contentId}>
@@ -62,9 +81,12 @@ export function PaperConferenceSubmissions({
             <p className="text-sm text-muted-foreground">Loading conference submissions…</p>
           ) : submissions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              This paper hasn&apos;t been added to any conference yet. Add it from a
-              conference&apos;s page under{" "}
-              <Link to="/conferences" className="underline hover:text-foreground">
+              This paper hasn&apos;t been added to any conference yet. Add a
+              conference submission here or from{" "}
+              <Link
+                to="/conferences"
+                className="underline hover:text-foreground"
+              >
                 Conferences/Events
               </Link>
               .
@@ -145,6 +167,16 @@ export function PaperConferenceSubmissions({
             conferenceId={editing.conferenceId}
             submissionId={editing.submissionId}
             onClose={() => setEditing(null)}
+          />
+        </Suspense>
+      ) : null}
+      {adding ? (
+        <Suspense fallback={<p role="status">Loading submission form…</p>}>
+          <PaperConferenceSubmissionAdder
+            tenantId={tenantId}
+            moduleId={moduleId}
+            paperTitle={paperTitle}
+            onClose={() => setAdding(false)}
           />
         </Suspense>
       ) : null}

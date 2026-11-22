@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   useReview,
+  useReviewDeadlines,
   useReviews,
   useSaveReview,
   useReviewNoteMutation,
@@ -61,11 +62,31 @@ describe("Reviews API cache and request isolation", () => {
     expect(result.current.data).toBeUndefined();
     await waitFor(() => expect(fixture.json).toHaveBeenCalledTimes(3));
   });
+  it("loads dashboard deadlines once per owner/workspace and never carries another scope's results", async () => {
+    let workspace = "w";
+    const { result, rerender } = renderHook(
+      () => useReviewDeadlines(workspace),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(fixture.json).toHaveBeenCalledWith(
+      "/api/v1/tenant/w/reviews/deadlines",
+    );
+    expect(fixture.json).toHaveBeenCalledTimes(1);
+    fixture.json.mockImplementation(() => new Promise(() => {}));
+    fixture.userId = "different-owner";
+    rerender();
+    expect(result.current.data).toBeUndefined();
+    workspace = "other-workspace";
+    rerender();
+    expect(result.current.data).toBeUndefined();
+    await waitFor(() => expect(fixture.json).toHaveBeenCalledTimes(3));
+  });
   it("does not load a full record until requested", () => {
     renderHook(() => useReview("w", "examination"), { wrapper });
     expect(fixture.json).not.toHaveBeenCalled();
   });
-  it("invalidates only the corresponding review table and record after an edit", async () => {
+  it("refreshes the corresponding review, dashboard deadlines and timer labels after an edit", async () => {
     const invalidate = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(() => useSaveReview("w", "journal"), {
       wrapper,
@@ -77,6 +98,8 @@ describe("Reviews API cache and request isolation", () => {
       }),
     );
     expect(invalidate.mock.calls).toEqual([
+      [{ queryKey: ["api", "tenant", "w", "reviews", "owner", "deadlines"] }],
+      [{ queryKey: ["api", "work-time-entries"] }],
       [
         {
           queryKey: [

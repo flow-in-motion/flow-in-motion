@@ -18,6 +18,7 @@ describe('Reviews HTTP boundary', () => {
   const record = '55555555-5555-4555-8555-555555555555';
   const service = {
     list: jest.fn(),
+    deadlines: jest.fn(),
     detail: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -71,6 +72,24 @@ describe('Reviews HTTP boundary', () => {
   });
   afterAll(async () => {
     await app.close();
+  });
+  it('uses the signed-in app user for private dashboard deadlines and guards the endpoint', async () => {
+    service.deadlines.mockResolvedValue({ data: [] });
+    await request(app.getHttpServer())
+      .get(`/api/v1/tenant/${tenant}/reviews/deadlines`)
+      .expect(200);
+    expect(service.deadlines).toHaveBeenCalledWith(tenant, 'caller');
+    service.deadlines.mockClear();
+    authenticated = false;
+    await request(app.getHttpServer())
+      .get(`/api/v1/tenant/${tenant}/reviews/deadlines`)
+      .expect(403);
+    authenticated = true;
+    member = false;
+    await request(app.getHttpServer())
+      .get(`/api/v1/tenant/${tenant}/reviews/deadlines`)
+      .expect(403);
+    expect(service.deadlines).not.toHaveBeenCalled();
   });
   it('requires both authentication and workspace membership', async () => {
     authenticated = false;

@@ -45,6 +45,14 @@ export class ReviewsController {
     return (await this.users.findByExternalAuthId(req.user.sub)).id;
   }
 
+  @Get('deadlines')
+  async deadlines(
+    @Param('tenantId', ParseUUIDPipe) tenant: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.service.deadlines(tenant, await this.caller(req));
+  }
+
   @Get(':kind')
   async list(
     @Param('tenantId', ParseUUIDPipe) tenant: string,

@@ -257,6 +257,31 @@ describe("ConferenceSubmissionDialog", () => {
     expect(document.getElementById("conference-start-date")).not.toBeNull();
   });
 
+  it("saves Presented together with another intent", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ConferenceSubmissionDialog
+        open
+        onOpenChange={vi.fn()}
+        tenantId="tenant-1"
+        onSave={onSave}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText(/Conference name/), {
+      target: { value: "Presented conference" },
+    });
+    fireEvent.keyDown(screen.getByRole("button", { name: "Intent: Not specified" }), {key:"Enter"});
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Attending" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Presented" }));
+    fireEvent.keyDown(screen.getByRole("menu"), {key:"Escape"});
+    await waitFor(()=>expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Add Event" }));
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ intents: ["Attending", "Presented"] }),
+      ),
+    );
+  });
   it("allows more than one conference intent to be selected", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(

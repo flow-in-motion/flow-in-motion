@@ -196,10 +196,13 @@ interface SubmissionFormState {
   notes: string;
 }
 
-function initialForm(submission: ApiConferenceSubmission | null): SubmissionFormState {
+function initialForm(
+  submission: ApiConferenceSubmission | null,
+  fixedPaper?: ApiConferenceLinkOption,
+): SubmissionFormState {
   return {
     kind: submission?.kind ?? "paper",
-    subject: null,
+    subject: fixedPaper ?? null,
     title: submission?.titleAsSubmitted ?? "",
     submissionType: submission?.submissionType ?? "",
     status: submission?.status ?? "",
@@ -216,6 +219,7 @@ export function SubmissionFormDialog({
   conferenceId,
   conferenceDue,
   submission,
+  fixedPaper,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -223,21 +227,24 @@ export function SubmissionFormDialog({
   conferenceId: string;
   conferenceDue: string | null;
   submission: ApiConferenceSubmission | null;
+  fixedPaper?: ApiConferenceLinkOption;
 }) {
   const fieldId = useId();
   const addSubmission = useAddConferenceSubmission(tenantId);
   const updateSubmission = useUpdateConferenceSubmission(tenantId);
-  const [form, setForm] = useState<SubmissionFormState>(() => initialForm(submission));
+  const [form, setForm] = useState<SubmissionFormState>(() =>
+    initialForm(submission, fixedPaper),
+  );
   const [error, setError] = useState<string | null>(null);
   const isEditing = Boolean(submission);
   const isSaving = addSubmission.isPending || updateSubmission.isPending;
 
   useEffect(() => {
     if (open) {
-      setForm(initialForm(submission));
+      setForm(initialForm(submission, fixedPaper));
       setError(null);
     }
-  }, [open, submission]);
+  }, [open, submission, fixedPaper]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -281,6 +288,19 @@ export function SubmissionFormDialog({
     }
   }
 
+  const formActions = (
+    <DialogFooter className={isEditing ? "border-b pb-4" : "border-t pt-4"}>
+      <DialogClose asChild>
+        <Button type="button" variant="outline">
+          Cancel
+        </Button>
+      </DialogClose>
+      <Button type="submit" disabled={isSaving}>
+        {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Add Submission"}
+      </Button>
+    </DialogFooter>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-y-auto sm:max-w-2xl">
@@ -291,15 +311,18 @@ export function SubmissionFormDialog({
               Link a paper or project, or just describe what you&apos;re submitting, such as a PDW.
             </DialogDescription>
           </DialogHeader>
+          {isEditing ? formActions : null}
 
           <fieldset disabled={isSaving} className="grid gap-4">
-            {submission ? (
+            {submission || fixedPaper ? (
               <div>
                 <p className="text-sm text-muted-foreground">Submitting</p>
                 <p className="mt-1 font-medium">
-                  {submission.kind === "other"
-                    ? "Something else"
-                    : `${KIND_LABELS[submission.kind]}: ${submission.name}`}
+                  {fixedPaper && !submission
+                    ? `Paper: ${fixedPaper.label}`
+                    : submission!.kind === "other"
+                      ? "Something else"
+                      : `${KIND_LABELS[submission!.kind]}: ${submission!.name}`}
                 </p>
               </div>
             ) : (
@@ -329,7 +352,7 @@ export function SubmissionFormDialog({
               </div>
             )}
 
-            {!submission && form.kind !== "other" ? (
+            {!submission && !fixedPaper && form.kind !== "other" ? (
               <div className="grid gap-1.5">
                 <label htmlFor={`${fieldId}-subject`} className="text-sm font-medium">
                   {form.kind === "paper" ? "Paper" : "Project"} *
@@ -346,7 +369,7 @@ export function SubmissionFormDialog({
 
             <div className="grid gap-1.5">
               <label htmlFor={`${fieldId}-title`} className="text-sm font-medium">
-                {form.kind === "other" ? "Title *" : "Title as submitted"}
+                {form.kind === "other" ? "Title *" : "Presentation title"}
               </label>
               <Input
                 id={`${fieldId}-title`}
@@ -431,14 +454,7 @@ export function SubmissionFormDialog({
             </p>
           ) : null}
 
-          <DialogFooter className="border-t pt-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Add Submission"}
-            </Button>
-          </DialogFooter>
+          {!isEditing ? formActions : null}
         </form>
       </DialogContent>
     </Dialog>

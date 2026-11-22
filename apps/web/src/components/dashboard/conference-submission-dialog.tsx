@@ -358,6 +358,19 @@ export function ConferenceSubmissionDialog({
     }
   }
 
+  const formActions = (
+    <DialogFooter className={isEditing ? "border-b pb-4" : "border-t pt-4"}>
+      <DialogClose asChild>
+        <Button type="button" variant="outline">
+          Cancel
+        </Button>
+      </DialogClose>
+      <Button type="submit" disabled={isSaving}>
+        {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Add Event"}
+      </Button>
+    </DialogFooter>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-y-auto sm:max-w-4xl">
@@ -371,6 +384,8 @@ export function ConferenceSubmissionDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-5">
+          {isEditing ? formActions : null}
+
           <FormField label="Event type" htmlFor="conference-event-type">
             <Select value={form.eventType}
               onValueChange={(value) => setForm((current) => ({
@@ -549,12 +564,7 @@ export function ConferenceSubmissionDialog({
 
           {formError ? <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{formError}</p> : null}
 
-          <DialogFooter className="border-t pt-4">
-            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Add Event"}
-            </Button>
-          </DialogFooter>
+          {!isEditing ? formActions : null}
         </form>
       </DialogContent>
     </Dialog>

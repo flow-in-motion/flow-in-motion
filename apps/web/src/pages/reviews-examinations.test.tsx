@@ -6,6 +6,7 @@ import {
   within,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import ReviewsExaminationsPage from "./reviews-examinations";
 
 const fixture = vi.hoisted(() => ({
@@ -128,8 +129,13 @@ describe("Reviews and HDR examinations page", () => {
     fixture.remove.mockResolvedValue({});
     noteSave.mockResolvedValue({});
   });
+  it("opens a review deadline link directly into the corresponding private record", () => {
+    render(<MemoryRouter initialEntries={["/future/reviews-hdr-examinations?kind=examination&record=exam"]}><ReviewsExaminationsPage/></MemoryRouter>);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("region",{name:"Time for examination:exam"})).toBeInTheDocument();
+  });
   it("shows two independently labelled tables and addition controls, with no HDR students controls", () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     expect(
       screen.getByRole("table", { name: "HDR examinations" }),
     ).toBeInTheDocument();
@@ -144,7 +150,7 @@ describe("Reviews and HDR examinations page", () => {
     expect(fixture.detail).not.toHaveBeenCalled();
   });
   it("provides every examination field, accepts name-only creation and keeps IDs as text", async () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Add examination" }));
     const dialog = within(screen.getByRole("dialog"));
     for (const label of [
@@ -188,7 +194,7 @@ describe("Reviews and HDR examinations page", () => {
     expect(input).not.toHaveProperty("projectIds");
   });
   it("uses a separate journal form with only manuscript title required", async () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Add review" }));
     const dialog = within(screen.getByRole("dialog"));
     for (const label of [
@@ -224,7 +230,7 @@ describe("Reviews and HDR examinations page", () => {
     );
   });
   it("opens full details and notes from the student name and preserves fields on editing", async () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Sample Student" }));
     expect(fixture.detail).toHaveBeenLastCalledWith(
       "workspace",
@@ -258,7 +264,7 @@ describe("Reviews and HDR examinations page", () => {
     );
   });
   it("saves and edits notes under the correct parent, without saving metadata", async () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Sample Student" }));
     fireEvent.change(screen.getByLabelText("New note"), {
       target: { value: "Next steps\nCheck methods" },
@@ -293,7 +299,7 @@ describe("Reviews and HDR examinations page", () => {
   });
   it("retains inputs and note text after failed saves", async () => {
     fixture.save.mockRejectedValue(new Error("Save failed"));
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Add review" }));
     fireEvent.change(screen.getByLabelText(/Manuscript title/), {
       target: { value: "Keep this title" },
@@ -318,7 +324,7 @@ describe("Reviews and HDR examinations page", () => {
     expect(screen.getByLabelText("New note")).toHaveValue("Keep this note");
   });
   it("searches only the selected table and sends pagination to its server endpoint", async () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.change(screen.getByRole("textbox", { name: "Search reviews" }), {
       target: { value: "Rare Manuscript" },
     });
@@ -354,7 +360,7 @@ describe("Reviews and HDR examinations page", () => {
   });
   it("confirms deletion and removes only the chosen record", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.click(
       screen.getByRole("button", { name: "Delete Sample Manuscript" }),
     );
@@ -368,7 +374,7 @@ describe("Reviews and HDR examinations page", () => {
   });
 
   it("loads completed panels only when opened, independently for each kind", () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     expect(
       fixture.list.mock.calls.every((call) => call[2].scope === "active"),
     ).toBe(true);
@@ -407,7 +413,7 @@ describe("Reviews and HDR examinations page", () => {
   });
   it("changes only review status inline and restores the status if saving fails", async () => {
     fixture.save.mockRejectedValue(new Error("Permission denied"));
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     const field = screen.getByRole("combobox", {
       name: "Change status for Sample Manuscript",
     });
@@ -426,7 +432,7 @@ describe("Reviews and HDR examinations page", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
   it("allows an examination to be marked complete from its record without entering edit", async () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Sample Student" }));
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.click(
@@ -449,7 +455,7 @@ describe("Reviews and HDR examinations page", () => {
     ).not.toBeInTheDocument();
   });
   it("reopens completed reviews using the same status control", async () => {
-    render(<ReviewsExaminationsPage />);
+    render(<MemoryRouter><ReviewsExaminationsPage /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Completed reviews" }));
     const completed = within(
       screen.getByRole("region", { name: "Completed reviews" }),
@@ -474,3 +480,6 @@ describe("Reviews and HDR examinations page", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+vi.mock("@/components/time-tracking/work-timer-controls", () => ({ WorkTimerControls: ({kind,targetId,title}: {kind:string;targetId:string;title:string}) => <button type="button" data-kind={kind} data-target={targetId}>Start timer for {title}</button> }));
+vi.mock("@/components/time-tracking/work-time-card", () => ({ WorkTimeCard: ({kind,targetId}: {kind:string;targetId:string}) => <section aria-label={`Time for ${kind}:${targetId}`} /> }));

@@ -14,6 +14,9 @@ export function targetOf(row: typeof t.$inferSelect): {
 } {
   if (row.projectId) return { kind: 'project', targetId: row.projectId };
   if (row.noteId) return { kind: 'note', targetId: row.noteId };
+  if (row.reviewId) return { kind: 'review', targetId: row.reviewId };
+  if (row.examinationId)
+    return { kind: 'examination', targetId: row.examinationId };
   return { kind: 'hdr', targetId: row.hdrPersonId! };
 }
 
@@ -53,6 +56,16 @@ export class WorkTimeRepository {
         );
       return row;
     }
+    if (kind === 'review' || kind === 'examination') {
+      const result = await this.drizzle.db.execute<{
+        id: string;
+        tenantId: string;
+        title: string;
+      }>(
+        sql`SELECT id, tenant_id AS "tenantId", title FROM public.work_time_review_target(${id}::uuid, ${kind === 'review' ? 'journal' : 'examination'}::text)`,
+      );
+      return result.rows[0];
+    }
     // Restricted owner-only lookup: the global timer endpoint has no tenant
     // context, while the existing HDR page deliberately requires one.
     const result = await this.drizzle.db.execute<{
@@ -71,7 +84,11 @@ export class WorkTimeRepository {
         ? t.projectId
         : kind === 'note'
           ? t.noteId
-          : t.hdrPersonId,
+          : kind === 'hdr'
+            ? t.hdrPersonId
+            : kind === 'review'
+              ? t.reviewId
+              : t.examinationId,
       targetId,
     );
   }
@@ -126,6 +143,8 @@ export class WorkTimeRepository {
         projectId: kind === 'project' ? targetId : null,
         noteId: kind === 'note' ? targetId : null,
         hdrPersonId: kind === 'hdr' ? targetId : null,
+        reviewId: kind === 'review' ? targetId : null,
+        examinationId: kind === 'examination' ? targetId : null,
         source: manual ? 'manual' : 'timer',
         startedAt: manual?.startedAt ?? sql`now()`,
         endedAt: manual ? manual.startedAt : null,

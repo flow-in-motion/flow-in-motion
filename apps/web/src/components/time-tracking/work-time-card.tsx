@@ -74,7 +74,15 @@ export function WorkTimeCard({ kind, targetId }: WorkTimeTarget) {
   );
   const headingId = `work-time-${kind}-${targetId}-heading`;
   const itemLabel =
-    kind === "project" ? "project" : kind === "note" ? "note" : "HDR record";
+    kind === "project"
+      ? "project"
+      : kind === "note"
+        ? "note"
+        : kind === "review"
+          ? "review"
+          : kind === "examination"
+            ? "HDR examination"
+            : "HDR record";
 
   async function handleDelete(entry: ApiTimeEntry) {
     if (
@@ -118,7 +126,11 @@ export function WorkTimeCard({ kind, targetId }: WorkTimeTarget) {
               ? "Time logged directly on this project. Time on linked tasks and papers is recorded separately."
               : kind === "note"
                 ? "Time logged directly on this note."
-                : "Time spent with or for this student or scholar."}
+                : kind === "review"
+                  ? "Time logged on this journal review."
+                  : kind === "examination"
+                    ? "Time logged on this HDR examination."
+                    : "Time spent with or for this student or scholar."}
           </p>
           {time.isError ? (
             <p role="alert" className="text-sm text-destructive">

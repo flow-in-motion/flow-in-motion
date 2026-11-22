@@ -7,6 +7,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import { useCurrentWorkspace, useMe } from "@/api/hooks";
 import {
   useDeleteReview,
@@ -208,6 +210,7 @@ function ReviewTable({
                     ) : null}
                     <TableCell>
                       <div className="flex gap-1">
+                        <WorkTimerControls kind={kind === "journal" ? "review" : "examination"} targetId={row.id} title={recordTitle(row)} />
                         <Button
                           variant="ghost"
                           size="icon"
@@ -295,6 +298,9 @@ function ReviewTable({
 }
 
 export default function ReviewsExaminationsPage() {
+  const [params, setParams] = useSearchParams();
+  const recordId = params.get("record");
+  const recordKind = params.get("kind");
   const workspace = useCurrentWorkspace();
   const me = useMe();
   if (workspace.isPending || me.isPending)
@@ -313,6 +319,10 @@ export default function ReviewsExaminationsPage() {
   return (
     <div className="space-y-6">
       <PageHeading title="Reviews, HDR examinations" icon={ClipboardList} />
+      {recordId && (recordKind === "journal" || recordKind === "examination") ? (
+        <ReviewRecordDialog key={`${workspace.data.id}:${me.data.id}:${recordId}`} tenantId={workspace.data.id} kind={recordKind} id={recordId}
+          onClose={() => setParams((previous) => { const next = new URLSearchParams(previous); next.delete("record"); next.delete("kind"); return next; }, { replace: true })} />
+      ) : null}
       <p className="text-sm text-muted-foreground">Private to your account.</p>
       <ReviewTable
         key={`${workspace.data.id}:${me.data.id}:examination`}

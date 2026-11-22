@@ -201,7 +201,7 @@ const DASHBOARD_WIDGETS: readonly DashboardWidgetDefinition[] = [
   },
   {
     id: "tasks",
-    label: "Tasks and To Do",
+    label: "Tasks & deadlines",
     description: "Priority work across projects.",
     group: "Tables",
     component: PriorityTasksTable,

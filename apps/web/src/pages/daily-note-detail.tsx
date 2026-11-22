@@ -736,6 +736,19 @@ const hasTodayEntry = Boolean(
             >
               <Trash2 /> Delete Note
             </Button>
+            {form ? (<><Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelEditing}
+                  disabled={isSavingChanges}
+                >
+                  Cancel
+                </Button>
+
+                <Button type="submit" disabled={isSavingChanges} form="edit-note-details-form">
+                  <Save />
+                  {isSavingChanges ? "Saving…" : "Save Changes"}
+                </Button></>) : null}
             {form ? null : (
                <Button
                  type="button"
@@ -848,7 +861,7 @@ const hasTodayEntry = Boolean(
         </CardHeader>
 
         <CardContent>
-          <form
+          <form id="edit-note-details-form"
             onSubmit={(event) => void handleSave(event)}
             className="grid gap-6"
           >
@@ -987,20 +1000,7 @@ const hasTodayEntry = Boolean(
                 </FormField>
               </div>
 
-              <div className="flex justify-end gap-3 border-t pt-5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={cancelEditing}
-                >
-                  Cancel
-                </Button>
 
-                <Button type="submit">
-                  <Save />
-                  {isSavingChanges ? "Saving…" : "Save Changes"}
-                </Button>
-              </div>
             </fieldset>
           </form>
         </CardContent>

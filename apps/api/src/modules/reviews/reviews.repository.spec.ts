@@ -21,6 +21,21 @@ describe('Review status persistence', () => {
     statements.length = 0;
   });
 
+  it('fetches every dated open review for the current owner and workspace in one narrow query', async () => {
+    await repository.deadlines('tenant', 'owner');
+    expect(statements).toHaveLength(1);
+    expect(statement(0).params).toEqual(['tenant', 'owner', 'Complete']);
+    expect(statement(0).sql).toContain('"academic_reviews"."tenant_id" = $1');
+    expect(statement(0).sql).toContain(
+      '"academic_reviews"."owner_user_id" = $2',
+    );
+    expect(statement(0).sql).toContain(
+      '"academic_reviews"."due_on" is not null',
+    );
+    expect(statement(0).sql).not.toContain('limit');
+    expect(statement(0).sql).not.toContain('"abstract"');
+    expect(statement(0).sql).not.toContain('"academic_review_notes"');
+  });
   it.each(['active', 'completed'] as const)(
     'filters %s records, ownership and search before counting or pagination',
     async (scope) => {

@@ -11,6 +11,7 @@ import { useTicker } from "@/api/time-tracking";
 import { Button } from "@/components/ui/button";
 import { formatClock } from "@/lib/time-format";
 import { cn } from "@/lib/utils";
+import { reviewRecordPath } from "@/api/reviews";
 const WorkTimeDialog = lazy(async () => ({
   default: (await import("./work-time-dialog")).WorkTimeDialog,
 }));
@@ -37,11 +38,16 @@ function WorkTimerRow({
       ? `/projects/${timer.targetId}`
       : timer.kind === "note"
         ? `/daily-notes/${timer.targetId}`
-        : null;
+        : timer.kind === "review" || timer.kind === "examination"
+          ? reviewRecordPath(
+              timer.kind === "review" ? "journal" : "examination",
+              timer.targetId,
+            )
+          : null;
   return (
     <div
       role="region"
-      aria-label={`${timer.kind === "hdr" ? "HDR" : timer.kind === "project" ? "Project" : "Note"} timer: ${timer.title}`}
+      aria-label={`${timer.kind === "hdr" ? "HDR" : timer.kind === "project" ? "Project" : timer.kind === "review" ? "Review" : timer.kind === "examination" ? "HDR examination" : "Note"} timer: ${timer.title}`}
       className={cn(
         "border-b last:border-b-0",
         timer.isRunning
@@ -135,7 +141,7 @@ export function WorkRunningTimers() {
   return (
     <div
       role="region"
-      aria-label="Open project, note and HDR timers"
+      aria-label="Open project, note, HDR student, review and examination timers"
       className="border-b backdrop-blur-xl"
     >
       {timers.map((timer) => (

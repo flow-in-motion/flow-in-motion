@@ -99,6 +99,22 @@ export function HdrPersonDialog({
     }
   }
 
+  const formActions = (
+    <DialogFooter className={person ? "border-b pb-4" : "border-t pt-4"}>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={saving}
+        onClick={onClose}
+      >
+        Cancel
+      </Button>
+      <Button type="submit" disabled={saving || !name.trim()}>
+        {saving ? "Saving…" : person ? "Save changes" : "Add record"}
+      </Button>
+    </DialogFooter>
+  );
+
   return (
     <Dialog
       open
@@ -126,6 +142,8 @@ export function HdrPersonDialog({
           </p>
         ) : null}
         <form onSubmit={(event) => void submit(event)} className="space-y-4">
+          {person ? formActions : null}
+
           <fieldset disabled={saving} className="space-y-4">
             <div className="space-y-1.5">
               <label htmlFor="hdr-name" className="text-sm font-medium">
@@ -302,19 +320,7 @@ export function HdrPersonDialog({
               {error}
             </p>
           ) : null}
-          <DialogFooter className="border-t pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saving}
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving || !name.trim()}>
-              {saving ? "Saving…" : person ? "Save changes" : "Add record"}
-            </Button>
-          </DialogFooter>
+          {!person ? formActions : null}
         </form>
         {person ? (
           <HdrDiscussionNotesPanel tenantId={tenantId} personId={person.id} />

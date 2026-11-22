@@ -18,6 +18,8 @@ function row(
     projectId: kind === 'project' ? 'target' : null,
     noteId: kind === 'note' ? 'target' : null,
     hdrPersonId: kind === 'hdr' ? 'target' : null,
+    reviewId: kind === 'review' ? 'target' : null,
+    examinationId: kind === 'examination' ? 'target' : null,
     source: 'timer',
     startedAt: new Date('2026-11-01T00:00:00Z'),
     endedAt: null,
@@ -67,7 +69,7 @@ describe('Project, Note and HDR time', () => {
     repo.create.mockResolvedValue({ id: 'entry' });
     service = new WorkTimeService(repo as unknown as WorkTimeRepository);
   });
-  it.each<WorkTimeKind>(['project', 'note', 'hdr'])(
+  it.each<WorkTimeKind>(['project', 'note', 'hdr', 'review', 'examination'])(
     'starts %s directly without changing other timers',
     async (kind) => {
       repo.own.mockResolvedValue(row(kind));

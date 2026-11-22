@@ -424,6 +424,19 @@ export function ModuleDialog({
     }
   }
 
+  const formActions = (
+    <DialogFooter className={isEditing ? "border-b pb-4" : "border-t pt-4"}>
+      <DialogClose asChild>
+        <Button type="button" variant="outline" disabled={isSaving}>
+          Cancel
+        </Button>
+      </DialogClose>
+      <Button type="submit" disabled={isSaving}>
+        {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Create Paper"}
+      </Button>
+    </DialogFooter>
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -441,6 +454,8 @@ export function ModuleDialog({
             onSubmit={(event) => void handleSubmit(event)}
             className="grid gap-5"
           >
+            {isEditing ? formActions : null}
+
             <FormField
               label="Short title"
               htmlFor="module-short-title"
@@ -787,20 +802,7 @@ export function ModuleDialog({
               </p>
             ) : null}
 
-            <DialogFooter className="border-t pt-4">
-              <DialogClose asChild>
-                <Button type="button" variant="outline" disabled={isSaving}>
-                  Cancel
-                </Button>
-              </DialogClose>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving
-                  ? "Saving…"
-                  : isEditing
-                    ? "Save Changes"
-                    : "Create Paper"}
-              </Button>
-            </DialogFooter>
+            {!isEditing ? formActions : null}
           </form>
           <SubmissionDialog
             journalPublishers={form.journalPublishers}

@@ -1043,6 +1043,16 @@ async function saveHeaderField(input: HeaderUpdateInput) {
               <Trash2 />
               Delete Paper
             </Button>
+            {form ? (<><Button type="button" variant="outline" onClick={cancelEditing}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="edit-module-details-form"
+                disabled={updateModule.isPending}
+              >
+                <Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}
+              </Button></>) : null}
             {!form ? (
               <Button
                 type="button"
@@ -1774,18 +1784,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
                 </p>
               )}
             </div>
-            <div className="flex justify-end gap-3 border-t pt-5">
-              <Button type="button" variant="outline" onClick={cancelEditing}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                form="edit-module-details-form"
-                disabled={updateModule.isPending}
-              >
-                <Save /> {updateModule.isPending ? "Saving…" : "Save Changes"}
-              </Button>
-            </div>
+
           </CardContent>
         </Card>
       ) : null}
@@ -1942,7 +1941,7 @@ async function saveHeaderField(input: HeaderUpdateInput) {
           />
         ) : null}
         {sameTenant ? (
-          <PaperConferenceSubmissions tenantId={tenantId} moduleId={module.id} />
+          <PaperConferenceSubmissions tenantId={tenantId} moduleId={module.id} paperTitle={paperDisplayTitle(module)} />
         ) : null}
         {sameTenant ? (
           <ConferencePresentationHistory
