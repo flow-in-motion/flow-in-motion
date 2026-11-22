@@ -16,6 +16,7 @@ export const CONFERENCE_INTENTS = [
   'Considering',
   'Submitting',
   'Attending',
+  'Presented',
 ] as const;
 
 export type ConferenceIntent = (typeof CONFERENCE_INTENTS)[number];

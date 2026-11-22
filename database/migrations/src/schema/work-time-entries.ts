@@ -14,6 +14,7 @@ import { users } from "./users";
 import { projects } from "./projects";
 import { notes } from "./notes";
 import { hdrPeople } from "./hdr-people";
+import { academicReviews } from "./academic-reviews";
 
 // Direct time only; never rolls up or changes time on tasks or papers.
 export const workTimeEntries = pgTable(
@@ -33,6 +34,8 @@ export const workTimeEntries = pgTable(
     hdrPersonId: uuid("hdr_person_id").references(() => hdrPeople.id, {
       onDelete: "cascade",
     }),
+    reviewId: uuid("review_id").references(() => academicReviews.id, { onDelete: "cascade" }),
+    examinationId: uuid("examination_id").references(() => academicReviews.id, { onDelete: "cascade" }),
     source: text("source").notNull().default("timer"),
     startedAt: timestamp("started_at", { withTimezone: true })
       .notNull()
@@ -51,7 +54,7 @@ export const workTimeEntries = pgTable(
   (t) => [
     check(
       "work_time_one_target",
-      sql`num_nonnulls(${t.projectId}, ${t.noteId}, ${t.hdrPersonId}) = 1`,
+      sql`num_nonnulls(${t.projectId}, ${t.noteId}, ${t.hdrPersonId}, ${t.reviewId}, ${t.examinationId}) = 1`,
     ),
     check("work_time_source", sql`${t.source} IN ('timer', 'manual')`),
     check("work_time_duration", sql`${t.durationSeconds} >= 0`),
@@ -76,9 +79,15 @@ export const workTimeEntries = pgTable(
     uniqueIndex("work_time_open_hdr")
       .on(t.userId, t.hdrPersonId)
       .where(sql`${t.endedAt} IS NULL AND ${t.hdrPersonId} IS NOT NULL`),
+    uniqueIndex("work_time_open_review").on(t.userId, t.reviewId)
+      .where(sql`${t.endedAt} IS NULL AND ${t.reviewId} IS NOT NULL`),
+    uniqueIndex("work_time_open_examination").on(t.userId, t.examinationId)
+      .where(sql`${t.endedAt} IS NULL AND ${t.examinationId} IS NOT NULL`),
     index("work_time_user_started_idx").on(t.userId, t.startedAt, t.id),
     index("work_time_project_idx").on(t.projectId),
     index("work_time_note_idx").on(t.noteId),
     index("work_time_hdr_idx").on(t.hdrPersonId),
+    index("work_time_review_idx").on(t.reviewId),
+    index("work_time_examination_idx").on(t.examinationId),
   ],
 );

@@ -859,6 +859,18 @@ export default function TaskDetailPage() {
             >
               <Trash2 /> Delete Task
             </Button>
+            {form ? (<><Button
+                  type="button"
+                  variant="outline"
+                  onClick={cancelEditing}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" form="edit-task-details-form" disabled={isSaving}>
+                  <Save />
+                  {isSaving ? "Saving…" : "Save Changes"}
+                </Button></>) : null}
             {!form ? (
               <Button
                 type="button"
@@ -873,7 +885,7 @@ export default function TaskDetailPage() {
         }
       >
         {!form ? (
-          
+
           <div className="flex flex-wrap gap-2">
           <HeaderStat
             label="Created"
@@ -1000,7 +1012,7 @@ export default function TaskDetailPage() {
         <Card>
           <CardHeader><CardTitle>Edit task details</CardTitle></CardHeader>
           <CardContent>
-            <form onSubmit={(event) => void handleSave(event)} className="grid gap-6">
+            <form id="edit-task-details-form" onSubmit={(event) => void handleSave(event)} className="grid gap-6">
             <fieldset disabled={isSaving} className="grid min-w-0 gap-6">
               <div className="grid gap-5 sm:grid-cols-2">
                 <FormField label="Task title" htmlFor="edit-task-title" className="sm:col-span-2">
@@ -1127,20 +1139,7 @@ export default function TaskDetailPage() {
                   {addDescriptionEntry.error.message}
                 </p>
               ) : null}
-              <div className="flex justify-end gap-3 border-t pt-5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={cancelEditing}
-                  disabled={isSaving}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isSaving}>
-                  <Save />
-                  {isSaving ? "Saving…" : "Save Changes"}
-                </Button>
-              </div>
+
               </fieldset>
             </form>
           </CardContent>

@@ -15,6 +15,8 @@ import { fieldsFor, labelFor, recordTitle, reviewDate } from "./review-fields";
 import { ReviewForm } from "./review-form";
 import { ReviewStatusSelect } from "./review-status-select";
 import { ReviewNotesPanel } from "./review-notes-panel";
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
+import { WorkTimeCard } from "@/components/time-tracking/work-time-card";
 
 export function ReviewRecordDialog({
   tenantId,
@@ -82,6 +84,12 @@ export function ReviewRecordDialog({
         ) : record ? (
           <div className="space-y-6">
             <div className="flex justify-end">
+              <WorkTimerControls
+                kind={kind === "journal" ? "review" : "examination"}
+                targetId={record.id}
+                title={recordTitle(record)}
+                variant="button"
+              />
               <Button variant="outline" onClick={() => setEditing(true)}>
                 <Pencil className="h-4 w-4" />
                 {kind === "examination" ? "Edit examination" : "Edit review"}
@@ -134,6 +142,10 @@ export function ReviewRecordDialog({
               kind={kind}
               recordId={record.id}
               notes={record.notes}
+            />
+            <WorkTimeCard
+              kind={kind === "journal" ? "review" : "examination"}
+              targetId={record.id}
             />
           </div>
         ) : null}

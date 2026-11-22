@@ -1,4 +1,11 @@
 import { useMemo } from "react";
+import {
+  useReviewDeadlines,
+  reviewRecordPath,
+  type ReviewKind,
+  type ReviewDeadline,
+} from "@/api/reviews";
+import { WorkTimerControls } from "@/components/time-tracking/work-timer-controls";
 import { ListTodo } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -46,9 +53,10 @@ import {
 } from "@/components/ui/select";
 
 /** Several can be ticked at once; none ticked shows every priority. */
+const EMPTY_REVIEW_DEADLINES: ReviewDeadline[] = [];
 const PRIORITY_OPTIONS = ["Critical", "High", "Medium", "Low"] as const;
 const DUE_HORIZON_OPTIONS = [
-  { value: "all", label: "All open tasks" },
+  { value: "all", label: "All open items" },
   { value: "overdue", label: "Overdue" },
   { value: "7", label: "Next 7 days" },
   { value: "14", label: "Next 14 days" },
@@ -65,7 +73,7 @@ function localDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 const TASK_COLUMNS = [
-  { id: "task", label: "Task" },
+  { id: "task", label: "Item" },
   { id: "project", label: "Project/paper" },
   { id: "est", label: "Est. hours" },
   { id: "logged", label: "Logged" },
@@ -99,6 +107,8 @@ export function PriorityTasksTable() {
     pageSize: "all",
   });
   const tasks = tasksQuery.data?.data ?? [];
+  const reviewsQuery = useReviewDeadlines(tenantId);
+  const reviewDeadlines = reviewsQuery.data?.data ?? EMPTY_REVIEW_DEADLINES;
   const projectsQuery = useProjects(tenantId);
   const projects = projectsQuery.data?.data ?? [];
   const generalProject = projectsQuery.data?.generalProject ?? null;
@@ -183,12 +193,13 @@ export function PriorityTasksTable() {
       : null;
 
   const rows = useMemo(() => {
-    return tasks
+    const taskRows = tasks
       .filter((task) => task.status !== "Complete")
       .map((task) => {
         const paper = task.moduleId ? paperById.get(task.moduleId) : null;
         return {
           id: task.id,
+          reviewKind: undefined as ReviewKind | undefined,
           projectId: task.projectId ?? generalProject?.id ?? null,
           moduleId: task.moduleId,
           project: task.moduleId
@@ -216,7 +227,36 @@ export function PriorityTasksTable() {
           priority: task.priority,
         };
       });
-  }, [tasks, projectById, paperById, generalProject, today]);
+    const reviewRows = reviewDeadlines
+      .filter((record) => record.status !== "Complete" && record.dueOn)
+      .map((record) => {
+        const title =
+          (record.kind === "journal"
+            ? record.manuscriptTitle
+            : record.studentName) || "Untitled";
+        const category =
+          record.kind === "journal" ? "Journal review" : "HDR examination";
+        return {
+          id: record.id,
+          reviewKind: record.kind as ReviewKind | undefined,
+          projectId: null,
+          moduleId: null,
+          project: category,
+          task: title,
+          searchText: [title, category, record.journalName, record.thesisTitle]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase(),
+          estimatedHours: null,
+          loggedSeconds: 0,
+          dueDate: record.dueOn,
+          due: formatDueDate(record.dueOn),
+          overdue: Boolean(record.dueOn && record.dueOn < today),
+          priority: null,
+        };
+      });
+    return [...taskRows, ...reviewRows];
+  }, [tasks, reviewDeadlines, projectById, paperById, generalProject, today]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -340,25 +380,25 @@ function clearFilters() {
   return (
     <Card className="overflow-hidden">
       <CardHeader className="gap-4 border-b border-primary/10 bg-gradient-to-r from-accent/60 via-card/80 to-card">
-      <div>
-        <CardTitle className="flex flex-wrap items-center gap-2">
-          <ListTodo className="h-4 w-4 text-primary" />
-          Tasks and To Do
-          <Badge variant="secondary">
-            {hasActiveFilters
-              ? `${filtered.length} of ${rows.length} to do`
-              : `${rows.length} to do`}
-          </Badge>
-        </CardTitle>
-        <CardDescription>
-          Tasks across your projects and papers that need attention first.
-        </CardDescription>
-      </div>
+        <div>
+          <CardTitle className="flex flex-wrap items-center gap-2">
+            <ListTodo className="h-4 w-4 text-primary" />
+            Tasks & deadlines
+            <Badge variant="secondary">
+              {hasActiveFilters
+                ? `${filtered.length} of ${rows.length} to do`
+                : `${rows.length} to do`}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Tasks, journal reviews and HDR examinations that need attention.
+          </CardDescription>
+        </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search project, paper or task…"
+            placeholder="Search tasks, papers or review deadlines…"
             className="sm:max-w-xs"
           />
           <Select
@@ -367,7 +407,7 @@ function clearFilters() {
           >
             <SelectTrigger
               className="sm:w-44"
-              aria-label="Filter tasks by due date"
+              aria-label="Filter items by due date"
             >
               <SelectValue />
             </SelectTrigger>
@@ -404,6 +444,18 @@ function clearFilters() {
         </div>
       </CardHeader>
       <CardContent className="pt-[var(--card-padding)]">
+        {reviewsQuery.isError ? (
+          <p role="alert" className="mb-3 text-sm text-destructive">
+            Review deadlines could not be loaded.{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => void reviewsQuery.refetch()}
+            >
+              Retry
+            </button>
+          </p>
+        ) : null}
         <Table>
           <TableHeader>
             <TableRow>
@@ -429,18 +481,37 @@ function clearFilters() {
                   colSpan={columns.visibleColumns.size}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  No tasks match the current filters.
+                  No items match the current filters.
                 </TableCell>
               </TableRow>
             ) : (
               filtered.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={`${row.reviewKind ?? "task"}:${row.id}`}>
                   {columns.isColumnVisible("task") ? (
                     <TableCell className="font-medium">
                       <span className="flex items-center gap-1.5">
-                        <TaskTimerButton taskId={row.id} taskTitle={row.task} />
+                        {row.reviewKind ? (
+                          <WorkTimerControls
+                            kind={
+                              row.reviewKind === "journal"
+                                ? "review"
+                                : "examination"
+                            }
+                            targetId={row.id}
+                            title={row.task}
+                          />
+                        ) : (
+                          <TaskTimerButton
+                            taskId={row.id}
+                            taskTitle={row.task}
+                          />
+                        )}
                         <Link
-                          to={`/tasks/${row.id}`}
+                          to={
+                            row.reviewKind
+                              ? reviewRecordPath(row.reviewKind, row.id)
+                              : `/tasks/${row.id}`
+                          }
                           className="text-foreground hover:text-primary hover:underline"
                         >
                           {row.task}
@@ -476,9 +547,16 @@ function clearFilters() {
                   ) : null}
                   {columns.isColumnVisible("logged") ? (
                     <TableCell className="tabular-nums text-muted-foreground">
-                      <LoggedTime
-                        task={{ id: row.id, loggedSeconds: row.loggedSeconds }}
-                      />
+                      {row.reviewKind ? (
+                        "—"
+                      ) : (
+                        <LoggedTime
+                          task={{
+                            id: row.id,
+                            loggedSeconds: row.loggedSeconds,
+                          }}
+                        />
+                      )}
                     </TableCell>
                   ) : null}
                   {columns.isColumnVisible("due") ? (

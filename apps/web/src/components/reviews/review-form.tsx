@@ -50,8 +50,40 @@ export function ReviewForm({
       );
     }
   }
+  const formActions = (
+    <DialogFooter className={record ? "border-b pb-4" : "border-t pt-4"}>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={save.isPending}
+        onClick={onCancel}
+      >
+        Cancel
+      </Button>
+      <Button
+        type="submit"
+        disabled={
+          save.isPending ||
+          !values[
+            kind === "examination" ? "studentName" : "manuscriptTitle"
+          ]?.trim()
+        }
+      >
+        {save.isPending
+          ? "Saving…"
+          : record
+            ? "Save changes"
+            : kind === "examination"
+              ? "Add examination"
+              : "Add review"}
+      </Button>
+    </DialogFooter>
+  );
+
   return (
     <form onSubmit={(event) => void submit(event)} className="space-y-4">
+      {record ? formActions : null}
+
       <fieldset disabled={save.isPending} className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => {
           const id = `${kind}-${field.key}`;
@@ -153,33 +185,7 @@ export function ReviewForm({
           {error}
         </p>
       ) : null}
-      <DialogFooter className="border-t pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={save.isPending}
-          onClick={onCancel}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          disabled={
-            save.isPending ||
-            !values[
-              kind === "examination" ? "studentName" : "manuscriptTitle"
-            ]?.trim()
-          }
-        >
-          {save.isPending
-            ? "Saving…"
-            : record
-              ? "Save changes"
-              : kind === "examination"
-                ? "Add examination"
-                : "Add review"}
-        </Button>
-      </DialogFooter>
+      {!record ? formActions : null}
     </form>
   );
 }

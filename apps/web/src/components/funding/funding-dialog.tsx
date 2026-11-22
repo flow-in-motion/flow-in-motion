@@ -252,6 +252,19 @@ export function FundingDialog({
 
   const isEditing = Boolean(funding);
 
+  const formActions = (
+    <DialogFooter className={isEditing ? "border-b pb-4" : "border-t pt-4"}>
+      <DialogClose asChild>
+        <Button type="button" variant="outline">
+          Cancel
+        </Button>
+      </DialogClose>
+      <Button type="submit" disabled={isSaving}>
+        {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Add Funding"}
+      </Button>
+    </DialogFooter>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-y-auto sm:max-w-2xl">
@@ -266,6 +279,8 @@ export function FundingDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid gap-5">
+          {isEditing ? formActions : null}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Funding body" htmlFor="funding-body" required>
               <Input
@@ -587,20 +602,7 @@ export function FundingDialog({
             </p>
           ) : null}
 
-          <DialogFooter className="border-t pt-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving
-                ? "Saving…"
-                : isEditing
-                  ? "Save Changes"
-                  : "Add Funding"}
-            </Button>
-          </DialogFooter>
+          {!isEditing ? formActions : null}
         </form>
       </DialogContent>
     </Dialog>

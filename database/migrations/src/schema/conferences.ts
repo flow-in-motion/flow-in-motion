@@ -64,7 +64,7 @@ import {
       ),
       intentsCheck: check(
         'conferences_intents_check',
-        sql`${table.intents} <@ ARRAY['Considering', 'Submitting', 'Attending']::text[] AND array_position(${table.intents}, NULL) IS NULL`,
+        sql`${table.intents} <@ ARRAY['Considering', 'Submitting', 'Attending', 'Presented']::text[] AND array_position(${table.intents}, NULL) IS NULL`,
       ),
     }),
   );

@@ -43,6 +43,10 @@ const journalFields = [
 export class ReviewsService {
   constructor(private readonly repository: ReviewsRepository) {}
 
+  async deadlines(tenantId: string, userId: string) {
+    return { data: await this.repository.deadlines(tenantId, userId) };
+  }
+
   async list(
     tenantId: string,
     userId: string,

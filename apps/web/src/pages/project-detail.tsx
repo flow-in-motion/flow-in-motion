@@ -764,6 +764,13 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
               <Trash2 />
               Delete Project
             </Button>
+            {form ? (<><Button type="button" variant="outline" onClick={cancelEditing}>
+                  Cancel
+                </Button>
+                <Button type="submit" form="edit-project-details-form" disabled={updateProject.isPending}>
+                  <Save />
+                  {updateProject.isPending ? "Saving…" : "Save Changes"}
+                </Button></>) : null}
             {!form ? (
               <Button
               type="button"
@@ -879,7 +886,7 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
             <CardTitle>Edit project details</CardTitle>
           </CardHeader>
           <CardContent>
-            <form
+            <form id="edit-project-details-form"
               onSubmit={(event) => void saveProject(event)}
               className="grid gap-6"
             >
@@ -1009,15 +1016,7 @@ async function saveHeaderText(event: FormEvent<HTMLFormElement>) {
                 </p>
               ) : null}
 
-              <div className="flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={cancelEditing}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateProject.isPending}>
-                  <Save />
-                  {updateProject.isPending ? "Saving…" : "Save Changes"}
-                </Button>
-              </div>
+
             </form>
             <div className="mt-6 border-t pt-5">
               <h3 className="mb-1 text-sm font-semibold">

@@ -76,7 +76,9 @@ vi.mock("@/api/client", () => ({
       }
       return { timer: entry };
     }
-    const item = path.match(/\/items\/(project|note|hdr)\/([^/]+)$/);
+    const item = path.match(
+      /\/items\/(project|note|hdr|review|examination)\/([^/]+)$/,
+    );
     if (item && method === "GET") {
       const entries = server.entries.filter(
         (e) => e.kind === item[1] && e.targetId === item[2],
@@ -140,7 +142,7 @@ beforeEach(() => {
   server.fail = false;
 });
 describe("Project, Note and HDR timers", () => {
-  it.each<WorkTimeKind>(["project", "note", "hdr"])(
+  it.each<WorkTimeKind>(["project", "note", "hdr", "review", "examination"])(
     "starts, pauses, resumes and stops a %s without task/paper requests",
     async (kind) => {
       show(kind);
@@ -150,7 +152,7 @@ describe("Project, Note and HDR timers", () => {
       await waitFor(() => expect(start).toBeEnabled());
       fireEvent.click(start);
       const region = await screen.findByRole("region", {
-        name: `${kind === "hdr" ? "HDR" : kind === "note" ? "Note" : "Project"} timer: My ${kind}`,
+        name: `${kind === "hdr" ? "HDR" : kind === "note" ? "Note" : kind === "review" ? "Review" : kind === "examination" ? "HDR examination" : "Project"} timer: My ${kind}`,
       });
       expect(within(region).getByRole("timer")).toHaveTextContent("03:00");
       fireEvent.click(
@@ -180,7 +182,7 @@ describe("Project, Note and HDR timers", () => {
       ).toBe(true);
     },
   );
-  it.each<WorkTimeKind>(["project", "note", "hdr"])(
+  it.each<WorkTimeKind>(["project", "note", "hdr", "review", "examination"])(
     "uses a single timer button in a %s list row",
     async (kind) => {
       const client = new QueryClient({

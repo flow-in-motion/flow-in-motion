@@ -16,6 +16,15 @@ interface FixtureTask {
 }
 
 const fixtures = vi.hoisted(() => ({
+  reviews: [] as {
+    id: string;
+    kind: "journal" | "examination";
+    status: string;
+    dueOn: string | null;
+    manuscriptTitle?: string;
+    studentName?: string;
+    journalName?: string;
+  }[],
   modules: [] as { id: string; shortTitle: string | null; title: string | null }[],
   projects: [
     { id: "project-zeta", title: "Zeta Project" },
@@ -92,8 +101,112 @@ describe("PriorityTasksTable", () => {
   beforeEach(() => {
     window.localStorage?.clear();
     window.sessionStorage.clear();
+    fixtures.reviews = [];
   });
 
+  it("includes dated open reviews and HDR examinations without creating duplicate tasks", () => {
+    fixtures.reviews = [
+      {
+        id: "review-1",
+        kind: "journal",
+        status: "To do",
+        dueOn: "2027-01-03",
+        manuscriptTitle: "Private review deadline",
+        journalName: "Journal A",
+      },
+      {
+        id: "exam-1",
+        kind: "examination",
+        status: "Underway",
+        dueOn: "2027-01-04",
+        studentName: "Private examination deadline",
+      },
+      {
+        id: "complete",
+        kind: "journal",
+        status: "Complete",
+        dueOn: "2027-01-01",
+        manuscriptTitle: "Completed review",
+      },
+      {
+        id: "no-date",
+        kind: "journal",
+        status: "To do",
+        dueOn: null,
+        manuscriptTitle: "Undated review",
+      },
+    ];
+    const view = render(
+      <MemoryRouter>
+        <PriorityTasksTable />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("link", { name: "Private review deadline" }),
+    ).toHaveAttribute(
+      "href",
+      "/future/reviews-hdr-examinations?kind=journal&record=review-1",
+    );
+    expect(
+      screen.getByRole("link", { name: "Private examination deadline" }),
+    ).toHaveAttribute(
+      "href",
+      "/future/reviews-hdr-examinations?kind=examination&record=exam-1",
+    );
+    expect(screen.queryByText("Completed review")).not.toBeInTheDocument();
+    expect(screen.queryByText("Undated review")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Start timer for Private review deadline",
+      }),
+    ).toHaveAttribute("data-kind", "review");
+    expect(
+      screen.getByRole("button", {
+        name: "Start timer for Private examination deadline",
+      }),
+    ).toHaveAttribute("data-kind", "examination");
+    fixtures.reviews = [
+      { ...fixtures.reviews[0], status: "Complete" },
+      { ...fixtures.reviews[1], dueOn: "2027-01-09" },
+    ];
+    view.rerender(
+      <MemoryRouter>
+        <PriorityTasksTable />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.queryByRole("link", { name: "Private review deadline" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen
+        .getByRole("link", { name: "Private examination deadline" })
+        .closest("tr"),
+    ).toHaveTextContent("Jan 9, 2027");
+  });
+  it("includes a review beyond the first 20 and searches its journal", () => {
+    fixtures.reviews = Array.from({ length: 26 }, (_, i) => ({
+      id: `review-${i}`,
+      kind: "journal" as const,
+      status: "To do",
+      dueOn: "2027-01-03",
+      manuscriptTitle: `Review ${i + 1}`,
+      journalName: i === 25 ? "Rare journal" : "Journal",
+    }));
+    render(
+      <MemoryRouter>
+        <PriorityTasksTable />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("link", { name: "Review 26" })).toBeInTheDocument();
+    fireEvent.change(
+      screen.getByPlaceholderText("Search tasks, papers or review deadlines…"),
+      { target: { value: "Rare journal" } },
+    );
+    expect(screen.getByRole("link", { name: "Review 26" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Review 1" }),
+    ).not.toBeInTheDocument();
+  });
   it("searches a paper's working title, formal title, and project", () => {
     const originalTasks = fixtures.tasks;
     fixtures.modules = [{
@@ -115,8 +228,15 @@ describe("PriorityTasksTable", () => {
         </MemoryRouter>,
       );
 
-      const search = screen.getByPlaceholderText("Search project, paper or task…");
-      for (const query of ["working paper", "formal publication", "zeta project", "revise introduction"]) {
+      const search = screen.getByPlaceholderText(
+        "Search tasks, papers or review deadlines…",
+      );
+      for (const query of [
+        "working paper",
+        "formal publication",
+        "zeta project",
+        "revise introduction",
+      ]) {
         fireEvent.change(search, { target: { value: query } });
         expect(screen.getByRole("link", { name: "Revise introduction" })).toBeInTheDocument();
         expect(screen.queryByRole("link", { name: "Zulu task" })).not.toBeInTheDocument();
@@ -206,7 +326,7 @@ describe("PriorityTasksTable", () => {
       const choose = (label: string) => {
         fireEvent.click(
           screen.getByRole("combobox", {
-            name: "Filter tasks by due date",
+            name: "Filter items by due date",
           }),
         );
         fireEvent.click(screen.getByRole("option", { name: label }));
@@ -318,14 +438,14 @@ describe("PriorityTasksTable", () => {
       "Alpha task",
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Item" }));
     expect(taskNames()).toEqual([
       "Alpha task",
       "Bravo task",
       "Middle task",
       "Zulu task",
     ]);
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Item" }));
     expect(taskNames()).toEqual([
       "Zulu task",
       "Middle task",
@@ -420,8 +540,8 @@ describe("PriorityTasksTable", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
-    fireEvent.click(screen.getByRole("button", { name: "Sort by Task" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Item" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Item" }));
 
     first.unmount();
 
@@ -481,3 +601,24 @@ describe("PriorityTasksTable", () => {
     ]);
   });
 });
+
+vi.mock("@/api/reviews", () => ({
+  useReviewDeadlines: () => ({ data: { data: fixtures.reviews } }),
+  reviewRecordPath: (kind: string, id: string) =>
+    `/future/reviews-hdr-examinations?kind=${kind}&record=${id}`,
+}));
+vi.mock("@/components/time-tracking/work-timer-controls", () => ({
+  WorkTimerControls: ({
+    kind,
+    targetId,
+    title,
+  }: {
+    kind: string;
+    targetId: string;
+    title: string;
+  }) => (
+    <button type="button" data-kind={kind} data-target={targetId}>
+      Start timer for {title}
+    </button>
+  ),
+}));

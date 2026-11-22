@@ -58,6 +58,32 @@ export type ReviewInput = Partial<ReviewFields> & {
   status?: ReviewStatus;
   initialNote?: string | null;
 };
+export type ReviewDeadline = Pick<
+  ReviewRecord,
+  | "id"
+  | "kind"
+  | "status"
+  | "dueOn"
+  | "manuscriptTitle"
+  | "journalName"
+  | "studentName"
+  | "thesisTitle"
+>;
+export function reviewRecordPath(kind: ReviewKind, id: string) {
+  return `/future/reviews-hdr-examinations?kind=${kind}&record=${encodeURIComponent(id)}`;
+}
+export function useReviewDeadlines(tenant: string) {
+  const owner = useAuth().user?.id ?? "";
+  return useQuery({
+    queryKey: ["api", "tenant", tenant, "reviews", owner, "deadlines"],
+    enabled: Boolean(tenant && owner),
+    staleTime: 30_000,
+    queryFn: () =>
+      authenticatedJson<{ data: ReviewDeadline[] }>(
+        `/api/v1/tenant/${encodeURIComponent(tenant)}/reviews/deadlines`,
+      ),
+  });
+}
 export interface ReviewListOptions {
   scope?: "active" | "completed" | "all";
   page: number;
@@ -121,6 +147,10 @@ export function useSaveReview(tenant: string, kind: ReviewKind) {
       ),
     onSuccess: async (_data, { id }) => {
       await client.invalidateQueries({
+        queryKey: ["api", "tenant", tenant, "reviews", owner, "deadlines"],
+      });
+      void client.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
+      await client.invalidateQueries({
         queryKey: [...scope(tenant, owner, kind), "list"],
       });
       if (id)
@@ -139,6 +169,10 @@ export function useDeleteReview(tenant: string, kind: ReviewKind) {
         method: "DELETE",
       }),
     onSuccess: async (_data, id) => {
+      await client.invalidateQueries({
+        queryKey: ["api", "tenant", tenant, "reviews", owner, "deadlines"],
+      });
+      void client.invalidateQueries({ queryKey: ["api", "work-time-entries"] });
       client.removeQueries({
         queryKey: [...scope(tenant, owner, kind), "detail", id],
       });

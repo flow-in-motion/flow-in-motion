@@ -330,6 +330,19 @@ export function TaskDialog({
     }
   }
 
+  const formActions = (
+    <DialogFooter className={isEditing ? "border-b pb-4" : "border-t pt-4"}>
+      <DialogClose asChild>
+        <Button type="button" variant="outline" disabled={isSaving}>
+          Cancel
+        </Button>
+      </DialogClose>
+      <Button type="submit" disabled={isSaving}>
+        {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Create Task"}
+      </Button>
+    </DialogFooter>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
@@ -342,6 +355,8 @@ export function TaskDialog({
         </DialogHeader>
 
         <form onSubmit={(event) => void handleSubmit(event)} className="grid gap-5">
+          {isEditing ? formActions : null}
+
           <FormField label="Task title" htmlFor="task-title" required>
             <Input
               id="task-title"
@@ -492,12 +507,7 @@ export function TaskDialog({
             </p>
           ) : null}
 
-          <DialogFooter className="border-t pt-4">
-            <DialogClose asChild><Button type="button" variant="outline" disabled={isSaving}>Cancel</Button></DialogClose>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving ? "Saving…" : isEditing ? "Save Changes" : "Create Task"}
-            </Button>
-          </DialogFooter>
+          {!isEditing ? formActions : null}
         </form>
       </DialogContent>
     </Dialog>

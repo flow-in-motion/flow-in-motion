@@ -3,7 +3,7 @@ import {
   academicReviewNotes,
   academicReviews,
 } from '@research-tracker/migrations';
-import { and, desc, eq, ilike, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, isNotNull, ne, or, sql } from 'drizzle-orm';
 import { DrizzleService } from '../../db/drizzle.service';
 import { searchPattern } from '../../common/pagination';
 import { ReviewKind } from './dto/review.dto';
@@ -19,6 +19,30 @@ export type ReviewUpdate = Partial<
 @Injectable()
 export class ReviewsRepository {
   constructor(private readonly drizzle: DrizzleService) {}
+
+  async deadlines(tenantId: string, userId: string) {
+    return this.drizzle.db
+      .select({
+        id: academicReviews.id,
+        kind: academicReviews.kind,
+        status: academicReviews.status,
+        dueOn: academicReviews.dueOn,
+        manuscriptTitle: academicReviews.manuscriptTitle,
+        journalName: academicReviews.journalName,
+        studentName: academicReviews.studentName,
+        thesisTitle: academicReviews.thesisTitle,
+      })
+      .from(academicReviews)
+      .where(
+        and(
+          eq(academicReviews.tenantId, tenantId),
+          eq(academicReviews.ownerUserId, userId),
+          ne(academicReviews.status, 'Complete'),
+          isNotNull(academicReviews.dueOn),
+        ),
+      )
+      .orderBy(asc(academicReviews.dueOn), asc(academicReviews.id));
+  }
 
   private owned(tenantId: string, userId: string, kind: ReviewKind) {
     return and(

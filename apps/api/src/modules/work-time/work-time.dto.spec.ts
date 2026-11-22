@@ -8,7 +8,7 @@ import {
 } from '../projects/dto/create-project.dto';
 import { UpdateProjectDto } from '../projects/dto/update-project.dto';
 describe('Work time and Project status input', () => {
-  it.each(['project', 'note', 'hdr'])(
+  it.each(['project', 'note', 'hdr', 'review', 'examination'])(
     'accepts only a valid %s target',
     async (kind) => {
       expect(

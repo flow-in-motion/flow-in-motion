@@ -3,7 +3,8 @@ import { authenticatedJson } from "@/api/client";
 import { useAuth } from "@/auth/auth-provider";
 import type { ApiTimeEntry, TimeEntryInput } from "@/api/time-tracking";
 
-export type WorkTimeKind = "project" | "note" | "hdr";
+export type WorkTimeKind =
+  "project" | "note" | "hdr" | "review" | "examination";
 export interface WorkTimeTarget {
   kind: WorkTimeKind;
   targetId: string;
