@@ -15,6 +15,7 @@ interface OptionalCollaboratorEntriesProps {
   ownerUserId?: string;
   ownerEmail?: string;
   entityLabel: "paper" | "project";
+  embedded?: boolean;
 }
 
 /** Stable identity for an entry: its email, or its name when there is no email. */
@@ -30,6 +31,7 @@ export function OptionalCollaboratorEntries({
   ownerUserId,
   ownerEmail,
   entityLabel,
+  embedded = false,
 }: OptionalCollaboratorEntriesProps) {
   const pickerId = useId();
   const nameOptionsId = `${pickerId}-name-options`;
@@ -202,14 +204,18 @@ export function OptionalCollaboratorEntries({
   }
 
   return (
-    <div className="grid gap-3 rounded-lg border p-4">
-      <div>
-        <p className="text-sm font-medium">Collaborators (optional)</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Add collaborators now or leave this blank. You can manage them
-          after the {entityLabel} is created.
-        </p>
-      </div>
+    <div
+      className={embedded ? "grid gap-3" : "grid gap-3 rounded-lg border p-4"}
+    >
+      {!embedded ? (
+        <div>
+          <p className="text-sm font-medium">Collaborators (optional)</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Add collaborators now or leave this blank. You can manage them after
+            the {entityLabel} is created.
+          </p>
+        </div>
+      ) : null}
 
       {value.length > 0 ? (
         <div className="flex flex-col gap-2">
@@ -336,6 +342,13 @@ export function OptionalCollaboratorEntries({
           aria-label="Collaborator affiliation"
         />
       </div>
+
+      {embedded ? (
+        <p className="text-xs text-muted-foreground">
+          Add collaborators now or leave this blank. You can manage them after
+          the {entityLabel} is created.
+        </p>
+      ) : null}
 
       {entryError ? (
         <p role="alert" className="text-xs text-destructive">

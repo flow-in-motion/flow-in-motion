@@ -66,6 +66,7 @@ const hookMocks = vi.hoisted(() => ({
   useModulesOptions: vi.fn(),
   updateModule: vi.fn(),
   createPaperSubmission: vi.fn(),
+  createdModuleInput: vi.fn(),
   createDraftInvitation: vi.fn(),
   useModuleCollaborators: vi.fn(),
   archiveModule: vi.fn(),
@@ -297,6 +298,7 @@ vi.mock("@/api/hooks", async () => {
     }),
     useCreateModule: () => ({
       mutateAsync: vi.fn(async (input: Record<string, unknown>) => {
+        hookMocks.createdModuleInput(input);
         const modules = store.getModules();
         const module: ModuleFixture = {
           id: `module-${modules.length + 1}`,
@@ -429,6 +431,7 @@ describe("ModulesPage", () => {
     hookMocks.useModulesOptions.mockClear();
     hookMocks.updateModule.mockReset();
     hookMocks.createDraftInvitation.mockReset();
+    hookMocks.createdModuleInput.mockReset();
     hookMocks.useModuleCollaborators.mockClear();
     hookMocks.updateModule.mockImplementation(
       async ({
@@ -1027,6 +1030,105 @@ describe("ModulesPage", () => {
     expect(hookMocks.createDraftInvitation).not.toHaveBeenCalled();
   });
 
+  it("keeps optional publication and file data when their sections are collapsed", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "Grouped paper" },
+    });
+    const publication = screen
+      .getByRole("heading", { name: "Publication targets" })
+      .closest("details")!;
+    const links = screen
+      .getByRole("heading", { name: "Links and files" })
+      .closest("details")!;
+    expect(publication).not.toHaveAttribute("open");
+    expect(links).not.toHaveAttribute("open");
+    fireEvent.click(publication.querySelector("summary")!);
+    const journal = screen.getByLabelText("Target journals");
+    fireEvent.change(journal, { target: { value: "Example Journal" } });
+    fireEvent.keyDown(journal, { key: "Enter" });
+    fireEvent.change(
+      screen.getByLabelText("Publisher for Example Journal (optional)"),
+      { target: { value: "Example Publisher" } },
+    );
+    fireEvent.click(publication.querySelector("summary")!);
+    fireEvent.click(links.querySelector("summary")!);
+    fireEvent.change(screen.getByLabelText("Manuscript URL (optional)"), {
+      target: { value: "https://example.org/manuscript" },
+    });
+    fireEvent.click(links.querySelector("summary")!);
+    expect(publication).not.toHaveAttribute("open");
+    expect(links).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+    await waitFor(() =>
+      expect(hookMocks.createdModuleInput).toHaveBeenCalledWith(
+        expect.objectContaining({
+          targetJournal: "Example Journal",
+          manuscriptUrl: "https://example.org/manuscript",
+          journalPublishers: [
+            { journalName: "Example Journal", publisher: "Example Publisher" },
+          ],
+        }),
+      ),
+    );
+    expect(hookMocks.createDraftInvitation).not.toHaveBeenCalled();
+  });
+
+  it("saves separate working and next action dates from the same day/month/year format", async () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "Scheduled paper" },
+    });
+    const nextAction = screen.getByLabelText("Next Action Date");
+    const working = screen.getByLabelText("Working date (optional)");
+    expect(nextAction).toHaveAttribute("placeholder", "DD/MM/YYYY");
+    expect(working).toHaveAttribute("placeholder", "DD/MM/YYYY");
+    fireEvent.change(nextAction, { target: { value: "08/12/2026" } });
+    fireEvent.change(working, { target: { value: "11/12/2026" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+    await waitFor(() =>
+      expect(hookMocks.createdModuleInput).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dueDate: "2026-12-08",
+          workingDate: "2026-12-11",
+        }),
+      ),
+    );
+  });
+
+  it("reveals an invalid file URL inside a collapsed section before saving", () => {
+    render(
+      <MemoryRouter>
+        <ModulesPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Short title/ }), {
+      target: { value: "Invalid link paper" },
+    });
+    const links = screen
+      .getByRole("heading", { name: "Links and files" })
+      .closest("details")!;
+    fireEvent.click(links.querySelector("summary")!);
+    const url = screen.getByLabelText("Manuscript URL (optional)");
+    fireEvent.change(url, { target: { value: "not-a-url" } });
+    fireEvent.click(links.querySelector("summary")!);
+    expect(links).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: "Create Paper" }));
+    expect(url).toBeInvalid();
+    expect(links).toHaveAttribute("open");
+    expect(hookMocks.createdModuleInput).not.toHaveBeenCalled();
+  });
   it("includes an optional Next Action Date in the module form", () => {
     render(
       <MemoryRouter>
@@ -1387,7 +1489,7 @@ describe("ModulesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "New Paper" }));
 
     expect(screen.getByLabelText("Collaborator email")).not.toBeRequired();
-    expect(screen.getByText("Collaborators (optional)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Collaborators" })).toBeInTheDocument();
     expect(
       screen.getByRole("combobox", { name: "Currently With" }),
     ).toHaveTextContent("Me");
