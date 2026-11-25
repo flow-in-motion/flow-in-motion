@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
   journalNames,
   journalPublisherFor,
@@ -41,27 +42,39 @@ export function JournalPublisherFields({
   ));
 }
 
-export function PaperReferenceFields({
-  id,
-  value,
-  onChange,
-}: {
+interface PaperReferenceFieldsProps {
   id: string;
   value: PaperReferenceForm;
   onChange: (patch: Partial<PaperReferenceForm>) => void;
-}) {
+}
+
+export function PaperPlanningFields({
+  id,
+  value,
+  onChange,
+  useDatePicker = false,
+}: PaperReferenceFieldsProps & { useDatePicker?: boolean }) {
   return (
-    <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+    <>
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${id}-working-date`} className="text-sm font-medium">
           Working date (optional)
         </label>
-        <Input
-          id={`${id}-working-date`}
-          type="date"
-          value={value.workingDate}
-          onChange={(event) => onChange({ workingDate: event.target.value })}
-        />
+        {useDatePicker ? (
+          <DatePickerInput
+            id={`${id}-working-date`}
+            label="Working date"
+            value={value.workingDate}
+            onChange={(workingDate) => onChange({ workingDate })}
+          />
+        ) : (
+          <Input
+            id={`${id}-working-date`}
+            type="date"
+            value={value.workingDate}
+            onChange={(event) => onChange({ workingDate: event.target.value })}
+          />
+        )}
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor={`${id}-planned-hours`} className="text-sm font-medium">
@@ -78,6 +91,17 @@ export function PaperReferenceFields({
           onChange={(event) => onChange({ plannedHours: event.target.value })}
         />
       </div>
+    </>
+  );
+}
+
+export function PaperFileFields({
+  id,
+  value,
+  onChange,
+}: PaperReferenceFieldsProps) {
+  return (
+    <>
       {(
         [
           ["manuscriptUrl", "Manuscript URL"],
@@ -100,6 +124,15 @@ export function PaperReferenceFields({
           />
         </div>
       ))}
+    </>
+  );
+}
+
+export function PaperReferenceFields(props: PaperReferenceFieldsProps) {
+  return (
+    <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+      <PaperPlanningFields {...props} />
+      <PaperFileFields {...props} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { PaperReferenceFields, JournalPublisherFields } from "@/components/modules/paper-reference-fields";
+import { PaperFormSection } from "@/components/modules/paper-form-section";
+import { PaperReferenceFields, PaperPlanningFields, PaperFileFields, JournalPublisherFields } from "@/components/modules/paper-reference-fields";
 import { savedJournalPublishers, type PaperReferenceForm } from "@/lib/paper-references";
 import {
   useContext,
@@ -424,118 +425,272 @@ export function ModuleDialog({
     }
   }
 
-  const workflowFields = (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <FormField label="Status" htmlFor="module-status">
-        <Select
-          value={form.status}
-          onValueChange={(value) =>
-            setForm((current) => ({ ...current, status: value }))
-          }
-        >
-          <SelectTrigger id="module-status">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PAPER_STATUSES.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
+  const statusField = (
+    <FormField label="Status" htmlFor="module-status">
+      <Select
+        value={form.status}
+        onValueChange={(value) =>
+          setForm((current) => ({ ...current, status: value }))
+        }
+      >
+        <SelectTrigger id="module-status">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PAPER_STATUSES.map((status) => (
+            <SelectItem key={status} value={status}>
+              {status}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
+  );
 
-      <FormField label="Priority" htmlFor="module-priority">
-        <Select
-          value={form.priority}
-          onValueChange={(value) =>
-            setForm((current) => ({ ...current, priority: value }))
-          }
-        >
-          <SelectTrigger id="module-priority">
-            <SelectValue placeholder="Select a priority" />
-          </SelectTrigger>
-          <SelectContent>
-            {PAPER_PRIORITIES.map((priority) => (
-              <SelectItem key={priority} value={priority}>
-                {priority}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
+  const priorityField = (
+    <FormField label="Priority" htmlFor="module-priority">
+      <Select
+        value={form.priority}
+        onValueChange={(value) =>
+          setForm((current) => ({ ...current, priority: value }))
+        }
+      >
+        <SelectTrigger id="module-priority">
+          <SelectValue placeholder="Select a priority" />
+        </SelectTrigger>
+        <SelectContent>
+          {PAPER_PRIORITIES.map((priority) => (
+            <SelectItem key={priority} value={priority}>
+              {priority}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
+  );
 
-      <FormField label="Next Action Date" htmlFor="module-due-date">
-        <DatePickerInput
-          id="module-due-date"
-          label="Next Action Date"
-          value={form.dueDate}
-          onChange={(value) =>
-            setForm((current) => ({ ...current, dueDate: value }))
-          }
-        />
-      </FormField>
+  const nextActionDateField = (
+    <FormField label="Next Action Date" htmlFor="module-due-date">
+      <DatePickerInput
+        id="module-due-date"
+        label="Next Action Date"
+        value={form.dueDate}
+        onChange={(value) =>
+          setForm((current) => ({ ...current, dueDate: value }))
+        }
+      />
+    </FormField>
+  );
 
-      <FormField
-        label="Pipeline stage"
-        htmlFor="module-pipeline-stage"
+  const pipelineStageField = (
+    <FormField label="Pipeline stage" htmlFor="module-pipeline-stage" required>
+      <Select
+        value={form.pipelineStage}
+        onValueChange={(value) => {
+          if (
+            !pendingSubmission &&
+            enteredSubmittedUnderReview(module?.pipelineStage, value)
+          ) {
+            // Ask for the submission first; the stage only
+            // changes once it's filled in.
+            setIsStageSubmissionOpen(true);
+            return;
+          }
+          if (value !== SUBMITTED_UNDER_REVIEW_STAGE) {
+            setPendingSubmission(null);
+          }
+          setForm((current) => ({ ...current, pipelineStage: value }));
+        }}
         required
       >
-        <Select
-          value={form.pipelineStage}
-          onValueChange={(value) => {
-            if (
-              !pendingSubmission &&
-              enteredSubmittedUnderReview(module?.pipelineStage, value)
-            ) {
-              // Ask for the submission first; the stage only
-              // changes once it's filled in.
-              setIsStageSubmissionOpen(true);
-              return;
-            }
-            if (value !== SUBMITTED_UNDER_REVIEW_STAGE) {
-              setPendingSubmission(null);
-            }
-            setForm((current) => ({ ...current, pipelineStage: value }));
-          }}
-          required
-        >
-          <SelectTrigger id="module-pipeline-stage">
-            <SelectValue placeholder="Select a stage" />
-          </SelectTrigger>
-          <SelectContent>
-            {visibleStages.map((stage) => (
-              <SelectItem key={stage.id} value={stage.value}>
-                {stage.value}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
+        <SelectTrigger id="module-pipeline-stage">
+          <SelectValue placeholder="Select a stage" />
+        </SelectTrigger>
+        <SelectContent>
+          {visibleStages.map((stage) => (
+            <SelectItem key={stage.id} value={stage.value}>
+              {stage.value}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
+  );
 
-      <FormField label="Currently With" htmlFor="module-currently-with">
-        <PaperCurrentlyWithSelect
-          id="module-currently-with"
-          currentlyWithType={form.currentlyWithType}
-          assignedToUserId={form.assignedToUserId}
-          assignedToInvitationId={form.assignedToInvitationId}
-          currentUserId={me.data?.id}
-          collaborators={[]}
-          onChange={(
+  const currentlyWithField = (
+    <FormField label="Currently With" htmlFor="module-currently-with">
+      <PaperCurrentlyWithSelect
+        id="module-currently-with"
+        currentlyWithType={form.currentlyWithType}
+        assignedToUserId={form.assignedToUserId}
+        assignedToInvitationId={form.assignedToInvitationId}
+        currentUserId={me.data?.id}
+        collaborators={[]}
+        onChange={(
+          currentlyWithType,
+          assignedToUserId,
+          assignedToInvitationId,
+        ) =>
+          setForm((current) => ({
+            ...current,
             currentlyWithType,
             assignedToUserId,
             assignedToInvitationId,
-          ) =>
+          }))
+        }
+      />
+    </FormField>
+  );
+
+  const targetJournalField = (
+    <FormField label="Target journals" htmlFor="module-target-journal">
+      <TagInput
+        id="module-target-journal"
+        value={form.targetJournal}
+        onChange={(value) =>
+          setForm((current) => ({ ...current, targetJournal: value }))
+        }
+        placeholder="e.g. Nature Communications"
+        suggestions={venueSuggestions.data?.journals}
+      />
+    </FormField>
+  );
+
+  const backupJournalField = (
+    <FormField label="Backup journals" htmlFor="module-backup-journal">
+      <TagInput
+        id="module-backup-journal"
+        value={form.backupJournal}
+        onChange={(value) =>
+          setForm((current) => ({ ...current, backupJournal: value }))
+        }
+        placeholder="e.g. Scientific Reports"
+        suggestions={venueSuggestions.data?.journals}
+      />
+    </FormField>
+  );
+
+  const targetConferenceField = (
+    <FormField label="Target conferences" htmlFor="module-target-conference">
+      <TagInput
+        id="module-target-conference"
+        value={form.targetConference}
+        onChange={(value) =>
+          setForm((current) => ({
+            ...current,
+            targetConference: value,
+          }))
+        }
+        placeholder="e.g. NeurIPS"
+        suggestions={venueSuggestions.data?.conferences}
+      />
+    </FormField>
+  );
+
+  const backupConferenceField = (
+    <FormField label="Backup conferences" htmlFor="module-backup-conference">
+      <TagInput
+        id="module-backup-conference"
+        value={form.backupConference}
+        onChange={(value) =>
+          setForm((current) => ({
+            ...current,
+            backupConference: value,
+          }))
+        }
+        placeholder="e.g. ICLR Workshop"
+        suggestions={venueSuggestions.data?.conferences}
+      />
+    </FormField>
+  );
+
+  const journalPublishers = (
+    <JournalPublisherFields
+      id="module-journal-publisher"
+      target={form.targetJournal}
+      backup={form.backupJournal}
+      value={form.journalPublishers}
+      onChange={(journalPublishers) =>
+        setForm((current) => ({ ...current, journalPublishers }))
+      }
+    />
+  );
+
+  const paperDetails = (
+    <>
+      <FormField label="Short title" htmlFor="module-short-title" required>
+        <Input
+          id="module-short-title"
+          value={form.shortTitle}
+          onChange={(event) =>
             setForm((current) => ({
               ...current,
-              currentlyWithType,
-              assignedToUserId,
-              assignedToInvitationId,
+              shortTitle: event.target.value,
             }))
           }
+          placeholder="The working name you'll refer to this paper by"
+          autoFocus
+          required
         />
       </FormField>
+      <FormField label="Formal title" htmlFor="module-title">
+        <Input
+          id="module-title"
+          value={form.title}
+          onChange={(event) =>
+            setForm((current) => ({
+              ...current,
+              title: event.target.value,
+            }))
+          }
+          placeholder="Add once the paper has a formal title"
+        />
+      </FormField>
+      <FormField label="Description" htmlFor="module-description">
+        <Textarea
+          id="module-description"
+          value={form.description}
+          onChange={(event) =>
+            setForm((current) => ({
+              ...current,
+              description: event.target.value,
+            }))
+          }
+          placeholder="Add an optional description"
+          rows={3}
+        />
+      </FormField>
+      <FormField label="Abstract" htmlFor="module-abstract">
+        <Textarea
+          id="module-abstract"
+          value={form.abstract}
+          onChange={(event) =>
+            setForm((current) => ({
+              ...current,
+              abstract: event.target.value,
+            }))
+          }
+          placeholder="Add the paper's abstract"
+          rows={isEditing ? 5 : 3}
+        />
+      </FormField>
+    </>
+  );
+
+  const publicationHint = (
+    <p className="text-xs text-muted-foreground">
+      Type a name and press Enter to add it — you can add multiple journals or
+      conferences.
+    </p>
+  );
+
+  const workflowFields = (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {statusField}
+      {priorityField}
+      {nextActionDateField}
+      {pipelineStageField}
+      {currentlyWithField}
     </div>
   );
 
@@ -567,241 +722,170 @@ export function ModuleDialog({
 
           <form
             onSubmit={(event) => void handleSubmit(event)}
-            className={
-              isEditing
-                ? "grid gap-5"
-                : "grid grid-cols-1 gap-6 [&>div]:col-span-1"
-            }
+            className={isEditing ? "grid gap-5" : "grid grid-cols-1 gap-6"}
           >
             {isEditing ? formActions : null}
 
-            <FormField
-              label="Short title"
-              htmlFor="module-short-title"
-              required
-            >
-              <Input
-                id="module-short-title"
-                value={form.shortTitle}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    shortTitle: event.target.value,
-                  }))
-                }
-                placeholder="The working name you'll refer to this paper by"
-                autoFocus
-                required
-              />
-            </FormField>
-
-            <FormField label="Formal title" htmlFor="module-title">
-              <Input
-                id="module-title"
-                value={form.title}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    title: event.target.value,
-                  }))
-                }
-                placeholder="Add once the paper has a formal title"
-              />
-            </FormField>
-
-            <FormField label="Description" htmlFor="module-description">
-              <Textarea
-                id="module-description"
-                value={form.description}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    description: event.target.value,
-                  }))
-                }
-                placeholder="Add an optional description"
-                rows={3}
-              />
-            </FormField>
-
-            <FormField label="Abstract" htmlFor="module-abstract">
-              <Textarea
-                id="module-abstract"
-                value={form.abstract}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    abstract: event.target.value,
-                  }))
-                }
-                placeholder="Add the paper's abstract"
-                rows={5}
-              />
-            </FormField>
-
-            {!isEditing ? workflowFields : null}
-
-            <PaperReferenceFields
-              id="module"
-              value={form}
-              onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
-            />
-
-            <p className="text-xs text-muted-foreground">
-              Type a name and press Enter to add it — you can add multiple
-              journals or conferences.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                label="Target journals"
-                htmlFor="module-target-journal"
-              >
-                <TagInput
-                  id="module-target-journal"
-                  value={form.targetJournal}
-                  onChange={(value) =>
-                    setForm((current) => ({ ...current, targetJournal: value }))
+            {isEditing ? (
+              <>
+                {paperDetails}
+                <PaperReferenceFields
+                  id="module"
+                  value={form}
+                  onChange={(patch) =>
+                    setForm((current) => ({ ...current, ...patch }))
                   }
-                  placeholder="e.g. Nature Communications"
-                  suggestions={venueSuggestions.data?.journals}
                 />
-              </FormField>
-
-              <FormField
-                label="Backup journals"
-                htmlFor="module-backup-journal"
-              >
-                <TagInput
-                  id="module-backup-journal"
-                  value={form.backupJournal}
-                  onChange={(value) =>
-                    setForm((current) => ({ ...current, backupJournal: value }))
-                  }
-                  placeholder="e.g. Scientific Reports"
-                  suggestions={venueSuggestions.data?.journals}
-                />
-              </FormField>
-
-              <JournalPublisherFields
-                id="module-journal-publisher"
-                target={form.targetJournal}
-                backup={form.backupJournal}
-                value={form.journalPublishers}
-                onChange={(journalPublishers) => setForm((current) => ({ ...current, journalPublishers }))}
-              />
-              <FormField
-                label="Target conferences"
-                htmlFor="module-target-conference"
-              >
-                <TagInput
-                  id="module-target-conference"
-                  value={form.targetConference}
-                  onChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      targetConference: value,
-                    }))
-                  }
-                  placeholder="e.g. NeurIPS"
-                  suggestions={venueSuggestions.data?.conferences}
-                />
-              </FormField>
-
-              <FormField
-                label="Backup conferences"
-                htmlFor="module-backup-conference"
-              >
-                <TagInput
-                  id="module-backup-conference"
-                  value={form.backupConference}
-                  onChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      backupConference: value,
-                    }))
-                  }
-                  placeholder="e.g. ICLR Workshop"
-                  suggestions={venueSuggestions.data?.conferences}
-                />
-              </FormField>
-            </div>
-
-            {isEditing ? workflowFields : null}
-
-            {!isEditing ? (
-              <OptionalCollaboratorEntries
-                value={draftCollaborators}
-                onChange={setDraftCollaborators}
-                ownerUserId={me.data?.id}
-                ownerEmail={me.data?.email}
-                entityLabel="paper"
-              />
-            ) : null}
-
-            {!isEditing ? (
-              <div className="grid gap-4 rounded-lg border p-4">
-                <p className="text-sm font-medium">
-                  Link existing work (optional)
-                </p>
-                <FormField label="Project" htmlFor="module-project">
-                  <LinkExistingField
-                    id="module-project"
-                    placeholder="Search projects by title"
-                    options={projectOptions}
-                    selected={selectedProject ? [selectedProject] : []}
-                    onAdd={(option) => setSelectedProject(option)}
-                    onRemove={() => setSelectedProject(null)}
-                    emptyMessage="No matching projects."
+                {publicationHint}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {targetJournalField}
+                  {backupJournalField}
+                  {journalPublishers}
+                  {targetConferenceField}
+                  {backupConferenceField}
+                </div>
+                {workflowFields}
+              </>
+            ) : (
+              <>
+                <PaperFormSection number={1} title="Paper details">
+                  {paperDetails}
+                </PaperFormSection>
+                <PaperFormSection number={2} title="Status and planning">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {pipelineStageField}
+                    {statusField}
+                    {currentlyWithField}
+                    {priorityField}
+                    {nextActionDateField}
+                    <PaperPlanningFields
+                      id="module"
+                      value={form}
+                      onChange={(patch) =>
+                        setForm((current) => ({ ...current, ...patch }))
+                      }
+                      useDatePicker
+                    />
+                  </div>
+                </PaperFormSection>
+                <PaperFormSection
+                  number={3}
+                  title="Publication targets"
+                  description="Journals and conferences, target and backup"
+                  optional
+                >
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    <div className="grid content-start gap-4">
+                      <h4 className="text-sm font-semibold">Journals</h4>
+                      {targetJournalField}
+                      {backupJournalField}
+                      {journalPublishers}
+                    </div>
+                    <div className="grid content-start gap-4">
+                      <h4 className="text-sm font-semibold">Conferences</h4>
+                      {targetConferenceField}
+                      {backupConferenceField}
+                    </div>
+                  </div>
+                  {publicationHint}
+                </PaperFormSection>
+                <PaperFormSection
+                  number={4}
+                  title="Collaborators"
+                  description="Co-authors and contributors"
+                  optional
+                >
+                  <OptionalCollaboratorEntries
+                    value={draftCollaborators}
+                    onChange={setDraftCollaborators}
+                    ownerUserId={me.data?.id}
+                    ownerEmail={me.data?.email}
+                    entityLabel="paper"
+                    embedded
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Optional. Papers don't need a project — leave it as
-                    Independent paper, or choose one of your projects.
-                  </p>
-                </FormField>
-                <FormField label="Tasks" htmlFor="new-module-link-tasks">
-                  <LinkExistingField
-                    id="new-module-link-tasks"
-                    placeholder="Search tasks by title"
-                    options={taskOptions}
-                    selected={linkedTasks}
-                    onAdd={(option) =>
-                      setLinkedTasks((current) => [...current, option])
-                    }
-                    onRemove={(id) =>
-                      setLinkedTasks((current) =>
-                        current.filter((item) => item.id !== id),
-                      )
-                    }
-                    emptyMessage={
-                      tasksQuery.isPending
-                        ? "Loading tasks…"
-                        : "No matching tasks."
-                    }
-                  />
-                </FormField>
-                <FormField label="Notes" htmlFor="new-module-link-notes">
-                  <LinkExistingField
-                    id="new-module-link-notes"
-                    placeholder="Search notes by title"
-                    options={noteOptions}
-                    selected={linkedNotes}
-                    onAdd={(option) =>
-                      setLinkedNotes((current) => [...current, option])
-                    }
-                    onRemove={(id) =>
-                      setLinkedNotes((current) =>
-                        current.filter((item) => item.id !== id),
-                      )
-                    }
-                    emptyMessage={
-                      notesQuery.isPending
-                        ? "Loading notes…"
-                        : "No matching notes."
-                    }
-                  />
-                </FormField>
-              </div>
-            ) : null}
+                </PaperFormSection>
+                <PaperFormSection
+                  number={5}
+                  title="Links and files"
+                  description="Manuscript, data and other file links"
+                  optional
+                >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <PaperFileFields
+                      id="module"
+                      value={form}
+                      onChange={(patch) =>
+                        setForm((current) => ({ ...current, ...patch }))
+                      }
+                    />
+                  </div>
+                </PaperFormSection>
+                <PaperFormSection
+                  number={6}
+                  title="Connect to existing work"
+                  description="Project, tasks and notes"
+                  optional
+                >
+                  <FormField label="Project" htmlFor="module-project">
+                    <LinkExistingField
+                      id="module-project"
+                      placeholder="Search projects by title"
+                      options={projectOptions}
+                      selected={selectedProject ? [selectedProject] : []}
+                      onAdd={(option) => setSelectedProject(option)}
+                      onRemove={() => setSelectedProject(null)}
+                      emptyMessage="No matching projects."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Optional. Papers don't need a project — leave it as
+                      Independent paper, or choose one of your projects.
+                    </p>
+                  </FormField>
+                  <FormField label="Tasks" htmlFor="new-module-link-tasks">
+                    <LinkExistingField
+                      id="new-module-link-tasks"
+                      placeholder="Search tasks by title"
+                      options={taskOptions}
+                      selected={linkedTasks}
+                      onAdd={(option) =>
+                        setLinkedTasks((current) => [...current, option])
+                      }
+                      onRemove={(id) =>
+                        setLinkedTasks((current) =>
+                          current.filter((item) => item.id !== id),
+                        )
+                      }
+                      emptyMessage={
+                        tasksQuery.isPending
+                          ? "Loading tasks…"
+                          : "No matching tasks."
+                      }
+                    />
+                  </FormField>
+                  <FormField label="Notes" htmlFor="new-module-link-notes">
+                    <LinkExistingField
+                      id="new-module-link-notes"
+                      placeholder="Search notes by title"
+                      options={noteOptions}
+                      selected={linkedNotes}
+                      onAdd={(option) =>
+                        setLinkedNotes((current) => [...current, option])
+                      }
+                      onRemove={(id) =>
+                        setLinkedNotes((current) =>
+                          current.filter((item) => item.id !== id),
+                        )
+                      }
+                      emptyMessage={
+                        notesQuery.isPending
+                          ? "Loading notes…"
+                          : "No matching notes."
+                      }
+                    />
+                  </FormField>
+                </PaperFormSection>
+              </>
+            )}
 
             {saveError ? (
               <p
