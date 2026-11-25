@@ -424,6 +424,121 @@ export function ModuleDialog({
     }
   }
 
+  const workflowFields = (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <FormField label="Status" htmlFor="module-status">
+        <Select
+          value={form.status}
+          onValueChange={(value) =>
+            setForm((current) => ({ ...current, status: value }))
+          }
+        >
+          <SelectTrigger id="module-status">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAPER_STATUSES.map((status) => (
+              <SelectItem key={status} value={status}>
+                {status}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+
+      <FormField label="Priority" htmlFor="module-priority">
+        <Select
+          value={form.priority}
+          onValueChange={(value) =>
+            setForm((current) => ({ ...current, priority: value }))
+          }
+        >
+          <SelectTrigger id="module-priority">
+            <SelectValue placeholder="Select a priority" />
+          </SelectTrigger>
+          <SelectContent>
+            {PAPER_PRIORITIES.map((priority) => (
+              <SelectItem key={priority} value={priority}>
+                {priority}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+
+      <FormField label="Next Action Date" htmlFor="module-due-date">
+        <DatePickerInput
+          id="module-due-date"
+          label="Next Action Date"
+          value={form.dueDate}
+          onChange={(value) =>
+            setForm((current) => ({ ...current, dueDate: value }))
+          }
+        />
+      </FormField>
+
+      <FormField
+        label="Pipeline stage"
+        htmlFor="module-pipeline-stage"
+        required
+      >
+        <Select
+          value={form.pipelineStage}
+          onValueChange={(value) => {
+            if (
+              !pendingSubmission &&
+              enteredSubmittedUnderReview(module?.pipelineStage, value)
+            ) {
+              // Ask for the submission first; the stage only
+              // changes once it's filled in.
+              setIsStageSubmissionOpen(true);
+              return;
+            }
+            if (value !== SUBMITTED_UNDER_REVIEW_STAGE) {
+              setPendingSubmission(null);
+            }
+            setForm((current) => ({ ...current, pipelineStage: value }));
+          }}
+          required
+        >
+          <SelectTrigger id="module-pipeline-stage">
+            <SelectValue placeholder="Select a stage" />
+          </SelectTrigger>
+          <SelectContent>
+            {visibleStages.map((stage) => (
+              <SelectItem key={stage.id} value={stage.value}>
+                {stage.value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FormField>
+
+      <FormField label="Currently With" htmlFor="module-currently-with">
+        <PaperCurrentlyWithSelect
+          id="module-currently-with"
+          currentlyWithType={form.currentlyWithType}
+          assignedToUserId={form.assignedToUserId}
+          assignedToInvitationId={form.assignedToInvitationId}
+          currentUserId={me.data?.id}
+          collaborators={[]}
+          onChange={(
+            currentlyWithType,
+            assignedToUserId,
+            assignedToInvitationId,
+          ) =>
+            setForm((current) => ({
+              ...current,
+              currentlyWithType,
+              assignedToUserId,
+              assignedToInvitationId,
+            }))
+          }
+        />
+      </FormField>
+    </div>
+  );
+
   const formActions = (
     <DialogFooter className={isEditing ? "border-b pb-4" : "border-t pt-4"}>
       <DialogClose asChild>
@@ -440,7 +555,7 @@ export function ModuleDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className={isEditing ? "max-w-4xl" : "max-w-6xl"}>
           <DialogHeader>
             <DialogTitle>
               {isEditing ? "Edit paper" : "Create a new paper"}
@@ -452,7 +567,11 @@ export function ModuleDialog({
 
           <form
             onSubmit={(event) => void handleSubmit(event)}
-            className="grid gap-5"
+            className={
+              isEditing
+                ? "grid gap-5"
+                : "grid grid-cols-1 gap-6 [&>div]:col-span-1"
+            }
           >
             {isEditing ? formActions : null}
 
@@ -519,6 +638,8 @@ export function ModuleDialog({
                 rows={5}
               />
             </FormField>
+
+            {!isEditing ? workflowFields : null}
 
             <PaperReferenceFields
               id="module"
@@ -605,118 +726,7 @@ export function ModuleDialog({
               </FormField>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Status" htmlFor="module-status">
-                <Select
-                  value={form.status}
-                  onValueChange={(value) =>
-                    setForm((current) => ({ ...current, status: value }))
-                  }
-                >
-                  <SelectTrigger id="module-status">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAPER_STATUSES.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
-
-              <FormField label="Priority" htmlFor="module-priority">
-                <Select
-                  value={form.priority}
-                  onValueChange={(value) =>
-                    setForm((current) => ({ ...current, priority: value }))
-                  }
-                >
-                  <SelectTrigger id="module-priority">
-                    <SelectValue placeholder="Select a priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAPER_PRIORITIES.map((priority) => (
-                      <SelectItem key={priority} value={priority}>
-                        {priority}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
-
-              <FormField label="Next Action Date" htmlFor="module-due-date">
-                <DatePickerInput
-                  id="module-due-date"
-                  label="Next Action Date"
-                  value={form.dueDate}
-                  onChange={(value) =>
-                    setForm((current) => ({ ...current, dueDate: value }))
-                  }
-                />
-              </FormField>
-
-              <FormField
-                label="Pipeline stage"
-                htmlFor="module-pipeline-stage"
-                required
-              >
-                <Select
-                  value={form.pipelineStage}
-                  onValueChange={(value) => {
-                    if (
-                      !pendingSubmission &&
-                      enteredSubmittedUnderReview(module?.pipelineStage, value)
-                    ) {
-                      // Ask for the submission first; the stage only
-                      // changes once it's filled in.
-                      setIsStageSubmissionOpen(true);
-                      return;
-                    }
-                    if (value !== SUBMITTED_UNDER_REVIEW_STAGE) {
-                      setPendingSubmission(null);
-                    }
-                    setForm((current) => ({ ...current, pipelineStage: value }));
-                  }}
-                  required
-                >
-                  <SelectTrigger id="module-pipeline-stage">
-                    <SelectValue placeholder="Select a stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {visibleStages.map((stage) => (
-                      <SelectItem key={stage.id} value={stage.value}>
-                        {stage.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormField>
-
-              <FormField label="Currently With" htmlFor="module-currently-with">
-                <PaperCurrentlyWithSelect
-                  id="module-currently-with"
-                  currentlyWithType={form.currentlyWithType}
-                  assignedToUserId={form.assignedToUserId}
-                  assignedToInvitationId={form.assignedToInvitationId}
-                  currentUserId={me.data?.id}
-                  collaborators={[]}
-                  onChange={(
-                    currentlyWithType,
-                    assignedToUserId,
-                    assignedToInvitationId,
-                  ) =>
-                    setForm((current) => ({
-                      ...current,
-                      currentlyWithType,
-                      assignedToUserId,
-                      assignedToInvitationId,
-                    }))
-                  }
-                />
-              </FormField>
-            </div>
+            {isEditing ? workflowFields : null}
 
             {!isEditing ? (
               <OptionalCollaboratorEntries
